@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: metabsp-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_API_VERSION
+        value: v18.0
+      - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE
+        value: "true"
+      - key: WHATSAPP_TOKEN_ENCRYPTION_KEY
+        sync: false

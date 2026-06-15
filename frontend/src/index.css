@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind Components;
+@tailwind utilities;
+
+:root {
+  --crm-primary: #38bdf8;
+  --crm-primary-dark: #0f172a;
+  --crm-accent: #0284c7;
+  --crm-bg: #eef6fb;
+  --crm-surface: #ffffff;
+  --crm-border: #d7e6ef;
+  --crm-text: #0f172a;
+  --crm-muted: #475569;
+  --wa-bg: #efeae2;
+  --wa-panel: #ffffff;
+  --wa-header: #f0f2f5;
+  --wa-green: #25d366;
+  --wa-green-dark: #128c7e;
+  font-family: Inter, Roboto, 'Segoe UI', Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--crm-bg);
+  color: var(--crm-text);
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.form-control,
+input.form-control,
+select.form-control,
+textarea.form-control {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--crm-border);
+  border-radius: 10px !important;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--crm-text);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.table,
+table.table,
+.table-bordered,
+.table-striped {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--crm-surface);
+  border: 1px solid var(--crm-border);
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 12.5px;
+}
+
+.table th,
+.table td,
+table th,
+table td {
+  border: 1px solid #e8eff5;
+  padding: 7px 9px;
+  vertical-align: middle;
+}
+
+.table th,
+table th {
+  background: #f4f9fc;
+  color: var(--crm-muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.card,
+.modal-content {
+  background: var(--crm-surface);
+  border: 1px solid var(--crm-border);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+
+.modal-content {
+  padding: 14px;
+  width: min(96vw, 620px);
+}
+
+.text-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overflow-safe {
+  overflow-x: auto;
+}
+
+.whatsapp-wallpaper {
+  background-color: var(--wa-bg);
+  background-image:
+    radial-gradient(rgba(17, 27, 33, 0.04) 1px, transparent 1px),
+    radial-gradient(rgba(17, 27, 33, 0.03) 1px, transparent 1px);
+  background-size: 22px 22px, 34px 34px;
+  background-position: 0 0, 11px 11px;
+}
+
+@media print {
+  .no-print,
+  .btn {
+    display: none !important;
+  }
+
+  @page {
+    margin: 0;
+  }
+
+  body {
+    margin: 1cm;
+  }
+}
