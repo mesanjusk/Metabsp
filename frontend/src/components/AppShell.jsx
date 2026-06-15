@@ -16,7 +16,8 @@ import LogoutIcon             from '@mui/icons-material/Logout';
 import MoreVertIcon           from '@mui/icons-material/MoreVert';
 import TuneIcon               from '@mui/icons-material/Tune';
 import SendIcon               from '@mui/icons-material/Send';
-import { useAuth }        from '../context/AuthContext';
+// Use BulkAuthContext for event-management app shell
+import { useAuth }        from '../context/BulkAuthContext';
 import { useLive }        from '../context/LiveContext';
 import useOnlineStatus    from '../hooks/useOnlineStatus';
 import OnlineStatusBanner from './pwa/OnlineStatusBanner';

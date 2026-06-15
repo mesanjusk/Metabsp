@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+// Use BulkAuthContext for event-management navbar
+import { useAuth } from '../context/BulkAuthContext';
 
 const baseLinks = [
   { to: '/', label: 'Dashboard' },

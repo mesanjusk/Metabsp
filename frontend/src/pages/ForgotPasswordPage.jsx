@@ -9,7 +9,7 @@ import LockResetIcon from '@mui/icons-material/LockReset';
 import PhoneIcon from '@mui/icons-material/Phone';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import api from '../api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/BulkAuthContext';
 
 const STEPS = ['Enter Mobile', 'OTP Verification', 'New Password'];
 

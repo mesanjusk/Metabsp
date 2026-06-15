@@ -10,7 +10,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import SendIcon         from '@mui/icons-material/Send';
 import OpenInNewIcon    from '@mui/icons-material/OpenInNew';
 import api              from '../api';
-import { useAuth }      from '../context/AuthContext';
+import { useAuth }      from '../context/BulkAuthContext';
 import { useLive }      from '../context/LiveContext';
 import PageHeader       from '../components/PageHeader';
 import PageSurface      from '../components/PageSurface';

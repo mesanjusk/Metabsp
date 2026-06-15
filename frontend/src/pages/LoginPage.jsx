@@ -5,7 +5,7 @@ import {
   Divider, Stack, TextField, Typography,
 } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/BulkAuthContext';
 import PwaInstallPrompt from '../components/pwa/PwaInstallPrompt';
 
 export default function LoginPage() {

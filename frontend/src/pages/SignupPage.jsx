@@ -9,7 +9,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import BusinessIcon from '@mui/icons-material/Business';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import api from '../api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/BulkAuthContext';
 
 const STEPS = ['Check Mobile', 'Your Details', 'Verify OTP'];
 

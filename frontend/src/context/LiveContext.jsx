@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { socket } from '../socket';
-import { useAuth } from './AuthContext';
+// Use BulkAuthContext so we get user.roleId.code (event management auth)
+import { useAuth } from './BulkAuthContext';
 
 const LiveContext = createContext();
 const EVENT_NAMES = ['student_form_submitted','student_eligible','stage_assignment_updated','guest_changed','anchor_popup','donation_added','whatsapp_message_logged','notification_created'];
