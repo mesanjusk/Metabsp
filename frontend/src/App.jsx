@@ -23,6 +23,8 @@ import { ToastContainer }     from './Components/Toast';
 import { ROUTES }             from './constants/routes';
 import Layout                 from './Pages/Layout';
 import Login                  from './Pages/login';
+import CloudSignup            from './Pages/Signup';
+import CloudForgotPassword    from './Pages/ForgotPassword';
 import WhatsAppCloudDashboard from './Pages/WhatsAppCloudDashboard';
 import { useAuth }            from './context/AuthContext';
 import theme                  from './theme';
@@ -125,8 +127,10 @@ export default function App() {
                 <Routes>
 
                   {/* ── Metabsp WhatsApp Cloud routes ─────────────────────── */}
-                  {/* Login for WhatsApp Cloud BSP */}
+                  {/* Login / signup / password reset for WhatsApp Cloud BSP */}
                   <Route path={ROUTES.LOGIN} element={<LoginCloudGate />} />
+                  <Route path={ROUTES.SIGNUP} element={<CloudSignup />} />
+                  <Route path={ROUTES.FORGOT_PASSWORD} element={<CloudForgotPassword />} />
 
                   {/* WhatsApp Cloud dashboard (protected by Cloud auth) */}
                   <Route

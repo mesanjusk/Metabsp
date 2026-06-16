@@ -6,6 +6,7 @@ const WhatsAppAccount = require('../repositories/whatsappAccount');
 const { encryptSensitiveValue } = require('../utils/crypto');
 const { hashPassword, isHashedPassword, verifyPassword } = require('../utils/password');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { sendOtp, verifyOtp } = require('../services/otpService');
 
 const router = express.Router();
 
@@ -350,6 +351,137 @@ router.put('/manage/:id', requireAuth, requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Update user error:', error);
     return res.status(500).json({ success: false, message: 'Failed to update user.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Self-service signup (mobile + WhatsApp OTP)
+// ─────────────────────────────────────────────────────────────────────────
+
+router.post('/signup/request-otp', async (req, res) => {
+  const { User_name, Mobile_number } = req.body || {};
+  const userName = String(User_name || '').trim();
+  const mobile = String(Mobile_number || '').trim();
+
+  if (!userName || !mobile) {
+    return res.status(400).json({ success: false, message: 'User name and mobile number are required.' });
+  }
+  if (userName.toLowerCase() === ADMIN_USER_NAME) {
+    return res.status(400).json({ success: false, message: 'This username is reserved.' });
+  }
+
+  try {
+    const existingUser = await Users.findOne({ $or: [{ User_name: userName }, { Mobile_number: mobile }] });
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: 'An account with this username or mobile number already exists.' });
+    }
+
+    const result = await sendOtp(mobile, 'SIGNUP');
+    return res.status(200).json({
+      success: true,
+      message: result.sent ? 'OTP sent via WhatsApp.' : 'Could not send OTP via WhatsApp. Please try again later.',
+      devOtp: result.devOtp,
+    });
+  } catch (error) {
+    console.error('Signup request-otp error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to send OTP.' });
+  }
+});
+
+router.post('/signup/verify', async (req, res) => {
+  const { User_name, Mobile_number, Password, code } = req.body || {};
+  const userName = String(User_name || '').trim();
+  const mobile = String(Mobile_number || '').trim();
+  const password = String(Password || '').trim();
+  const otpCode = String(code || '').trim();
+
+  if (!userName || !mobile || !password || !otpCode) {
+    return res.status(400).json({ success: false, message: 'All fields are required.' });
+  }
+
+  try {
+    const isValid = await verifyOtp(mobile, otpCode, 'SIGNUP');
+    if (!isValid) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
+    }
+
+    const existingUser = await Users.findOne({ $or: [{ User_name: userName }, { Mobile_number: mobile }] });
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: 'An account with this username or mobile number already exists.' });
+    }
+
+    const user = await Users.create({
+      User_name: userName,
+      Password: hashPassword(password),
+      Mobile_number: mobile,
+      User_group: 'user',
+    });
+
+    const token = signTokenForUser({ id: user._id, userName: user.User_name, userGroup: user.User_group });
+
+    return res.status(201).json({ success: true, token, user: sanitizeUser(user) });
+  } catch (error) {
+    console.error('Signup verify error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to create account.' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Forgot password (mobile + WhatsApp OTP)
+// ─────────────────────────────────────────────────────────────────────────
+
+router.post('/forgot-password/request-otp', async (req, res) => {
+  const mobile = String(req.body?.Mobile_number || '').trim();
+
+  if (!mobile) {
+    return res.status(400).json({ success: false, message: 'Mobile number is required.' });
+  }
+
+  try {
+    const user = await Users.findOne({ Mobile_number: mobile });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No account found with this mobile number.' });
+    }
+
+    const result = await sendOtp(mobile, 'RESET');
+    return res.status(200).json({
+      success: true,
+      message: result.sent ? 'OTP sent via WhatsApp.' : 'Could not send OTP via WhatsApp. Please try again later.',
+      devOtp: result.devOtp,
+    });
+  } catch (error) {
+    console.error('Forgot-password request-otp error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to send OTP.' });
+  }
+});
+
+router.post('/forgot-password/reset', async (req, res) => {
+  const mobile = String(req.body?.Mobile_number || '').trim();
+  const otpCode = String(req.body?.code || '').trim();
+  const newPassword = String(req.body?.newPassword || '').trim();
+
+  if (!mobile || !otpCode || !newPassword) {
+    return res.status(400).json({ success: false, message: 'All fields are required.' });
+  }
+
+  try {
+    const isValid = await verifyOtp(mobile, otpCode, 'RESET');
+    if (!isValid) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
+    }
+
+    const user = await Users.findOne({ Mobile_number: mobile });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No account found with this mobile number.' });
+    }
+
+    user.Password = hashPassword(newPassword);
+    await user.save();
+
+    return res.status(200).json({ success: true, message: 'Password reset successful. Please log in.' });
+  } catch (error) {
+    console.error('Forgot-password reset error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to reset password.' });
   }
 });
 

@@ -9,12 +9,13 @@ import {
   Button,
   CircularProgress,
   InputAdornment,
+  Link as MuiLink,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '../apiClient';
 import { toast } from '../Components/Toast';
 import { ROUTES } from '../constants/routes';
@@ -152,6 +153,15 @@ export default function Login() {
             >
               {loading ? 'Please wait...' : 'Continue'}
             </Button>
+
+            <Stack direction="row" justifyContent="space-between">
+              <MuiLink component={Link} to={ROUTES.SIGNUP} variant="body2">
+                Create account
+              </MuiLink>
+              <MuiLink component={Link} to={ROUTES.FORGOT_PASSWORD} variant="body2">
+                Forgot password?
+              </MuiLink>
+            </Stack>
           </Stack>
         </Paper>
       </Box>
