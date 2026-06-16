@@ -380,7 +380,11 @@ router.post('/signup/request-otp', async (req, res) => {
     const success = result.sent || Boolean(result.devOtp);
     return res.status(success ? 200 : 502).json({
       success,
-      message: result.sent ? 'OTP sent via WhatsApp.' : (result.devOtp ? 'WhatsApp send failed; using dev OTP.' : (result.error || 'Could not send OTP via WhatsApp. Please try again later.')),
+      message: result.sent
+        ? 'OTP sent via WhatsApp.'
+        : (result.devOtp
+          ? `WhatsApp send failed (${result.error || 'unknown error'}); using dev OTP.`
+          : (result.error || 'Could not send OTP via WhatsApp. Please try again later.')),
       devOtp: result.devOtp,
     });
   } catch (error) {
@@ -448,7 +452,11 @@ router.post('/forgot-password/request-otp', async (req, res) => {
     const success = result.sent || Boolean(result.devOtp);
     return res.status(success ? 200 : 502).json({
       success,
-      message: result.sent ? 'OTP sent via WhatsApp.' : (result.devOtp ? 'WhatsApp send failed; using dev OTP.' : (result.error || 'Could not send OTP via WhatsApp. Please try again later.')),
+      message: result.sent
+        ? 'OTP sent via WhatsApp.'
+        : (result.devOtp
+          ? `WhatsApp send failed (${result.error || 'unknown error'}); using dev OTP.`
+          : (result.error || 'Could not send OTP via WhatsApp. Please try again later.')),
       devOtp: result.devOtp,
     });
   } catch (error) {
