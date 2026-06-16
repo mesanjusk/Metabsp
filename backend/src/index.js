@@ -93,6 +93,8 @@ const allowedOrigins = [
   'https://bulk.instify.in',
   'https://bkfrontend.vercel.app',
   'https://bkawards.instify.in',
+  'https://meta.sanjusk.in',
+  'https://meta.instify.in',
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 ];
 
