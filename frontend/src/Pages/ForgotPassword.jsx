@@ -46,6 +46,12 @@ export default function ForgotPassword() {
       const { data } = await apiClient.post('/api/users/forgot-password/request-otp', {
         Mobile_number: mobile,
       });
+
+      if (!data.success) {
+        setErrorText(data.message || 'Failed to send OTP.');
+        return;
+      }
+
       setInfoText(data.message + (data.devOtp ? ` [DEV OTP: ${data.devOtp}]` : ''));
       setStep(1);
     } catch (error) {

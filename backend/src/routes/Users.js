@@ -377,14 +377,15 @@ router.post('/signup/request-otp', async (req, res) => {
     }
 
     const result = await sendOtp(mobile, 'SIGNUP');
-    return res.status(200).json({
-      success: true,
-      message: result.sent ? 'OTP sent via WhatsApp.' : 'Could not send OTP via WhatsApp. Please try again later.',
+    const success = result.sent || Boolean(result.devOtp);
+    return res.status(success ? 200 : 502).json({
+      success,
+      message: result.sent ? 'OTP sent via WhatsApp.' : (result.devOtp ? 'WhatsApp send failed; using dev OTP.' : (result.error || 'Could not send OTP via WhatsApp. Please try again later.')),
       devOtp: result.devOtp,
     });
   } catch (error) {
     console.error('Signup request-otp error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to send OTP.' });
+    return res.status(500).json({ success: false, message: error.message || 'Failed to send OTP.' });
   }
 });
 
@@ -422,7 +423,7 @@ router.post('/signup/verify', async (req, res) => {
     return res.status(201).json({ success: true, token, user: sanitizeUser(user) });
   } catch (error) {
     console.error('Signup verify error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to create account.' });
+    return res.status(500).json({ success: false, message: error.message || 'Failed to create account.' });
   }
 });
 
@@ -444,14 +445,15 @@ router.post('/forgot-password/request-otp', async (req, res) => {
     }
 
     const result = await sendOtp(mobile, 'RESET');
-    return res.status(200).json({
-      success: true,
-      message: result.sent ? 'OTP sent via WhatsApp.' : 'Could not send OTP via WhatsApp. Please try again later.',
+    const success = result.sent || Boolean(result.devOtp);
+    return res.status(success ? 200 : 502).json({
+      success,
+      message: result.sent ? 'OTP sent via WhatsApp.' : (result.devOtp ? 'WhatsApp send failed; using dev OTP.' : (result.error || 'Could not send OTP via WhatsApp. Please try again later.')),
       devOtp: result.devOtp,
     });
   } catch (error) {
     console.error('Forgot-password request-otp error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to send OTP.' });
+    return res.status(500).json({ success: false, message: error.message || 'Failed to send OTP.' });
   }
 });
 
@@ -481,7 +483,7 @@ router.post('/forgot-password/reset', async (req, res) => {
     return res.status(200).json({ success: true, message: 'Password reset successful. Please log in.' });
   } catch (error) {
     console.error('Forgot-password reset error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to reset password.' });
+    return res.status(500).json({ success: false, message: error.message || 'Failed to reset password.' });
   }
 });
 

@@ -51,6 +51,12 @@ export default function Signup() {
         User_name: userName,
         Mobile_number: mobile,
       });
+
+      if (!data.success) {
+        setErrorText(data.message || 'Failed to send OTP.');
+        return;
+      }
+
       setInfoText(data.message + (data.devOtp ? ` [DEV OTP: ${data.devOtp}]` : ''));
       setStep(1);
     } catch (error) {
