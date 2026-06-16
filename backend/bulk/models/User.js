@@ -34,7 +34,7 @@ userSchema.index({ username: 1, tenantId: 1 }, { unique: true });
 // mobile unique globally (mobile = account login identifier, empty strings excluded)
 userSchema.index(
   { mobile: 1 },
-  { unique: true, partialFilterExpression: { mobile: { $exists: true, $ne: '' } } }
+  { unique: true, partialFilterExpression: { mobile: { $gt: '' } } }
 );
 
 userSchema.pre('save', async function(next) {
