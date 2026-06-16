@@ -13,11 +13,12 @@ const sendWhatsAppOtpMessage = async (mobile, body) => {
     throw new Error('WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID must be set to send OTP messages');
   }
 
-  await axios.post(
+  const to = normalizeWhatsAppNumber(mobile);
+  const response = await axios.post(
     `https://graph.facebook.com/${config.graphVersion}/${config.phoneNumberId}/messages`,
     {
       messaging_product: 'whatsapp',
-      to: normalizeWhatsAppNumber(mobile),
+      to,
       type: 'text',
       text: { body },
     },
@@ -28,6 +29,13 @@ const sendWhatsAppOtpMessage = async (mobile, body) => {
       },
       timeout: 15000,
     }
+  );
+
+  console.log(
+    '[OTP] WhatsApp send accepted. phoneNumberId=%s to=%s response=%s',
+    config.phoneNumberId,
+    to,
+    JSON.stringify(response?.data)
   );
 };
 

@@ -1106,6 +1106,19 @@ const receiveWebhook = (req, res) => {
         const phoneNumberId = String(statusEvent?.phoneNumberId || '');
         if (!messageId || !['sent', 'delivered', 'read', 'failed'].includes(status)) continue;
 
+        if (status === 'failed') {
+          console.error(
+            '[WhatsApp][webhook] Delivery FAILED for message',
+            messageId,
+            'to',
+            statusEvent?.recipient_id,
+            'errors:',
+            JSON.stringify(statusEvent?.errors || [])
+          );
+        } else {
+          console.log(`[WhatsApp][webhook] Message ${messageId} status -> ${status}`);
+        }
+
         const matchedAccountContext = await loadWhatsAppAccountFromWebhookIdentifiers(
           {
             phoneNumberId,
