@@ -8,8 +8,14 @@ services:
     envVars:
       - key: PORT
         value: 5000
+      - key: NODE_ENV
+        value: production
       - key: MONGO_URI
         sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+      # ── WhatsApp Cloud (Metabsp) ─────────────────────────────────
       - key: ACCESS_TOKEN_SECRET
         sync: false
       - key: META_APP_ID
@@ -24,3 +30,37 @@ services:
         value: "true"
       - key: WHATSAPP_TOKEN_ENCRYPTION_KEY
         sync: false
+
+      # ── Bulk-invite (Event Management / Baileys) ────────────────
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: BOOTSTRAP_USERNAME
+        sync: false
+      - key: BOOTSTRAP_NAME
+        sync: false
+      - key: BOOTSTRAP_PASSWORD
+        sync: false
+      - key: SUPER_ADMIN_USERNAME
+        sync: false
+      - key: SUPER_ADMIN_NAME
+        sync: false
+      - key: SUPER_ADMIN_MOBILE
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_API_VERSION
+        value: v18.0
+      - key: WHATSAPP_TEMPLATE_LANGUAGE
+        value: en_US
