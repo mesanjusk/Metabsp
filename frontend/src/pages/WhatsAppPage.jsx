@@ -35,6 +35,8 @@ const officialTabs = [
   ['rules',       'Auto Reply'],
   ['send',        'Quick Send'],
   ['invite',      'Invitation'],
+  ['manual',      'Manual (wa.me)'],
+  ['campaigns',   'Campaigns'],
   ['history',     'Blast History'],
   ['templates',   'Templates'],
   ['connections', 'Connections'],
@@ -42,13 +44,15 @@ const officialTabs = [
 ];
 
 const baileysTabs = [
-  ['inbox',   'Inbox'],
-  ['rules',   'Auto Reply'],
-  ['send',    'Quick Send'],
-  ['invite',  'Invitation'],
-  ['history', 'Blast History'],
-  ['logs',    'Logs'],
-  ['setup',   'Setup / QR'],
+  ['inbox',     'Inbox'],
+  ['rules',     'Auto Reply'],
+  ['send',      'Quick Send'],
+  ['invite',    'Invitation'],
+  ['manual',    'Manual (wa.me)'],
+  ['campaigns', 'Campaigns'],
+  ['history',   'Blast History'],
+  ['logs',      'Logs'],
+  ['setup',     'Setup / QR'],
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -1870,6 +1874,368 @@ function RuleDialog({ open, onClose, editing, form, setForm, onSave, saving, isB
 // Main page
 // ══════════════════════════════════════════════════════════════════════════════
 
+// ── Manual Invite Panel (wa.me link generator) ────────────────────────────────
+
+function ManualInvitePanel({ isBaileys }) {
+  const [form, setForm] = useState({
+    title: '', message: 'Hi {name}!', imageUrl: '', recipientMode: 'single',
+    singleName: '', singleNumber: '',
+  });
+  const [recipients,     setRecipients]     = useState([]);
+  const [sentSet,        setSentSet]         = useState(new Set());
+  const [uploadingImage, setUploadingImage]  = useState(false);
+  const [saving,         setSaving]          = useState(false);
+  const [savedId,        setSavedId]         = useState(null);
+  const [fileName,       setFileName]        = useState('');
+
+  const canvasRef  = useRef(null);
+  const imageElRef = useRef(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!form.imageUrl) { setImageLoaded(false); imageElRef.current = null; return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => { imageElRef.current = img; setImageLoaded(true); };
+    img.onerror = () => { imageElRef.current = null; setImageLoaded(false); };
+    img.src = form.imageUrl;
+  }, [form.imageUrl]);
+
+  useEffect(() => {
+    if (imageLoaded && canvasRef.current && imageElRef.current) {
+      canvasRef.current.width  = 300;
+      canvasRef.current.height = Math.round(300 * imageElRef.current.naturalHeight / imageElRef.current.naturalWidth) || 200;
+      drawNameOnCanvas(canvasRef.current, imageElRef.current, 'Preview', emptyFontStyle);
+    }
+  }, [imageLoaded]);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const buffer   = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const rows     = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
+    setRecipients(parseRowsToRecipients(rows).map(r => ({ ...r, checked: true })));
+  };
+
+  const handleUploadImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('folder', 'wa_manual_invites');
+      const { default: api } = await import('../api');
+      const res = await api.post('/uploads/public', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setForm(p => ({ ...p, imageUrl: res?.data?.url || '' }));
+    } finally { setUploadingImage(false); }
+  };
+
+  const buildWaUrl = (name, mobile) => {
+    const phone = normalizePhone(mobile);
+    const msg   = encodeURIComponent((form.message || '').replace(/\{name\}/gi, name));
+    return `https://wa.me/${phone}?text=${msg}`;
+  };
+
+  const effectiveRecipients = form.recipientMode === 'single'
+    ? [{ name: form.singleName || 'Guest', mobile: form.singleNumber }]
+    : recipients.filter(r => r.checked !== false);
+
+  const handleMarkSent = (idx) => {
+    setSentSet(prev => { const n = new Set(prev); n.add(idx); return n; });
+  };
+
+  const handleSaveCampaign = async () => {
+    if (!effectiveRecipients.length) return;
+    setSaving(true);
+    try {
+      const payload = {
+        title: form.title || 'Manual Campaign',
+        message: form.message,
+        imageUrl: form.imageUrl,
+        type: 'MANUAL',
+        status: 'SENT',
+        recipients: effectiveRecipients.map((r, i) => ({
+          name: r.name, mobile: r.mobile,
+          waUrl: buildWaUrl(r.name, r.mobile),
+          status: sentSet.has(i) ? 'SENT' : 'PENDING',
+        })),
+        sentCount:   [...sentSet].length,
+        failedCount: 0,
+      };
+      const res = await whatsappService.saveCampaign(payload);
+      setSavedId(res.data._id);
+    } catch (e) {
+      console.error('[manual] save error:', e.message);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <PageSurface>
+      <Card><CardContent>
+        <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>
+          {isBaileys ? '🐝 Manual wa.me Generator' : '📲 Manual wa.me Generator'}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Use this when the API is unavailable. Click each link to open WhatsApp web/app with a pre-filled message for each recipient.
+        </Typography>
+
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField label="Campaign Title" fullWidth value={form.title}
+              onChange={e => setForm(p => ({ ...p, title: e.target.value }))} sx={{ mb: 2 }} />
+            <TextField label="Message (use {name} for recipient name)" fullWidth multiline minRows={3}
+              value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))} />
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField select label="Recipients" fullWidth value={form.recipientMode}
+              onChange={e => { setForm(p => ({ ...p, recipientMode: e.target.value })); setRecipients([]); }}
+              sx={{ mb: 2 }}>
+              <MenuItem value="single">Single Number</MenuItem>
+              <MenuItem value="excel">Excel / CSV File</MenuItem>
+            </TextField>
+            {form.recipientMode === 'single' ? (
+              <Stack spacing={1.5}>
+                <TextField label="Name" value={form.singleName} onChange={e => setForm(p => ({ ...p, singleName: e.target.value }))} />
+                <TextField label="Phone (10-digit or with country code)" value={form.singleNumber} onChange={e => setForm(p => ({ ...p, singleNumber: e.target.value }))} />
+              </Stack>
+            ) : (
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
+                  Upload Excel / CSV
+                  <input type="file" hidden accept=".xlsx,.xls,.csv" onChange={handleFileUpload} />
+                </Button>
+                {fileName && <Typography variant="body2" color="text.secondary">{fileName} ({recipients.length} rows)</Typography>}
+              </Stack>
+            )}
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={uploadingImage}>
+                {uploadingImage ? 'Uploading…' : 'Attach Image (optional)'}
+                <input type="file" hidden accept="image/*" onChange={handleUploadImage} />
+              </Button>
+              {form.imageUrl && <Typography variant="body2" color="success.main">Image uploaded</Typography>}
+            </Stack>
+            {imageLoaded && (
+              <Box sx={{ mt: 1.5 }}>
+                <canvas ref={canvasRef} style={{ maxWidth: '100%', borderRadius: 8 }} />
+              </Box>
+            )}
+          </Grid>
+        </Grid>
+
+        {effectiveRecipients.length > 0 && (
+          <Box sx={{ mt: 3 }}>
+            <Typography fontWeight={700} sx={{ mb: 1.5 }}>
+              Recipients — {effectiveRecipients.length} total · {sentSet.size} marked sent
+            </Typography>
+            <Stack spacing={1}>
+              {effectiveRecipients.map((r, idx) => {
+                const url  = buildWaUrl(r.name, r.mobile);
+                const sent = sentSet.has(idx);
+                return (
+                  <Card key={idx} variant="outlined" sx={{ bgcolor: sent ? '#f0fdf4' : undefined }}>
+                    <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} flexWrap="wrap">
+                        <Box>
+                          <Typography fontWeight={700}>{r.name}</Typography>
+                          <Typography variant="body2" color="text.secondary">{r.mobile}</Typography>
+                        </Box>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          {sent && <Chip label="Sent" color="success" size="small" />}
+                          <Button
+                            variant="contained"
+                            color={sent ? 'success' : (isBaileys ? 'warning' : 'primary')}
+                            size="small"
+                            component="a"
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => handleMarkSent(idx)}
+                          >
+                            Open wa.me
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Stack>
+            <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
+              <Button
+                variant="contained" color="secondary"
+                disabled={saving || effectiveRecipients.length === 0}
+                onClick={handleSaveCampaign}
+              >
+                {saving ? 'Saving…' : 'Save Campaign'}
+              </Button>
+              {savedId && <Chip label="Saved!" color="success" />}
+            </Stack>
+          </Box>
+        )}
+      </CardContent></Card>
+    </PageSurface>
+  );
+}
+
+// ── Campaigns Panel ───────────────────────────────────────────────────────────
+
+function CampaignsPanel({ isBaileys }) {
+  const [campaigns,  setCampaigns]  = useState([]);
+  const [loading,    setLoading]    = useState(false);
+  const [expanded,   setExpanded]   = useState(null);
+  const [sending,    setSending]    = useState(null);
+  const [deleting,   setDeleting]   = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await whatsappService.listCampaigns();
+      setCampaigns(Array.isArray(res.data) ? res.data : []);
+    } catch (_) {}
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSend = async (id) => {
+    setSending(id);
+    try {
+      await whatsappService.sendCampaignNow(id);
+      await load();
+    } catch (e) {
+      console.error('[campaigns] send error:', e.message);
+    } finally { setSending(null); }
+  };
+
+  const handleDelete = async (id) => {
+    setDeleting(id);
+    try {
+      await whatsappService.deleteCampaign(id);
+      setCampaigns(prev => prev.filter(c => c._id !== id));
+    } finally { setDeleting(null); }
+  };
+
+  const statusColor = (s) =>
+    s === 'SENT'      ? 'success' :
+    s === 'SENDING'   ? 'warning' :
+    s === 'SCHEDULED' ? 'info'    :
+    s === 'CANCELLED' ? 'error'   : 'default';
+
+  return (
+    <PageSurface>
+      <Card><CardContent>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+          <Box>
+            <Typography variant="h6" fontWeight={800}>Campaigns</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Saved manual and scheduled WhatsApp campaigns with per-recipient tracking.
+            </Typography>
+          </Box>
+          <Button variant="outlined" onClick={load} disabled={loading}>Refresh</Button>
+        </Stack>
+
+        {loading && <LinearProgress sx={{ mb: 2 }} />}
+
+        {campaigns.length === 0 && !loading && (
+          <Typography color="text.secondary" sx={{ py: 2 }}>
+            No campaigns yet. Use the Invitation or Manual tab to create one.
+          </Typography>
+        )}
+
+        <Stack spacing={1.5}>
+          {campaigns.map(c => (
+            <Accordion
+              key={c._id}
+              expanded={expanded === c._id}
+              onChange={(_, open) => setExpanded(open ? c._id : null)}
+            >
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" sx={{ width: '100%' }}>
+                  <Typography fontWeight={700} sx={{ flex: 1 }}>{c.title || 'Untitled'}</Typography>
+                  <Chip label={c.status} color={statusColor(c.status)} size="small" />
+                  <Chip label={`${c.type}`} variant="outlined" size="small" />
+                  <Typography variant="caption" color="text.secondary">
+                    {c.recipients?.length || 0} recipients · {c.sentCount || 0} sent · {c.failedCount || 0} failed
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">{formatWhen(c.createdAt)}</Typography>
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Stack spacing={1.5}>
+                  {c.message && (
+                    <Box sx={{ p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{c.message}</Typography>
+                    </Box>
+                  )}
+                  {c.imageUrl && (
+                    <Box component="img" src={c.imageUrl} sx={{ maxWidth: 200, borderRadius: 1 }} />
+                  )}
+
+                  <Stack direction="row" spacing={1}>
+                    {(c.status === 'DRAFT' || c.status === 'SCHEDULED') && (
+                      <Button
+                        variant="contained"
+                        color={isBaileys ? 'warning' : 'primary'}
+                        size="small"
+                        disabled={sending === c._id}
+                        onClick={() => handleSend(c._id)}
+                        startIcon={<SendIcon />}
+                      >
+                        {sending === c._id ? 'Starting…' : 'Send Now'}
+                      </Button>
+                    )}
+                    <Button
+                      variant="outlined" color="error" size="small"
+                      disabled={deleting === c._id}
+                      onClick={() => handleDelete(c._id)}
+                    >
+                      {deleting === c._id ? 'Deleting…' : 'Delete'}
+                    </Button>
+                  </Stack>
+
+                  {c.recipients?.length > 0 && (
+                    <Box>
+                      <Typography fontWeight={700} sx={{ mb: 1 }}>Recipients</Typography>
+                      <Stack spacing={0.5}>
+                        {c.recipients.map((r, i) => (
+                          <Stack key={i} direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                            <Typography variant="body2" sx={{ flex: 1 }}>{r.name} · {r.mobile}</Typography>
+                            <Chip
+                              label={r.status}
+                              color={r.status === 'SENT' ? 'success' : r.status === 'FAILED' ? 'error' : 'default'}
+                              size="small"
+                            />
+                            {r.waUrl && (
+                              <Button
+                                size="small" variant="outlined"
+                                component="a" href={r.waUrl} target="_blank" rel="noopener noreferrer"
+                              >
+                                wa.me
+                              </Button>
+                            )}
+                            {r.error && <Typography variant="caption" color="error">{r.error}</Typography>}
+                          </Stack>
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          ))}
+        </Stack>
+      </CardContent></Card>
+    </PageSurface>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function WhatsAppPage() {
 
   const [useBaileys, setUseBaileys] = useState(
@@ -2254,8 +2620,10 @@ export default function WhatsAppPage() {
           fileName={baileysFileName}               setFileName={setBaileysFileName}
         />
       )}
-      {useBaileys && tab === 'history' && <BlastHistoryPanel isBaileys />}
-      {useBaileys && tab === 'logs'    && <LogsPanel logs={baileysLogs} isBaileys />}
+      {useBaileys && tab === 'manual'    && <ManualInvitePanel isBaileys />}
+      {useBaileys && tab === 'campaigns' && <CampaignsPanel    isBaileys />}
+      {useBaileys && tab === 'history'   && <BlastHistoryPanel isBaileys />}
+      {useBaileys && tab === 'logs'      && <LogsPanel logs={baileysLogs} isBaileys />}
       {useBaileys && tab === 'setup'   && (
         <BaileysSetup
           status={baileysStatus}
@@ -2307,7 +2675,9 @@ export default function WhatsAppPage() {
           fileName={fileName}                     setFileName={setFileName}
         />
       )}
-      {!useBaileys && tab === 'history' && <BlastHistoryPanel isBaileys={false} />}
+      {!useBaileys && tab === 'manual'    && <ManualInvitePanel isBaileys={false} />}
+      {!useBaileys && tab === 'campaigns' && <CampaignsPanel    isBaileys={false} />}
+      {!useBaileys && tab === 'history'   && <BlastHistoryPanel isBaileys={false} />}
       {!useBaileys && tab === 'templates' && (
         <CollectionSection title="Templates" subtitle="Approved WhatsApp message templates." rows={templateRows} />
       )}

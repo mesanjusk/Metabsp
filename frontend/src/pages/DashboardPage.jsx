@@ -3,18 +3,18 @@ import {
   Box, Button, Card, CardContent, Grid, List, ListItem,
   ListItemText, Stack, Typography,
 } from '@mui/material';
-import PeopleIcon       from '@mui/icons-material/People';
-import ChatIcon         from '@mui/icons-material/Chat';
-import CategoryIcon     from '@mui/icons-material/Category';
+import PeopleIcon        from '@mui/icons-material/People';
+import ChatIcon          from '@mui/icons-material/Chat';
+import CampaignIcon      from '@mui/icons-material/Campaign';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import SendIcon         from '@mui/icons-material/Send';
-import OpenInNewIcon    from '@mui/icons-material/OpenInNew';
-import api              from '../api';
-import { useAuth }      from '../context/BulkAuthContext';
-import { useLive }      from '../context/LiveContext';
-import PageHeader       from '../components/PageHeader';
-import PageSurface      from '../components/PageSurface';
-import StatCard         from '../components/StatCard';
+import SendIcon          from '@mui/icons-material/Send';
+import QrCode2Icon       from '@mui/icons-material/QrCode2';
+import api               from '../api';
+import { useAuth }       from '../context/BulkAuthContext';
+import { useLive }       from '../context/LiveContext';
+import PageHeader        from '../components/PageHeader';
+import PageSurface       from '../components/PageSurface';
+import StatCard          from '../components/StatCard';
 
 export default function DashboardPage() {
   const { user }              = useAuth();
@@ -26,10 +26,10 @@ export default function DashboardPage() {
   }, []);
 
   const cards = useMemo(() => [
-    ['Users',         summary.users            || 0, 'Active accounts',         <PeopleIcon />],
-    ['WhatsApp Msgs', summary.whatsappMessages  || 0, connected ? 'Live' : 'Syncing', <ChatIcon />],
-    ['Events',        summary.events            || 0, 'Configured events',       <CategoryIcon />],
-    ['Notifications', summary.notifications     || 0, 'Unread',                  <NotificationsIcon />],
+    ['Users',        summary.users           || 0, 'Active accounts',     <PeopleIcon />],
+    ['WA Messages',  summary.whatsappMessages || 0, connected ? 'Live' : 'Syncing', <ChatIcon />],
+    ['Campaigns',    summary.campaigns        || 0, 'Total saved',        <CampaignIcon />],
+    ['Notifications',summary.notifications   || 0, 'Unread',             <NotificationsIcon />],
   ], [summary, connected]);
 
   return (
@@ -37,14 +37,13 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow="Overview"
         title="Dashboard"
-        subtitle="Manage your bulk invite campaigns and WhatsApp communications."
+        subtitle="WhatsApp automation — send bulk messages, manage campaigns, and monitor conversations."
         chips={[
           { label: user?.roleId?.name || 'User' },
           { label: connected ? 'Connected' : 'Connecting...', color: connected ? 'success' : 'warning' },
         ]}
       />
 
-      {/* Stat cards */}
       <PageSurface sx={{ mb: 2.5 }}>
         <Grid container spacing={2}>
           {cards.map(([title, value, subtitle]) => (
@@ -55,7 +54,6 @@ export default function DashboardPage() {
         </Grid>
       </PageSurface>
 
-      {/* Quick actions */}
       <PageSurface sx={{ mb: 2.5 }}>
         <Card>
           <CardContent>
@@ -64,10 +62,17 @@ export default function DashboardPage() {
               <Button
                 variant="contained"
                 startIcon={<SendIcon />}
-                href="/whatsapp"
-                sx={{ bgcolor: '#2563EB' }}
+                href="/whatsapp-bulk"
+                sx={{ bgcolor: '#25D366' }}
               >
-                Send Bulk Invites
+                Open WhatsApp
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<QrCode2Icon />}
+                href="/whatsapp-bulk"
+              >
+                Setup Baileys / QR
               </Button>
               <Button
                 variant="outlined"
@@ -76,21 +81,11 @@ export default function DashboardPage() {
               >
                 Manage Users
               </Button>
-              <Button
-                variant="outlined"
-                startIcon={<OpenInNewIcon />}
-                href="/public-invite"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Public Invite Link
-              </Button>
             </Stack>
           </CardContent>
         </Card>
       </PageSurface>
 
-      {/* Live activity */}
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 7 }}>
           <PageSurface>
@@ -109,7 +104,7 @@ export default function DashboardPage() {
                     </ListItem>
                   )) : (
                     <Typography color="text.secondary" variant="body2">
-                      No live events yet — they will appear here in real time.
+                      No live events yet — WhatsApp messages will appear here in real time.
                     </Typography>
                   )}
                 </List>
@@ -127,13 +122,16 @@ export default function DashboardPage() {
                     1. Go to <strong>Admin</strong> to create users and assign roles.
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    2. Connect your WhatsApp via <strong>System Settings → Baileys</strong> by scanning the QR code.
+                    2. Open <strong>WhatsApp → Setup / QR</strong> and scan the QR code to connect Baileys.
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    3. Use <strong>WhatsApp</strong> to compose and send bulk invitations to your contact list.
+                    3. Use <strong>WhatsApp → Invitation</strong> to send bulk messages with personalised images.
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    4. Monitor replies and manage conversations in the WhatsApp inbox.
+                    4. Use <strong>Manual (wa.me)</strong> when the API is unavailable — generate direct links instead.
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    5. Monitor replies and manage conversations in the <strong>Inbox</strong>.
                   </Typography>
                 </Stack>
               </CardContent>

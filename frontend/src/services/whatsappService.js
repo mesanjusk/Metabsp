@@ -40,6 +40,14 @@ const whatsappService = {
   getBlast:            (id)         => api.get(`/blasts/${id}`),
   createBlast:         (payload)    => api.post('/blasts', payload),
   updateBlast:         (id, payload)=> api.patch(`/blasts/${id}`, payload),
+
+  // ── Saved campaigns (with per-recipient tracking + scheduler) ─────────────
+  listCampaigns:       ()           => api.get('/campaigns'),
+  saveCampaign:        (payload)    => api.post('/campaigns', payload),
+  getCampaign:         (id)         => api.get(`/campaigns/${id}`),
+  updateCampaign:      (id, payload)=> api.patch(`/campaigns/${id}`, payload),
+  deleteCampaign:      (id)         => api.delete(`/campaigns/${id}`),
+  sendCampaignNow:     (id)         => api.post(`/campaigns/${id}/send`),
 };
 
 export default whatsappService;

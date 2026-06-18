@@ -1,16 +1,10 @@
 import { Link } from 'react-router-dom';
-// Use BulkAuthContext for event-management navbar
 import { useAuth } from '../context/BulkAuthContext';
 
 const baseLinks = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/students', label: 'Students' },
-  { to: '/categories', label: 'Categories' },
-  { to: '/stage', label: 'Stage' },
-  { to: '/budget', label: 'Budget' },
-  { to: '/responsibilities', label: 'Responsibilities' },
-  { to: '/notifications', label: 'Notifications' },
-  { to: '/system-flow', label: 'System Flow' }
+  { to: '/dashboard',    label: 'Dashboard'    },
+  { to: '/whatsapp-bulk',label: 'WhatsApp'     },
+  { to: '/notifications',label: 'Notifications'},
 ];
 
 export default function Navbar() {
@@ -18,10 +12,10 @@ export default function Navbar() {
 
   return (
     <div className="nav">
-      <div className="nav-title">Bulk Invites PWA</div>
+      <div className="nav-title">WhatsApp Automation</div>
       <div className="nav-links">
         {baseLinks.map((item) => <Link key={item.to} to={item.to}>{item.label}</Link>)}
-        {user?.roleId?.code === 'SUPER_ADMIN' ? <Link to="/admin">Admin</Link> : null}
+        {user?.roleId?.code === 'SUPER_ADMIN' && <Link to="/admin">Admin</Link>}
         <span>{user?.name} · {user?.roleId?.name}</span>
         <button onClick={logout}>Logout</button>
       </div>
