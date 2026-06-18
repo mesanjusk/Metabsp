@@ -66,7 +66,7 @@ export default function SignupPage() {
         setError(data.message);
         return;
       }
-      setInfo(data.message + (data.devOtp ? ` [DEV OTP: ${data.devOtp}]` : ''));
+      setInfo(data.message);
       setStep(2);
     } catch (err) {
       const d = err?.response?.data;
