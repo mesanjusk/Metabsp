@@ -4,7 +4,7 @@ import { socket } from '../socket';
 import { useAuth } from './BulkAuthContext';
 
 const LiveContext = createContext();
-const EVENT_NAMES = ['whatsapp_message_logged','whatsapp_message_received','baileys_message_received','notification_created','campaign_updated'];
+const EVENT_NAMES = ['whatsapp_message_logged','whatsapp_incoming_message','baileys_message_logged','baileys_incoming_message','notification_created','campaign_updated'];
 
 export function LiveProvider({ children }) {
   const { user } = useAuth();

@@ -8,7 +8,7 @@ exports.getSummary = async (req, res) => {
   try {
     const [users, notifications, waMessages, baileysMessages, campaigns] = await Promise.all([
       User.countDocuments(),
-      Notification.countDocuments({ read: false }).catch(() => 0),
+      Notification.countDocuments({ readBy: { $size: 0 } }).catch(() => 0),
       WhatsAppMessage.countDocuments().catch(() => 0),
       BaileysMessage.countDocuments().catch(() => 0),
       Campaign.countDocuments().catch(() => 0),
