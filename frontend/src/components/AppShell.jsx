@@ -27,10 +27,11 @@ import { APP_ROUTES, canAccess, isSuperAdmin } from '../utils/accessControl';
 const DRAWER_WIDTH = 272;
 
 const NAV_ICONS = {
-  '/':                     <DashboardIcon />,
-  '/categories':           <CategoryIcon />,
+  '/dashboard':            <DashboardIcon />,
+  '/whatsapp-bulk':        <ChatIcon />,
   '/notifications':        <NotificationsIcon />,
-  '/whatsapp':             <ChatIcon />,
+  '/users':                <AdminPanelSettingsIcon />,
+  '/roles':                <CategoryIcon />,
   '/admin':                <AdminPanelSettingsIcon />,
   '/super-admin/settings': <TuneIcon />,
 };
@@ -64,7 +65,7 @@ export default function AppShell({ children }) {
           </Box>
           <Box>
             <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>Instify</Typography>
-            <Typography variant="caption" sx={{ opacity: 0.85, lineHeight: 1 }}>Bulk Invite</Typography>
+            <Typography variant="caption" sx={{ opacity: 0.85, lineHeight: 1 }}>WhatsApp Automation</Typography>
           </Box>
         </Stack>
       </Box>
@@ -171,7 +172,7 @@ export default function AppShell({ children }) {
           </Stack>
 
           <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
-            {canAccess(user, 'whatsapp:send')    && <MenuItem component={RouterLink} to="/whatsapp"             onClick={() => setMenuAnchor(null)}>WhatsApp</MenuItem>}
+            {canAccess(user, 'whatsapp:send')    && <MenuItem component={RouterLink} to="/whatsapp-bulk"        onClick={() => setMenuAnchor(null)}>WhatsApp</MenuItem>}
             {canAccess(user, 'users:manage')     && <MenuItem component={RouterLink} to="/admin"                onClick={() => setMenuAnchor(null)}>Admin</MenuItem>}
             {superAdmin                          && <MenuItem component={RouterLink} to="/super-admin/settings" onClick={() => setMenuAnchor(null)}>System Settings</MenuItem>}
             <Divider />

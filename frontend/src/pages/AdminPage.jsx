@@ -303,16 +303,12 @@ export default function AdminPage() {
   const [tab, setTab] = useState(initialTab);
   const [roles, setRoles] = useState([]);
   const [users, setUsers] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [rules, setRules] = useState([]);
   const [openSignal, setOpenSignal] = useState(0);
 
   const load = async () => {
-    const [r, u, t, a] = await Promise.all([api.get('/roles'), api.get('/users'), api.get('/certificate-templates'), api.get('/automation-rules')]);
+    const [r, u] = await Promise.all([api.get('/roles'), api.get('/users')]);
     setRoles(Array.isArray(r.data) ? r.data : []);
     setUsers(Array.isArray(u.data) ? u.data : []);
-    setTemplates(Array.isArray(t.data) ? t.data : []);
-    setRules(Array.isArray(a.data) ? a.data : []);
   };
 
   useEffect(() => { load(); }, []);
@@ -331,15 +327,10 @@ export default function AdminPage() {
 
   return (
     <>
-      <PageHeader title="Admin" subtitle="Manage users, guests, volunteers, team members and access in one place." chips={[{ label: `${users.length} Users` }, { label: `${roles.length} Roles` }, { label: `${templates.length} Templates` }]} />
-      <Card sx={{ mb: 2 }}><CardContent><Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto"><Tab value="users" label="All Users" /><Tab value="guests" label="Guests" /><Tab value="team" label="Team" /><Tab value="volunteers" label="Volunteers" /><Tab value="roles" label="Roles & Access" /><Tab value="automation" label="Automation" /><Tab value="templates" label="Templates" /></Tabs></CardContent></Card>
+      <PageHeader title="Admin" subtitle="Manage users and access control." chips={[{ label: `${users.length} Users` }, { label: `${roles.length} Roles` }]} />
+      <Card sx={{ mb: 2 }}><CardContent><Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto"><Tab value="users" label="Users" /><Tab value="roles" label="Roles & Access" /></Tabs></CardContent></Card>
       {tab === 'users' && <UsersTab roles={roles} users={users} reload={load} title="Users" subtitle="Role-based access for each user." openSignal={openSignal} />}
-      {tab === 'guests' && <UsersTab roles={roles} users={users} reload={load} title="Guests" subtitle="Add single guest or bulk import from Excel." fixedDutyType="GUEST" enableBulkGuestImport openSignal={openSignal} />}
-      {tab === 'team' && <UsersTab roles={roles} users={users} reload={load} title="Team Members" subtitle="Manage team users in card or table view." fixedDutyType="TEAM_MEMBER" openSignal={openSignal} />}
-      {tab === 'volunteers' && <UsersTab roles={roles} users={users} reload={load} title="Volunteer Users" subtitle="Create volunteer login users for app access." fixedDutyType="VOLUNTEER" openSignal={openSignal} />}
       {tab === 'roles' && <RolesTab roles={roles} reload={load} />}
-      {tab === 'automation' && <SimpleCrudTab title="Automation Rules" subtitle="Create and edit automation rules." items={rules} endpoint="/automation-rules" reload={load} fields={[{ key: 'name', label: 'Rule Name' }, { key: 'triggerKey', label: 'Trigger Key' }, { key: 'templateName', label: 'Template Name' }, { key: 'recipientType', label: 'Recipient Type', defaultValue: 'Student' }, { key: 'conditionText', label: 'Condition', multiline: true }]} />}
-      {tab === 'templates' && <SimpleCrudTab title="Certificate Templates" subtitle="Manage template records and type mapping." items={templates} endpoint="/certificate-templates" reload={load} fields={[{ key: 'name', label: 'Template Name' }, { key: 'type', label: 'Type', type: 'select', options: ['STUDENT_AWARD','GUEST_THANK_YOU','VOLUNTEER_APPRECIATION','TEAM_APPRECIATION'].map((v) => ({ value: v, label: v })) }, { key: 'backgroundUrl', label: 'Background URL' }]} />}
     </>
   );
 }
