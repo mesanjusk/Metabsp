@@ -1,12 +1,14 @@
 {
   "version": 2,
-  "installCommand": "npm install --prefix frontend",
-  "buildCommand": "npm run build --prefix frontend",
+  "installCommand": "cd frontend && npm install",
+  "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
-  "env": {
-    "VITE_API_SERVER": "https://bulk-invite.onrender.com",
-    "VITE_API_URL": "https://bulk-invite.onrender.com/api/bulk",
-    "VITE_SOCKET_URL": "https://bulk-invite.onrender.com"
+  "build": {
+    "env": {
+      "VITE_API_SERVER": "https://bulk-invite.onrender.com",
+      "VITE_API_URL": "https://bulk-invite.onrender.com/api/bulk",
+      "VITE_SOCKET_URL": "https://bulk-invite.onrender.com"
+    }
   },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
