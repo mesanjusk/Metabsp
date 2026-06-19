@@ -216,6 +216,7 @@ export default function CRMPanel({ search = '', onSendContacts }) {
   const handleImport = async () => {
     if (!importFile) return;
     setImporting(true);
+    setImportResult(null);
     try {
       const buffer = await importFile.arrayBuffer();
       const wb = XLSX.read(buffer, { type: 'array' });
@@ -227,18 +228,26 @@ export default function CRMPanel({ search = '', onSendContacts }) {
         for (const col of importColumns) {
           const val = String(row[col] || '').trim();
           const field = columnMap[col];
-          if (!field)            { if (val) contact.customFields[col] = val; continue; }
+          if (!field)               { if (val) contact.customFields[col] = val; continue; }
           if (field === '__custom__') { if (val) contact.customFields[col] = val; continue; }
           if (field === 'phone') contact.phone = val.replace(/\D/g, '');
-          else if (field === 'category' && val) contact.category = val; // per-row overrides default
+          else if (field === 'category' && val) contact.category = val;
           else contact[field] = val;
         }
         return contact;
       }).filter(c => c.phone);
 
-      const res = await apiClient.post('/api/whatsapp/contacts/import', { contacts });
-      const { imported, failed } = res.data;
-      setImportResult(`✓ ${imported} imported${failed ? `, ${failed} skipped` : ''}.`);
+      // Chunk into batches of 500 to avoid request-size/timeout issues
+      const CHUNK = 500;
+      let totalImported = 0, totalFailed = 0;
+      for (let i = 0; i < contacts.length; i += CHUNK) {
+        const chunk = contacts.slice(i, i + CHUNK);
+        const res = await apiClient.post('/api/whatsapp/contacts/import', { contacts: chunk });
+        totalImported += res.data.imported || 0;
+        totalFailed   += res.data.failed   || 0;
+      }
+
+      setImportResult(`✓ ${totalImported} imported${totalFailed ? `, ${totalFailed} skipped` : ''}.`);
       await load();
     } catch (e) {
       setImportResult('Error: ' + (e.response?.data?.message || e.message));

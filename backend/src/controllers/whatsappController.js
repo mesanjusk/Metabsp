@@ -919,25 +919,39 @@ const importContacts = asyncHandler(async (req, res) => {
   const rows = Array.isArray(req.body?.contacts) ? req.body.contacts : [];
   if (!rows.length) throw new AppError('contacts must be a non-empty array', 400);
 
-  let imported = 0, failed = 0;
-  const errors = [];
+  const userId = req.user?.id;
+  const waId   = accountContext?.account?._id || null;
+  const ops    = [];
+  let skipped  = 0;
+
   for (const row of rows) {
     const payload = normalizeContactPayload(row);
-    if (!payload.phone) { failed++; continue; }
-    try {
-      await Contact.findOneAndUpdate(
-        { userId: req.user?.id, phone: payload.phone },
-        { $set: { ...payload, userId: req.user?.id, whatsappAccountId: accountContext?.account?._id || null } },
-        { upsert: true, new: true }
-      );
-      imported++;
-    } catch (err) {
-      failed++;
-      errors.push({ phone: payload.phone, error: err.message });
-    }
+    if (!payload.phone) { skipped++; continue; }
+    ops.push({
+      updateOne: {
+        filter: { userId, phone: payload.phone },
+        update: { $set: { ...payload, userId, whatsappAccountId: waId } },
+        upsert: true,
+      },
+    });
   }
 
-  return res.status(200).json({ success: true, imported, failed, errors: errors.slice(0, 20) });
+  if (!ops.length) return res.status(200).json({ success: true, imported: 0, failed: skipped, errors: [] });
+
+  try {
+    const result = await Contact.bulkWrite(ops, { ordered: false });
+    const imported = (result.upsertedCount || 0) + (result.modifiedCount || 0) + (result.matchedCount || 0);
+    return res.status(200).json({ success: true, imported, failed: skipped, errors: [] });
+  } catch (err) {
+    // bulkWrite with ordered:false returns a BulkWriteError with partial results
+    const result = err.result || {};
+    const imported = (result.nUpserted || 0) + (result.nModified || 0);
+    const writeErrors = (err.writeErrors || []).slice(0, 20).map(e => ({
+      phone: ops[e.index]?.updateOne?.filter?.phone,
+      error: e.errmsg || e.message,
+    }));
+    return res.status(200).json({ success: true, imported, failed: skipped + (err.writeErrors?.length || 0), errors: writeErrors });
+  }
 });
 
 const buildCatalogConfigFromPayload = (payload = {}) => {
