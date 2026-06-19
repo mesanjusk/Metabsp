@@ -3,15 +3,15 @@ import * as XLSX from 'xlsx';
 import {
   Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress,
   Dialog, DialogActions, DialogContent, DialogTitle,
-  IconButton, LinearProgress, MenuItem, Pagination,
+  IconButton, InputAdornment, LinearProgress, MenuItem, Pagination,
   Select, Stack, Table, TableBody, TableCell, TableHead, TableRow,
   TextField, Tooltip, Typography,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import SendIcon from '@mui/icons-material/Send';
-import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import apiClient from '../../apiClient';
 
 const PAGE_SIZE = 50;
@@ -62,15 +62,16 @@ function autoDetect(columns) {
 
 const EMPTY_FORM = { name: '', phone: '', email: '', city: '', state: '', company: '', category: '', notes: '', tags: '', assignedAgent: '' };
 
-export default function CRMPanel({ search = '', onSendContacts }) {
-  const [contacts,    setContacts]    = useState([]);
-  const [total,       setTotal]       = useState(0);
-  const [pages,       setPages]       = useState(1);
-  const [page,        setPage]        = useState(1);
-  const [loading,     setLoading]     = useState(false);
-  const [categories,  setCategories]  = useState([]);
-  const [catFilter,   setCatFilter]   = useState('');
-  const [tagFilter,   setTagFilter]   = useState('');
+export default function CRMPanel({ search: externalSearch = '', onSendContacts }) {
+  const [contacts,     setContacts]    = useState([]);
+  const [total,        setTotal]       = useState(0);
+  const [pages,        setPages]       = useState(1);
+  const [page,         setPage]        = useState(1);
+  const [loading,      setLoading]     = useState(false);
+  const [categories,   setCategories]  = useState([]);
+  const [catFilter,    setCatFilter]   = useState('');
+  const [tagFilter,    setTagFilter]   = useState('');
+  const [localSearch,  setLocalSearch] = useState('');
 
   // Selection
   const [selected,    setSelected]    = useState(new Set());
@@ -103,13 +104,15 @@ export default function CRMPanel({ search = '', onSendContacts }) {
   // Sending
   const [sendLoading, setSendLoading] = useState(false);
 
+  const activeSearch = localSearch || externalSearch;
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page, limit: PAGE_SIZE });
-      if (search)    params.set('search', search);
-      if (catFilter) params.set('category', catFilter);
-      if (tagFilter) params.set('tag', tagFilter);
+      if (activeSearch) params.set('search', activeSearch);
+      if (catFilter)    params.set('category', catFilter);
+      if (tagFilter)    params.set('tag', tagFilter);
       const res = await apiClient.get(`/api/whatsapp/contacts?${params}`);
       const d = res.data;
       setContacts(Array.isArray(d.data) ? d.data : []);
@@ -118,10 +121,10 @@ export default function CRMPanel({ search = '', onSendContacts }) {
       if (Array.isArray(d.categories)) setCategories(d.categories);
     } catch (_) {}
     finally { setLoading(false); }
-  }, [page, search, catFilter, tagFilter]);
+  }, [page, activeSearch, catFilter, tagFilter]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [search, catFilter, tagFilter]);
+  useEffect(() => { setPage(1); }, [activeSearch, catFilter, tagFilter]);
   useEffect(() => { setSelected(new Set()); }, [contacts]);
 
   const allSelected = contacts.length > 0 && contacts.every(c => selected.has(c._id));
@@ -186,9 +189,9 @@ export default function CRMPanel({ search = '', onSendContacts }) {
     setSendLoading(true);
     try {
       const params = new URLSearchParams({ limit: 5000 });
-      if (search)    params.set('search', search);
-      if (catFilter) params.set('category', catFilter);
-      if (tagFilter) params.set('tag', tagFilter);
+      if (activeSearch) params.set('search', activeSearch);
+      if (catFilter)    params.set('category', catFilter);
+      if (tagFilter)    params.set('tag', tagFilter);
       const res = await apiClient.get(`/api/whatsapp/contacts?${params}`);
       const all = Array.isArray(res.data?.data) ? res.data.data : [];
       if (onSendContacts) onSendContacts(all);
@@ -314,11 +317,19 @@ export default function CRMPanel({ search = '', onSendContacts }) {
 
       {/* Filter + Bulk action bar */}
       <Stack direction="row" spacing={1.5} sx={{ mb: 1.5 }} flexWrap="wrap" useFlexGap alignItems="center">
+        <TextField
+          size="small"
+          placeholder="Search name, phone…"
+          value={localSearch}
+          onChange={e => setLocalSearch(e.target.value)}
+          sx={{ flex: 1, minWidth: 180 }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+        />
         <Select size="small" value={catFilter} onChange={e => setCatFilter(e.target.value)} displayEmpty sx={{ minWidth: 150 }}>
           <MenuItem value="">All Categories</MenuItem>
           {categories.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
         </Select>
-        <TextField size="small" label="Tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)} sx={{ width: 110 }} />
+        <TextField size="small" label="Tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)} sx={{ width: 100 }} />
 
         {selected.size > 0 && (
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -370,7 +381,7 @@ export default function CRMPanel({ search = '', onSendContacts }) {
                 <TableCell>Email</TableCell>
                 <TableCell>City</TableCell>
                 <TableCell>Company</TableCell>
-                <TableCell align="center">Actions</TableCell>
+                <TableCell padding="checkbox" />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -379,7 +390,13 @@ export default function CRMPanel({ search = '', onSendContacts }) {
                   <TableCell padding="checkbox">
                     <Checkbox checked={selected.has(c._id)} onChange={() => toggleOne(c._id)} size="small" />
                   </TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{c.name || '—'}</TableCell>
+                  <TableCell
+                    sx={{ whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                    onDoubleClick={() => openEdit(c)}
+                    title="Double-click to edit"
+                  >
+                    {c.name || '—'}
+                  </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{c.phone}</TableCell>
                   <TableCell>
                     {c.category ? <Chip label={c.category} size="small" onClick={() => setCatFilter(c.category)} /> : '—'}
@@ -391,8 +408,7 @@ export default function CRMPanel({ search = '', onSendContacts }) {
                   <TableCell>{c.email || '—'}</TableCell>
                   <TableCell>{c.city  || '—'}</TableCell>
                   <TableCell>{c.company || '—'}</TableCell>
-                  <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                    <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(c)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                  <TableCell padding="checkbox">
                     <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(c._id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
