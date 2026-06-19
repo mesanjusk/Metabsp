@@ -11,6 +11,7 @@ import CloudSignup            from './Pages/Signup';
 import CloudForgotPassword    from './Pages/ForgotPassword';
 import WhatsAppCloudDashboard from './Pages/WhatsAppCloudDashboard';
 import PublicLanding          from './Pages/PublicLanding';
+import PrivacyPolicy          from './Pages/PrivacyPolicy';
 import TechProviderHub        from './Pages/techProvider/TechProviderHub';
 import TechProviderLayout     from './Pages/techProvider/TechProviderLayout';
 import MyWabas                from './Pages/techProvider/MyWabas';
@@ -117,6 +118,9 @@ export default function App() {
                     <Route path="paid-messaging" element={<PaidMessaging />} />
                     <Route path="assets" element={<BusinessAssets />} />
                   </Route>
+
+                  {/* ── Public pages (no auth required) ───────────────────── */}
+                  <Route path="/privacy-policy"  element={<PrivacyPolicy />} />
 
                   {/* ── Bulk auth routes ────────────────────────────────────── */}
                   <Route path="/bulk-login"      element={<LoginPage />} />

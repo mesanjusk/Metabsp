@@ -81,6 +81,15 @@ function Sidebar({ onClose }) {
           </ListItemIcon>
           <ListItemText primary="Back to WhatsApp" primaryTypographyProps={{ fontSize: 13 }} />
         </ListItemButton>
+        <Box sx={{ px: 1, pt: 0.5 }}>
+          <Typography
+            component={Link}
+            to="/privacy-policy"
+            sx={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textDecoration: 'none', '&:hover': { color: '#25d366' } }}
+          >
+            Privacy Policy
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );

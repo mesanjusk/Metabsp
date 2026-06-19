@@ -305,7 +305,7 @@ export default function PublicLanding() {
       <Box sx={{ py: 3, textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <Typography sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem' }}>
           © {new Date().getFullYear()} Metabsp · Built on Meta Platform APIs ·{' '}
-          <Box component="span" sx={{ textDecoration: 'underline', cursor: 'pointer' }}>
+          <Box component={Link} to="/privacy-policy" sx={{ color: 'rgba(255,255,255,0.45)', textDecoration: 'underline' }}>
             Privacy Policy
           </Box>
         </Typography>
