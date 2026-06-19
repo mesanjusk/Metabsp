@@ -41,6 +41,7 @@ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import QueryStatsRoundedIcon from '@mui/icons-material/QueryStatsRounded';
+import ApiRoundedIcon from '@mui/icons-material/ApiRounded';
 import { toast } from '../Components/Toast';
 import {
   connectWhatsAppManual,
@@ -422,6 +423,14 @@ export default function WhatsAppCloudDashboard() {
             <Box sx={{ mt: 'auto' }}>
               <Tooltip title={userName || 'Profile'}>
                 <Avatar sx={{ width: 36, height: 36, mb: 1 }}>{(userName || 'U').slice(0, 1).toUpperCase()}</Avatar>
+              </Tooltip>
+              <Tooltip title="Tech Provider Dashboard">
+                <IconButton
+                  sx={{ color: '#cfd4d8', '&:hover': { color: '#25d366' } }}
+                  onClick={() => { window.location.href = '/tech-provider'; }}
+                >
+                  <ApiRoundedIcon fontSize="small" />
+                </IconButton>
               </Tooltip>
               <Tooltip title="Settings">
                 <IconButton sx={{ color: '#cfd4d8' }} onClick={() => { setMainTab('meta'); setSubTab('settings'); }}>

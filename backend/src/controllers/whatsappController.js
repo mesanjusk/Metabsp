@@ -1096,6 +1096,30 @@ const receiveWebhook = (req, res) => {
       if (!isValid) return res.status(403).send('Invalid signature');
     }
 
+    // Store raw webhook event for the Tech Provider webhook viewer
+    const WebhookEvent = require('../repositories/WebhookEvent');
+    (async () => {
+      try {
+        const phoneNumberId = req.body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+        let userId = null;
+        if (phoneNumberId) {
+          const WhatsAppAccount = require('../repositories/whatsappAccount');
+          const acct = await WhatsAppAccount.findOne({ phoneNumberId: String(phoneNumberId) });
+          if (acct) userId = acct.userId;
+        }
+        await WebhookEvent.create({
+          userId,
+          object: req.body?.object || '',
+          entry: req.body?.entry,
+          rawBody: req.rawBody ? req.rawBody.toString() : JSON.stringify(req.body),
+          headers: {
+            'x-hub-signature-256': req.headers['x-hub-signature-256'],
+            'content-type': req.headers['content-type'],
+          },
+        });
+      } catch (_) {}
+    })();
+
     const entries = Array.isArray(req.body?.entry) ? req.body.entry : [];
     const incoming = [];
     const statuses = [];

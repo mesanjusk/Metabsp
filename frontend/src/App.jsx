@@ -10,6 +10,14 @@ import Login                  from './Pages/login';
 import CloudSignup            from './Pages/Signup';
 import CloudForgotPassword    from './Pages/ForgotPassword';
 import WhatsAppCloudDashboard from './Pages/WhatsAppCloudDashboard';
+import PublicLanding          from './Pages/PublicLanding';
+import TechProviderHub        from './Pages/techProvider/TechProviderHub';
+import TechProviderLayout     from './Pages/techProvider/TechProviderLayout';
+import MyWabas                from './Pages/techProvider/MyWabas';
+import EmbeddedSignupBuilder  from './Pages/techProvider/EmbeddedSignupBuilder';
+import WebhookViewer          from './Pages/techProvider/WebhookViewer';
+import PaidMessaging          from './Pages/techProvider/PaidMessaging';
+import BusinessAssets         from './Pages/techProvider/BusinessAssets';
 import { useAuth }            from './context/AuthContext';
 import theme                  from './theme';
 
@@ -38,7 +46,7 @@ import UsersPage              from './pages/UsersPage';
 // ─────────────────────────────────────────────────────────────────────────────
 function AuthRedirect() {
   const { isAuthenticated } = useAuth();
-  return <Navigate to={isAuthenticated ? ROUTES.WHATSAPP : ROUTES.LOGIN} replace />;
+  return isAuthenticated ? <Navigate to={ROUTES.WHATSAPP} replace /> : <PublicLanding />;
 }
 
 function CloudProtectedRoute({ children }) {
@@ -91,6 +99,23 @@ export default function App() {
                     }
                   >
                     <Route index element={<WhatsAppCloudDashboard />} />
+                  </Route>
+
+                  {/* ── Tech Provider routes (Metabsp auth protected) ───────── */}
+                  <Route
+                    path="/tech-provider"
+                    element={
+                      <CloudProtectedRoute>
+                        <TechProviderLayout />
+                      </CloudProtectedRoute>
+                    }
+                  >
+                    <Route index element={<TechProviderHub />} />
+                    <Route path="wabas" element={<MyWabas />} />
+                    <Route path="embedded-signup" element={<EmbeddedSignupBuilder />} />
+                    <Route path="webhooks" element={<WebhookViewer />} />
+                    <Route path="paid-messaging" element={<PaidMessaging />} />
+                    <Route path="assets" element={<BusinessAssets />} />
                   </Route>
 
                   {/* ── Bulk auth routes ────────────────────────────────────── */}

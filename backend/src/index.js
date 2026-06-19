@@ -120,6 +120,7 @@ app.use('/api/v1', require('./routes/externalApi'));
 // ─────────────────────────────────────────────────────────────────────────────
 app.use('/api/users',              usersRouter);
 app.use('/api/whatsapp',           whatsappRouter);
+app.use('/api/tech-provider',      require('./routes/techProvider'));
 app.use('/webhook',                webhookRouter);
 app.use('/api/whatsapp/webhook',   webhookRouter);
 
