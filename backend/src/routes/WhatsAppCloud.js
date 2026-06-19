@@ -143,6 +143,34 @@ router.post('/campaigns/:id/send', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// ── Baileys proxy routes (QR / status / send) ────────────────────────────────
+router.get('/baileys/status', requireAuth, (req, res) => {
+  try { res.json(baileysService.getStatus()); }
+  catch (e) { res.json({ status: 'DISCONNECTED', qr: null, phone: null }); }
+});
+
+router.post('/baileys/connect', requireAuth, (req, res) => {
+  try {
+    baileysService.connect().catch(() => {});
+    res.json({ message: 'Connection initiated' });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/baileys/disconnect', requireAuth, async (req, res) => {
+  try {
+    await baileysService.disconnect();
+    res.json({ message: 'Disconnected' });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/baileys/send-text', requireAuth, async (req, res) => {
+  try {
+    const { to, body } = req.body;
+    await baileysService.sendText({ to, body });
+    res.json({ message: 'Sent' });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 function normalizePhone(v) {
   const d = String(v || '').replace(/[^\d]/g, '').trim();
   return d.length === 10 ? '91' + d : d;
