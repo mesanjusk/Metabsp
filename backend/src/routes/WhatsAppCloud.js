@@ -37,6 +37,9 @@ const {
   getMessages,
   getConversations,
   getAnalytics,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey,
 } = require('../controllers/whatsappController');
 
 const Campaign = require('../../bulk/models/Campaign');
@@ -51,7 +54,6 @@ router.post('/connect/complete', requireAuth, completeConnection);
 router.post('/connect/manual', requireAuth, manualConnect);
 router.get('/account', requireAuth, getAccount);
 router.post('/embedded-signup/exchange-code', requireAuth, exchangeMetaToken);
-router.post('/manual-connect', requireAuth, manualConnect);
 
 router.get('/accounts', requireAuth, listAccounts);
 router.post('/accounts/:id/activate', requireAuth, activateAccount);
@@ -80,18 +82,6 @@ router.get('/auto-reply', requireAuth, getAutoReplyRules);
 router.put('/auto-reply/:id', requireAuth, updateAutoReplyRule);
 router.delete('/auto-reply/:id', requireAuth, deleteAutoReplyRule);
 router.patch('/auto-reply/:id/toggle', requireAuth, toggleAutoReplyRule);
-
-router.post('/auto-replies', requireAuth, createAutoReplyRule);
-router.get('/auto-replies', requireAuth, getAutoReplyRules);
-router.put('/auto-replies/:id', requireAuth, updateAutoReplyRule);
-router.delete('/auto-replies/:id', requireAuth, deleteAutoReplyRule);
-router.patch('/auto-replies/:id/toggle', requireAuth, toggleAutoReplyRule);
-
-router.post('/auto-reply-rules', requireAuth, createAutoReplyRule);
-router.get('/auto-reply-rules', requireAuth, getAutoReplyRules);
-router.put('/auto-reply-rules/:id', requireAuth, updateAutoReplyRule);
-router.delete('/auto-reply-rules/:id', requireAuth, deleteAutoReplyRule);
-router.patch('/auto-reply-rules/:id/toggle', requireAuth, toggleAutoReplyRule);
 
 router.get('/templates', requireAuth, getTemplates);
 router.get('/messages', requireAuth, getMessages);
@@ -155,6 +145,11 @@ router.post('/campaigns/:id/send', requireAuth, async (req, res) => {
     runCampaign(campaign, req.user.id).catch(console.error);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
+
+// ── API Key management ────────────────────────────────────────────────────────
+router.get('/api-keys',     requireAuth, listApiKeys);
+router.post('/api-keys',    requireAuth, createApiKey);
+router.delete('/api-keys/:id', requireAuth, revokeApiKey);
 
 // ── Baileys proxy routes (per-user QR / status / send) ───────────────────────
 router.get('/baileys/status', requireAuth, (req, res) => {

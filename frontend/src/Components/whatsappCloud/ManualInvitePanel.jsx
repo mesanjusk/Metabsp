@@ -63,12 +63,11 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
   // When CRM pushes contacts in, switch to CRM mode and load them
   useEffect(() => {
     if (initialRecipients?.length) {
-      setRecipients(initialRecipients.map(c => ({ name: c.name || '', mobile: c.phone || '' })));
+      setRecipients(initialRecipients.map(c => ({ name: c.name || '', mobile: c.phone || c.mobile || '' })));
       setForm(p => ({ ...p, recipientMode: 'crm' }));
       if (onCrmRecipientsConsumed) onCrmRecipientsConsumed();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialRecipients]);
+  }, [initialRecipients, onCrmRecipientsConsumed]);
 
   const loadImageFromUrl = (url, fontStyle) => {
     if (!url) { setImageLoaded(false); imageElRef.current = null; setImageError(''); return; }
@@ -126,10 +125,10 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
   };
 
   const effectiveRecipients = form.recipientMode === 'single'
-    ? [{ name: form.singleName || 'Guest', mobile: form.singleNumber }]
+    ? (form.singleNumber ? [{ name: form.singleName || 'Guest', mobile: form.singleNumber }] : [])
     : form.recipientMode === 'crm'
-    ? recipients
-    : recipients.filter(r => r.checked !== false);
+    ? (recipients || [])
+    : (recipients || []).filter(r => r.checked !== false);
 
   const handleMarkSent = (idx) => {
     setSentSet(prev => { const n = new Set(prev); n.add(idx); return n; });

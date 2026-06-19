@@ -241,6 +241,7 @@ async function sendText(userIdOrOpts, optsOrUndefined) {
     userId = DEFAULT_USER;
     opts   = userIdOrOpts;
   }
+  if (!opts || typeof opts !== 'object') throw new Error('sendText: { to, body } options are required');
   const { to, body } = opts;
   const session = getSession(userId);
   if (!session.socket || session.state.status !== 'CONNECTED')
@@ -257,6 +258,7 @@ async function sendImage(userIdOrOpts, optsOrUndefined) {
     userId = DEFAULT_USER;
     opts   = userIdOrOpts;
   }
+  if (!opts || typeof opts !== 'object') throw new Error('sendImage: { to, imageUrl } options are required');
   const { to, imageUrl, caption = '' } = opts;
   const session = getSession(userId);
   if (!session.socket || session.state.status !== 'CONNECTED')
