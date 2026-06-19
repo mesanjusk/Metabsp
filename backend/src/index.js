@@ -7,32 +7,19 @@
  *   /webhook           — Meta webhook
  *   /api/whatsapp/webhook — Meta webhook (alternate)
  *
- * Bulk-invite (Event Management / Baileys) routes are mounted under /api/bulk/:
+ * Bulk-invite (WhatsApp Automation / Baileys) routes are mounted under /api/bulk/:
  *   /api/bulk/auth              — Bulk-invite auth (login, me)
  *   /api/bulk/org               — Organisation
  *   /api/bulk/dashboard         — Dashboard stats
  *   /api/bulk/roles             — Roles (CRUD)
  *   /api/bulk/users             — Bulk-invite user management
- *   /api/bulk/events            — Events (CRUD)
- *   /api/bulk/categories        — Categories (CRUD)
- *   /api/bulk/students          — Students
- *   /api/bulk/stage-assignments — Stage assignments
  *   /api/bulk/notifications     — Notifications (CRUD)
- *   /api/bulk/donations         — Donations (CRUD)
- *   /api/bulk/automation-rules  — Automation rules (CRUD)
- *   /api/bulk/certificate-templates — Certificate templates (CRUD)
- *   /api/bulk/teams             — Teams (CRUD)
- *   /api/bulk/budget-heads      — Budget heads (CRUD)
- *   /api/bulk/vendors           — Vendors (CRUD)
- *   /api/bulk/expenses          — Expenses (CRUD)
- *   /api/bulk/event-tasks       — Event tasks (CRUD)
- *   /api/bulk/whatsapp          — Baileys WhatsApp (templates, etc.)
+ *   /api/bulk/whatsapp          — WhatsApp Cloud / templates
  *   /api/bulk/baileys           — Baileys QR/session control
  *   /api/bulk/blasts            — WhatsApp blast messages
+ *   /api/bulk/campaigns         — Campaign management
  *   /api/bulk/uploads           — File uploads (Cloudinary)
- *   /api/bulk/volunteers        — Volunteers
  *   /api/bulk/system-settings   — System settings
- *   /api/bulk/anchors           — Anchors
  */
 
 require('dotenv').config();
@@ -132,33 +119,20 @@ app.use('/webhook',                webhookRouter);
 app.use('/api/whatsapp/webhook',   webhookRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Bulk-invite (Event Management / Baileys) routes — mounted under /api/bulk/
+// Bulk-invite (WhatsApp Automation / Baileys) routes — mounted under /api/bulk/
 // ─────────────────────────────────────────────────────────────────────────────
 app.use('/api/bulk/auth',               require('../bulk/routes/authRoutes'));
 app.use('/api/bulk/org',                require('../bulk/routes/orgRoutes'));
 app.use('/api/bulk/dashboard',          require('../bulk/routes/dashboardRoutes'));
 app.use('/api/bulk/roles',              bulkCrudRoutes(require('../bulk/models/Role')));
 app.use('/api/bulk/users',              require('../bulk/routes/userRoutes'));
-app.use('/api/bulk/events',             bulkCrudRoutes(require('../bulk/models/Event')));
-app.use('/api/bulk/categories',         bulkCrudRoutes(require('../bulk/models/Category'), 'anchorId backupAnchorIds preferredGuestIds'));
-app.use('/api/bulk/students',           require('../bulk/routes/studentRoutes'));
-app.use('/api/bulk/stage-assignments',  require('../bulk/routes/stageRoutes'));
 app.use('/api/bulk/notifications',      bulkCrudRoutes(require('../bulk/models/Notification')));
-app.use('/api/bulk/donations',          bulkCrudRoutes(require('../bulk/models/Donation'), 'donorGuestId receivedByUserId'));
-app.use('/api/bulk/automation-rules',   bulkCrudRoutes(require('../bulk/models/AutomationRule')));
-app.use('/api/bulk/certificate-templates', bulkCrudRoutes(require('../bulk/models/CertificateTemplate')));
-app.use('/api/bulk/teams',              bulkCrudRoutes(require('../bulk/models/Team'), 'leadUserId memberUserIds'));
-app.use('/api/bulk/budget-heads',       bulkCrudRoutes(require('../bulk/models/BudgetHead'), 'responsibleTeamId responsibleUserId'));
-app.use('/api/bulk/vendors',            bulkCrudRoutes(require('../bulk/models/Vendor'), 'budgetHeadId responsibleTeamId responsibleUserId'));
-app.use('/api/bulk/expenses',           bulkCrudRoutes(require('../bulk/models/Expense'), 'budgetHeadId vendorId paidByUserId approvedByUserId'));
-app.use('/api/bulk/event-tasks',        bulkCrudRoutes(require('../bulk/models/EventTask'), 'teamId assignedToUserId backupUserId linkedVendorId'));
 app.use('/api/bulk/whatsapp',           require('../bulk/routes/whatsappRoutes'));
 app.use('/api/bulk/baileys',            require('../bulk/routes/baileysRoutes'));
 app.use('/api/bulk/blasts',             require('../bulk/routes/blastRoutes'));
+app.use('/api/bulk/campaigns',          require('../bulk/routes/campaignRoutes'));
 app.use('/api/bulk/uploads',            require('../bulk/routes/uploadRoutes'));
-app.use('/api/bulk/volunteers',         require('../bulk/routes/volunteerRoutes'));
 app.use('/api/bulk/system-settings',    require('../bulk/routes/systemSettingsRoutes'));
-app.use('/api/bulk/anchors',            require('../bulk/routes/anchors.routes'));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error handling
