@@ -94,24 +94,27 @@ router.get('/messages', requireAuth, getMessages);
 router.get('/conversations', requireAuth, getConversations);
 router.get('/analytics', requireAuth, getAnalytics);
 
-// ── Campaigns (Manual wa.me + Baileys send) ───────────────────────────────────
+// ── Campaigns (per-user scoped) ────────────────────────────────────────────────
 router.get('/campaigns', requireAuth, async (req, res) => {
   try {
-    const campaigns = await Campaign.find().sort({ createdAt: -1 }).lean();
+    const filter = req.user.isAdmin ? {} : { userId: req.user.id };
+    const campaigns = await Campaign.find(filter).sort({ createdAt: -1 }).lean();
     res.json(campaigns);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 router.post('/campaigns', requireAuth, async (req, res) => {
   try {
-    const campaign = await Campaign.create(req.body);
+    const campaign = await Campaign.create({ ...req.body, userId: req.user.id });
     res.status(201).json(campaign);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 router.get('/campaigns/:id', requireAuth, async (req, res) => {
   try {
-    const c = await Campaign.findById(req.params.id).lean();
+    const filter = { _id: req.params.id };
+    if (!req.user.isAdmin) filter.userId = req.user.id;
+    const c = await Campaign.findOne(filter).lean();
     if (!c) return res.status(404).json({ message: 'Not found' });
     res.json(c);
   } catch (e) { res.status(500).json({ message: e.message }); }
@@ -119,7 +122,9 @@ router.get('/campaigns/:id', requireAuth, async (req, res) => {
 
 router.patch('/campaigns/:id', requireAuth, async (req, res) => {
   try {
-    const c = await Campaign.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const filter = { _id: req.params.id };
+    if (!req.user.isAdmin) filter.userId = req.user.id;
+    const c = await Campaign.findOneAndUpdate(filter, req.body, { new: true });
     if (!c) return res.status(404).json({ message: 'Not found' });
     res.json(c);
   } catch (e) { res.status(500).json({ message: e.message }); }
@@ -127,38 +132,42 @@ router.patch('/campaigns/:id', requireAuth, async (req, res) => {
 
 router.delete('/campaigns/:id', requireAuth, async (req, res) => {
   try {
-    await Campaign.findByIdAndDelete(req.params.id);
+    const filter = { _id: req.params.id };
+    if (!req.user.isAdmin) filter.userId = req.user.id;
+    await Campaign.findOneAndDelete(filter);
     res.json({ message: 'Deleted' });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 router.post('/campaigns/:id/send', requireAuth, async (req, res) => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    const filter = { _id: req.params.id };
+    if (!req.user.isAdmin) filter.userId = req.user.id;
+    const campaign = await Campaign.findOne(filter);
     if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
     if (campaign.status === 'SENDING') return res.status(409).json({ message: 'Already sending' });
     await Campaign.findByIdAndUpdate(campaign._id, { status: 'SENDING' });
     res.json({ message: 'Campaign send started', id: campaign._id });
-    runCampaign(campaign).catch(console.error);
+    runCampaign(campaign, req.user.id).catch(console.error);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// ── Baileys proxy routes (QR / status / send) ────────────────────────────────
+// ── Baileys proxy routes (per-user QR / status / send) ───────────────────────
 router.get('/baileys/status', requireAuth, (req, res) => {
-  try { res.json(baileysService.getStatus()); }
+  try { res.json(baileysService.getStatus(req.user.id)); }
   catch (e) { res.json({ status: 'DISCONNECTED', qr: null, phone: null }); }
 });
 
 router.post('/baileys/connect', requireAuth, (req, res) => {
   try {
-    baileysService.connect().catch(() => {});
+    baileysService.connect(req.user.id).catch(() => {});
     res.json({ message: 'Connection initiated' });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 router.post('/baileys/disconnect', requireAuth, async (req, res) => {
   try {
-    await baileysService.disconnect();
+    await baileysService.disconnect(req.user.id);
     res.json({ message: 'Disconnected' });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
@@ -166,7 +175,7 @@ router.post('/baileys/disconnect', requireAuth, async (req, res) => {
 router.post('/baileys/send-text', requireAuth, async (req, res) => {
   try {
     const { to, body } = req.body;
-    await baileysService.sendText({ to, body });
+    await baileysService.sendText(req.user.id, { to, body });
     res.json({ message: 'Sent' });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
@@ -176,7 +185,7 @@ function normalizePhone(v) {
   return d.length === 10 ? '91' + d : d;
 }
 
-async function runCampaign(campaign) {
+async function runCampaign(campaign, userId) {
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   const rand  = () => (Math.floor(Math.random() * 9) + 12) * 1000;
   let sent = 0, failed = 0;
@@ -187,9 +196,9 @@ async function runCampaign(campaign) {
     const personalMsg = (campaign.message || '').replace(/\{name\}/gi, r.name);
     try {
       if (campaign.imageUrl) {
-        await baileysService.sendImage({ to: phone, imageUrl: campaign.imageUrl, caption: personalMsg });
+        await baileysService.sendImage(userId, { to: phone, imageUrl: campaign.imageUrl, caption: personalMsg });
       } else {
-        await baileysService.sendText({ to: phone, body: personalMsg });
+        await baileysService.sendText(userId, { to: phone, body: personalMsg });
       }
       updatedRecipients[i].status = 'SENT';
       updatedRecipients[i].sentAt = new Date();

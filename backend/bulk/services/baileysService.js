@@ -1,39 +1,51 @@
 /**
- * Baileys WhatsApp service
+ * Baileys WhatsApp service — per-user/tenant sessions.
+ *
+ * Each user gets their own isolated WhatsApp socket, auth state, and QR code.
+ * Sessions are keyed by a userId string. Callers that do not pass a userId
+ * fall back to the '_global_' session, preserving backward compatibility with
+ * the bulk-app controllers.
  *
  * FIX for code=405: fetchLatestBaileysVersion is a NAMED export from Baileys,
  * not a property of the default export. Must be destructured from the raw module.
- * The pinned fallback version is also updated to a known-good recent value.
  */
 
 const { emitEvent } = require('./socket');
-const { useMongoAuthState, clearMongoAuthState } = require('./baileysAuthState');
+const { useMongoAuthState, clearMongoAuthState, listSavedUserIds } = require('./baileysAuthState');
 
 const MAX_RECONNECT_ATTEMPTS = 5;
+const DEFAULT_USER = '_global_';
 
-let baileysState   = { qr: null, status: 'DISCONNECTED', phone: '' };
-let baileysSocket  = null;
-let reconnectTimer = null;
-let isConnecting   = false;
-let reconnectCount = 0;
+// Map<userId, SessionState>
+const sessions = new Map();
+
+function getSession(userId = DEFAULT_USER) {
+  if (!sessions.has(userId)) {
+    sessions.set(userId, {
+      socket:         null,
+      state:          { qr: null, status: 'DISCONNECTED', phone: '' },
+      reconnectTimer: null,
+      isConnecting:   false,
+      reconnectCount: 0,
+    });
+  }
+  return sessions.get(userId);
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 async function getWASocketAndVersion() {
-  // Baileys uses ESM — import() gives us the full module namespace
   const mod = await import('@whiskeysockets/baileys');
 
-  // makeWASocket is the default export or a named export
   const makeWASocket = mod.default?.makeWASocket
     ?? mod.makeWASocket
     ?? mod.default
     ?? mod;
 
-  // fetchLatestBaileysVersion is a NAMED export — NOT on the default object
   const fetchLatestBaileysVersion = mod.fetchLatestBaileysVersion
     ?? mod.default?.fetchLatestBaileysVersion;
 
-  let version = [2, 3000, 1023024415]; // fallback
+  let version = [2, 3000, 1023024415];
 
   if (typeof fetchLatestBaileysVersion === 'function') {
     try {
@@ -49,8 +61,7 @@ async function getWASocketAndVersion() {
       console.warn('[baileys] version fetch error:', e.message, '— using fallback');
     }
   } else {
-    console.warn('[baileys] fetchLatestBaileysVersion not found in module — using fallback version');
-    // Log all keys so we can see what IS available
+    console.warn('[baileys] fetchLatestBaileysVersion not found — using fallback');
     console.log('[baileys] module keys:', Object.keys(mod).join(', '));
   }
 
@@ -68,7 +79,6 @@ async function toQrDataUrl(raw) {
 
 function formatJid(phone) {
   const str = String(phone || '');
-  // Already a fully-qualified JID (individual @s.whatsapp.net or group @g.us)
   if (str.includes('@')) return str;
   const clean = str.replace(/\D/g, '');
   return `${clean}@s.whatsapp.net`;
@@ -88,43 +98,46 @@ function normalizeBaileysMessage(msg) {
   };
 }
 
-function killSocket() {
-  if (baileysSocket) {
-    try { baileysSocket.end(undefined); } catch (_) {}
-    baileysSocket = null;
+function killSocket(session) {
+  if (session.socket) {
+    try { session.socket.end(undefined); } catch (_) {}
+    session.socket = null;
   }
 }
 
 // ── public API ────────────────────────────────────────────────────────────────
 
-function getStatus() {
-  return { ...baileysState };
+function getStatus(userId = DEFAULT_USER) {
+  return { ...getSession(userId).state };
 }
 
-async function connect() {
-  if (isConnecting) {
-    console.log('[baileys] resetting stuck isConnecting flag...');
-    isConnecting = false;
-  }
-  isConnecting = true;
-  console.log('[baileys] connect() called — starting Baileys socket...');
+async function connect(userId = DEFAULT_USER) {
+  const session = getSession(userId);
+  const tag = `[baileys:${userId}]`;
 
-  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  killSocket();
+  if (session.isConnecting) {
+    console.log(`${tag} resetting stuck isConnecting flag...`);
+    session.isConnecting = false;
+  }
+  session.isConnecting = true;
+  console.log(`${tag} connect() called — starting Baileys socket...`);
+
+  if (session.reconnectTimer) { clearTimeout(session.reconnectTimer); session.reconnectTimer = null; }
+  killSocket(session);
 
   try {
     const { makeWASocket, version } = await getWASocketAndVersion();
     const pino   = (await import('pino')).default;
     const logger = pino({ level: 'silent' });
 
-    const { state, saveCreds } = await useMongoAuthState();
+    const { state, saveCreds } = await useMongoAuthState(userId);
 
     const sock = makeWASocket({
       version,
       logger,
       printQRInTerminal: false,
       auth: { creds: state.creds, keys: state.keys },
-      browser: ['BK Awards', 'Chrome', '120.0.0'],
+      browser: ['MetaBSP', 'Chrome', '120.0.0'],
       generateHighQualityLinkPreview: false,
       syncFullHistory:                false,
       markOnlineOnConnect:            false,
@@ -133,54 +146,54 @@ async function connect() {
       retryRequestDelayMs: 500,
     });
 
-    baileysSocket = sock;
+    session.socket = sock;
 
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        console.log('[baileys] QR received — emitting to dashboard');
+        console.log(`${tag} QR received`);
         const qrDataUrl = await toQrDataUrl(qr);
-        baileysState = { qr: qrDataUrl, status: 'QR_PENDING', phone: '' };
-        emitEvent('baileys_status', baileysState);
+        session.state = { qr: qrDataUrl, status: 'QR_PENDING', phone: '' };
+        emitEvent('baileys_status', { userId, ...session.state });
       }
 
       if (connection === 'open') {
         const phone = sock.user?.id?.split(':')[0] || sock.user?.id || '';
-        baileysState = { qr: null, status: 'CONNECTED', phone };
-        emitEvent('baileys_status', baileysState);
-        console.log('[baileys] connected as +' + phone);
-        isConnecting   = false;
-        reconnectCount = 0;
+        session.state = { qr: null, status: 'CONNECTED', phone };
+        emitEvent('baileys_status', { userId, ...session.state });
+        console.log(`${tag} connected as +${phone}`);
+        session.isConnecting   = false;
+        session.reconnectCount = 0;
       }
 
       if (connection === 'close') {
         const code      = lastDisconnect?.error?.output?.statusCode;
         const loggedOut = code === 401;
-        console.log('[baileys] disconnected code=' + code);
+        console.log(`${tag} disconnected code=${code}`);
 
-        baileysState  = { qr: null, status: 'DISCONNECTED', phone: '' };
-        baileysSocket = null;
-        isConnecting  = false;
-        emitEvent('baileys_status', baileysState);
+        session.state  = { qr: null, status: 'DISCONNECTED', phone: '' };
+        session.socket = null;
+        session.isConnecting = false;
+        emitEvent('baileys_status', { userId, ...session.state });
 
         if (loggedOut || code === 405 || code === 440) {
-          if (code !== 440) await clearMongoAuthState().catch(console.error);
-          reconnectCount = 0;
+          if (code !== 440) await clearMongoAuthState(userId).catch(console.error);
+          session.reconnectCount = 0;
           if (code === 440) {
-            console.log('[baileys] code=440 — another WhatsApp session took over. Open WhatsApp → Linked Devices and remove the old session, then click Connect for a fresh QR.');
+            console.log(`${tag} code=440 — another session took over. Remove old Linked Device then reconnect.`);
           } else {
-            console.log('[baileys] code=' + code + ' — credentials cleared. Click Connect for a fresh QR.');
+            console.log(`${tag} code=${code} — credentials cleared. Click Connect for a fresh QR.`);
           }
         } else {
-          reconnectCount++;
-          if (reconnectCount <= MAX_RECONNECT_ATTEMPTS) {
-            const delay = Math.min(5000 * reconnectCount, 25000);
-            console.log(`[baileys] reconnecting in ${delay}ms (attempt ${reconnectCount}/${MAX_RECONNECT_ATTEMPTS})…`);
-            reconnectTimer = setTimeout(() => connect().catch(console.error), delay);
+          session.reconnectCount++;
+          if (session.reconnectCount <= MAX_RECONNECT_ATTEMPTS) {
+            const delay = Math.min(5000 * session.reconnectCount, 25000);
+            console.log(`${tag} reconnecting in ${delay}ms (attempt ${session.reconnectCount}/${MAX_RECONNECT_ATTEMPTS})…`);
+            session.reconnectTimer = setTimeout(() => connect(userId).catch(console.error), delay);
           } else {
-            console.log('[baileys] max reconnect attempts reached. Manual reconnect required.');
-            reconnectCount = 0;
+            console.log(`${tag} max reconnect attempts reached. Manual reconnect required.`);
+            session.reconnectCount = 0;
           }
         }
       }
@@ -192,111 +205,148 @@ async function connect() {
       if (type !== 'notify') return;
       for (const msg of messages) {
         if (!msg.key.fromMe) {
-          emitEvent('baileys_incoming_message', normalizeBaileysMessage(msg));
+          emitEvent('baileys_incoming_message', { userId, ...normalizeBaileysMessage(msg) });
         }
       }
     });
 
   } catch (err) {
-    isConnecting = false;
-    console.error('[baileys] connect() error:', err.message);
-    baileysState = { qr: null, status: 'DISCONNECTED', phone: '' };
-    emitEvent('baileys_status', baileysState);
+    session.isConnecting = false;
+    console.error(`${tag} connect() error:`, err.message);
+    session.state = { qr: null, status: 'DISCONNECTED', phone: '' };
+    emitEvent('baileys_status', { userId, ...session.state });
     throw err;
   }
 }
 
-async function disconnect() {
-  reconnectCount = 0;
-  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  killSocket();
-  await clearMongoAuthState().catch(console.error);
-  baileysState = { qr: null, status: 'DISCONNECTED', phone: '' };
-  isConnecting = false;
-  emitEvent('baileys_status', baileysState);
-  console.log('[baileys] disconnected and credentials cleared.');
+async function disconnect(userId = DEFAULT_USER) {
+  const session = getSession(userId);
+  session.reconnectCount = 0;
+  if (session.reconnectTimer) { clearTimeout(session.reconnectTimer); session.reconnectTimer = null; }
+  killSocket(session);
+  await clearMongoAuthState(userId).catch(console.error);
+  session.state = { qr: null, status: 'DISCONNECTED', phone: '' };
+  session.isConnecting = false;
+  emitEvent('baileys_status', { userId, ...session.state });
+  console.log(`[baileys:${userId}] disconnected and credentials cleared.`);
 }
 
-async function sendText({ to, body }) {
-  if (!baileysSocket || baileysState.status !== 'CONNECTED')
+async function sendText(userIdOrOpts, optsOrUndefined) {
+  // Supports both: sendText(userId, { to, body }) and legacy sendText({ to, body })
+  let userId, opts;
+  if (typeof userIdOrOpts === 'string') {
+    userId = userIdOrOpts;
+    opts   = optsOrUndefined;
+  } else {
+    userId = DEFAULT_USER;
+    opts   = userIdOrOpts;
+  }
+  const { to, body } = opts;
+  const session = getSession(userId);
+  if (!session.socket || session.state.status !== 'CONNECTED')
     throw new Error('Baileys not connected — scan QR first.');
-  return baileysSocket.sendMessage(formatJid(to), { text: body });
+  return session.socket.sendMessage(formatJid(to), { text: body });
 }
 
-async function sendImage({ to, imageUrl, caption = '' }) {
-  if (!baileysSocket || baileysState.status !== 'CONNECTED')
+async function sendImage(userIdOrOpts, optsOrUndefined) {
+  let userId, opts;
+  if (typeof userIdOrOpts === 'string') {
+    userId = userIdOrOpts;
+    opts   = optsOrUndefined;
+  } else {
+    userId = DEFAULT_USER;
+    opts   = userIdOrOpts;
+  }
+  const { to, imageUrl, caption = '' } = opts;
+  const session = getSession(userId);
+  if (!session.socket || session.state.status !== 'CONNECTED')
     throw new Error('Baileys not connected — scan QR first.');
-  return baileysSocket.sendMessage(formatJid(to), { image: { url: imageUrl }, caption });
+  return session.socket.sendMessage(formatJid(to), { image: { url: imageUrl }, caption });
 }
 
-async function sendButtonMessage({ to, text, footer = '', buttons = [] }) {
-  if (!baileysSocket || baileysState.status !== 'CONNECTED')
+async function sendButtonMessage(userIdOrOpts, optsOrUndefined) {
+  let userId, opts;
+  if (typeof userIdOrOpts === 'string') {
+    userId = userIdOrOpts;
+    opts   = optsOrUndefined;
+  } else {
+    userId = DEFAULT_USER;
+    opts   = userIdOrOpts;
+  }
+  const { to, text, footer = '', buttons = [] } = opts;
+  const session = getSession(userId);
+  if (!session.socket || session.state.status !== 'CONNECTED')
     throw new Error('Baileys not connected — scan QR first.');
 
-  const pollName   = String(text   || 'Please vote 🗳️').slice(0, 255);
+  const pollName   = String(text || 'Please vote 🗳️').slice(0, 255);
   const pollValues = buttons.map(b => String(b.label || '').slice(0, 100)).filter(Boolean);
   if (!pollValues.length) throw new Error('Poll requires at least one option');
 
   const jid = formatJid(to);
 
-  // 1️⃣ Try native WhatsApp poll (modern clients — tap to vote)
   try {
-    return await baileysSocket.sendMessage(jid, {
+    return await session.socket.sendMessage(jid, {
       poll: { name: pollName, values: pollValues, selectableCount: 1 },
     });
   } catch (_) {}
 
-  // 2️⃣ Fall back to list message (button that opens option list)
   try {
-    return await baileysSocket.sendMessage(jid, {
+    return await session.socket.sendMessage(jid, {
       listMessage: {
-        title:      pollName,
-        text:       pollName,
-        footerText: '',
-        buttonText: '🗳️ Respond',
-        listType:   1,
+        title: pollName, text: pollName, footerText: '', buttonText: '🗳️ Respond', listType: 1,
         sections: [{
           title: 'Your Response',
-          rows:  pollValues.map((label, i) => ({
-            title:       label,
-            rowId:       `rsvp_${i}`,
-            description: '',
-          })),
+          rows: pollValues.map((label, i) => ({ title: label, rowId: `rsvp_${i}`, description: '' })),
         }],
       },
     });
   } catch (_) {}
 
-  // 3️⃣ Last resort — numbered plain-text choices
   const numbered = pollValues.map((v, i) => `${i + 1}. ${v}`).join('\n');
-  return baileysSocket.sendMessage(jid, {
+  return session.socket.sendMessage(jid, {
     text: `🗳️ *${pollName}*\n\n${numbered}\n\n_Reply with your choice number._`,
   });
 }
 
-async function getGroups() {
-  if (!baileysSocket || baileysState.status !== 'CONNECTED') return [];
+async function getGroups(userId = DEFAULT_USER) {
+  const session = getSession(userId);
+  if (!session.socket || session.state.status !== 'CONNECTED') return [];
   try {
-    const groups = await baileysSocket.groupFetchAllParticipating();
+    const groups = await session.socket.groupFetchAllParticipating();
     return Object.entries(groups).map(([id, meta]) => ({ id, name: meta.subject || '' }));
   } catch (e) {
-    console.error('[baileys] getGroups error:', e.message);
+    console.error(`[baileys:${userId}] getGroups error:`, e.message);
     return [];
   }
 }
 
-async function autoConnectIfCredentialsExist() {
-  try {
-    const { state } = await useMongoAuthState();
-    const hasCreds = state?.creds?.me || state?.creds?.noiseKey;
-    if (hasCreds) {
-      console.log('[baileys] Saved credentials found — auto-connecting on boot…');
-      await connect();
-    } else {
-      console.log('[baileys] No saved credentials — waiting for manual QR scan.');
+async function autoConnectIfCredentialsExist(userId) {
+  if (userId) {
+    // Reconnect a specific user
+    try {
+      const { state } = await useMongoAuthState(userId);
+      if (state?.creds?.me || state?.creds?.noiseKey) {
+        console.log(`[baileys:${userId}] Saved credentials found — auto-connecting…`);
+        await connect(userId);
+      }
+    } catch (err) {
+      console.error(`[baileys:${userId}] autoConnect error:`, err.message);
     }
-  } catch (err) {
-    console.error('[baileys] autoConnect error:', err.message);
+  } else {
+    // Reconnect all users with saved credentials
+    try {
+      const userIds = await listSavedUserIds();
+      if (!userIds.length) {
+        console.log('[baileys] No saved credentials found — waiting for manual QR scan.');
+        return;
+      }
+      console.log(`[baileys] Auto-connecting ${userIds.length} saved session(s)…`);
+      for (const uid of userIds) {
+        await connect(uid).catch(err => console.error(`[baileys:${uid}] autoConnect error:`, err.message));
+      }
+    } catch (err) {
+      console.error('[baileys] autoConnectIfCredentialsExist error:', err.message);
+    }
   }
 }
 
