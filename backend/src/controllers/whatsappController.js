@@ -811,14 +811,17 @@ const getAutoReplyRules = asyncHandler(async (req, res) => {
 
 
 const normalizeContactPayload = (payload = {}) => ({
-  phone: normalizePhone(payload.phone || payload.mobile || payload.number),
-  name: String(payload.name || payload.fullName || '').trim(),
+  phone:    normalizePhone(payload.phone || payload.mobile || payload.number),
+  name:     String(payload.name || payload.fullName || '').trim(),
+  email:    String(payload.email || '').trim(),
+  city:     String(payload.city || '').trim(),
+  state:    String(payload.state || '').trim(),
+  company:  String(payload.company || '').trim(),
+  notes:    String(payload.notes || '').trim(),
+  category: String(payload.category || '').trim(),
   tags: Array.isArray(payload.tags)
-    ? payload.tags
-    : String(payload.tags || '')
-        .split(',')
-        .map((tag) => String(tag || '').trim())
-        .filter(Boolean),
+    ? payload.tags.map(t => String(t).trim()).filter(Boolean)
+    : String(payload.tags || '').split(',').map(t => String(t).trim()).filter(Boolean),
   assignedAgent: String(payload.assignedAgent || '').trim(),
   customFields:
     payload.customFields && typeof payload.customFields === 'object' && !Array.isArray(payload.customFields)
@@ -836,20 +839,32 @@ const buildScopedContactFilter = (req, accountContext) => ({
 
 const getContacts = asyncHandler(async (req, res) => {
   const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
-  const search = String(req.query.search || '').trim();
+  const search   = String(req.query.search   || '').trim();
+  const category = String(req.query.category || '').trim();
+  const tag      = String(req.query.tag      || '').trim();
+  const page     = Math.max(1, parseInt(req.query.page)  || 1);
+  const limit    = Math.min(5000, Math.max(1, parseInt(req.query.limit) || 50));
+  const skip     = (page - 1) * limit;
+
+  const scope = buildScopedContactFilter(req, accountContext);
   const filter = {
-    ...buildScopedContactFilter(req, accountContext),
-    ...(search ? {
-      $and: [{
-        $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { phone: { $regex: normalizePhone(search), $options: 'i' } },
-        ],
-      }],
-    } : {}),
+    ...scope,
+    ...(search   ? { $or: [{ name: { $regex: search, $options: 'i' } }, { phone: { $regex: normalizePhone(search), $options: 'i' } }] } : {}),
+    ...(category ? { category } : {}),
+    ...(tag      ? { tags: tag } : {}),
   };
-  const data = await Contact.find(filter).sort({ updatedAt: -1 }).lean();
-  return res.status(200).json({ success: true, data });
+
+  const [data, total, categories] = await Promise.all([
+    Contact.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
+    Contact.countDocuments(filter),
+    Contact.distinct('category', scope).then(cats => cats.filter(Boolean).sort()),
+  ]);
+
+  return res.status(200).json({
+    success: true, data, total, page, limit,
+    pages: Math.ceil(total / limit),
+    categories,
+  });
 });
 
 const createContact = asyncHandler(async (req, res) => {
@@ -857,14 +872,8 @@ const createContact = asyncHandler(async (req, res) => {
   const payload = normalizeContactPayload(req.body || {});
   if (!payload.phone) throw new AppError('Phone is required', 400);
   const data = await Contact.findOneAndUpdate(
-    { phone: payload.phone },
-    {
-      $set: {
-        ...payload,
-        userId: req.user?.id,
-        whatsappAccountId: accountContext?.account?._id || null,
-      },
-    },
+    { userId: req.user?.id, phone: payload.phone },
+    { $set: { ...payload, userId: req.user?.id, whatsappAccountId: accountContext?.account?._id || null } },
     { upsert: true, new: true }
   );
   return res.status(201).json({ success: true, data });
@@ -872,16 +881,37 @@ const createContact = asyncHandler(async (req, res) => {
 
 const updateContact = asyncHandler(async (req, res) => {
   const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
-  const payload = normalizeContactPayload(req.body || {});
+  const payload  = normalizeContactPayload(req.body || {});
   const existing = await Contact.findOne({ _id: req.params.id, ...buildScopedContactFilter(req, accountContext) });
   if (!existing) throw new AppError('Contact not found', 404);
-  existing.phone = payload.phone || existing.phone;
-  existing.name = payload.name;
-  existing.tags = payload.tags;
-  existing.assignedAgent = payload.assignedAgent;
-  existing.customFields = payload.customFields;
+  if (payload.phone) existing.phone = payload.phone;
+  Object.assign(existing, {
+    name: payload.name, email: payload.email, city: payload.city, state: payload.state,
+    company: payload.company, notes: payload.notes, category: payload.category,
+    tags: payload.tags, assignedAgent: payload.assignedAgent, customFields: payload.customFields,
+  });
   await existing.save();
   return res.status(200).json({ success: true, data: existing });
+});
+
+const deleteContact = asyncHandler(async (req, res) => {
+  const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
+  const deleted = await Contact.findOneAndDelete({ _id: req.params.id, ...buildScopedContactFilter(req, accountContext) });
+  if (!deleted) throw new AppError('Contact not found', 404);
+  return res.status(200).json({ success: true });
+});
+
+const bulkUpdateContacts = asyncHandler(async (req, res) => {
+  const { ids, category, tags } = req.body;
+  if (!Array.isArray(ids) || !ids.length) throw new AppError('ids must be a non-empty array', 400);
+  const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
+  const scopeFilter   = buildScopedContactFilter(req, accountContext);
+  const update = {};
+  if (category !== undefined) update.category = String(category || '').trim();
+  if (Array.isArray(tags))    update.tags = tags.map(t => String(t).trim()).filter(Boolean);
+  if (!Object.keys(update).length) throw new AppError('Provide category or tags to update', 400);
+  const result = await Contact.updateMany({ _id: { $in: ids }, ...scopeFilter }, { $set: update });
+  return res.status(200).json({ success: true, modified: result.modifiedCount });
 });
 
 const importContacts = asyncHandler(async (req, res) => {
@@ -889,25 +919,25 @@ const importContacts = asyncHandler(async (req, res) => {
   const rows = Array.isArray(req.body?.contacts) ? req.body.contacts : [];
   if (!rows.length) throw new AppError('contacts must be a non-empty array', 400);
 
-  let imported = 0;
+  let imported = 0, failed = 0;
+  const errors = [];
   for (const row of rows) {
     const payload = normalizeContactPayload(row);
-    if (!payload.phone) continue;
-    await Contact.findOneAndUpdate(
-      { phone: payload.phone },
-      {
-        $set: {
-          ...payload,
-          userId: req.user?.id,
-          whatsappAccountId: accountContext?.account?._id || null,
-        },
-      },
-      { upsert: true, new: true }
-    );
-    imported += 1;
+    if (!payload.phone) { failed++; continue; }
+    try {
+      await Contact.findOneAndUpdate(
+        { userId: req.user?.id, phone: payload.phone },
+        { $set: { ...payload, userId: req.user?.id, whatsappAccountId: accountContext?.account?._id || null } },
+        { upsert: true, new: true }
+      );
+      imported++;
+    } catch (err) {
+      failed++;
+      errors.push({ phone: payload.phone, error: err.message });
+    }
   }
 
-  return res.status(200).json({ success: true, imported });
+  return res.status(200).json({ success: true, imported, failed, errors: errors.slice(0, 20) });
 });
 
 const buildCatalogConfigFromPayload = (payload = {}) => {
@@ -1336,6 +1366,8 @@ module.exports = {
   getContacts,
   createContact,
   updateContact,
+  deleteContact,
+  bulkUpdateContacts,
   importContacts,
   getTemplates,
   getMessages,
