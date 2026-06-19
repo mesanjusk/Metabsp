@@ -1340,6 +1340,34 @@ const getAnalytics = asyncHandler(async (req, res) => {
   });
 });
 
+// ── API Key management ────────────────────────────────────────────────────────
+const ApiKey = require('../../bulk/models/ApiKey');
+
+const listApiKeys = asyncHandler(async (req, res) => {
+  const keys = await ApiKey.find({ userId: req.user.id }).sort({ createdAt: -1 }).lean();
+  res.json({
+    success: true,
+    keys: keys.map(k => ({
+      id: k._id, name: k.name, key: k.key,
+      isActive: k.isActive, lastUsedAt: k.lastUsedAt, createdAt: k.createdAt,
+    })),
+  });
+});
+
+const createApiKey = asyncHandler(async (req, res) => {
+  const { name } = req.body;
+  const apiKey = await ApiKey.generate(req.user.id, name || 'Default');
+  res.status(201).json({ success: true, key: apiKey.key, name: apiKey.name, id: apiKey._id });
+});
+
+const revokeApiKey = asyncHandler(async (req, res) => {
+  await ApiKey.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user.id },
+    { isActive: false }
+  );
+  res.json({ success: true });
+});
+
 module.exports = {
   getConnectConfig,
   exchangeMetaToken,
@@ -1375,4 +1403,7 @@ module.exports = {
   verifyWebhook,
   receiveWebhook,
   getAnalytics,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey,
 };
