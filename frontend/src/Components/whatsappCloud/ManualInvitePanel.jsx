@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Box, Button, Card, CardContent, Chip, Grid,
@@ -41,13 +41,14 @@ function parseRowsToRecipients(rows) {
   }).filter(r => r.mobile);
 }
 
-export default function ManualInvitePanel() {
+export default function ManualInvitePanel({ initialRecipients = null, onCrmRecipientsConsumed }) {
   const [form, setForm] = useState({
-    title: '', message: 'Hi {name}!', imageUrl: '', recipientMode: 'single',
+    title: '', message: 'Hi {name}!', imageUrl: '',
+    recipientMode: initialRecipients?.length ? 'crm' : 'single',
     singleName: '', singleNumber: '',
     fontStyle: { ...emptyFontStyle },
   });
-  const [recipients,     setRecipients]     = useState([]);
+  const [recipients,     setRecipients]     = useState(initialRecipients?.length ? initialRecipients : []);
   const [sentSet,        setSentSet]         = useState(new Set());
   const [uploadingImage, setUploadingImage]  = useState(false);
   const [saving,         setSaving]          = useState(false);
@@ -58,6 +59,16 @@ export default function ManualInvitePanel() {
 
   const canvasRef  = useRef(null);
   const imageElRef = useRef(null);
+
+  // When CRM pushes contacts in, switch to CRM mode and load them
+  useEffect(() => {
+    if (initialRecipients?.length) {
+      setRecipients(initialRecipients.map(c => ({ name: c.name || '', mobile: c.phone || '' })));
+      setForm(p => ({ ...p, recipientMode: 'crm' }));
+      if (onCrmRecipientsConsumed) onCrmRecipientsConsumed();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRecipients]);
 
   const loadImageFromUrl = (url, fontStyle) => {
     if (!url) { setImageLoaded(false); imageElRef.current = null; setImageError(''); return; }
@@ -116,6 +127,8 @@ export default function ManualInvitePanel() {
 
   const effectiveRecipients = form.recipientMode === 'single'
     ? [{ name: form.singleName || 'Guest', mobile: form.singleNumber }]
+    : form.recipientMode === 'crm'
+    ? recipients
     : recipients.filter(r => r.checked !== false);
 
   const handleMarkSent = (idx) => {
@@ -175,16 +188,21 @@ export default function ManualInvitePanel() {
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField select label="Recipients" fullWidth value={form.recipientMode}
-              onChange={e => { setForm(p => ({ ...p, recipientMode: e.target.value })); setRecipients([]); }}
+              onChange={e => { setForm(p => ({ ...p, recipientMode: e.target.value })); if (e.target.value !== 'crm') setRecipients([]); }}
               sx={{ mb: 2 }}>
               <MenuItem value="single">Single Number</MenuItem>
               <MenuItem value="excel">Excel / CSV File</MenuItem>
+              <MenuItem value="crm">From CRM ({recipients.length > 0 && form.recipientMode === 'crm' ? recipients.length : 0} contacts)</MenuItem>
             </TextField>
             {form.recipientMode === 'single' ? (
               <Stack spacing={1.5}>
                 <TextField label="Name" value={form.singleName} onChange={e => setForm(p => ({ ...p, singleName: e.target.value }))} />
                 <TextField label="Phone (10-digit or with country code)" value={form.singleNumber} onChange={e => setForm(p => ({ ...p, singleNumber: e.target.value }))} />
               </Stack>
+            ) : form.recipientMode === 'crm' ? (
+              <Typography variant="body2" color="text.secondary">
+                {recipients.length ? `${recipients.length} contacts loaded from CRM.` : 'Go to the CRM tab, filter/select contacts, and click "Campaign".'}
+              </Typography>
             ) : (
               <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>

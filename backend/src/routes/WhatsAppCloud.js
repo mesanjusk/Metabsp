@@ -30,6 +30,8 @@ const {
   getContacts,
   createContact,
   updateContact,
+  deleteContact,
+  bulkUpdateContacts,
   importContacts,
   getTemplates,
   getMessages,
@@ -68,7 +70,9 @@ router.post('/broadcast', requireAuth, messagingLimiter, sendBroadcast);
 
 router.get('/contacts', requireAuth, getContacts);
 router.post('/contacts', requireAuth, createContact);
+router.patch('/contacts/bulk', requireAuth, bulkUpdateContacts);
 router.put('/contacts/:id', requireAuth, updateContact);
+router.delete('/contacts/:id', requireAuth, deleteContact);
 router.post('/contacts/import', requireAuth, importContacts);
 
 router.post('/auto-reply', requireAuth, createAutoReplyRule);

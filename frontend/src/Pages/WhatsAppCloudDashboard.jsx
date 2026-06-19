@@ -176,6 +176,14 @@ export default function WhatsAppCloudDashboard() {
   const [mainTab, setMainTab] = useState('meta');
   const [subTabs, setSubTabs] = useState({ meta: isAdminUser ? 'settings' : 'inbox', baileys: 'setup', manual: 'wame', crm: '' });
 
+  // CRM → Manual campaign handoff
+  const [crmRecipients, setCrmRecipients] = useState(null);
+  const handleCrmSend = useCallback((contacts) => {
+    setCrmRecipients(contacts);
+    setMainTab('manual');
+    setSubTabs(prev => ({ ...prev, manual: 'wame' }));
+  }, []);
+
   const activeSubTab = SUB_TABS[mainTab]?.length ? (subTabs[mainTab] || SUB_TABS[mainTab][0]) : '';
   const setSubTab = (key) => setSubTabs(prev => ({ ...prev, [mainTab]: key }));
 
@@ -309,11 +317,11 @@ export default function WhatsAppCloudDashboard() {
     // Manual (no account connection needed)
     if (mainTab === 'manual') {
       if (activeSubTab === 'campaigns') return <CampaignsPanel />;
-      return <ManualInvitePanel />;
+      return <ManualInvitePanel initialRecipients={crmRecipients} onCrmRecipientsConsumed={() => setCrmRecipients(null)} />;
     }
 
     // CRM (no account connection needed)
-    if (mainTab === 'crm') return <CRMPanel search={search} />;
+    if (mainTab === 'crm') return <CRMPanel search={search} onSendContacts={handleCrmSend} />;
 
     // Meta — needs Cloud API connection for most sub-tabs
     if (mainTab === 'meta') {
@@ -374,6 +382,7 @@ export default function WhatsAppCloudDashboard() {
     isAccountActionLoading, whatsappAccount, whatsappAccountStatus,
     accountConnectionMode, handleConnectFlow, handleDisconnect,
     handleReconnect, refreshWhatsAppAccount,
+    crmRecipients, handleCrmSend,
   ]);
 
   const connectionChipColor = connectionState === 'connected' ? 'success' : connectionState === 'loading' ? 'warning' : 'error';
