@@ -14,12 +14,11 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SendIcon from '@mui/icons-material/Send';
-import whatsappService from '../../services/whatsappService';
+import apiClient from '../../apiClient';
 
 const formatWhen = (iso) => {
   if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleString();
+  return new Date(iso).toLocaleString();
 };
 
 const statusColor = (s) =>
@@ -34,14 +33,17 @@ export default function CampaignsPanel() {
   const [expanded,  setExpanded]  = useState(null);
   const [sending,   setSending]   = useState(null);
   const [deleting,  setDeleting]  = useState(null);
+  const [error,     setError]     = useState('');
 
   const load = async () => {
     setLoading(true);
+    setError('');
     try {
-      const res = await whatsappService.listCampaigns();
+      const res = await apiClient.get('/api/whatsapp/campaigns');
       setCampaigns(Array.isArray(res.data) ? res.data : []);
-    } catch (_) {}
-    finally { setLoading(false); }
+    } catch (e) {
+      setError('Failed to load campaigns: ' + (e.response?.data?.message || e.message));
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
@@ -49,7 +51,7 @@ export default function CampaignsPanel() {
   const handleSend = async (id) => {
     setSending(id);
     try {
-      await whatsappService.sendCampaignNow(id);
+      await apiClient.post(`/api/whatsapp/campaigns/${id}/send`);
       await load();
     } catch (e) {
       console.error('[campaigns] send error:', e.message);
@@ -59,8 +61,10 @@ export default function CampaignsPanel() {
   const handleDelete = async (id) => {
     setDeleting(id);
     try {
-      await whatsappService.deleteCampaign(id);
+      await apiClient.delete(`/api/whatsapp/campaigns/${id}`);
       setCampaigns((prev) => prev.filter((c) => c._id !== id));
+    } catch (e) {
+      console.error('[campaigns] delete error:', e.message);
     } finally { setDeleting(null); }
   };
 
@@ -72,15 +76,16 @@ export default function CampaignsPanel() {
             <Box>
               <Typography variant="h6" fontWeight={800}>Campaigns</Typography>
               <Typography variant="body2" color="text.secondary">
-                Saved manual and scheduled WhatsApp campaigns with per-recipient tracking.
+                Saved manual campaigns with per-recipient tracking and Baileys send.
               </Typography>
             </Box>
             <Button variant="outlined" onClick={load} disabled={loading}>Refresh</Button>
           </Stack>
 
           {loading && <LinearProgress sx={{ mb: 2 }} />}
+          {error && <Typography color="error" variant="body2" sx={{ mb: 2 }}>{error}</Typography>}
 
-          {campaigns.length === 0 && !loading && (
+          {campaigns.length === 0 && !loading && !error && (
             <Typography color="text.secondary" sx={{ py: 2 }}>
               No campaigns yet. Use the Manual tab to create one.
             </Typography>
@@ -124,7 +129,7 @@ export default function CampaignsPanel() {
                           onClick={() => handleSend(c._id)}
                           startIcon={<SendIcon />}
                         >
-                          {sending === c._id ? 'Starting…' : 'Send Now'}
+                          {sending === c._id ? 'Starting…' : 'Send Now (Baileys)'}
                         </Button>
                       )}
                       <Button
