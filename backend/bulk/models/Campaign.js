@@ -10,6 +10,7 @@ const recipientSchema = new mongoose.Schema({
 }, { _id: false });
 
 const schema = new mongoose.Schema({
+  userId:       { type: mongoose.Schema.Types.ObjectId, ref: 'Users', default: null, index: true },
   title:        { type: String, default: 'Untitled Campaign' },
   imageUrl:     { type: String, default: '' },
   message:      { type: String, default: '' },

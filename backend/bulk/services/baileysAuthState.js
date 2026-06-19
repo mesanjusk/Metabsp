@@ -1,35 +1,46 @@
 /**
- * MongoDB-backed Baileys auth state.
- * 
- * IMPORTANT: Signal protocol keys (pre-key, session, sender-key, etc.) must be
- * stored and retrieved as plain JS objects / Buffers — NOT proto instances.
- * Wrapping them in proto.X.fromObject() breaks the Noise handshake and causes
- * "couldn't link device" errors on every scan.
+ * MongoDB-backed Baileys auth state — per-user/tenant.
  *
- * This adapter keeps an in-memory write-through cache so key lookups during
- * the QR handshake (which are synchronous bursts) never lag on DB round-trips.
+ * Each user's credentials are stored with a userId-scoped key prefix so
+ * multiple tenants can each maintain their own Baileys session independently.
+ * The default userId '_global_' preserves backward compatibility with the
+ * bulk-app callers that do not pass a userId.
+ *
+ * IMPORTANT: Signal protocol keys must be stored as plain JS objects / Buffers —
+ * NOT proto instances. Wrapping them in proto.X.fromObject() breaks the Noise
+ * handshake and causes "couldn't link device" errors on every scan.
  */
 
 const BaileysAuthState = require('../models/BaileysAuthState');
 
-const CREDS_KEY  = 'baileys_creds';
-const KEY_PREFIX = 'baileys_key_';
+const DEFAULT_USER = '_global_';
 
-// In-memory cache — write-through, cleared on disconnect
-const memCache = new Map();
+// Per-user in-memory write-through caches so key lookups during QR handshake
+// (which are synchronous bursts) never lag on DB round-trips.
+const memCaches = new Map(); // userId -> Map<dataKey, value>
+
+function getCache(userId) {
+  if (!memCaches.has(userId)) memCaches.set(userId, new Map());
+  return memCaches.get(userId);
+}
+
+function credsKey(userId)   { return `baileys_creds_${userId}`; }
+function keyPrefix(userId)  { return `baileys_key_${userId}_`; }
 
 // ── low-level DB helpers ──────────────────────────────────────────────────────
 
-async function dbRead(key) {
-  if (memCache.has(key)) return memCache.get(key);
+async function dbRead(userId, key) {
+  const cache = getCache(userId);
+  if (cache.has(key)) return cache.get(key);
   const doc = await BaileysAuthState.findOne({ dataKey: key }).lean();
   const val = doc ? doc.dataValue : null;
-  if (val !== null) memCache.set(key, val);
+  if (val !== null) cache.set(key, val);
   return val;
 }
 
-async function dbWrite(key, value) {
-  memCache.set(key, value);
+async function dbWrite(userId, key, value) {
+  const cache = getCache(userId);
+  cache.set(key, value);
   await BaileysAuthState.findOneAndUpdate(
     { dataKey: key },
     { $set: { dataValue: value } },
@@ -37,54 +48,44 @@ async function dbWrite(key, value) {
   );
 }
 
-async function dbDelete(key) {
-  memCache.delete(key);
+async function dbDelete(userId, key) {
+  const cache = getCache(userId);
+  cache.delete(key);
   await BaileysAuthState.deleteOne({ dataKey: key });
 }
 
 // ── main export ───────────────────────────────────────────────────────────────
 
-async function useMongoAuthState() {
-  // Lazy-import so server boots even if baileys isn't installed yet
+async function useMongoAuthState(userId = DEFAULT_USER) {
   const { initAuthCreds, BufferJSON } = await import('@whiskeysockets/baileys');
 
-  // ── credentials (one document) ─────────────────────────────────────────────
-  let rawCreds = await dbRead(CREDS_KEY);
+  const CREDS_KEY  = credsKey(userId);
+  const KEY_PREFIX = keyPrefix(userId);
+
+  let rawCreds = await dbRead(userId, CREDS_KEY);
   let creds;
 
   if (!rawCreds) {
     creds = initAuthCreds();
-    await dbWrite(CREDS_KEY, JSON.parse(JSON.stringify(creds, BufferJSON.replacer)));
+    await dbWrite(userId, CREDS_KEY, JSON.parse(JSON.stringify(creds, BufferJSON.replacer)));
   } else {
-    // Revive Buffer fields (e.g. signedIdentityKey, signedPreKey …)
     creds = JSON.parse(JSON.stringify(rawCreds), BufferJSON.reviver);
   }
 
-  // ── signal keys (many documents, one per type:id pair) ────────────────────
   const keys = {
-    /**
-     * get(type, ids) → { [id]: value }
-     * Values must be plain objects — Baileys' own signal layer handles the
-     * protobuf encoding internally. Do NOT call proto.X.fromObject() here.
-     */
     get: async (type, ids) => {
       const result = {};
       await Promise.all(
         ids.map(async (id) => {
           const dbKey = `${KEY_PREFIX}${type}_${id}`;
-          const raw   = await dbRead(dbKey);
+          const raw   = await dbRead(userId, dbKey);
           if (raw == null) return;
-          // Revive Buffers (e.g. pre-key public/private bytes)
           result[id] = JSON.parse(JSON.stringify(raw), BufferJSON.reviver);
         })
       );
       return result;
     },
 
-    /**
-     * set(data) — data is { [type]: { [id]: value | null } }
-     * null value means delete.
-     */
     set: async (data) => {
       const writes = [];
       for (const [type, idMap] of Object.entries(data)) {
@@ -92,10 +93,10 @@ async function useMongoAuthState() {
           const dbKey = `${KEY_PREFIX}${type}_${id}`;
           if (value != null) {
             writes.push(
-              dbWrite(dbKey, JSON.parse(JSON.stringify(value, BufferJSON.replacer)))
+              dbWrite(userId, dbKey, JSON.parse(JSON.stringify(value, BufferJSON.replacer)))
             );
           } else {
-            writes.push(dbDelete(dbKey));
+            writes.push(dbDelete(userId, dbKey));
           }
         }
       }
@@ -103,23 +104,28 @@ async function useMongoAuthState() {
     },
   };
 
-  // saveCreds is called by Baileys whenever creds mutate
   const saveCreds = async () => {
-    await dbWrite(CREDS_KEY, JSON.parse(JSON.stringify(creds, BufferJSON.replacer)));
+    await dbWrite(userId, CREDS_KEY, JSON.parse(JSON.stringify(creds, BufferJSON.replacer)));
   };
 
   return { state: { creds, keys }, saveCreds };
 }
 
-async function clearMongoAuthState() {
-  memCache.clear();
-  // Delete all baileys docs from MongoDB
-  await BaileysAuthState.deleteMany({
-    dataKey: { $in: [CREDS_KEY] }
-  });
-  await BaileysAuthState.deleteMany({
-    dataKey: { $regex: `^${KEY_PREFIX}` }
-  });
+async function clearMongoAuthState(userId = DEFAULT_USER) {
+  if (memCaches.has(userId)) memCaches.delete(userId);
+  const CREDS_KEY  = credsKey(userId);
+  const KEY_PREFIX = keyPrefix(userId);
+  await BaileysAuthState.deleteMany({ dataKey: CREDS_KEY });
+  await BaileysAuthState.deleteMany({ dataKey: { $regex: `^${KEY_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}` } });
 }
 
-module.exports = { useMongoAuthState, clearMongoAuthState };
+// Returns all userIds that have saved Baileys credentials in the DB.
+async function listSavedUserIds() {
+  const docs = await BaileysAuthState.find(
+    { dataKey: { $regex: '^baileys_creds_' } },
+    'dataKey'
+  ).lean();
+  return docs.map(d => d.dataKey.slice('baileys_creds_'.length));
+}
+
+module.exports = { useMongoAuthState, clearMongoAuthState, listSavedUserIds };
