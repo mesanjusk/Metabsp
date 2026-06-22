@@ -32,6 +32,7 @@ import WhatsAppPage           from './pages/WhatsAppPage';
 import SuperAdminSettingsPage from './pages/SuperAdminSettingsPage';
 import RolesPage              from './pages/RolesPage';
 import UsersPage              from './pages/UsersPage';
+import RoutingAdminPage       from './pages/RoutingAdminPage';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Metabsp WhatsApp Cloud redirect / protected route helpers
@@ -55,6 +56,7 @@ const bulkProtectedPages = [
   ['/dashboard',            <DashboardPage />,         MODULE_PERMISSIONS.dashboard],
   ['/notifications',        <NotificationsPage />,     MODULE_PERMISSIONS.notifications],
   ['/admin',                <AdminPage />,             MODULE_PERMISSIONS.admin],
+  ['/admin/routing',        <RoutingAdminPage />,      MODULE_PERMISSIONS.admin],
   ['/whatsapp-bulk',        <WhatsAppPage />,          MODULE_PERMISSIONS.whatsapp],
   ['/super-admin/settings', <SuperAdminSettingsPage />,MODULE_PERMISSIONS.superAdminSettings],
   ['/roles',                <RolesPage />,             null],

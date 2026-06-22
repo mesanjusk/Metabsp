@@ -7,6 +7,7 @@ const Contact = require('../repositories/contact');
 const AutoReply = require('../repositories/AutoReply');
 const CampaignMessageStatus = require('../repositories/CampaignMessageStatus');
 const WhatsAppAccount = require('../repositories/whatsappAccount');
+const RoutingConfig = require('../models/RoutingConfig');
 const { emitNewMessage } = require('../socket');
 const { resolveAutoReplyAction, resolveReplyDelayMs, getCatalogFields } = require('../middleware/autoReply');
 const {
@@ -1317,6 +1318,30 @@ const receiveWebhook = (req, res) => {
             { _id: matchedAccount._id },
             { $set: { lastWebhookAt: new Date(), lastSyncAt: new Date(), webhookSubscribed: true, status: 'active' } }
           );
+        }
+      }
+
+      // ── Webhook routing: forward full payload to registered app URLs ─────────
+      const seenPhoneNumberIds = new Set([
+        ...incoming.map((m) => m.phoneNumberId),
+        ...statuses.map((s) => s.phoneNumberId),
+      ]);
+
+      for (const phoneNumberId of seenPhoneNumberIds) {
+        if (!phoneNumberId) continue;
+        try {
+          const route = await RoutingConfig.findOne({ phoneNumberId, isActive: true }).lean();
+          if (!route) continue;
+
+          const ts = new Date().toISOString();
+          console.log(`[routing] ${ts} phone_number_id=${phoneNumberId} → ${route.appName} (${route.appUrl})`);
+
+          await axios.post(route.appUrl, req.body, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 10000,
+          });
+        } catch (forwardErr) {
+          console.error(`[routing] forward failed for phone_number_id=${phoneNumberId}:`, forwardErr.message);
         }
       }
     });
