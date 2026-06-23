@@ -12,7 +12,7 @@ function extractMessageText(message = {}) { if (message?.text?.body) return Stri
 function generateImageWithName(baseUrl, name, pos = {}) { if (!baseUrl || !String(baseUrl).includes('/upload/')) return baseUrl; const safeName = String(name || 'Guest').trim() || 'Guest'; const encodedText = encodeURIComponent(safeName); const color = String(pos?.color || '#000000').replace('#', '') || '000000'; const originalWidth = Number(pos?.imageWidth) > 0 ? Number(pos.imageWidth) : 0; const originalHeight = Number(pos?.imageHeight) > 0 ? Number(pos.imageHeight) : 0; const previewWidth = Number(pos?.previewWidth) > 0 ? Number(pos.previewWidth) : 0; let x = 150; let y = 200; let fontSize = Number(pos?.fontSize) > 0 ? Number(pos.fontSize) : 30; const hasPercentPosition = Number.isFinite(Number(pos?.xPercent)) && Number.isFinite(Number(pos?.yPercent)); if (hasPercentPosition && originalWidth > 0 && originalHeight > 0) { const xPercent = clamp(Number(pos.xPercent), 0, 0.98); const yPercent = clamp(Number(pos.yPercent), 0, 0.98); x = Math.round(originalWidth * xPercent); y = Math.round(originalHeight * yPercent); if (Number(pos?.fontSize) > 0 && previewWidth > 0) fontSize = Math.max(12, Math.round((Number(pos.fontSize) / previewWidth) * originalWidth)); } else { x = Number.isFinite(Number(pos?.x)) ? Math.round(Number(pos.x)) : 150; y = Number.isFinite(Number(pos?.y)) ? Math.round(Number(pos.y)) : 200; } return baseUrl.replace('/upload/', `/upload/l_text:Arial_${fontSize}_bold:${encodedText},co_rgb:${color},g_north_west,x_${x},y_${y}/`); }
 async function createOutboundLog({ to, contactName = '', bodyText = '', templateName = '', messageType = 'TEXT', status = 'SENT', source = 'MANUAL', isAutoReply = false, providerResponse = {}, replyToMessageId = '' }) { const log = await WhatsAppMessage.create({ to: normalizePhone(to), from: process.env.WHATSAPP_PHONE_NUMBER_ID || '', contactName, conversationKey: getConversationKey(to), waMessageId: providerResponse?.messages?.[0]?.id || '', replyToMessageId, direction: 'OUTGOING', source, messageType, templateName, bodyText, status, isAutoReply, meta: providerResponse || {} }); emitEvent('whatsapp_message_logged', log); return log; }
 async function runAutoReply(incomingMessage) { const incomingText = String(incomingMessage?.bodyText || '').trim().toLowerCase(); const rules = await WhatsAppAutoReplyRule.find({ isActive: true }).sort({ priority: 1, createdAt: -1 }).lean(); for (const rule of rules) { const trigger = String(rule.triggerText || '').trim().toLowerCase(); const matched = rule.matchType === 'ALL' ? true : rule.matchType === 'EXACT' ? incomingText === trigger : rule.matchType === 'STARTS_WITH' ? incomingText.startsWith(trigger) : incomingText.includes(trigger); if (!matched) continue; try { let providerResponse = {}; if (rule.replyType === 'TEMPLATE' && rule.templateName) providerResponse = await sendTemplateMessage({ to: incomingMessage.from, templateName: rule.templateName, languageCode: rule.templateLanguage || 'en_US' }); else if (rule.replyText) providerResponse = await sendTextMessage({ to: incomingMessage.from, body: rule.replyText }); else continue; await createOutboundLog({ to: incomingMessage.from, contactName: incomingMessage.contactName, bodyText: rule.replyType === 'TEXT' ? rule.replyText : '', templateName: rule.replyType === 'TEMPLATE' ? rule.templateName : '', messageType: rule.replyType === 'TEMPLATE' ? 'TEMPLATE' : 'TEXT', status: providerResponse?.messages?.length ? 'SENT' : 'QUEUED', source: 'AUTO_REPLY', isAutoReply: true, providerResponse, replyToMessageId: incomingMessage.waMessageId || '' }); if (rule.stopAfterMatch !== false) break; } catch (error) { await createOutboundLog({ to: incomingMessage.from, contactName: incomingMessage.contactName, bodyText: rule.replyType === 'TEXT' ? rule.replyText : '', templateName: rule.replyType === 'TEMPLATE' ? rule.templateName : '', messageType: rule.replyType === 'TEMPLATE' ? 'TEMPLATE' : 'TEXT', status: 'FAILED', source: 'AUTO_REPLY', isAutoReply: true, providerResponse: { error: error?.response?.data || error.message }, replyToMessageId: incomingMessage.waMessageId || '' }); break; } } }
-async function saveIncomingMessage(message, contactMap = {}) { const from = normalizePhone(message?.from); if (!from) return null; const waMessageId = String(message?.id || ''); const existing = waMessageId ? await WhatsAppMessage.findOne({ waMessageId }) : null; if (existing) return existing; const created = await WhatsAppMessage.create({ to: process.env.WHATSAPP_PHONE_NUMBER_ID || '', from, contactName: contactMap[from] || '', conversationKey: getConversationKey(from), waMessageId, direction: 'INCOMING', source: 'WEBHOOK', messageType: String(message?.type || 'TEXT').toUpperCase(), bodyText: extractMessageText(message), mediaUrl: message?.image?.id || message?.document?.id || '', status: 'RECEIVED', meta: message || {} }); emitEvent('whatsapp_message_logged', created); emitEvent('whatsapp_incoming_message', created); await Notification.create({ title: 'New WhatsApp message', message: `${created.contactName || from} sent a new message`, type: 'WHATSAPP', targetRoles: ['ADMIN', 'SENIOR_TEAM'] }).catch(() => null); await runAutoReply(created); return created; }
+async function saveIncomingMessage(message, contactMap = {}) { const from = normalizePhone(message?.from); if (!from) return null; const waMessageId = String(message?.id || ''); const existing = waMessageId ? await WhatsAppMessage.findOne({ waMessageId }) : null; if (existing) return existing; const created = await WhatsAppMessage.create({ to: process.env.WHATSAPP_PHONE_NUMBER_ID || '', from, contactName: contactMap[from] || '', conversationKey: getConversationKey(from), waMessageId, direction: 'INCOMING', source: 'WEBHOOK', messageType: String(message?.type || 'TEXT').toUpperCase(), bodyText: extractMessageText(message), mediaUrl: message?.image?.id || message?.document?.id || '', status: 'RECEIVED', meta: message || {} }); emitEvent('whatsapp_message_logged', created); emitEvent('whatsapp_incoming_message', created); await Notification.create({ title: 'New WhatsApp message', message: `${created.contactName || from} sent a new message`, type: 'WHATSAPP', targetRoles: ['ADMIN', 'SENIOR_TEAM'] }).catch(() => null); const handled = await handleMagicLinkTriggers(created); if (!handled) await runAutoReply(created); return created; }
 async function getInbox(req, res) { const messages = await WhatsAppMessage.find({ conversationKey: { $ne: '' } }).sort({ createdAt: -1 }).limit(400).lean(); const grouped = new Map(); for (const item of messages) { const key = item.conversationKey || getConversationKey(item.from || item.to); if (!key) continue; const current = grouped.get(key); if (!current) grouped.set(key, { conversationKey: key, phone: key, contactName: item.contactName || '', lastMessage: item.bodyText || item.templateName || item.messageType, lastMessageAt: item.createdAt, lastDirection: item.direction, unreadCount: item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0, lastStatus: item.status, messages: 1 }); else { current.unreadCount += item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0; current.messages += 1; if (!current.contactName && item.contactName) current.contactName = item.contactName; } } res.json(Array.from(grouped.values()).sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt))); }
 async function getConversation(req, res) { const conversationKey = getConversationKey(req.params.conversationKey); const rows = await WhatsAppMessage.find({ conversationKey }).sort({ createdAt: 1 }).lean(); res.json(rows); }
 async function markConversationRead(req, res) { const conversationKey = getConversationKey(req.params.conversationKey); await WhatsAppMessage.updateMany({ conversationKey, direction: 'INCOMING', status: { $in: ['RECEIVED', 'DELIVERED'] } }, { $set: { status: 'READ' } }); res.json({ message: 'Conversation marked as read' }); }
@@ -36,4 +36,52 @@ async function getGroups(req, res) {
     res.json([]);
   }
 }
+
+async function generateMagicLink(user) {
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  user.magicToken = token;
+  user.magicTokenExpire = new Date(Date.now() + 30 * 60 * 1000);
+  await user.save();
+  const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || '';
+  return `${clientUrl}/magic-login?token=${token}`;
+}
+
+async function handleMagicLinkTriggers(incomingMessage) {
+  const text = String(incomingMessage?.bodyText || '').trim().toUpperCase();
+  if (text !== 'REGISTER' && text !== 'RESET') return false;
+
+  const user = await User.findOne({ mobile: incomingMessage.from });
+  if (!user) {
+    const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || '';
+    try {
+      await sendTextMessage({ to: incomingMessage.from, body: `No account found for this number.\nPlease sign up at: ${clientUrl}/signup` });
+    } catch (e) {
+      console.error('[magic-link] send error:', e.message);
+    }
+    return true;
+  }
+
+  try {
+    const magicLink = await generateMagicLink(user);
+    const body = text === 'REGISTER'
+      ? `👋 Welcome back, *${user.name}*!\nYou already have an account.\n📱 Mobile: ${user.mobile}\n\n🔗 Click to login & change password:\n${magicLink}\n\n⚠️ Link expires in 30 minutes.`
+      : `🔑 Password Reset\nClick the link below to login and set a new password:\n\n🔗 ${magicLink}\n\n⚠️ Link expires in 30 minutes.\nGo to Profile → Change Password after logging in.`;
+
+    await sendTextMessage({ to: incomingMessage.from, body });
+    await createOutboundLog({
+      to: incomingMessage.from,
+      contactName: incomingMessage.contactName,
+      bodyText: body,
+      messageType: 'TEXT',
+      status: 'SENT',
+      source: 'AUTO_REPLY',
+      isAutoReply: true,
+    });
+  } catch (e) {
+    console.error('[magic-link] error generating or sending link:', e.message);
+  }
+  return true;
+}
+
 module.exports = { sendText, getRecipients, sendInvitation, getInbox, getConversation, markConversationRead, verifyWebhook, receiveWebhook, getGroups };

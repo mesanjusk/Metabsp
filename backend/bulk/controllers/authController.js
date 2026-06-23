@@ -57,9 +57,18 @@ async function login(req, res) {
     }
 
     // DB lookup — support login by mobile OR username
-    const user = await User.findOne({
+    let user = await User.findOne({
       $or: [{ mobile: identifier }, { username: identifier }],
     }).populate('roleId');
+
+    // Fallback: last-10-digit regex (handles +91 prefix stored vs bare 10-digit typed)
+    if (!user) {
+      const digits = identifier.replace(/\D/g, '');
+      const last10 = digits.slice(-10);
+      if (last10.length === 10) {
+        user = await User.findOne({ mobile: { $regex: last10 + '$' } }).populate('roleId');
+      }
+    }
 
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
     if (!user.isActive) return res.status(403).json({ message: 'Account is inactive' });
@@ -77,4 +86,28 @@ async function me(req, res) {
   return res.json(req.user);
 }
 
-module.exports = { login, me, getJwtSecret };
+async function magicLogin(req, res) {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).json({ message: 'Token is required' });
+
+    const user = await User.findOne({
+      magicToken: token,
+      magicTokenExpire: { $gt: new Date() },
+    }).populate('roleId');
+
+    if (!user) {
+      return res.status(400).json({ message: 'Magic link is invalid or has expired' });
+    }
+
+    user.magicToken = undefined;
+    user.magicTokenExpire = undefined;
+    await user.save();
+
+    return res.json({ token: generateDbToken(user._id), user });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || 'Magic login failed' });
+  }
+}
+
+module.exports = { login, me, magicLogin, getJwtSecret };

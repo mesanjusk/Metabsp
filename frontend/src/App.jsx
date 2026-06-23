@@ -25,6 +25,7 @@ import { MODULE_PERMISSIONS } from './utils/accessControl';
 import LoginPage              from './pages/LoginPage';
 import SignupPage             from './pages/SignupPage';
 import ForgotPasswordPage     from './pages/ForgotPasswordPage';
+import MagicLoginPage         from './pages/MagicLoginPage';
 import DashboardPage          from './pages/DashboardPage';
 import NotificationsPage      from './pages/NotificationsPage';
 import AdminPage              from './pages/AdminPage';
@@ -97,6 +98,7 @@ export default function App() {
                   <Route path="/bulk-login"      element={<LoginPage />} />
                   <Route path="/signup"          element={<SignupPage />} />
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/magic-login"     element={<MagicLoginPage />} />
 
                   {/* ── Bulk protected routes ───────────────────────────────── */}
                   {bulkProtectedPages.map(([path, page, permission]) => (
