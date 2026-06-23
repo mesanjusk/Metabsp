@@ -26,7 +26,9 @@ const userSchema = new mongoose.Schema({
     volunteerAssignments: { type: Number, default: 0 },
     teamAssignments:      { type: Number, default: 0 }
   },
-  isActive: { type: Boolean, default: true }
+  isActive:         { type: Boolean, default: true },
+  magicToken:       { type: String },
+  magicTokenExpire: { type: Date },
 }, { timestamps: true });
 
 // username unique per tenant
