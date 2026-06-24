@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Accordion, AccordionDetails, AccordionSummary,
   Alert, Avatar, Box, Button, Card, CardContent, Checkbox, Chip,
   CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
-  Divider, FormControlLabel, Grid, LinearProgress,
-  List, ListItemButton, ListItemText, MenuItem, Stack, Switch,
-  Tab, Tabs, TextField, Tooltip, Typography,
+  Divider, FormControlLabel, Grid, InputAdornment, LinearProgress,
+  List, ListItemButton, ListItemText, MenuItem, Paper, Stack, Switch,
+  Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Tabs, TextField, Tooltip, Typography,
 } from '@mui/material';
 import AddIcon          from '@mui/icons-material/Add';
 import SendIcon         from '@mui/icons-material/Send';
@@ -22,6 +25,9 @@ import NavigateNextIcon     from '@mui/icons-material/NavigateNext';
 import NavigateBeforeIcon   from '@mui/icons-material/NavigateBefore';
 import ExpandMoreIcon   from '@mui/icons-material/ExpandMore';
 import HistoryIcon      from '@mui/icons-material/History';
+import GroupsIcon       from '@mui/icons-material/Groups';
+import SearchIcon       from '@mui/icons-material/Search';
+import SaveAltIcon      from '@mui/icons-material/SaveAlt';
 import PageHeader    from '../components/PageHeader';
 import PageSurface   from '../components/PageSurface';
 import ResponsiveDialog from '../components/ResponsiveDialog';
@@ -52,6 +58,7 @@ const baileysTabs = [
   ['campaigns', 'Campaigns'],
   ['history',   'Blast History'],
   ['logs',      'Logs'],
+  ['groups',    'Group Members'],
   ['setup',     'Setup / QR'],
 ];
 
@@ -2234,6 +2241,219 @@ function CampaignsPanel({ isBaileys }) {
   );
 }
 
+// ── Group Members Panel ───────────────────────────────────────────────────────
+
+function GroupMembersPanel() {
+  const [groups,          setGroups]          = useState([]);
+  const [loading,         setLoading]         = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [roleFilter,      setRoleFilter]      = useState('all');
+  const [search,          setSearch]          = useState('');
+  const [checked,         setChecked]         = useState(new Set());
+  const [importing,       setImporting]       = useState(false);
+  const [importResult,    setImportResult]    = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    whatsappService.baileysGetGroupsWithMembers()
+      .then(({ data }) => setGroups(data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const allMembers = useMemo(() => {
+    const result = [];
+    for (const g of groups) {
+      if (selectedGroupId && g.id !== selectedGroupId) continue;
+      for (const m of g.members || []) {
+        if (roleFilter === 'admin'  &&  !m.isAdmin) continue;
+        if (roleFilter === 'member' &&   m.isAdmin) continue;
+        const q = search.toLowerCase();
+        if (q && !m.name.toLowerCase().includes(q) && !m.phone.includes(q)) continue;
+        result.push({ ...m, groupId: g.id, groupName: g.name, key: `${g.id}::${m.phone}` });
+      }
+    }
+    return result;
+  }, [groups, selectedGroupId, roleFilter, search]);
+
+  const allChecked  = allMembers.length > 0 && checked.size === allMembers.length;
+  const someChecked = checked.size > 0 && !allChecked;
+
+  const toggleAll = () => {
+    if (allChecked) { setChecked(new Set()); return; }
+    setChecked(new Set(allMembers.map(m => m.key)));
+  };
+  const toggleOne = key => {
+    setChecked(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const exportRows = () => checked.size > 0 ? allMembers.filter(m => checked.has(m.key)) : allMembers;
+
+  const exportCSV = () => {
+    const rows = exportRows();
+    const csv = ['Name,Phone,Group,Role',
+      ...rows.map(m => `"${m.name}","${m.phone}","${m.groupName}",${m.isAdmin ? 'Admin' : 'Member'}`)
+    ].join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: 'group-members.csv' });
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const exportExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(
+      exportRows().map(m => ({ Name: m.name, Phone: m.phone, Group: m.groupName, Role: m.isAdmin ? 'Admin' : 'Member' }))
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Members');
+    XLSX.writeFile(wb, 'group-members.xlsx');
+  };
+
+  const exportJSON = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(exportRows(), null, 2)], { type: 'application/json' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: 'group-members.json' });
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    autoTable(doc, {
+      head: [['Name', 'Phone', 'Group', 'Role']],
+      body: exportRows().map(m => [m.name, m.phone, m.groupName, m.isAdmin ? 'Admin' : 'Member']),
+    });
+    doc.save('group-members.pdf');
+  };
+
+  const handleImport = async () => {
+    const contacts = exportRows().map(m => ({
+      name: m.name, mobile: m.phone, groupId: m.groupId, groupName: m.groupName, isAdmin: m.isAdmin,
+    }));
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const { data } = await whatsappService.baileysImportGroupContacts({ contacts });
+      setImportResult(data);
+    } catch (e) {
+      setImportResult({ error: e?.response?.data?.message || 'Import failed' });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const totalMembers = groups.reduce((s, g) => s + (g.members?.length || 0), 0);
+
+  return (
+    <Stack spacing={2}>
+      {/* Summary chips */}
+      <Stack direction="row" spacing={1} flexWrap="wrap">
+        <Chip icon={<GroupsIcon />} label={`${groups.length} Groups`} variant="outlined" />
+        <Chip label={`${totalMembers} Total Members`} variant="outlined" />
+        <Chip label={`${allMembers.length} Shown`} color="primary" variant="outlined" />
+        {checked.size > 0 && <Chip label={`${checked.size} Selected`} color="secondary" />}
+      </Stack>
+
+      {/* Filters */}
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-start">
+        <TextField select label="Group" size="small" value={selectedGroupId}
+          onChange={e => { setSelectedGroupId(e.target.value); setChecked(new Set()); }}
+          sx={{ minWidth: 200 }}>
+          <MenuItem value="">All Groups</MenuItem>
+          {groups.map(g => <MenuItem key={g.id} value={g.id}>{g.name} ({g.members?.length || 0})</MenuItem>)}
+        </TextField>
+        <TextField select label="Role" size="small" value={roleFilter}
+          onChange={e => { setRoleFilter(e.target.value); setChecked(new Set()); }}
+          sx={{ minWidth: 140 }}>
+          <MenuItem value="all">All</MenuItem>
+          <MenuItem value="admin">Admins Only</MenuItem>
+          <MenuItem value="member">Members Only</MenuItem>
+        </TextField>
+        <TextField size="small" placeholder="Search name or phone…" value={search}
+          onChange={e => { setSearch(e.target.value); setChecked(new Set()); }}
+          sx={{ flex: 1, minWidth: 200 }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+        />
+        <Button variant="outlined" size="small" onClick={() => {
+          setLoading(true);
+          whatsappService.baileysGetGroupsWithMembers()
+            .then(({ data }) => setGroups(data || []))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+        }}>Refresh</Button>
+      </Stack>
+
+      {/* Export + Import actions */}
+      <Stack direction="row" spacing={1} flexWrap="wrap">
+        <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center', mr: 1 }}>
+          Export{checked.size > 0 ? ` ${checked.size} selected` : ' all shown'}:
+        </Typography>
+        <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={exportCSV}>CSV</Button>
+        <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={exportExcel}>Excel</Button>
+        <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={exportJSON}>JSON</Button>
+        <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={exportPDF}>PDF</Button>
+        <Button size="small" variant="contained" startIcon={<SaveAltIcon />}
+          onClick={handleImport} disabled={importing || allMembers.length === 0}>
+          {importing ? 'Importing…' : `Add to MongoDB${checked.size > 0 ? ` (${checked.size})` : ''}`}
+        </Button>
+      </Stack>
+
+      {importResult && (
+        <Alert severity={importResult.error ? 'error' : 'success'} onClose={() => setImportResult(null)}>
+          {importResult.error || `Imported ${importResult.imported} contacts, ${importResult.skipped} skipped.`}
+        </Alert>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'grid', placeItems: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      ) : allMembers.length === 0 ? (
+        <Alert severity="info">
+          {groups.length === 0
+            ? 'No groups found. Make sure Baileys is connected and you are in at least one WhatsApp group.'
+            : 'No members match the current filters.'}
+        </Alert>
+      ) : (
+        <Paper variant="outlined">
+          <TableContainer sx={{ maxHeight: 520 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell padding="checkbox">
+                    <Checkbox size="small" checked={allChecked} indeterminate={someChecked} onChange={toggleAll} />
+                  </TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Phone</TableCell>
+                  <TableCell>Group</TableCell>
+                  <TableCell>Role</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {allMembers.map(m => (
+                  <TableRow key={m.key} hover selected={checked.has(m.key)}>
+                    <TableCell padding="checkbox">
+                      <Checkbox size="small" checked={checked.has(m.key)} onChange={() => toggleOne(m.key)} />
+                    </TableCell>
+                    <TableCell>{m.name || <Typography variant="body2" color="text.disabled">—</Typography>}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace' }}>{m.phone}</TableCell>
+                    <TableCell>{m.groupName}</TableCell>
+                    <TableCell>
+                      <Chip label={m.isAdmin ? 'Admin' : 'Member'} size="small"
+                        color={m.isAdmin ? 'warning' : 'default'} variant="outlined" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+    </Stack>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function WhatsAppPage() {
@@ -2624,6 +2844,7 @@ export default function WhatsAppPage() {
       {useBaileys && tab === 'campaigns' && <CampaignsPanel    isBaileys />}
       {useBaileys && tab === 'history'   && <BlastHistoryPanel isBaileys />}
       {useBaileys && tab === 'logs'      && <LogsPanel logs={baileysLogs} isBaileys />}
+      {useBaileys && tab === 'groups'  && <GroupMembersPanel />}
       {useBaileys && tab === 'setup'   && (
         <BaileysSetup
           status={baileysStatus}

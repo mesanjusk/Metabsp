@@ -35,6 +35,9 @@ const whatsappService = {
 
   baileysGetLogs:      ()           => api.get('/baileys/logs'),
 
+  baileysGetGroupsWithMembers: ()          => api.get('/baileys/groups'),
+  baileysImportGroupContacts:  (payload)   => api.post('/baileys/groups/import', payload),
+
   // ── Blast campaigns ───────────────────────────────────────────────────────
   getBlasts:           ()           => api.get('/blasts'),
   getBlast:            (id)         => api.get(`/blasts/${id}`),
