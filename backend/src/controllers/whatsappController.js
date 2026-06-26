@@ -1326,7 +1326,7 @@ const receiveWebhook = (req, res) => {
 
         if (matchedAccount?.callbackUrl) {
           axios.post(matchedAccount.callbackUrl, payload, {
-            timeout: 8000,
+            timeout: 35000,
             headers: { 'Content-Type': 'application/json', 'X-Metabsp-Event': 'message.received' },
           }).catch((err) => {
             const status = err.response?.status;
