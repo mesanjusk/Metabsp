@@ -42,6 +42,7 @@ const seedAdmin       = require('../bulk/seedAdmin');
 const usersRouter    = require('./routes/Users');
 const whatsappRouter = require('./routes/WhatsAppCloud');
 const webhookRouter  = require('./routes/webhook');
+const routingRouter  = require('./routes/routing');
 
 // ── Bulk-invite routes ────────────────────────────────────────────────────────
 const bulkCrudRoutes = require('../bulk/routes/crudRoutes');
@@ -122,6 +123,7 @@ app.use('/api/users',              usersRouter);
 app.use('/api/whatsapp',           whatsappRouter);
 app.use('/webhook',                webhookRouter);
 app.use('/api/whatsapp/webhook',   webhookRouter);
+app.use('/api/routing',            routingRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bulk-invite (WhatsApp Automation / Baileys) routes — mounted under /api/bulk/
@@ -138,6 +140,8 @@ app.use('/api/bulk/blasts',             require('../bulk/routes/blastRoutes'));
 app.use('/api/bulk/campaigns',          require('../bulk/routes/campaignRoutes'));
 app.use('/api/bulk/uploads',            require('../bulk/routes/uploadRoutes'));
 app.use('/api/bulk/system-settings',    require('../bulk/routes/systemSettingsRoutes'));
+app.use('/api/bulk/routing',            routingRouter);
+app.use('/api/routing',                 routingRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error handling
