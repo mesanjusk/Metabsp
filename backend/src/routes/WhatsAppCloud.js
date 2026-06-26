@@ -42,6 +42,7 @@ const {
   revokeApiKey,
   getSettings,
   saveSettings,
+  testCallback,
 } = require('../controllers/whatsappController');
 
 const Campaign = require('../../bulk/models/Campaign');
@@ -151,6 +152,7 @@ router.post('/campaigns/:id/send', requireAuth, async (req, res) => {
 // ── Account settings (callbackUrl + feature flags) ───────────────────────────
 router.get('/settings',  requireAuth, getSettings);
 router.post('/settings', requireAuth, saveSettings);
+router.post('/settings/test-callback', requireAuth, testCallback);
 
 // ── API Key management ────────────────────────────────────────────────────────
 router.get('/api-keys',     requireAuth, listApiKeys);

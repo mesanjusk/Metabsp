@@ -1328,7 +1328,12 @@ const receiveWebhook = (req, res) => {
           axios.post(matchedAccount.callbackUrl, payload, {
             timeout: 8000,
             headers: { 'Content-Type': 'application/json', 'X-Metabsp-Event': 'message.received' },
-          }).catch((err) => console.error('[whatsapp] callback forward failed:', matchedAccount.callbackUrl, err.message));
+          }).catch((err) => {
+            const status = err.response?.status;
+            const body = err.response?.data;
+            console.error('[whatsapp] callback forward failed:', matchedAccount.callbackUrl, err.message,
+              status ? `HTTP ${status}` : '', body ? JSON.stringify(body).slice(0, 200) : '');
+          });
         }
 
         if (matchedAccount?._id) {
@@ -1363,9 +1368,12 @@ const receiveWebhook = (req, res) => {
                 ...(forwardSignature ? { 'X-Hub-Signature-256': forwardSignature } : {}),
               },
               timeout: 10000,
-            }).catch((err) =>
-              console.error(`[routing] forward failed for ${route.appName}:`, err.message)
-            );
+            }).catch((err) => {
+              const status = err.response?.status;
+              const body = err.response?.data;
+              console.error(`[routing] forward failed for ${route.appName} (${route.appUrl}):`, err.message,
+                status ? `HTTP ${status}` : '', body ? JSON.stringify(body).slice(0, 200) : '');
+            });
           })
         );
       }
@@ -1446,6 +1454,53 @@ const saveSettings = asyncHandler(async (req, res) => {
   return res.json({ success: true, message: 'Settings saved.' });
 });
 
+// ── Callback URL test ─────────────────────────────────────────────────────────
+const testCallback = asyncHandler(async (req, res) => {
+  const account = await WhatsAppAccount.findOne({ userId: req.user.id, isActive: true }).lean();
+  const url = account?.callbackUrl;
+  if (!url) return res.status(400).json({ success: false, message: 'No callbackUrl configured in settings.' });
+
+  const testPayload = {
+    phoneNumberId: account?.phoneNumberId || 'test',
+    from: '911234567890',
+    to: account?.displayPhoneNumber || 'test',
+    message: 'Metabsp webhook test',
+    body: 'Metabsp webhook test',
+    text: 'Metabsp webhook test',
+    timestamp: new Date(),
+    time: new Date(),
+    status: 'received',
+    direction: 'incoming',
+    messageId: `test-${Date.now()}`,
+    type: 'text',
+    mediaId: '',
+    wabaId: account?.wabaId || 'test',
+    businessAccountId: '',
+    _test: true,
+  };
+
+  try {
+    const response = await axios.post(url, testPayload, {
+      timeout: 10000,
+      headers: { 'Content-Type': 'application/json', 'X-Metabsp-Event': 'message.received', 'X-Metabsp-Test': 'true' },
+    });
+    return res.json({ success: true, url, statusCode: response.status, message: `Delivery confirmed — HTTP ${response.status}` });
+  } catch (err) {
+    const status = err.response?.status;
+    const body = err.response?.data;
+    return res.json({
+      success: false,
+      url,
+      statusCode: status || null,
+      error: err.message,
+      responseBody: body || null,
+      message: status === 404
+        ? `HTTP 404 — the endpoint ${url} was reached but the route does not exist on that server. Ensure Print Mart has POST /api/whatsapp/webhook defined.`
+        : `Delivery failed: ${err.message}`,
+    });
+  }
+});
+
 // ── API Key management ────────────────────────────────────────────────────────
 const ApiKey = require('../../bulk/models/ApiKey');
 
@@ -1514,4 +1569,5 @@ module.exports = {
   revokeApiKey,
   getSettings,
   saveSettings,
+  testCallback,
 };
