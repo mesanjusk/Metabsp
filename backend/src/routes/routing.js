@@ -10,6 +10,17 @@ const router = express.Router();
 // Simplest: use protect (bulk) since the admin panel lives in the bulk UI.
 const guard = protect;
 
+const ALLOWED_URL_PREFIXES = /^https?:\/\//;
+const PRIVATE_IP = /^https?:\/\/(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/i;
+
+function validateAppUrl(url) {
+  if (!url || typeof url !== 'string') return 'appUrl is required';
+  if (!ALLOWED_URL_PREFIXES.test(url)) return 'appUrl must start with http:// or https://';
+  if (PRIVATE_IP.test(url)) return 'appUrl must not target a private/local IP address';
+  try { new URL(url); } catch (_) { return 'appUrl is not a valid URL'; }
+  return null;
+}
+
 router.get('/', guard, async (req, res) => {
   try {
     const configs = await RoutingConfig.find().sort({ createdAt: -1 }).lean();
@@ -25,6 +36,8 @@ router.post('/', guard, async (req, res) => {
     if (!phoneNumberId || !appName || !appUrl) {
       return res.status(400).json({ success: false, error: 'phoneNumberId, appName and appUrl are required' });
     }
+    const urlError = validateAppUrl(appUrl);
+    if (urlError) return res.status(400).json({ success: false, error: urlError });
     const config = await RoutingConfig.create({ phoneNumberId, appName, appUrl, isActive: isActive !== false });
     res.status(201).json({ success: true, data: config });
   } catch (err) {
@@ -35,6 +48,10 @@ router.post('/', guard, async (req, res) => {
 router.put('/:id', guard, async (req, res) => {
   try {
     const { phoneNumberId, appName, appUrl, isActive } = req.body;
+    if (appUrl !== undefined) {
+      const urlError = validateAppUrl(appUrl);
+      if (urlError) return res.status(400).json({ success: false, error: urlError });
+    }
     const config = await RoutingConfig.findByIdAndUpdate(
       req.params.id,
       { $set: { phoneNumberId, appName, appUrl, isActive } },
