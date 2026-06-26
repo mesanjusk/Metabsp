@@ -1227,26 +1227,28 @@ const receiveWebhook = (req, res) => {
 
         const phone = normalizePhone(payload.from);
         if (phone) {
-          await Contact.findOneAndUpdate(
-            { phone },
-            {
-              $setOnInsert: {
-                phone,
-                name: '',
-                userId: matchedAccount?.userId || null,
-                whatsappAccountId: matchedAccount?._id || null,
+          try {
+            await Contact.findOneAndUpdate(
+              { phone },
+              {
+                $setOnInsert: {
+                  phone,
+                  name: '',
+                  userId: matchedAccount?.userId || null,
+                  whatsappAccountId: matchedAccount?._id || null,
+                },
+                $set: {
+                  lastMessage: payload.message,
+                  lastSeen: payload.timestamp,
+                  'conversation.lastCustomerMessageAt': payload.timestamp,
+                  'conversation.windowOpen': true,
+                },
               },
-              $set: {
-                userId: matchedAccount?.userId || null,
-                whatsappAccountId: matchedAccount?._id || null,
-                lastMessage: payload.message,
-                lastSeen: payload.timestamp,
-                'conversation.lastCustomerMessageAt': payload.timestamp,
-                'conversation.windowOpen': true,
-              },
-            },
-            { upsert: true }
-          );
+              { upsert: true }
+            );
+          } catch (contactErr) {
+            console.error('[whatsapp] contact upsert failed:', contactErr.message);
+          }
         }
 
         if (!isDuplicate && payload.mediaId && matchedAccount?.accessTokenEncrypted) {
