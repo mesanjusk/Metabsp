@@ -10,6 +10,7 @@ const defaultConfig = {
   webhookHealthAlerts: false,
   defaultCountryCode: '+1',
   timezone: 'UTC',
+  callbackUrl: '',
 };
 
 export default function WhatsAppAttendanceSettings({
@@ -125,6 +126,16 @@ export default function WhatsAppAttendanceSettings({
           <TextField label="Default country code" value={form.defaultCountryCode || ''} onChange={(e) => setForm((prev) => ({ ...prev, defaultCountryCode: e.target.value }))} />
           <TextField label="Timezone" value={form.timezone || ''} onChange={(e) => setForm((prev) => ({ ...prev, timezone: e.target.value }))} />
         </Stack>
+
+        <TextField
+          label="Callback URL (external app)"
+          placeholder="https://your-other-app.com/webhook"
+          value={form.callbackUrl || ''}
+          onChange={(e) => setForm((prev) => ({ ...prev, callbackUrl: e.target.value }))}
+          fullWidth
+          type="url"
+          helperText="Incoming WhatsApp messages will be forwarded to this URL via POST. Leave blank to disable."
+        />
 
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">
           <Button variant="outlined" onClick={load} disabled={isLoading || isSaving}>Reload</Button>

@@ -36,6 +36,7 @@ const whatsappAccountSchema = new mongoose.Schema(
     connectedAt: { type: Date, default: Date.now },
     lastSyncAt: { type: Date, default: null },
     lastWebhookAt: { type: Date, default: null },
+    callbackUrl: { type: String, default: '', trim: true },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   {
