@@ -205,10 +205,14 @@ const startCatalogSession = async ({ rule, contactDoc }) => {
 const resolveAutoReplyRule = async (incomingText, filters = {}) => {
   let rules = await AutoReply.find({ isActive: true, ...filters }).sort({ createdAt: 1 }).lean();
 
+  if (!rules.length && filters.userId) {
+    rules = await AutoReply.find({ isActive: true, userId: filters.userId }).sort({ createdAt: 1 }).lean();
+  }
+
   if (!rules.length) {
     rules = await AutoReply.find({
       isActive: true,
-      $or: [{ userId: { $exists: false } }, { userId: null }, { userId: '' }],
+      $or: [{ userId: { $exists: false } }, { userId: null }],
     })
       .sort({ createdAt: 1 })
       .lean();
@@ -220,10 +224,14 @@ const resolveAutoReplyRule = async (incomingText, filters = {}) => {
 const resolveAutoReplyAction = async ({ incomingText, filters = {}, contactDoc = null }) => {
   let rules = await AutoReply.find({ isActive: true, ...filters }).sort({ createdAt: 1 });
 
+  if (!rules.length && filters.userId) {
+    rules = await AutoReply.find({ isActive: true, userId: filters.userId }).sort({ createdAt: 1 });
+  }
+
   if (!rules.length) {
     rules = await AutoReply.find({
       isActive: true,
-      $or: [{ userId: { $exists: false } }, { userId: null }, { userId: '' }],
+      $or: [{ userId: { $exists: false } }, { userId: null }],
     }).sort({ createdAt: 1 });
   }
 
