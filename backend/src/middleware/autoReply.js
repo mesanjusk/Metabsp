@@ -222,11 +222,6 @@ const resolveAutoReplyRule = async (incomingText, filters = {}) => {
 };
 
 const resolveAutoReplyAction = async ({ incomingText, filters = {}, contactDoc = null }) => {
-  // TEMP TEST — remove after verifying auto-reply pipeline works
-  if (normalizeIncomingText(incomingText) === 'testbot') {
-    return { replyType: 'text', reply: 'Auto-reply is working! Metabsp bot is online.' };
-  }
-
   let rules = await AutoReply.find({ isActive: true, ...filters }).sort({ createdAt: 1 });
 
   if (!rules.length && filters.userId) {
