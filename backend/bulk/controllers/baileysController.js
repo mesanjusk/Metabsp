@@ -286,9 +286,43 @@ async function saveRule(req, res) {
   }
 }
 
+// ── Auto-reply for Baileys incoming messages ──────────────────────────────────
+
+async function runBaileysAutoReply({ from, body, userId }) {
+  const incomingText = String(body || '').trim().toLowerCase();
+  if (!incomingText) return;
+
+  const rules = await BaileysRule.find({ isActive: true }).sort({ priority: 1, createdAt: -1 }).lean();
+  console.log(`[baileys:autoReply] "${incomingText}" against ${rules.length} rules, userId=${userId}`);
+
+  for (const rule of rules) {
+    const trigger = String(rule.triggerText || '').trim().toLowerCase();
+    const matched =
+      rule.matchType === 'ALL' ? true :
+      rule.matchType === 'EXACT' ? incomingText === trigger :
+      rule.matchType === 'STARTS_WITH' ? incomingText.startsWith(trigger) :
+      incomingText.includes(trigger);
+
+    if (!matched) continue;
+
+    console.log(`[baileys:autoReply] matched rule "${rule.name}" (${rule.matchType})`);
+
+    try {
+      if (rule.replyType === 'TEXT' && rule.replyText) {
+        await baileysService.sendText(userId, { to: from, body: rule.replyText });
+        console.log(`[baileys:autoReply] sent reply to ${from}`);
+      }
+    } catch (err) {
+      console.error(`[baileys:autoReply] send failed:`, err.message);
+    }
+
+    if (rule.stopAfterMatch !== false) break;
+  }
+}
+
 // ── Incoming (called from baileysService event) ───────────────────────────────
 
-async function saveIncomingMessage({ id, from, body, type, raw }) {
+async function saveIncomingMessage({ id, from, body, type, raw, userId }) {
   const existing = id
     ? await BaileysMessage.findOne({ baileysMessageId: id })
     : null;
@@ -316,6 +350,12 @@ async function saveIncomingMessage({ id, from, body, type, raw }) {
     type: 'WHATSAPP',
     targetRoles: ['ADMIN', 'SENIOR_TEAM'],
   }).catch(() => null);
+
+  if (String(type || '').toLowerCase() === 'text' && body) {
+    runBaileysAutoReply({ from: normalizePhone(from), body, userId }).catch((err) =>
+      console.error('[baileys:autoReply] error:', err.message)
+    );
+  }
 
   return created;
 }
