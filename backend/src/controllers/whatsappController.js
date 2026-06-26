@@ -1312,6 +1312,13 @@ const receiveWebhook = (req, res) => {
           }
         }
 
+        if (matchedAccount?.callbackUrl) {
+          axios.post(matchedAccount.callbackUrl, payload, {
+            timeout: 8000,
+            headers: { 'Content-Type': 'application/json', 'X-Metabsp-Event': 'message.received' },
+          }).catch((err) => console.error('[whatsapp] callback forward failed:', matchedAccount.callbackUrl, err.message));
+        }
+
         if (matchedAccount?._id) {
           await WhatsAppAccount.updateOne(
             { _id: matchedAccount._id },
@@ -1352,6 +1359,45 @@ const getAnalytics = asyncHandler(async (req, res) => {
       failedPercentage: pct(failed.length),
     },
   });
+});
+
+// ── Account Settings (callbackUrl + feature flags stored in metadata) ─────────
+const SETTINGS_KEYS = ['analyticsEnabled', 'autoReplyEnabled', 'webhookHealthAlerts', 'defaultCountryCode', 'timezone', 'callbackUrl'];
+
+const getSettings = asyncHandler(async (req, res) => {
+  const account = await WhatsAppAccount.findOne({ userId: req.user.id, isActive: true }).lean();
+  const meta = account?.metadata || {};
+  return res.json({
+    success: true,
+    data: {
+      analyticsEnabled:    meta.analyticsEnabled    ?? true,
+      autoReplyEnabled:    meta.autoReplyEnabled    ?? true,
+      webhookHealthAlerts: meta.webhookHealthAlerts ?? false,
+      defaultCountryCode:  meta.defaultCountryCode  ?? '+1',
+      timezone:            meta.timezone            ?? 'UTC',
+      callbackUrl:         account?.callbackUrl     ?? '',
+    },
+  });
+});
+
+const saveSettings = asyncHandler(async (req, res) => {
+  const { callbackUrl, ...metaFields } = Object.fromEntries(
+    SETTINGS_KEYS.filter(k => k in req.body).map(k => [k, req.body[k]])
+  );
+
+  const metaUpdate = Object.fromEntries(
+    Object.entries(metaFields).map(([k, v]) => [`metadata.${k}`, v])
+  );
+  if (callbackUrl !== undefined) metaUpdate.callbackUrl = String(callbackUrl).trim();
+
+  if (Object.keys(metaUpdate).length) {
+    await WhatsAppAccount.updateOne(
+      { userId: req.user.id, isActive: true },
+      { $set: metaUpdate }
+    );
+  }
+
+  return res.json({ success: true, message: 'Settings saved.' });
 });
 
 // ── API Key management ────────────────────────────────────────────────────────
@@ -1420,4 +1466,6 @@ module.exports = {
   createApiKey,
   listApiKeys,
   revokeApiKey,
+  getSettings,
+  saveSettings,
 };
