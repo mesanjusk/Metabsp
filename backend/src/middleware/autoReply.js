@@ -223,9 +223,11 @@ const resolveAutoReplyRule = async (incomingText, filters = {}) => {
 
 const resolveAutoReplyAction = async ({ incomingText, filters = {}, contactDoc = null }) => {
   let rules = await AutoReply.find({ isActive: true, ...filters }).sort({ createdAt: 1 });
+  console.log(`[autoReply] query1 filters=${JSON.stringify(filters)} found=${rules.length}`);
 
   if (!rules.length && filters.userId) {
     rules = await AutoReply.find({ isActive: true, userId: filters.userId }).sort({ createdAt: 1 });
+    console.log(`[autoReply] query2 userId-only found=${rules.length}`);
   }
 
   if (!rules.length) {
@@ -233,7 +235,11 @@ const resolveAutoReplyAction = async ({ incomingText, filters = {}, contactDoc =
       isActive: true,
       $or: [{ userId: { $exists: false } }, { userId: null }],
     }).sort({ createdAt: 1 });
+    console.log(`[autoReply] query3 global found=${rules.length}`);
   }
+
+  const text = normalizeIncomingText(incomingText);
+  console.log(`[autoReply] matching "${text}" against ${rules.length} rules: ${rules.map(r => r.keyword).join(', ')}`);
 
   const sessionRuleId = String(contactDoc?.customFields?.productCatalogSession?.ruleId || '');
   if (sessionRuleId) {
@@ -244,6 +250,7 @@ const resolveAutoReplyAction = async ({ incomingText, filters = {}, contactDoc =
   }
 
   const matchedRule = matchAutoReplyRule(incomingText, rules);
+  console.log(`[autoReply] matched=${matchedRule ? matchedRule.keyword : 'none'}`);
   if (!matchedRule) return null;
 
   if (String(matchedRule.ruleType || 'keyword') === 'product_catalog') {
