@@ -1056,6 +1056,10 @@ const verifyWebhook = (req, res) => {
   const challenge = req.query['hub.challenge'];
   const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN;
 
+  if (!verifyToken) {
+    console.error('[WhatsApp] WHATSAPP_WEBHOOK_VERIFY_TOKEN not configured — rejecting verification');
+    return res.sendStatus(403);
+  }
   if (mode === 'subscribe' && token === verifyToken) return res.status(200).send(challenge);
   return res.sendStatus(403);
 };
@@ -1079,7 +1083,11 @@ const receiveWebhook = (req, res) => {
     const enforceSignature = String(process.env.WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE).toLowerCase() !== 'false';
     const appSecret = String(process.env.META_APP_SECRET || process.env.WHATSAPP_APP_SECRET || '');
 
-    if (enforceSignature && appSecret) {
+    if (enforceSignature) {
+      if (!appSecret) {
+        console.error('[WhatsApp] META_APP_SECRET not configured — rejecting webhook');
+        return res.status(403).send('Webhook signature verification not configured');
+      }
       const signature = String(req.headers['x-hub-signature-256'] || '');
       if (!signature.startsWith('sha256=') || !req.rawBody) return res.status(403).send('Invalid signature');
 
@@ -1145,6 +1153,7 @@ const receiveWebhook = (req, res) => {
     res.status(200).json({ received: true });
 
     setImmediate(async () => {
+      try {
       for (const statusEvent of statuses) {
         const messageId = String(statusEvent?.id || '');
         const status = String(statusEvent?.status || '').toLowerCase();
@@ -1331,27 +1340,37 @@ const receiveWebhook = (req, res) => {
       }
 
       // ── Webhook routing: forward full payload to registered app URLs ─────────
-      const seenPhoneNumberIds = new Set([
+      const seenPhoneNumberIds = [...new Set([
         ...incoming.map((m) => m.phoneNumberId),
         ...statuses.map((s) => s.phoneNumberId),
-      ]);
+      ])].filter(Boolean);
 
-      for (const phoneNumberId of seenPhoneNumberIds) {
-        if (!phoneNumberId) continue;
-        try {
-          const route = await RoutingConfig.findOne({ phoneNumberId, isActive: true }).lean();
-          if (!route) continue;
+      if (seenPhoneNumberIds.length) {
+        const forwardBody = req.rawBody || Buffer.from(JSON.stringify(req.body));
+        const forwardSignature = req.headers['x-hub-signature-256'] || '';
 
-          const ts = new Date().toISOString();
-          console.log(`[routing] ${ts} phone_number_id=${phoneNumberId} → ${route.appName} (${route.appUrl})`);
+        const routes = await RoutingConfig.find({
+          phoneNumberId: { $in: seenPhoneNumberIds },
+          isActive: true,
+        }).lean();
 
-          await axios.post(route.appUrl, req.body, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 10000,
-          });
-        } catch (forwardErr) {
-          console.error(`[routing] forward failed for phone_number_id=${phoneNumberId}:`, forwardErr.message);
-        }
+        await Promise.allSettled(
+          routes.map((route) => {
+            console.log(`[routing] phone_number_id=${route.phoneNumberId} → ${route.appName} (${route.appUrl})`);
+            return axios.post(route.appUrl, forwardBody, {
+              headers: {
+                'Content-Type': 'application/json',
+                ...(forwardSignature ? { 'X-Hub-Signature-256': forwardSignature } : {}),
+              },
+              timeout: 10000,
+            }).catch((err) =>
+              console.error(`[routing] forward failed for ${route.appName}:`, err.message)
+            );
+          })
+        );
+      }
+      } catch (asyncErr) {
+        console.error('[whatsapp] webhook async processing error:', asyncErr);
       }
     });
   } catch (error) {

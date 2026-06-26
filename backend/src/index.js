@@ -90,7 +90,7 @@ app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(null, true); // allow all in dev; tighten in production
+    return callback(new Error(`CORS: origin '${origin}' not allowed`), false);
   },
   credentials: true,
 }));
@@ -109,6 +109,17 @@ app.use(compression());
 // Health check
 app.get('/', (_req, res) => {
   res.status(200).json({ ok: true, service: 'Metabsp Unified Backend (WhatsApp Cloud + Bulk Invite)' });
+});
+
+app.get('/health', async (_req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const state = mongoose.connection.readyState; // 1 = connected
+    if (state !== 1) return res.status(503).json({ ok: false, db: 'disconnected' });
+    res.status(200).json({ ok: true, db: 'connected' });
+  } catch (err) {
+    res.status(503).json({ ok: false, error: err.message });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,7 +152,6 @@ app.use('/api/bulk/campaigns',          require('../bulk/routes/campaignRoutes')
 app.use('/api/bulk/uploads',            require('../bulk/routes/uploadRoutes'));
 app.use('/api/bulk/system-settings',    require('../bulk/routes/systemSettingsRoutes'));
 app.use('/api/bulk/routing',            routingRouter);
-app.use('/api/routing',                 routingRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error handling
@@ -190,6 +200,17 @@ async function startServer() {
         console.error('[baileys] Auto-connect failed on boot:', err.message)
       );
     });
+
+    const shutdown = (signal) => {
+      console.log(`[server] ${signal} received — shutting down gracefully`);
+      server.close(() => {
+        const mongoose = require('mongoose');
+        mongoose.connection.close(false, () => process.exit(0));
+      });
+      setTimeout(() => process.exit(1), 10_000).unref();
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT',  () => shutdown('SIGINT'));
   } catch (err) {
     console.error('Failed to start server:', err.message);
     process.exit(1);
