@@ -208,7 +208,7 @@ const resolveAutoReplyRule = async (incomingText, filters = {}) => {
   if (!rules.length) {
     rules = await AutoReply.find({
       isActive: true,
-      $or: [{ userId: { $exists: false } }, { userId: null }, { userId: '' }],
+      $or: [{ userId: { $exists: false } }, { userId: null }],
     })
       .sort({ createdAt: 1 })
       .lean();
@@ -223,7 +223,7 @@ const resolveAutoReplyAction = async ({ incomingText, filters = {}, contactDoc =
   if (!rules.length) {
     rules = await AutoReply.find({
       isActive: true,
-      $or: [{ userId: { $exists: false } }, { userId: null }, { userId: '' }],
+      $or: [{ userId: { $exists: false } }, { userId: null }],
     }).sort({ createdAt: 1 });
   }
 
