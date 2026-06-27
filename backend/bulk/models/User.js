@@ -26,11 +26,16 @@ const userSchema = new mongoose.Schema({
     volunteerAssignments: { type: Number, default: 0 },
     teamAssignments:      { type: Number, default: 0 }
   },
-  isActive: { type: Boolean, default: true }
+  isActive:         { type: Boolean, default: true },
+  magicToken:       { type: String },
+  magicTokenExpire: { type: Date },
 }, { timestamps: true });
 
-// username unique per tenant
-userSchema.index({ username: 1, tenantId: 1 }, { unique: true });
+// username unique per tenant (partial: skip docs where username is null/missing)
+userSchema.index(
+  { username: 1, tenantId: 1 },
+  { unique: true, partialFilterExpression: { username: { $type: 'string' } } }
+);
 // mobile unique globally (mobile = account login identifier, empty strings excluded)
 userSchema.index(
   { mobile: 1 },

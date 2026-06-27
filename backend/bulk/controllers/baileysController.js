@@ -1,6 +1,7 @@
 const BaileysMessage = require('../models/BaileysMessage');
 const BaileysRule    = require('../models/WhatsAppAutoReplyRule'); // reuse same schema
 const Notification   = require('../models/Notification');
+const GroupContact   = require('../models/GroupContact');
 const { emitEvent }  = require('../services/socket');
 const baileysService = require('../services/baileysService');
 
@@ -259,6 +260,46 @@ async function sendInvitation(req, res) {
   });
 }
 
+// ── Group Members ─────────────────────────────────────────────────────────────
+
+async function getGroupsWithMembers(req, res) {
+  try {
+    const userId = req.user?._id?.toString() || '_global_';
+    const groups = await baileysService.getGroupsWithMembers(userId);
+    res.json(groups);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+async function importGroupContacts(req, res) {
+  try {
+    const { contacts } = req.body;
+    if (!Array.isArray(contacts) || !contacts.length) {
+      return res.status(400).json({ message: 'contacts array is required' });
+    }
+    const tenantId = req.user?.tenantId || null;
+    let imported = 0;
+    let skipped  = 0;
+    for (const c of contacts) {
+      if (!c.mobile || !c.groupId) { skipped++; continue; }
+      try {
+        await GroupContact.findOneAndUpdate(
+          { mobile: c.mobile, groupId: c.groupId },
+          { $set: { name: c.name || '', groupName: c.groupName || '', isAdmin: !!c.isAdmin, tenantId, source: 'WHATSAPP_GROUP' } },
+          { upsert: true }
+        );
+        imported++;
+      } catch (_) {
+        skipped++;
+      }
+    }
+    res.json({ message: `Imported ${imported} contacts, skipped ${skipped}`, imported, skipped });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 // ── Auto-reply rules ──────────────────────────────────────────────────────────
 
 async function getRules(req, res) {
@@ -387,4 +428,6 @@ module.exports = {
   sendInvitation,
   getRules,
   saveRule,
+  getGroupsWithMembers,
+  importGroupContacts,
 };

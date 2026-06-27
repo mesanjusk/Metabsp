@@ -143,6 +143,7 @@ const loadWhatsAppAccountFromWebhookIdentifiers = async (
   if (!account && normalizedDisplayPhone) {
     const candidates = await WhatsAppAccount.find({ status: { $ne: 'disconnected' } })
       .sort({ isActive: -1, updatedAt: -1 })
+      .limit(100)
       .lean();
     account = candidates.find((item) => normalizeDigits(item.displayPhoneNumber) === normalizedDisplayPhone) || null;
   }

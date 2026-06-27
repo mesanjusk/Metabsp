@@ -322,6 +322,26 @@ async function getGroups(userId = DEFAULT_USER) {
   }
 }
 
+async function getGroupsWithMembers(userId = DEFAULT_USER) {
+  const session = getSession(userId);
+  if (!session.socket || session.state.status !== 'CONNECTED') return [];
+  try {
+    const groups = await session.socket.groupFetchAllParticipating();
+    return Object.entries(groups).map(([id, meta]) => ({
+      id,
+      name: meta.subject || '',
+      members: (meta.participants || []).map(p => {
+        const phone = p.id.split('@')[0];
+        const name  = session.socket.contacts?.[p.id]?.notify || '';
+        return { phone, name, isAdmin: p.admin === 'admin' || p.admin === 'superadmin' };
+      }),
+    }));
+  } catch (e) {
+    console.error(`[baileys:${userId}] getGroupsWithMembers error:`, e.message);
+    return [];
+  }
+}
+
 async function autoConnectIfCredentialsExist(userId) {
   if (userId) {
     // Reconnect a specific user
@@ -352,4 +372,4 @@ async function autoConnectIfCredentialsExist(userId) {
   }
 }
 
-module.exports = { connect, disconnect, sendText, sendImage, sendButtonMessage, getStatus, getGroups, autoConnectIfCredentialsExist };
+module.exports = { connect, disconnect, sendText, sendImage, sendButtonMessage, getStatus, getGroups, getGroupsWithMembers, autoConnectIfCredentialsExist };

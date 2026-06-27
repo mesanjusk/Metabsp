@@ -12,6 +12,8 @@ const {
   sendInvitation,
   getRules,
   saveRule,
+  getGroupsWithMembers,
+  importGroupContacts,
 } = require('../controllers/baileysController');
 
 // Status & connection management
@@ -35,5 +37,9 @@ router.get('/logs', protect, getLogs);
 router.get('/rules',     protect, getRules);
 router.post('/rules',    protect, saveRule);
 router.put('/rules/:id', protect, saveRule);
+
+// Group members
+router.get('/groups',         protect, getGroupsWithMembers);
+router.post('/groups/import', protect, importGroupContacts);
 
 module.exports = router;
