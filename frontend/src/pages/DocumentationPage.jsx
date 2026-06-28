@@ -1,158 +1,141 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import {
   Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText,
   Typography, Paper, Stack, Divider, Chip, IconButton, Tooltip,
-  Accordion, AccordionSummary, AccordionDetails, useMediaQuery,
-  AppBar, Toolbar, alpha,
+  useMediaQuery, AppBar, Toolbar, Accordion, AccordionSummary,
+  AccordionDetails, Table, TableHead, TableRow, TableCell, TableBody,
+  TableContainer,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { motion, AnimatePresence } from 'framer-motion';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import LockIcon from '@mui/icons-material/Lock';
+import SendIcon from '@mui/icons-material/Send';
+import ArticleIcon from '@mui/icons-material/Article';
+import WebhookIcon from '@mui/icons-material/Webhook';
+import PeopleIcon from '@mui/icons-material/People';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import BuildIcon from '@mui/icons-material/Build';
+import HelpIcon from '@mui/icons-material/Help';
+import MenuIcon from '@mui/icons-material/Menu';
+import CloseIcon from '@mui/icons-material/Close';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
-// Icons
-import RocketLaunchIcon    from '@mui/icons-material/RocketLaunch';
-import LockIcon            from '@mui/icons-material/Lock';
-import SendIcon            from '@mui/icons-material/Send';
-import DescriptionIcon     from '@mui/icons-material/Description';
-import WebhookIcon         from '@mui/icons-material/Webhook';
-import ContactsIcon        from '@mui/icons-material/Contacts';
-import BarChartIcon        from '@mui/icons-material/BarChart';
-import CodeIcon            from '@mui/icons-material/Code';
-import BuildIcon           from '@mui/icons-material/Build';
-import HelpOutlineIcon     from '@mui/icons-material/HelpOutline';
-import ContentCopyIcon     from '@mui/icons-material/ContentCopy';
-import CheckIcon           from '@mui/icons-material/Check';
-import MenuIcon            from '@mui/icons-material/Menu';
-import ExpandMoreIcon      from '@mui/icons-material/ExpandMore';
-import CheckCircleIcon     from '@mui/icons-material/CheckCircle';
-import ArrowRightIcon      from '@mui/icons-material/ArrowRight';
-import MenuBookIcon        from '@mui/icons-material/MenuBook';
+const DRAWER_WIDTH = 260;
 
-const DRAWER_WIDTH = 256;
-
-// ─── Sidebar items ────────────────────────────────────────────────────────────
-const NAV_ITEMS = [
-  { id: 'getting-started', label: 'Getting Started',  icon: <RocketLaunchIcon /> },
-  { id: 'authentication',  label: 'Authentication',   icon: <LockIcon /> },
-  { id: 'sending',         label: 'Sending Messages', icon: <SendIcon /> },
-  { id: 'templates',       label: 'Templates',        icon: <DescriptionIcon /> },
-  { id: 'webhooks',        label: 'Webhooks',         icon: <WebhookIcon /> },
-  { id: 'contacts',        label: 'Contacts',         icon: <ContactsIcon /> },
-  { id: 'analytics',       label: 'Analytics',        icon: <BarChartIcon /> },
-  { id: 'sdk',             label: 'SDK Examples',     icon: <CodeIcon /> },
-  { id: 'troubleshooting', label: 'Troubleshooting',  icon: <BuildIcon /> },
-  { id: 'faq',             label: 'FAQ',              icon: <HelpOutlineIcon /> },
+const NAV_SECTIONS = [
+  { id: 'getting-started', label: 'Getting Started', icon: <RocketLaunchIcon fontSize="small" /> },
+  { id: 'authentication', label: 'Authentication', icon: <LockIcon fontSize="small" /> },
+  { id: 'sending-messages', label: 'Sending Messages', icon: <SendIcon fontSize="small" /> },
+  { id: 'templates', label: 'Templates', icon: <ArticleIcon fontSize="small" /> },
+  { id: 'webhooks', label: 'Webhooks', icon: <WebhookIcon fontSize="small" /> },
+  { id: 'contacts', label: 'Contacts', icon: <PeopleIcon fontSize="small" /> },
+  { id: 'analytics', label: 'Analytics', icon: <BarChartIcon fontSize="small" /> },
+  { id: 'troubleshooting', label: 'Troubleshooting', icon: <BuildIcon fontSize="small" /> },
+  { id: 'faq', label: 'FAQ', icon: <HelpIcon fontSize="small" /> },
 ];
 
-// ─── Code Block ───────────────────────────────────────────────────────────────
-function CodeBlock({ code, language = 'http' }) {
+function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    navigator.clipboard.writeText(code).then(() => {
+  const handle = () => {
+    navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   };
+  return (
+    <Tooltip title={copied ? 'Copied!' : 'Copy to clipboard'}>
+      <IconButton size="small" onClick={handle} sx={{ color: copied ? 'success.main' : 'rgba(255,255,255,0.5)' }}>
+        {copied ? <CheckCircleOutlineIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
+      </IconButton>
+    </Tooltip>
+  );
+}
 
+function CodeBlock({ code, language = 'javascript' }) {
   return (
     <Box sx={{ position: 'relative', mb: 2 }}>
-      <Paper
-        elevation={0}
+      <Box
         sx={{
-          bgcolor: '#1e1e2e',
-          borderRadius: 2,
-          overflow: 'hidden',
-          border: '1px solid',
-          borderColor: alpha('#fff', 0.08),
+          bgcolor: '#1e1e1e',
+          color: '#d4d4d4',
+          p: 2,
+          pt: 1.5,
+          borderRadius: 1,
+          fontFamily: 'monospace',
+          fontSize: '0.85rem',
+          overflowX: 'auto',
+          border: '1px solid rgba(255,255,255,0.08)',
         }}
       >
-        {/* Header bar */}
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ px: 2, py: 1, bgcolor: alpha('#fff', 0.05), borderBottom: '1px solid', borderColor: alpha('#fff', 0.08) }}
-        >
-          <Chip
-            label={language}
-            size="small"
-            sx={{ bgcolor: alpha('#cba6f7', 0.2), color: '#cba6f7', fontSize: 11, height: 20 }}
-          />
-          <Tooltip title={copied ? 'Copied!' : 'Copy code'}>
-            <IconButton size="small" onClick={copy} sx={{ color: '#cdd6f4' }}>
-              {copied ? <CheckIcon fontSize="small" sx={{ color: '#a6e3a1' }} /> : <ContentCopyIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1, pb: 1, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
+            {language}
+          </Typography>
+          <CopyButton text={code} />
         </Stack>
-        <Box
-          component="pre"
-          sx={{
-            m: 0,
-            p: 2,
-            overflowX: 'auto',
-            fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
-            fontSize: 13,
-            lineHeight: 1.7,
-            color: '#cdd6f4',
-            '& .comment': { color: '#6c7086' },
-            '& .keyword': { color: '#cba6f7' },
-            '& .string':  { color: '#a6e3a1' },
-            '& .number':  { color: '#fab387' },
-          }}
-        >
-          {code}
-        </Box>
-      </Paper>
+        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{code}</pre>
+      </Box>
     </Box>
   );
 }
 
-// ─── Section: Getting Started ─────────────────────────────────────────────────
-function GettingStartedSection() {
+function SectionHeading({ children }) {
+  return (
+    <Typography variant="h5" fontWeight={700} sx={{ mb: 2, mt: 1 }}>
+      {children}
+    </Typography>
+  );
+}
+
+function SubHeading({ children }) {
+  return (
+    <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, mt: 3 }}>
+      {children}
+    </Typography>
+  );
+}
+
+// ─── Section Content ──────────────────────────────────────────────────────────
+
+function GettingStarted() {
   return (
     <Box>
-      <SectionTitle icon={<RocketLaunchIcon color="primary" />} title="Getting Started" badge="Quick Start" />
-      <Typography variant="body1" color="text.secondary" mb={3}>
-        MetaBSP is a WhatsApp Business SaaS platform that lets you send messages, manage templates, run bulk campaigns,
-        and automate customer conversations — all through the official Meta Cloud API.
+      <SectionHeading>Getting Started</SectionHeading>
+      <Typography color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+        MetaBSP lets your business send and receive WhatsApp messages using Meta's official Cloud API.
+        Follow these steps to get up and running in minutes.
       </Typography>
 
       <SubHeading>Prerequisites</SubHeading>
-      <List disablePadding sx={{ mb: 3 }}>
-        {[
-          'A Meta Business Account (business.facebook.com)',
-          'A verified WhatsApp Business Account (WABA)',
-          'A phone number approved for WhatsApp Business API',
-          'A MetaBSP account (sign up at app.metabsp.com)',
-          'An API access token from your MetaBSP dashboard',
-        ].map((item, i) => (
-          <Stack key={i} direction="row" alignItems="flex-start" gap={1} mb={1}>
-            <CheckCircleIcon fontSize="small" color="success" sx={{ mt: 0.25 }} />
-            <Typography variant="body2">{item}</Typography>
-          </Stack>
-        ))}
-      </List>
+      <Box component="ul" sx={{ color: 'text.secondary', pl: 3, lineHeight: 2, mb: 3 }}>
+        <li>A verified Meta Business Account</li>
+        <li>A WhatsApp Business Account (WABA) with a verified phone number</li>
+        <li>An HTTPS-accessible webhook URL (required for receiving messages)</li>
+        <li>A MetaBSP account — sign up at metabsp.com/signup</li>
+      </Box>
 
-      <SubHeading>Quick Setup Steps</SubHeading>
+      <SubHeading>4-Step Setup</SubHeading>
       {[
-        { step: '1', title: 'Create your MetaBSP account', desc: 'Sign up and verify your email address at metabsp.com.' },
-        { step: '2', title: 'Connect your Meta Business Account', desc: 'Navigate to Settings → WhatsApp Accounts and click "Connect Account". Complete the Meta OAuth flow.' },
-        { step: '3', title: 'Register your phone number', desc: 'Add and verify a phone number in the WhatsApp Accounts section. You\'ll receive a 6-digit OTP via call or SMS.' },
-        { step: '4', title: 'Create your first API token', desc: 'Go to Settings → API Tokens and generate a key. Store it securely — it won\'t be shown again.' },
-        { step: '5', title: 'Send your first message', desc: 'Use the dashboard\'s "Send Message" panel or the REST API to send a test message to yourself.' },
-      ].map(item => (
-        <Paper key={item.step} variant="outlined" sx={{ p: 2, mb: 1.5, borderRadius: 2, display: 'flex', gap: 2 }}>
+        { step: '1', title: 'Create your MetaBSP account', desc: 'Sign up and verify your email at metabsp.com. Choose a plan that fits your messaging volume.' },
+        { step: '2', title: 'Connect WhatsApp via Embedded Signup', desc: 'Navigate to "WhatsApp Connect" and click the "Connect" button. Complete Meta\'s official OAuth flow to link your WhatsApp Business Account.' },
+        { step: '3', title: 'Configure your webhook', desc: 'Go to Settings → Webhooks and enter your HTTPS webhook URL and a verification token. MetaBSP will send a challenge request to verify ownership.' },
+        { step: '4', title: 'Send your first message', desc: 'Use the dashboard or API to send a template message to an opted-in contact. Check the analytics page to confirm delivery.' },
+      ].map(({ step, title, desc }) => (
+        <Paper key={step} elevation={0} sx={{ p: 2.5, mb: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, display: 'flex', gap: 2 }}>
           <Box
             sx={{
-              width: 32, height: 32, borderRadius: '50%', bgcolor: 'primary.main',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              width: 36, height: 36, borderRadius: '50%', bgcolor: 'primary.main', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 800, fontSize: 15, flexShrink: 0,
             }}
           >
-            <Typography variant="caption" fontWeight={700} color="white">{item.step}</Typography>
+            {step}
           </Box>
           <Box>
-            <Typography variant="body2" fontWeight={700}>{item.title}</Typography>
-            <Typography variant="body2" color="text.secondary">{item.desc}</Typography>
+            <Typography fontWeight={700}>{title}</Typography>
+            <Typography variant="body2" color="text.secondary">{desc}</Typography>
           </Box>
         </Paper>
       ))}
@@ -160,488 +143,462 @@ function GettingStartedSection() {
   );
 }
 
-// ─── Section: Authentication ──────────────────────────────────────────────────
-function AuthenticationSection() {
+function Authentication() {
+  const jwtCode = `// All API requests require a Bearer token in the Authorization header
+const response = await fetch('https://api.metabsp.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_JWT_TOKEN',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ ... }),
+});`;
+
+  const apiKeyCode = `// Alternatively, use an API Key in the X-Api-Key header
+const response = await fetch('https://api.metabsp.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'X-Api-Key': 'mbsp_live_xxxxxxxxxxxxxxxxxxxx',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ ... }),
+});`;
+
+  const loginCode = `// Obtain a JWT token by logging in
+const res = await fetch('https://api.metabsp.com/v1/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'you@example.com', password: 'yourpassword' }),
+});
+const { token } = await res.json();
+// token is valid for 24 hours`;
+
   return (
     <Box>
-      <SectionTitle icon={<LockIcon color="primary" />} title="Authentication" />
-      <Typography variant="body2" color="text.secondary" mb={3}>
-        MetaBSP supports two authentication methods for API access. All requests must be made over HTTPS.
+      <SectionHeading>Authentication</SectionHeading>
+      <Typography color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+        MetaBSP supports two authentication methods: JWT Bearer tokens (for web/user sessions)
+        and API Keys (for server-to-server integrations).
       </Typography>
 
       <SubHeading>JWT Bearer Token</SubHeading>
-      <Typography variant="body2" color="text.secondary" mb={1.5}>
-        Obtain a JWT by logging in via the <code>/api/auth/login</code> endpoint. The token expires after 24 hours.
-        Use the <code>Authorization</code> header with a <code>Bearer</code> prefix.
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Obtain a JWT by calling the login endpoint. Include it as a Bearer token in subsequent requests.
       </Typography>
-      <CodeBlock language="http" code={`POST /api/auth/login HTTP/1.1
-Content-Type: application/json
+      <CodeBlock code={loginCode} />
+      <CodeBlock code={jwtCode} />
 
-{
-  "username": "alice@example.com",
-  "password": "your_password"
-}
-
-# Response
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": { "id": "usr_123", "email": "alice@example.com", "role": "admin" }
-}
-
-# Use in subsequent requests:
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`} />
-
-      <SubHeading>API Key Authentication</SubHeading>
-      <Typography variant="body2" color="text.secondary" mb={1.5}>
-        Long-lived API keys are suitable for server-to-server integrations. Generate them in{' '}
-        <strong>Settings → API Tokens</strong>. Keys begin with the prefix <code>mbsp_</code>.
+      <SubHeading>API Key (X-Api-Key Header)</SubHeading>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Generate API keys in Settings → API Keys. Use the <code>X-Api-Key</code> header for server integrations.
+        API keys never expire unless rotated manually.
       </Typography>
-      <CodeBlock language="http" code={`# Pass via header
-GET /api/contacts HTTP/1.1
-X-Api-Key: mbsp_your_api_key_here
+      <CodeBlock code={apiKeyCode} />
 
-# Or via Authorization header (alternative)
-Authorization: Bearer mbsp_your_api_key_here`} />
-
-      <Paper
-        variant="outlined"
-        sx={{ p: 2, borderRadius: 2, bgcolor: alpha('#FF9800', 0.06), borderColor: alpha('#FF9800', 0.3) }}
-      >
-        <Typography variant="body2">
-          <strong>Security tip:</strong> Never expose API keys in client-side code or public repositories.
-          Use environment variables and rotate keys regularly. If a key is compromised, revoke it immediately
-          from the Security dashboard.
+      <Paper elevation={0} sx={{ p: 2, bgcolor: 'warning.light', borderRadius: 2, border: '1px solid', borderColor: 'warning.main' }}>
+        <Typography variant="body2" color="warning.dark" fontWeight={600}>
+          Security note: Never expose API keys or JWT tokens in client-side code or public repositories.
+          Use environment variables and server-side request proxying for production applications.
         </Typography>
       </Paper>
     </Box>
   );
 }
 
-// ─── Section: Sending Messages ────────────────────────────────────────────────
-function SendingSection() {
-  return (
-    <Box>
-      <SectionTitle icon={<SendIcon color="primary" />} title="Sending Messages" />
-
-      <SubHeading>Text Message</SubHeading>
-      <Typography variant="body2" color="text.secondary" mb={1.5}>
-        Send a plain text message to a recipient. The phone number must be in E.164 format.
-      </Typography>
-      <CodeBlock language="javascript" code={`// Node.js example
-const axios = require('axios');
-
-const response = await axios.post('https://api.metabsp.com/api/messages/send', {
-  to: '+14155552671',
-  type: 'text',
-  text: { body: 'Hello from MetaBSP! 👋' },
-}, {
+function SendingMessages() {
+  const textCode = `// Send a plain text message
+const res = await fetch('https://api.metabsp.com/v1/messages', {
+  method: 'POST',
   headers: {
-    'X-Api-Key': process.env.METABSP_API_KEY,
+    'Authorization': 'Bearer YOUR_TOKEN',
     'Content-Type': 'application/json',
   },
+  body: JSON.stringify({
+    to: '+15551234567',
+    type: 'text',
+    text: { body: 'Hello from MetaBSP!' },
+  }),
 });
+const data = await res.json();
+console.log(data.messageId); // wamid.XXX`;
 
-console.log(response.data);
-// { messageId: 'msg_abc123', status: 'queued', timestamp: '2026-06-27T09:00:00Z' }`} />
+  const templateCode = `// Send a pre-approved template message
+const res = await fetch('https://api.metabsp.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    to: '+15551234567',
+    type: 'template',
+    template: {
+      name: 'order_confirmation',
+      language: { code: 'en_US' },
+      components: [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: 'John Doe' },
+            { type: 'text', text: '#ORD-98765' },
+          ],
+        },
+      ],
+    },
+  }),
+});`;
+
+  const mediaCode = `// Send an image message
+const res = await fetch('https://api.metabsp.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    to: '+15551234567',
+    type: 'image',
+    image: {
+      link: 'https://example.com/product-image.jpg',
+      caption: 'Check out our new product!',
+    },
+  }),
+});`;
+
+  return (
+    <Box>
+      <SectionHeading>Sending Messages</SectionHeading>
+      <Typography color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+        The <code>/v1/messages</code> endpoint supports text, template, and media messages.
+        All messages must be sent to contacts who have opted in to receive WhatsApp communications
+        from your business.
+      </Typography>
+
+      <SubHeading>Text Message</SubHeading>
+      <CodeBlock code={textCode} />
 
       <SubHeading>Template Message</SubHeading>
-      <Typography variant="body2" color="text.secondary" mb={1.5}>
-        Template messages must be pre-approved by Meta. Pass the template name, language, and any variable components.
-      </Typography>
-      <CodeBlock language="javascript" code={`const response = await axios.post('https://api.metabsp.com/api/messages/send', {
-  to: '+14155552671',
-  type: 'template',
-  template: {
-    name: 'order_confirmation',
-    language: { code: 'en_US' },
-    components: [
-      {
-        type: 'body',
-        parameters: [
-          { type: 'text', text: 'John Doe' },
-          { type: 'text', text: 'ORD-98765' },
-          { type: 'text', text: '$49.99' },
-        ],
-      },
-    ],
-  },
-}, { headers: { 'X-Api-Key': process.env.METABSP_API_KEY } });`} />
+      <CodeBlock code={templateCode} />
 
-      <SubHeading>Media Message</SubHeading>
-      <Typography variant="body2" color="text.secondary" mb={1.5}>
-        Send images, documents, audio, or video. Provide a publicly accessible URL or upload via the Media API first.
-      </Typography>
-      <CodeBlock language="javascript" code={`// Send an image
-await axios.post('https://api.metabsp.com/api/messages/send', {
-  to: '+14155552671',
-  type: 'image',
-  image: {
-    link: 'https://cdn.example.com/invoice-preview.png',
-    caption: 'Your invoice is ready',
-  },
-}, { headers: { 'X-Api-Key': process.env.METABSP_API_KEY } });
-
-// Send a PDF document
-await axios.post('https://api.metabsp.com/api/messages/send', {
-  to: '+14155552671',
-  type: 'document',
-  document: {
-    link: 'https://cdn.example.com/invoice.pdf',
-    filename: 'Invoice_2026.pdf',
-    caption: 'Please find your invoice attached',
-  },
-}, { headers: { 'X-Api-Key': process.env.METABSP_API_KEY } });`} />
+      <SubHeading>Media Message (Image)</SubHeading>
+      <CodeBlock code={mediaCode} />
     </Box>
   );
 }
 
-// ─── Section: Templates ───────────────────────────────────────────────────────
-function TemplatesSection() {
+function Templates() {
+  const listCode = `// List all templates for your WABA
+const res = await fetch('https://api.metabsp.com/v1/templates', {
+  headers: { 'Authorization': 'Bearer YOUR_TOKEN' },
+});
+const { templates } = await res.json();
+// templates[].status: APPROVED | PENDING | REJECTED`;
+
+  const createCode = `// Create a new template (submitted to Meta for approval)
+const res = await fetch('https://api.metabsp.com/v1/templates', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    name: 'shipping_update',
+    category: 'UTILITY',
+    language: 'en_US',
+    components: [
+      {
+        type: 'HEADER',
+        format: 'TEXT',
+        text: 'Shipping Update',
+      },
+      {
+        type: 'BODY',
+        text: 'Hi {{1}}, your order {{2}} has shipped and will arrive by {{3}}.',
+      },
+      {
+        type: 'FOOTER',
+        text: 'MetaBSP Notifications',
+      },
+    ],
+  }),
+});`;
+
   return (
     <Box>
-      <SectionTitle icon={<DescriptionIcon color="primary" />} title="Message Templates" />
-      <Typography variant="body2" color="text.secondary" mb={3}>
-        Message templates are pre-approved message formats required for initiating conversations with customers.
-        All templates must be approved by Meta before use.
+      <SectionHeading>Templates</SectionHeading>
+      <Typography color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
+        WhatsApp requires pre-approved message templates for business-initiated conversations.
+        Templates are reviewed by Meta and typically approved within 24 hours.
       </Typography>
 
       <SubHeading>Template Categories</SubHeading>
-      <Stack direction="row" flexWrap="wrap" gap={1.5} mb={3}>
+      <Stack direction="row" spacing={1.5} flexWrap="wrap" sx={{ mb: 3 }}>
         {[
-          { cat: 'MARKETING', color: '#FF9800', desc: 'Promotions, offers, announcements' },
-          { cat: 'UTILITY',   color: '#2196F3', desc: 'Order updates, alerts, account info' },
-          { cat: 'AUTHENTICATION', color: '#4CAF50', desc: 'OTPs, verification codes' },
-        ].map(item => (
-          <Paper key={item.cat} variant="outlined" sx={{ p: 1.5, borderRadius: 2, minWidth: 160 }}>
-            <Chip label={item.cat} size="small" sx={{ bgcolor: alpha(item.color, 0.12), color: item.color, fontWeight: 700, mb: 0.5 }} />
-            <Typography variant="caption" color="text.secondary" display="block">{item.desc}</Typography>
+          { label: 'MARKETING', color: 'warning', desc: 'Promotions, offers, announcements' },
+          { label: 'UTILITY', color: 'info', desc: 'Transactional updates, order confirmations' },
+          { label: 'AUTHENTICATION', color: 'success', desc: 'OTPs, login verification codes' },
+        ].map(({ label, color, desc }) => (
+          <Paper key={label} elevation={0} sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, minWidth: 160 }}>
+            <Chip label={label} color={color} size="small" sx={{ mb: 0.75 }} />
+            <Typography variant="caption" display="block" color="text.secondary">{desc}</Typography>
           </Paper>
         ))}
       </Stack>
 
-      <SubHeading>Creating a Template</SubHeading>
-      <CodeBlock language="javascript" code={`const response = await axios.post('https://api.metabsp.com/api/templates', {
-  name: 'order_shipped',
-  category: 'UTILITY',
-  language: 'en_US',
-  components: [
-    {
-      type: 'HEADER',
-      format: 'TEXT',
-      text: 'Your order has shipped! 🚚',
-    },
-    {
-      type: 'BODY',
-      text: 'Hi {{1}}, your order #{{2}} has been shipped and is on its way. Expected delivery: {{3}}.',
-    },
-    {
-      type: 'FOOTER',
-      text: 'Reply STOP to unsubscribe from shipping updates.',
-    },
-  ],
-}, { headers: { 'X-Api-Key': process.env.METABSP_API_KEY } });
-
-// Response: { templateId: 'tpl_xyz', status: 'PENDING', message: 'Submitted to Meta for review' }`} />
-
-      <SubHeading>Variable Handling</SubHeading>
-      <Typography variant="body2" color="text.secondary" mb={1.5}>
-        Variables are referenced as <code>{'{{1}}'}</code>, <code>{'{{2}}'}</code>, etc. in template body text.
-        When sending, supply matching parameters in the <code>components[].parameters</code> array.
+      <SubHeading>Template Variables</SubHeading>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Use <code>{'{{1}}'}</code>, <code>{'{{2}}'}</code>, etc. as positional placeholders in template body text.
+        Pass the actual values in the <code>parameters</code> array when sending the message.
       </Typography>
 
-      <SubHeading>Approval Process</SubHeading>
-      {[
-        { status: 'PENDING',  color: '#FF9800', desc: 'Submitted and awaiting Meta review (typically 24–48 hours)' },
-        { status: 'APPROVED', color: '#4CAF50', desc: 'Template is approved and ready to use' },
-        { status: 'REJECTED', color: '#f44336', desc: 'Template was rejected. Edit and resubmit with corrections.' },
-        { status: 'DISABLED', color: '#9E9E9E', desc: 'Template has been paused by Meta or manually disabled' },
-      ].map(item => (
-        <Stack key={item.status} direction="row" gap={2} alignItems="flex-start" mb={1}>
-          <Chip label={item.status} size="small" sx={{ bgcolor: alpha(item.color, 0.12), color: item.color, fontWeight: 700, minWidth: 90 }} />
-          <Typography variant="body2" color="text.secondary">{item.desc}</Typography>
-        </Stack>
-      ))}
+      <SubHeading>List Templates API</SubHeading>
+      <CodeBlock code={listCode} />
+
+      <SubHeading>Create Template API</SubHeading>
+      <CodeBlock code={createCode} />
     </Box>
   );
 }
 
-// ─── Section: Webhooks ────────────────────────────────────────────────────────
-function WebhooksSection() {
+function Webhooks() {
+  const verifyCode = `// Express.js webhook verification handler
+app.get('/webhook', (req, res) => {
+  const mode      = req.query['hub.mode'];
+  const token     = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe' && token === process.env.WEBHOOK_VERIFY_TOKEN) {
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
+  }
+});`;
+
+  const sigCode = `// Verify webhook signature (Node.js / Express)
+const crypto = require('crypto');
+
+app.post('/webhook', (req, res) => {
+  const signature = req.headers['x-hub-signature-256'];
+  const body      = JSON.stringify(req.body);
+  const expected  = 'sha256=' + crypto
+    .createHmac('sha256', process.env.APP_SECRET)
+    .update(body)
+    .digest('hex');
+
+  if (signature !== expected) {
+    return res.sendStatus(401); // Invalid signature
+  }
+
+  // Process the verified event
+  const { entry } = req.body;
+  entry.forEach((e) => {
+    e.changes.forEach((change) => {
+      const messages = change.value?.messages || [];
+      messages.forEach((msg) => {
+        console.log('Received:', msg.type, 'from', msg.from);
+      });
+    });
+  });
+
+  res.sendStatus(200);
+});`;
+
   return (
     <Box>
-      <SectionTitle icon={<WebhookIcon color="primary" />} title="Webhooks" />
-      <Typography variant="body2" color="text.secondary" mb={3}>
-        MetaBSP forwards real-time events from the Meta API to your webhook endpoints.
-        Configure webhooks in <strong>Settings → Webhooks</strong>.
+      <SectionHeading>Webhooks</SectionHeading>
+      <Typography color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+        MetaBSP forwards WhatsApp webhook events to your configured URL in real time.
+        You must verify your webhook endpoint and validate payload signatures for security.
       </Typography>
 
-      <SubHeading>Setup</SubHeading>
-      <CodeBlock language="javascript" code={`// Register a webhook endpoint
-const response = await axios.post('https://api.metabsp.com/api/webhooks', {
-  url: 'https://yourapp.example.com/webhooks/whatsapp',
-  events: ['message.received', 'message.delivered', 'message.read', 'message.failed'],
-  secret: 'your_webhook_signing_secret',
-}, { headers: { 'X-Api-Key': process.env.METABSP_API_KEY } });`} />
-
-      <SubHeading>Webhook Payload — Incoming Message</SubHeading>
-      <CodeBlock language="json" code={`{
-  "event": "message.received",
-  "timestamp": "2026-06-27T09:15:42.000Z",
-  "wabaId": "waba_123456",
-  "data": {
-    "messageId": "wamid.ABCDef1234567890",
-    "from": "+14155552671",
-    "to": "+14155550100",
-    "type": "text",
-    "text": { "body": "Hello, I have a question about my order." },
-    "timestamp": "2026-06-27T09:15:41.000Z",
-    "contact": {
-      "name": "Jane Smith",
-      "waId": "14155552671"
-    }
-  }
-}`} />
-
-      <SubHeading>Webhook Payload — Message Status</SubHeading>
-      <CodeBlock language="json" code={`{
-  "event": "message.delivered",
-  "timestamp": "2026-06-27T09:16:00.000Z",
-  "data": {
-    "messageId": "msg_abc123",
-    "to": "+14155552671",
-    "status": "delivered",
-    "timestamp": "2026-06-27T09:15:59.000Z"
-  }
-}`} />
+      <SubHeading>Setup: Webhook URL & Verify Token</SubHeading>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        In Settings → Webhooks, enter your HTTPS URL and a secret verify token.
+        MetaBSP will call your URL with a GET request containing <code>hub.challenge</code>.
+        Your server must return the challenge value to confirm ownership.
+      </Typography>
+      <CodeBlock code={verifyCode} />
 
       <SubHeading>Signature Verification</SubHeading>
-      <Typography variant="body2" color="text.secondary" mb={1.5}>
-        MetaBSP signs every webhook request with HMAC-SHA256 using your webhook secret.
-        Always verify the signature before processing the payload.
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        All incoming webhook payloads include an <code>X-Hub-Signature-256</code> header.
+        Always verify this signature before processing events.
       </Typography>
-      <CodeBlock language="javascript" code={`const crypto = require('crypto');
-
-function verifyWebhookSignature(payload, signature, secret) {
-  const expectedSig = crypto
-    .createHmac('sha256', secret)
-    .update(JSON.stringify(payload))
-    .digest('hex');
-  return crypto.timingSafeEqual(
-    Buffer.from(signature, 'hex'),
-    Buffer.from(expectedSig, 'hex')
-  );
-}
-
-// Express.js middleware
-app.post('/webhooks/whatsapp', express.json(), (req, res) => {
-  const sig = req.headers['x-metabsp-signature'];
-  if (!verifyWebhookSignature(req.body, sig, process.env.WEBHOOK_SECRET)) {
-    return res.status(401).json({ error: 'Invalid signature' });
-  }
-  // Process event
-  console.log('Event:', req.body.event);
-  res.status(200).json({ ok: true });
-});`} />
+      <CodeBlock code={sigCode} />
 
       <SubHeading>Event Types</SubHeading>
-      {[
-        'message.received', 'message.delivered', 'message.read',
-        'message.failed', 'template.approved', 'template.rejected',
-        'account.connected', 'account.disconnected',
-      ].map(evt => (
-        <Chip key={evt} label={evt} size="small" variant="outlined" sx={{ mr: 1, mb: 1, fontFamily: 'monospace', fontSize: 12 }} />
-      ))}
+      <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 700 }}>Event</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {[
+              ['messages', 'Incoming message from a contact (text, image, audio, etc.)'],
+              ['message_deliveries', 'Delivery receipt — message reached the recipient\'s device'],
+              ['message_reads', 'Read receipt — recipient opened the message'],
+              ['message_echoes', 'Copy of outbound messages sent via the API'],
+              ['statuses', 'Status changes: sent, delivered, read, failed'],
+            ].map(([event, desc]) => (
+              <TableRow key={event} hover>
+                <TableCell><Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main' }}>{event}</Typography></TableCell>
+                <TableCell><Typography variant="body2" color="text.secondary">{desc}</Typography></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </Box>
   );
 }
 
-// ─── Section: Contacts ────────────────────────────────────────────────────────
-function ContactsSection() {
+function Contacts() {
+  const listCode = `// List contacts
+const res = await fetch('https://api.metabsp.com/v1/contacts?page=1&limit=50', {
+  headers: { 'Authorization': 'Bearer YOUR_TOKEN' },
+});
+const { contacts, total } = await res.json();`;
+
+  const createCode = `// Create a contact
+const res = await fetch('https://api.metabsp.com/v1/contacts', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    phone: '+15551234567',
+    name: 'Jane Smith',
+    tags: ['customer', 'vip'],
+    metadata: { customerId: 'CUS-001' },
+  }),
+});`;
+
+  const updateCode = `// Update a contact
+const res = await fetch('https://api.metabsp.com/v1/contacts/CONTACT_ID', {
+  method: 'PATCH',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ name: 'Jane Smith-Jones', tags: ['customer', 'vip', 'renewed'] }),
+});
+
+// Delete a contact
+await fetch('https://api.metabsp.com/v1/contacts/CONTACT_ID', {
+  method: 'DELETE',
+  headers: { 'Authorization': 'Bearer YOUR_TOKEN' },
+});`;
+
   return (
     <Box>
-      <SectionTitle icon={<ContactsIcon color="primary" />} title="Contacts" />
-      <Typography variant="body2" color="text.secondary" mb={3}>
-        MetaBSP maintains a contact directory synced with your WhatsApp Business conversations.
-        Contacts can be tagged, segmented, and targeted in bulk campaigns.
+      <SectionHeading>Contacts</SectionHeading>
+      <Typography color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+        Manage your contact list via the Contacts API. Contacts can be tagged, searched,
+        and enriched with custom metadata.
       </Typography>
-
       <SubHeading>List Contacts</SubHeading>
-      <CodeBlock language="javascript" code={`// GET /api/contacts
-const { data } = await axios.get('https://api.metabsp.com/api/contacts', {
-  params: { page: 1, limit: 50, tag: 'vip', search: 'john' },
-  headers: { 'X-Api-Key': process.env.METABSP_API_KEY },
-});
-// Returns: { contacts: [...], total: 1240, page: 1, pages: 25 }`} />
+      <CodeBlock code={listCode} />
+      <SubHeading>Create Contact</SubHeading>
+      <CodeBlock code={createCode} />
+      <SubHeading>Update &amp; Delete</SubHeading>
+      <CodeBlock code={updateCode} />
+    </Box>
+  );
+}
 
-      <SubHeading>Create / Update a Contact</SubHeading>
-      <CodeBlock language="javascript" code={`await axios.post('https://api.metabsp.com/api/contacts', {
-  phone: '+14155552671',
-  name: 'Jane Smith',
-  email: 'jane@example.com',
-  tags: ['customer', 'vip'],
-  customFields: { orderId: 'ORD-98765', tier: 'gold' },
-}, { headers: { 'X-Api-Key': process.env.METABSP_API_KEY } });`} />
+function Analytics() {
+  return (
+    <Box>
+      <SectionHeading>Analytics</SectionHeading>
+      <Typography color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+        MetaBSP's analytics dashboard and API provide insight into your messaging performance.
+        All metrics are derived from webhook delivery events and the WhatsApp Business Management API.
+      </Typography>
 
-      <SubHeading>Bulk Import via CSV</SubHeading>
-      <Typography variant="body2" color="text.secondary">
-        Upload a CSV file with columns: <code>phone</code>, <code>name</code>, <code>email</code>, <code>tags</code> (comma-separated inside quotes).
-        The import is processed asynchronously; check status at <code>GET /api/contacts/imports/:importId</code>.
+      <SubHeading>Available Metrics</SubHeading>
+      <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 3 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 700 }}>Metric</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Endpoint</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {[
+              ['messages_sent', 'Total messages dispatched via the API', '/v1/analytics/messages'],
+              ['messages_delivered', 'Messages confirmed delivered to device', '/v1/analytics/messages'],
+              ['messages_read', 'Messages opened by the recipient', '/v1/analytics/messages'],
+              ['delivery_rate', 'delivered / sent × 100', '/v1/analytics/summary'],
+              ['read_rate', 'read / delivered × 100', '/v1/analytics/summary'],
+              ['template_performance', 'Per-template delivery and read breakdown', '/v1/analytics/templates'],
+              ['failed_messages', 'Messages that failed with error codes', '/v1/analytics/failures'],
+            ].map(([metric, desc, endpoint]) => (
+              <TableRow key={metric} hover>
+                <TableCell><Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main' }}>{metric}</Typography></TableCell>
+                <TableCell><Typography variant="body2" color="text.secondary">{desc}</Typography></TableCell>
+                <TableCell><Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{endpoint}</Typography></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+        Analytics data is available with up to 90-day history. Time-series data is returned in hourly
+        or daily buckets depending on the <code>granularity</code> query parameter.
+        Use <code>?from=2024-01-01&to=2024-01-31&granularity=daily</code> to scope the range.
       </Typography>
     </Box>
   );
 }
 
-// ─── Section: Analytics ───────────────────────────────────────────────────────
-function AnalyticsSection() {
-  return (
-    <Box>
-      <SectionTitle icon={<BarChartIcon color="primary" />} title="Analytics" />
-      <Typography variant="body2" color="text.secondary" mb={3}>
-        Track message performance, campaign metrics, and account health through the Analytics API.
-      </Typography>
-
-      <SubHeading>Overview Metrics</SubHeading>
-      <CodeBlock language="javascript" code={`const { data } = await axios.get('https://api.metabsp.com/api/analytics/overview', {
-  params: { from: '2026-06-01', to: '2026-06-27', wabaId: 'waba_123456' },
-  headers: { 'X-Api-Key': process.env.METABSP_API_KEY },
-});
-
-/*
-{
-  sent: 12450,
-  delivered: 12100,
-  read: 8930,
-  failed: 350,
-  deliveryRate: 97.2,
-  readRate: 73.8,
-  templateBreakdown: [...]
-}
-*/`} />
-
-      <SubHeading>Campaign Analytics</SubHeading>
-      <CodeBlock language="javascript" code={`const { data } = await axios.get('https://api.metabsp.com/api/analytics/campaigns/camp_xyz', {
-  headers: { 'X-Api-Key': process.env.METABSP_API_KEY },
-});`} />
-    </Box>
-  );
-}
-
-// ─── Section: SDK Examples ────────────────────────────────────────────────────
-function SdkSection() {
-  return (
-    <Box>
-      <SectionTitle icon={<CodeIcon color="primary" />} title="SDK Examples" />
-
-      <SubHeading>Node.js</SubHeading>
-      <CodeBlock language="javascript" code={`npm install @metabsp/sdk
-
-// Usage
-const MetaBSP = require('@metabsp/sdk');
-const client = new MetaBSP({ apiKey: process.env.METABSP_API_KEY });
-
-// Send a text message
-const result = await client.messages.send({
-  to: '+14155552671',
-  type: 'text',
-  text: { body: 'Hello from MetaBSP Node.js SDK!' },
-});
-
-// List templates
-const templates = await client.templates.list({ status: 'APPROVED' });
-console.log(templates);`} />
-
-      <SubHeading>Python</SubHeading>
-      <CodeBlock language="python" code={`pip install metabsp-sdk
-
-# Usage
-from metabsp import MetaBSP
-
-client = MetaBSP(api_key=os.environ['METABSP_API_KEY'])
-
-# Send a text message
-result = client.messages.send(
-    to='+14155552671',
-    type='text',
-    text={'body': 'Hello from MetaBSP Python SDK!'}
-)
-
-# Send a template message
-result = client.messages.send(
-    to='+14155552671',
-    type='template',
-    template={
-        'name': 'order_confirmation',
-        'language': {'code': 'en_US'},
-        'components': [
-            {
-                'type': 'body',
-                'parameters': [
-                    {'type': 'text', 'text': 'Jane'},
-                    {'type': 'text', 'text': 'ORD-001'},
-                ],
-            }
-        ],
-    }
-)`} />
-
-      <SubHeading>cURL</SubHeading>
-      <CodeBlock language="bash" code={`# Send a text message
-curl -X POST https://api.metabsp.com/api/messages/send \\
-  -H "X-Api-Key: mbsp_your_api_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "to": "+14155552671",
-    "type": "text",
-    "text": { "body": "Hello from cURL!" }
-  }'
-
-# List templates
-curl https://api.metabsp.com/api/templates?status=APPROVED \\
-  -H "X-Api-Key: mbsp_your_api_key"
-
-# Get analytics overview
-curl "https://api.metabsp.com/api/analytics/overview?from=2026-06-01&to=2026-06-27" \\
-  -H "X-Api-Key: mbsp_your_api_key"`} />
-    </Box>
-  );
-}
-
-// ─── Section: Troubleshooting ─────────────────────────────────────────────────
-function TroubleshootingSection() {
-  const items = [
+function Troubleshooting() {
+  const issues = [
     {
-      problem: '401 Unauthorized on API requests',
-      solution: 'Check that your API key or JWT token is correctly set in the Authorization or X-Api-Key header. JWTs expire after 24 hours — re-authenticate to get a fresh token.',
+      error: '401 Unauthorized',
+      cause: 'Missing, expired, or malformed Authorization token.',
+      fix: 'Ensure the Authorization header is present and formatted as "Bearer <token>". JWT tokens expire after 24 hours — re-authenticate to get a fresh token.',
     },
     {
-      problem: 'Messages stuck in "queued" status',
-      solution: 'Verify that your WhatsApp Business Account is connected and the phone number is active. Check the account health in Settings → WhatsApp Accounts.',
+      error: '403 Forbidden',
+      cause: 'Your account or API key does not have permission to perform this action.',
+      fix: 'Check that your plan includes the feature you are trying to use. For template creation, ensure the connected WABA has completed Meta Business Verification.',
     },
     {
-      problem: 'Template rejected by Meta',
-      solution: 'Common reasons: promotional content in UTILITY templates, use of restricted words (e.g. "free", "guaranteed"), or placeholder variables not matching expected types. Review Meta\'s template guidelines and resubmit.',
+      error: 'Template REJECTED by Meta',
+      cause: 'Meta\'s automated review flagged policy violations in the template content.',
+      fix: 'Review Meta\'s template guidelines. Common rejections: promotional language in UTILITY templates, missing opt-out language in MARKETING templates, or vague variable placeholders. Edit and resubmit.',
     },
     {
-      problem: 'Webhook not receiving events',
-      solution: 'Ensure your webhook URL is publicly accessible (not localhost). The endpoint must respond with HTTP 200 within 5 seconds. Check the webhook logs in Settings → Webhooks → Delivery History.',
-    },
-    {
-      problem: '429 Rate Limit Exceeded',
-      solution: 'MetaBSP enforces rate limits aligned with Meta\'s API limits. Implement exponential backoff with jitter in your retry logic. Check your current rate limit tier in Settings → Billing.',
+      error: 'Webhook not receiving events',
+      cause: 'Webhook URL unreachable, failed signature verification, or subscription not active.',
+      fix: 'Verify your URL returns 200 to GET challenge requests. Check firewall rules allow inbound HTTPS from Meta IP ranges. Re-verify the webhook URL in Settings → Webhooks if subscription appears inactive.',
     },
   ];
 
   return (
     <Box>
-      <SectionTitle icon={<BuildIcon color="primary" />} title="Troubleshooting" />
+      <SectionHeading>Troubleshooting</SectionHeading>
+      <Typography color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+        Common errors and how to resolve them.
+      </Typography>
       <Stack spacing={2}>
-        {items.map((item, i) => (
-          <Paper key={i} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-            <Typography variant="body2" fontWeight={700} mb={0.5} color="error.main">
-              Problem: {item.problem}
+        {issues.map(({ error, cause, fix }) => (
+          <Paper key={error} elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+              <Chip label={error} color="error" size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
+            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+              <strong>Cause:</strong> {cause}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Solution: {item.solution}
+              <strong>Fix:</strong> {fix}
             </Typography>
           </Paper>
         ))}
@@ -650,130 +607,107 @@ function TroubleshootingSection() {
   );
 }
 
-// ─── Section: FAQ ─────────────────────────────────────────────────────────────
-function FaqSection() {
+function FAQ() {
   const faqs = [
     {
-      q: 'Do I need a Meta Business Account to use MetaBSP?',
-      a: 'Yes. MetaBSP uses the official WhatsApp Cloud API, which requires a verified Meta Business Account and an approved WhatsApp Business Account (WABA). You can create one at business.facebook.com.',
-    },
-    {
-      q: 'What is the difference between API keys and JWT tokens?',
-      a: 'JWT tokens are short-lived (24 hours) and are obtained by logging in with your credentials. API keys are long-lived tokens best suited for server-to-server integrations where a human login is not practical. Use API keys in production backends.',
+      q: 'Do contacts need to opt in before I can message them?',
+      a: 'Yes. WhatsApp requires explicit opt-in consent before a business can send messages to a user. You are responsible for collecting and recording opt-in consent via your own channels (website, app, etc.).',
     },
     {
       q: 'How long does template approval take?',
-      a: 'Meta typically reviews templates within 24–48 hours. Approval times can vary based on volume and template category. AUTHENTICATION templates are usually approved faster than MARKETING templates.',
+      a: 'Meta typically reviews templates within a few minutes to 24 hours. Complex or borderline templates may take longer. You will be notified via webhook and email when status changes.',
     },
     {
-      q: 'Can I send messages to users who have not messaged me first?',
-      a: 'Yes, but only using pre-approved message templates. To initiate a conversation outside a 24-hour customer service window, you must use a template message. Free-form messages can only be sent within 24 hours of the customer\'s last message.',
+      q: 'What message types can I send outside a 24-hour window?',
+      a: 'Outside the 24-hour customer service window you may only send pre-approved template messages. Free-form text, media, and interactive messages are restricted to the window opened by an inbound user message.',
     },
     {
-      q: 'What file types are supported for media messages?',
-      a: 'Image: JPEG, PNG (max 5MB). Video: MP4, 3GPP (max 16MB). Audio: AAC, MP4, AMR, OGG (max 16MB). Document: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX (max 100MB).',
+      q: 'Can I connect multiple WhatsApp Business Accounts?',
+      a: 'Yes. MetaBSP supports multi-WABA setups. Each connected account appears as a separate workspace in the dashboard with its own templates, contacts, and analytics.',
     },
     {
-      q: 'Is there a sandbox/test environment?',
-      a: 'Yes. Enable test mode in Settings → WhatsApp Accounts → Test Mode. In test mode, messages are not actually sent to recipients, and you can use any phone number format for testing.',
+      q: 'How do I handle rate limits?',
+      a: 'MetaBSP API enforces a default limit of 1000 requests per minute per account. If you exceed this, you will receive a 429 Too Many Requests response. WhatsApp Cloud API also enforces per-phone-number messaging limits based on your quality rating.',
     },
     {
-      q: 'How do I handle opt-outs (STOP messages)?',
-      a: 'MetaBSP automatically handles opt-out keywords (STOP, UNSUBSCRIBE, etc.) and marks contacts as opted out. Opted-out contacts are excluded from future campaigns. You can view and manage opt-outs in Contacts → Opt-Outs.',
+      q: 'Is my data stored by MetaBSP?',
+      a: 'Message content is stored temporarily (72 hours) to support delivery tracking and analytics. After 72 hours, message bodies are purged and only aggregate metrics are retained. See our Privacy Policy for full details.',
     },
     {
-      q: 'What are the pricing tiers?',
-      a: 'MetaBSP charges per conversation (a 24-hour messaging window). Pricing varies by conversation category (marketing, utility, authentication, service) and destination country, following Meta\'s published pricing. See our billing page for the current rate card.',
+      q: 'What happens if a message fails to deliver?',
+      a: 'Failed messages generate a status webhook event with an error code. Common codes: 131047 (recipient not on WhatsApp), 131026 (message undeliverable), 130429 (rate limit exceeded). MetaBSP surfaces these in the analytics dashboard.',
+    },
+    {
+      q: 'How do I disconnect a WhatsApp Business Account?',
+      a: 'Go to Settings → Connected Accounts, find the WABA you want to disconnect, and click "Disconnect". This removes MetaBSP\'s System User token from your WABA and stops all webhook events.',
     },
   ];
 
   return (
     <Box>
-      <SectionTitle icon={<HelpOutlineIcon color="primary" />} title="Frequently Asked Questions" />
-      {faqs.map((faq, i) => (
-        <Accordion key={i} variant="outlined" sx={{ mb: 1, borderRadius: '8px !important', '&:before': { display: 'none' } }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="body2" fontWeight={600}>{faq.q}</Typography>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 0 }}>
-            <Typography variant="body2" color="text.secondary">{faq.a}</Typography>
-          </AccordionDetails>
-        </Accordion>
-      ))}
+      <SectionHeading>FAQ</SectionHeading>
+      <Typography color="text.secondary" sx={{ mb: 3, lineHeight: 1.8 }}>
+        Frequently asked questions about MetaBSP and the WhatsApp Business Platform.
+      </Typography>
+      <Stack spacing={1}>
+        {faqs.map(({ q, a }) => (
+          <Accordion key={q} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px !important', '&:before': { display: 'none' } }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2.5, py: 1 }}>
+              <Typography fontWeight={600} variant="body2">{q}</Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ px: 2.5, pb: 2.5 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.8 }}>{a}</Typography>
+            </AccordionDetails>
+          </Accordion>
+        ))}
+      </Stack>
     </Box>
   );
 }
 
-// ─── Shared helpers ───────────────────────────────────────────────────────────
-
-function SectionTitle({ icon, title, badge }) {
-  return (
-    <Stack direction="row" alignItems="center" gap={1.5} mb={2}>
-      {icon}
-      <Typography variant="h5" fontWeight={700}>{title}</Typography>
-      {badge && <Chip label={badge} size="small" color="primary" />}
-    </Stack>
-  );
-}
-
-function SubHeading({ children }) {
-  return (
-    <Typography variant="subtitle1" fontWeight={700} mb={1} mt={2.5} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <ArrowRightIcon color="primary" fontSize="small" />
-      {children}
-    </Typography>
-  );
-}
-
-// ─── Section map ──────────────────────────────────────────────────────────────
-const SECTIONS = {
-  'getting-started': GettingStartedSection,
-  'authentication':  AuthenticationSection,
-  'sending':         SendingSection,
-  'templates':       TemplatesSection,
-  'webhooks':        WebhooksSection,
-  'contacts':        ContactsSection,
-  'analytics':       AnalyticsSection,
-  'sdk':             SdkSection,
-  'troubleshooting': TroubleshootingSection,
-  'faq':             FaqSection,
+const SECTION_COMPONENTS = {
+  'getting-started': GettingStarted,
+  'authentication': Authentication,
+  'sending-messages': SendingMessages,
+  'templates': Templates,
+  'webhooks': Webhooks,
+  'contacts': Contacts,
+  'analytics': Analytics,
+  'troubleshooting': Troubleshooting,
+  'faq': FAQ,
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function DocumentationPage() {
-  const [active, setActive]       = useState('getting-started');
-  const [drawerOpen, setDrawer]   = useState(false);
-  const theme                     = useTheme();
-  const isMobile                  = useMediaQuery(theme.breakpoints.down('md'));
+  const [activeSection, setActiveSection] = useState('getting-started');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const ActiveSection = SECTIONS[active];
+  const ActiveComponent = SECTION_COMPONENTS[activeSection] || GettingStarted;
 
-  const sidebar = (
-    <Box sx={{ width: DRAWER_WIDTH, pt: 1 }}>
-      <Stack direction="row" alignItems="center" gap={1.5} px={2} py={1.5} mb={1}>
-        <MenuBookIcon color="primary" />
-        <Typography variant="subtitle1" fontWeight={700}>Documentation</Typography>
-      </Stack>
-      <Divider />
-      <List dense disablePadding sx={{ pt: 1 }}>
-        {NAV_ITEMS.map(item => (
+  const sidebarContent = (
+    <Box sx={{ width: DRAWER_WIDTH, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Typography variant="subtitle1" fontWeight={800}>Documentation</Typography>
+        <Typography variant="caption" color="text.secondary">MetaBSP API Reference</Typography>
+      </Box>
+      <List sx={{ px: 1, py: 1, flexGrow: 1, overflowY: 'auto' }}>
+        {NAV_SECTIONS.map(({ id, label, icon }) => (
           <ListItemButton
-            key={item.id}
-            selected={active === item.id}
-            onClick={() => { setActive(item.id); if (isMobile) setDrawer(false); }}
-            sx={{
-              mx: 1,
-              borderRadius: 1.5,
-              mb: 0.25,
-              '&.Mui-selected': {
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                color: 'primary.main',
-                '& .MuiListItemIcon-root': { color: 'primary.main' },
-              },
-            }}
+            key={id}
+            selected={activeSection === id}
+            onClick={() => { setActiveSection(id); setDrawerOpen(false); }}
+            sx={{ borderRadius: 2, mb: 0.5, px: 1.5 }}
           >
-            <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={<Typography variant="body2" fontWeight={active === item.id ? 700 : 400}>{item.label}</Typography>} />
+            <ListItemIcon sx={{ minWidth: 36, color: activeSection === id ? 'primary.main' : 'text.secondary' }}>
+              {icon}
+            </ListItemIcon>
+            <ListItemText
+              primary={label}
+              primaryTypographyProps={{ fontSize: 14, fontWeight: activeSection === id ? 700 : 500 }}
+            />
           </ListItemButton>
         ))}
       </List>
@@ -781,9 +715,34 @@ export default function DocumentationPage() {
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100%' }}>
-      {/* Desktop persistent sidebar */}
-      {!isMobile && (
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
+      {/* Mobile top bar */}
+      {isMobile && (
+        <AppBar position="sticky" color="inherit" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', top: 0 }}>
+          <Toolbar sx={{ gap: 1, minHeight: 52 }}>
+            <IconButton size="small" onClick={() => setDrawerOpen(true)}>
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="subtitle2" fontWeight={700}>
+              {NAV_SECTIONS.find((s) => s.id === activeSection)?.label}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      )}
+
+      {/* Sidebar — permanent on desktop, temporary drawer on mobile */}
+      {isMobile ? (
+        <Drawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          PaperProps={{ sx: { width: DRAWER_WIDTH } }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+            <IconButton size="small" onClick={() => setDrawerOpen(false)}><CloseIcon fontSize="small" /></IconButton>
+          </Box>
+          {sidebarContent}
+        </Drawer>
+      ) : (
         <Box
           component="nav"
           sx={{
@@ -793,49 +752,31 @@ export default function DocumentationPage() {
             borderColor: 'divider',
             position: 'sticky',
             top: 0,
+            alignSelf: 'flex-start',
             height: '100vh',
             overflowY: 'auto',
           }}
         >
-          {sidebar}
+          {sidebarContent}
         </Box>
       )}
 
-      {/* Mobile drawer */}
-      {isMobile && (
-        <Drawer open={drawerOpen} onClose={() => setDrawer(false)} sx={{ '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}>
-          {sidebar}
-        </Drawer>
-      )}
-
       {/* Main content */}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        {/* Mobile top bar */}
-        {isMobile && (
-          <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-            <Toolbar variant="dense">
-              <IconButton edge="start" onClick={() => setDrawer(true)} sx={{ mr: 1 }}>
-                <MenuIcon />
-              </IconButton>
-              <Typography variant="subtitle1" fontWeight={700}>
-                {NAV_ITEMS.find(n => n.id === active)?.label || 'Docs'}
-              </Typography>
-            </Toolbar>
-          </AppBar>
-        )}
-
-        <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 860, mx: 'auto' }}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={active}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <ActiveSection />
-            </motion.div>
-          </AnimatePresence>
+      <Box
+        component="main"
+        sx={{ flexGrow: 1, p: { xs: 3, md: 5 }, maxWidth: '100%', overflowX: 'hidden' }}
+      >
+        <Box sx={{ maxWidth: 780 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 3 }}>
+            <Divider sx={{ flexGrow: 1 }} />
+            <Chip
+              label={`v1.0`}
+              size="small"
+              variant="outlined"
+              color="primary"
+            />
+          </Stack>
+          <ActiveComponent />
         </Box>
       </Box>
     </Box>
