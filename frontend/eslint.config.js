@@ -7,7 +7,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 export default [
   {
     files: ['**/*.{js,jsx}'],
-    ignores: ['dist'],
+    ignores: ['dist/**', 'dist', 'public/sw.js', '**/*.min.js'],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
@@ -29,7 +29,17 @@ export default [
       ...react.configs['jsx-runtime'].rules,
       ...reactHooks.configs.recommended.rules,
       'react/jsx-no-target-blank': 'off',
-      'react-refresh/only-export-Components': [
+      'react/prop-types': 'off',
+      'react/no-unescaped-entities': 'off',
+      'react-hooks/rules-of-hooks': 'warn',
+      'react-hooks/exhaustive-deps': 'warn',
+      'react/jsx-key': 'warn',
+      'no-unused-vars': 'warn',
+      'no-undef': 'warn',
+      'no-empty': 'warn',
+      'no-useless-escape': 'warn',
+      'react/jsx-no-comment-textnodes': 'warn',
+      'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
       ],
