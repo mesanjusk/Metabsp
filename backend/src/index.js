@@ -42,7 +42,7 @@ const seedAdmin       = require('../bulk/seedAdmin');
 const usersRouter    = require('./routes/Users');
 const whatsappRouter = require('./routes/WhatsAppCloud');
 const webhookRouter  = require('./routes/webhook');
-const routingRouter  = require('./routes/routing');
+const webhookDestinationsRouter = require('./routes/webhookDestinations');
 
 // ── Bulk-invite routes ────────────────────────────────────────────────────────
 const bulkCrudRoutes = require('../bulk/routes/crudRoutes');
@@ -134,7 +134,7 @@ app.use('/api/users',              usersRouter);
 app.use('/api/whatsapp',           whatsappRouter);
 app.use('/webhook',                webhookRouter);
 app.use('/api/whatsapp/webhook',   webhookRouter);
-app.use('/api/routing',            routingRouter);
+app.use('/api/whatsapp/webhook-destinations', webhookDestinationsRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bulk-invite (WhatsApp Automation / Baileys) routes — mounted under /api/bulk/
@@ -151,7 +151,6 @@ app.use('/api/bulk/blasts',             require('../bulk/routes/blastRoutes'));
 app.use('/api/bulk/campaigns',          require('../bulk/routes/campaignRoutes'));
 app.use('/api/bulk/uploads',            require('../bulk/routes/uploadRoutes'));
 app.use('/api/bulk/system-settings',    require('../bulk/routes/systemSettingsRoutes'));
-app.use('/api/bulk/routing',            routingRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Error handling
@@ -164,6 +163,10 @@ app.use(errorHandler);
 // ─────────────────────────────────────────────────────────────────────────────
 async function startServer() {
   try {
+    // Fail fast if the unified JWT secret isn't configured — every login (both
+    // former "Metabsp" and "Bulk-invite" flows now share one auth path) depends on it.
+    require('../bulk/utils/jwtSecret').getJwtSecret();
+
     // Connect to MongoDB (both configs point to the same or separate Mongo URIs
     // via environment variables MONGO_URI / MONGO_URI_BULK or a shared one).
     await connectDB();

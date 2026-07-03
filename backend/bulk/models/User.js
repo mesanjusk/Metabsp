@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { verifyPassword } = require('../../src/utils/password');
 
 const userSchema = new mongoose.Schema({
   name:     { type: String, required: true, trim: true },
@@ -48,8 +49,19 @@ userSchema.pre('save', async function(next) {
   next();
 });
 
-userSchema.methods.matchPassword = function(entered) {
-  return bcrypt.compare(entered, this.password);
+userSchema.methods.matchPassword = async function(entered) {
+  const stored = String(this.password || '');
+  if (/^\$2[aby]\$/.test(stored)) {
+    return bcrypt.compare(entered, stored);
+  }
+  // Legacy Metabsp account (scrypt-hashed or plaintext, migrated in place) —
+  // verify with the legacy scheme, then transparently upgrade to bcrypt.
+  const ok = verifyPassword(entered, stored);
+  if (ok) {
+    this.password = entered;
+    await this.save();
+  }
+  return ok;
 };
 
 module.exports = mongoose.model('User', userSchema);

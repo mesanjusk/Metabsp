@@ -3,6 +3,7 @@ import { Alert, Box, Button, Paper, Stack, Switch, TextField, Typography, FormCo
 import PropTypes from 'prop-types';
 import apiClient from '../../apiClient';
 import { parseApiError } from '../../utils/parseApiError';
+import WebhookDestinationsPanel from './WebhookDestinationsPanel';
 
 const defaultConfig = {
   analyticsEnabled: true,
@@ -10,7 +11,6 @@ const defaultConfig = {
   webhookHealthAlerts: false,
   defaultCountryCode: '+1',
   timezone: 'UTC',
-  callbackUrl: '',
 };
 
 export default function WhatsAppAttendanceSettings({
@@ -127,15 +127,7 @@ export default function WhatsAppAttendanceSettings({
           <TextField label="Timezone" value={form.timezone || ''} onChange={(e) => setForm((prev) => ({ ...prev, timezone: e.target.value }))} />
         </Stack>
 
-        <TextField
-          label="Callback URL (external app)"
-          placeholder="https://your-other-app.com/webhook"
-          value={form.callbackUrl || ''}
-          onChange={(e) => setForm((prev) => ({ ...prev, callbackUrl: e.target.value }))}
-          fullWidth
-          type="url"
-          helperText="Incoming WhatsApp messages will be forwarded to this URL via POST. Leave blank to disable."
-        />
+        <WebhookDestinationsPanel />
 
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">
           <Button variant="outlined" onClick={load} disabled={isLoading || isSaving}>Reload</Button>

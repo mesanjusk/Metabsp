@@ -16,6 +16,8 @@ services:
         sync: false
 
       # ── WhatsApp Cloud (Metabsp) ─────────────────────────────────
+      # ACCESS_TOKEN_SECRET is a legacy alias for JWT_SECRET below, read only
+      # if JWT_SECRET is unset. Set JWT_SECRET going forward.
       - key: ACCESS_TOKEN_SECRET
         sync: false
       - key: META_APP_ID
@@ -31,17 +33,21 @@ services:
       - key: WHATSAPP_TOKEN_ENCRYPTION_KEY
         sync: false
 
-      # ── Bulk-invite (Event Management / Baileys) ────────────────
+      # ── Auth (shared by every login path) ────────────────────────
       - key: JWT_SECRET
         sync: false
       - key: JWT_EXPIRES_IN
         value: 7d
+      # BOOTSTRAP_USERNAME/PASSWORD are optional: an env-configured super-admin
+      # login that upserts (and keeps in sync with) a real DB user on first use.
       - key: BOOTSTRAP_USERNAME
         sync: false
       - key: BOOTSTRAP_NAME
         sync: false
       - key: BOOTSTRAP_PASSWORD
         sync: false
+      # SUPER_ADMIN_USERNAME/PASSWORD: set both to seed a super admin at boot.
+      # There is no default password — leaving these unset just skips seeding.
       - key: SUPER_ADMIN_USERNAME
         sync: false
       - key: SUPER_ADMIN_NAME

@@ -1,9 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-
-function getJwtSecret() {
-  return process.env.JWT_SECRET || process.env.ACCESS_TOKEN_SECRET || 'change-me-in-env';
-}
+const Role = require('../models/Role');
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 function generateDbToken(id) {
   return jwt.sign({ id, type: 'db-user' }, getJwtSecret(), {
@@ -11,12 +9,34 @@ function generateDbToken(id) {
   });
 }
 
-function generateBootstrapToken(username) {
-  return jwt.sign(
-    { id: 'hardcoded-super-admin', username, type: 'bootstrap-user', isHardcoded: true, role: 'SUPER_ADMIN' },
-    getJwtSecret(),
-    { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
+// Upserts a real DB user for the env-configured bootstrap super-admin, so the
+// issued token is a normal db-user token verified against the DB on every
+// request (not a claims-only token that stays "valid" forever, even after the
+// BOOTSTRAP_* env vars are rotated or removed).
+async function upsertBootstrapUser(username, password) {
+  const role = await Role.findOneAndUpdate(
+    { code: 'SUPER_ADMIN', tenantId: null },
+    { name: 'Super Admin', code: 'SUPER_ADMIN', permissions: ['*'], tenantId: null, dashboardKey: 'super_admin' },
+    { new: true, upsert: true }
   );
+
+  let user = await User.findOne({ username, tenantId: null });
+  if (!user) {
+    user = await User.create({
+      name: process.env.BOOTSTRAP_NAME || 'Super Admin',
+      username,
+      password,
+      roleId: role._id,
+      tenantId: null,
+      eventDutyType: 'SUPER_ADMIN',
+      isActive: true,
+    });
+  } else if (!(await user.matchPassword(password))) {
+    // Keep the DB account in sync if BOOTSTRAP_PASSWORD was rotated.
+    user.password = password;
+    await user.save();
+  }
+  return user;
 }
 
 function canUseBootstrapLogin() {
@@ -34,26 +54,14 @@ async function login(req, res) {
       return res.status(400).json({ message: 'Mobile/username and password are required' });
     }
 
-    // Bootstrap (hardcoded) super admin
+    // Bootstrap (env-configured) super admin — upserts a real DB user so the
+    // issued token is a normal, DB-verified session (see upsertBootstrapUser).
     const bsUser = process.env.BOOTSTRAP_USERNAME;
     const bsPass = process.env.BOOTSTRAP_PASSWORD;
     if (canUseBootstrapLogin() && bsUser && bsPass && identifier === bsUser && password === bsPass) {
-      return res.json({
-        token: generateBootstrapToken(bsUser),
-        user: {
-          _id: 'hardcoded-super-admin',
-          name: process.env.BOOTSTRAP_NAME || 'Super Admin',
-          username: bsUser,
-          mobile: '',
-          email: '',
-          isActive: true,
-          isHardcoded: true,
-          eventDutyType: 'SUPER_ADMIN',
-          availabilityStatus: 'AVAILABLE',
-          stageCounts: { anchorCalls: 0, guestAwards: 0, volunteerAssignments: 0, teamAssignments: 0 },
-          roleId: { _id: 'hardcoded-role-super-admin', name: 'Super Admin', code: 'SUPER_ADMIN', permissions: ['*'] },
-        },
-      });
+      const bootstrapUser = await upsertBootstrapUser(bsUser, bsPass);
+      const populated = await User.findById(bootstrapUser._id).populate('roleId');
+      return res.json({ token: generateDbToken(bootstrapUser._id), user: populated });
     }
 
     // DB lookup — support login by mobile OR username
@@ -110,4 +118,4 @@ async function magicLogin(req, res) {
   }
 }
 
-module.exports = { login, me, magicLogin, getJwtSecret };
+module.exports = { login, me, magicLogin };

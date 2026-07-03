@@ -1,25 +1,49 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const Users = require('../repositories/users');
+const User = require('../../bulk/models/User');
+const Role = require('../../bulk/models/Role');
 const WhatsAppAccount = require('../repositories/whatsappAccount');
 const { encryptSensitiveValue } = require('../utils/crypto');
-const { hashPassword, isHashedPassword, verifyPassword } = require('../utils/password');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendOtp, verifyOtp } = require('../services/otpService');
+const { getJwtSecret } = require('../../bulk/utils/jwtSecret');
+const jwt = require('jsonwebtoken');
+const { METABSP_ADMIN_ROLE_CODE, METABSP_USER_ROLE_CODE } = require('../../bulk/seedAdmin');
 
 const router = express.Router();
 
-const ADMIN_USER_NAME = 'admin';
-const ADMIN_PASSWORD = 'admin';
+const RESERVED_USERNAME = 'admin';
+
+// Legacy Metabsp API contract (User_name / User_group / Mobile_number) is kept
+// so the existing frontend pages don't need to change, but everything underneath
+// is now backed by the single unified `User`/`Role` collection — no more separate
+// `Users` collection silently colliding with Bulk-invite's `User` collection.
+
+let roleCache = null;
+async function getGlobalRoles() {
+  if (roleCache) return roleCache;
+  const [adminRole, userRole] = await Promise.all([
+    Role.findOne({ code: METABSP_ADMIN_ROLE_CODE, tenantId: null }),
+    Role.findOne({ code: METABSP_USER_ROLE_CODE, tenantId: null }),
+  ]);
+  if (!adminRole || !userRole) {
+    throw new Error('Global Metabsp roles are not seeded yet — check server startup logs.');
+  }
+  roleCache = { adminRole, userRole };
+  return roleCache;
+}
+
+function isAdminRole(user) {
+  return Array.isArray(user?.roleId?.permissions) && user.roleId.permissions.includes('*');
+}
 
 const sanitizeUser = (userDoc) => {
   if (!userDoc) return null;
   return {
     id: String(userDoc._id),
-    User_name: userDoc.User_name,
-    User_group: userDoc.User_group,
-    Mobile_number: userDoc.Mobile_number || '',
+    User_name: userDoc.username,
+    User_group: isAdminRole(userDoc) ? 'admin' : 'user',
+    Mobile_number: userDoc.mobile || '',
     createdAt: userDoc.createdAt,
     updatedAt: userDoc.updatedAt,
   };
@@ -44,8 +68,8 @@ const sanitizeAccount = (accountDoc) => {
   };
 };
 
-const signTokenForUser = (payload) =>
-  jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '99d' });
+const signTokenForUser = (userId) =>
+  jwt.sign({ id: userId, type: 'db-user' }, getJwtSecret(), { expiresIn: '99d' });
 
 router.post('/login', async (req, res) => {
   const { User_name, Password } = req.body || {};
@@ -56,51 +80,16 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    if (normalizedUserName.toLowerCase() === ADMIN_USER_NAME && Password === ADMIN_PASSWORD) {
-      const token = signTokenForUser({
-        id: 'admin-root',
-        userName: ADMIN_USER_NAME,
-        userGroup: 'admin',
-      });
-
-      return res.status(200).json({
-        success: true,
-        token,
-        user: {
-          id: 'admin-root',
-          User_name: ADMIN_USER_NAME,
-          User_group: 'admin',
-          Mobile_number: '',
-        },
-      });
-    }
-
-    const user = await Users.findOne({ User_name: normalizedUserName });
-    if (!user || !verifyPassword(Password, user.Password)) {
+    const user = await User.findOne({ username: normalizedUserName, tenantId: null }).populate('roleId');
+    if (!user || !(await user.matchPassword(Password))) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-
-    if (!isHashedPassword(user.Password)) {
-      user.Password = hashPassword(Password);
-      await user.save();
+    if (!user.isActive) {
+      return res.status(403).json({ success: false, message: 'Account is inactive' });
     }
 
-    const token = signTokenForUser({
-      id: user._id,
-      userName: user.User_name,
-      userGroup: user.User_group,
-    });
-
-    return res.status(200).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        User_name: user.User_name,
-        User_group: user.User_group,
-        Mobile_number: user.Mobile_number,
-      },
-    });
+    const token = signTokenForUser(user._id);
+    return res.status(200).json({ success: true, token, user: sanitizeUser(user) });
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ success: false, message: 'Login failed' });
@@ -109,20 +98,11 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', requireAuth, async (req, res) => {
   try {
-    if (req.user?.isAdmin) {
-      return res.status(200).json({
-        success: true,
-        user: { id: 'admin-root', User_name: ADMIN_USER_NAME, User_group: 'admin', Mobile_number: '' },
-      });
-    }
-
-    const user = await Users.findById(req.user.id).select('_id User_name User_group Mobile_number');
-
+    const user = await User.findById(req.user.id).populate('roleId');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-
-    return res.status(200).json({ success: true, user });
+    return res.status(200).json({ success: true, user: sanitizeUser(user) });
   } catch (error) {
     console.error('Me endpoint error:', error);
     return res.status(500).json({ success: false, message: 'Failed to load user' });
@@ -135,7 +115,7 @@ router.post('/logout', requireAuth, async (_req, res) => {
 
 router.get('/manage', requireAuth, requireAdmin, async (_req, res) => {
   try {
-    const users = await Users.find({}).sort({ createdAt: -1 }).lean();
+    const users = await User.find({ tenantId: null }).populate('roleId').sort({ createdAt: -1 }).lean();
     const userIds = users.map((user) => user._id);
     const accounts = await WhatsAppAccount.find({ userId: { $in: userIds } })
       .sort({ updatedAt: -1 })
@@ -173,13 +153,12 @@ router.post('/manage', requireAuth, requireAdmin, async (req, res) => {
 
   const normalizedUserName = String(User_name || '').trim();
   const normalizedPassword = String(Password || '').trim();
-  const normalizedGroup = String(User_group || 'user').trim() || 'user';
 
   if (!normalizedUserName || !normalizedPassword) {
     return res.status(400).json({ success: false, message: 'User name and password are required.' });
   }
 
-  if (normalizedUserName.toLowerCase() === ADMIN_USER_NAME) {
+  if (normalizedUserName.toLowerCase() === RESERVED_USERNAME) {
     return res.status(400).json({ success: false, message: 'This username is reserved.' });
   }
 
@@ -187,23 +166,29 @@ router.post('/manage', requireAuth, requireAdmin, async (req, res) => {
   session.startTransaction();
 
   try {
-    const existingUser = await Users.findOne({ User_name: normalizedUserName }).session(session);
+    const existingUser = await User.findOne({ username: normalizedUserName, tenantId: null }).session(session);
     if (existingUser) {
       await session.abortTransaction();
       session.endSession();
       return res.status(409).json({ success: false, message: 'User name already exists.' });
     }
 
-    const createdUsers = await Users.create([
+    const { adminRole, userRole } = await getGlobalRoles();
+    const roleId = String(User_group || 'user').toLowerCase() === 'admin' ? adminRole._id : userRole._id;
+
+    const createdUsers = await User.create([
       {
-        User_name: normalizedUserName,
-        Password: hashPassword(normalizedPassword),
-        Mobile_number: String(Mobile_number || '').trim(),
-        User_group: normalizedGroup,
+        name: normalizedUserName,
+        username: normalizedUserName,
+        password: normalizedPassword,
+        mobile: String(Mobile_number || '').trim(),
+        roleId,
+        tenantId: null,
+        isActive: true,
       },
     ], { session });
 
-    const user = createdUsers[0];
+    const user = await User.findById(createdUsers[0]._id).populate('roleId').session(session);
 
     const accessToken = String(whatsapp?.accessToken || '').trim();
     const phoneNumberId = String(whatsapp?.phoneNumberId || '').trim();
@@ -270,32 +255,36 @@ router.put('/manage/:id', requireAuth, requireAdmin, async (req, res) => {
   } = req.body || {};
 
   try {
-    const user = await Users.findById(id);
+    const user = await User.findById(id).populate('roleId');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
-    const normalizedUserName = String(User_name || user.User_name).trim();
+    const normalizedUserName = String(User_name || user.username).trim();
     if (!normalizedUserName) {
       return res.status(400).json({ success: false, message: 'User name is required.' });
     }
 
-    if (normalizedUserName.toLowerCase() === ADMIN_USER_NAME) {
+    if (normalizedUserName.toLowerCase() === RESERVED_USERNAME) {
       return res.status(400).json({ success: false, message: 'This username is reserved.' });
     }
 
-    const conflictUser = await Users.findOne({ User_name: normalizedUserName, _id: { $ne: user._id } }).lean();
+    const conflictUser = await User.findOne({ username: normalizedUserName, tenantId: null, _id: { $ne: user._id } }).lean();
     if (conflictUser) {
       return res.status(409).json({ success: false, message: 'User name already exists.' });
     }
 
-    user.User_name = normalizedUserName;
-    user.Mobile_number = String(Mobile_number || '').trim();
-    user.User_group = String(User_group || 'user').trim() || 'user';
+    const { adminRole, userRole } = await getGlobalRoles();
+
+    user.username = normalizedUserName;
+    user.name = normalizedUserName;
+    user.mobile = String(Mobile_number || '').trim();
+    user.roleId = String(User_group || 'user').toLowerCase() === 'admin' ? adminRole._id : userRole._id;
     if (String(Password || '').trim()) {
-      user.Password = hashPassword(String(Password).trim());
+      user.password = String(Password).trim();
     }
     await user.save();
+    await user.populate('roleId');
 
     const accessToken = String(whatsapp?.accessToken || '').trim();
     const phoneNumberId = String(whatsapp?.phoneNumberId || '').trim();
@@ -366,12 +355,12 @@ router.post('/signup/request-otp', async (req, res) => {
   if (!userName || !mobile) {
     return res.status(400).json({ success: false, message: 'User name and mobile number are required.' });
   }
-  if (userName.toLowerCase() === ADMIN_USER_NAME) {
+  if (userName.toLowerCase() === RESERVED_USERNAME) {
     return res.status(400).json({ success: false, message: 'This username is reserved.' });
   }
 
   try {
-    const existingUser = await Users.findOne({ $or: [{ User_name: userName }, { Mobile_number: mobile }] });
+    const existingUser = await User.findOne({ tenantId: null, $or: [{ username: userName }, { mobile }] });
     if (existingUser) {
       return res.status(409).json({ success: false, message: 'An account with this username or mobile number already exists.' });
     }
@@ -410,21 +399,25 @@ router.post('/signup/verify', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
     }
 
-    const existingUser = await Users.findOne({ $or: [{ User_name: userName }, { Mobile_number: mobile }] });
+    const existingUser = await User.findOne({ tenantId: null, $or: [{ username: userName }, { mobile }] });
     if (existingUser) {
       return res.status(409).json({ success: false, message: 'An account with this username or mobile number already exists.' });
     }
 
-    const user = await Users.create({
-      User_name: userName,
-      Password: hashPassword(password),
-      Mobile_number: mobile,
-      User_group: 'user',
+    const { userRole } = await getGlobalRoles();
+    const user = await User.create({
+      name: userName,
+      username: userName,
+      password,
+      mobile,
+      roleId: userRole._id,
+      tenantId: null,
+      isActive: true,
     });
 
-    const token = signTokenForUser({ id: user._id, userName: user.User_name, userGroup: user.User_group });
+    const token = signTokenForUser(user._id);
 
-    return res.status(201).json({ success: true, token, user: sanitizeUser(user) });
+    return res.status(201).json({ success: true, token, user: sanitizeUser(await user.populate('roleId')) });
   } catch (error) {
     console.error('Signup verify error:', error);
     return res.status(500).json({ success: false, message: error.message || 'Failed to create account.' });
@@ -443,7 +436,7 @@ router.post('/forgot-password/request-otp', async (req, res) => {
   }
 
   try {
-    const user = await Users.findOne({ Mobile_number: mobile });
+    const user = await User.findOne({ tenantId: null, mobile });
     if (!user) {
       return res.status(404).json({ success: false, message: 'No account found with this mobile number.' });
     }
@@ -480,12 +473,12 @@ router.post('/forgot-password/reset', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
     }
 
-    const user = await Users.findOne({ Mobile_number: mobile });
+    const user = await User.findOne({ tenantId: null, mobile });
     if (!user) {
       return res.status(404).json({ success: false, message: 'No account found with this mobile number.' });
     }
 
-    user.Password = hashPassword(newPassword);
+    user.password = newPassword;
     await user.save();
 
     return res.status(200).json({ success: true, message: 'Password reset successful. Please log in.' });

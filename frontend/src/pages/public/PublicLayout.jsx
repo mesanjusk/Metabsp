@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const NAV_LINKS = [
   { label: 'Home', to: '/' },
   { label: 'About', to: '/about' },
-  { label: 'Docs', to: '/docs' },
+  { label: 'Docs', to: '/developer-docs' },
   { label: 'Status', to: '/status' },
   { label: 'Contact', to: '/contact' },
 ];
@@ -23,8 +23,8 @@ const FOOTER_LINKS = [
   { label: 'Terms of Service', to: '/terms-of-service' },
   { label: 'Cookie Policy', to: '/cookie-policy' },
   { label: 'Data Deletion', to: '/data-deletion' },
-  { label: 'Security', to: '/security' },
-  { label: 'Help Center', to: '/help' },
+  { label: 'Security', to: '/security-info' },
+  { label: 'Help Center', to: '/help-center' },
 ];
 
 export default function PublicLayout() {

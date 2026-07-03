@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const contactSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'Users', index: true, default: null },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, default: null },
     whatsappAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppAccount', index: true, default: null },
     phone:    { type: String, required: true, trim: true },
     name:     { type: String, default: '', trim: true },

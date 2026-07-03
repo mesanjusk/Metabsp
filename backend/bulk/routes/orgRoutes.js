@@ -7,7 +7,7 @@ const {
   resetPassword,
   listOrgs,
 } = require('../controllers/orgController');
-const { protect } = require('../middleware/auth');
+const { protect, permit } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -18,7 +18,7 @@ router.post('/verify-signup-otp',     verifySignupOtp);
 router.post('/request-forgot-otp',    requestForgotOtp);
 router.post('/reset-password',        resetPassword);
 
-// Protected — super admin only
-router.get('/', protect, listOrgs);
+// Protected — super admin only (wildcard permission)
+router.get('/', protect, permit('*'), listOrgs);
 
 module.exports = router;
