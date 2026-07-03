@@ -7,7 +7,7 @@ const Contact = require('../repositories/contact');
 const AutoReply = require('../repositories/AutoReply');
 const CampaignMessageStatus = require('../repositories/CampaignMessageStatus');
 const WhatsAppAccount = require('../repositories/whatsappAccount');
-const RoutingConfig = require('../models/RoutingConfig');
+const WebhookDestination = require('../models/WebhookDestination');
 const { emitNewMessage } = require('../socket');
 const { resolveAutoReplyAction, resolveReplyDelayMs, getCatalogFields } = require('../middleware/autoReply');
 const {
@@ -1078,6 +1078,43 @@ const parseIncoming = (msg = {}) => {
   return null;
 };
 
+// Self-service multi-project webhook fan-out: every active WebhookDestination
+// registered against the matched WhatsApp account gets the parsed message
+// payload, HMAC-signed with that destination's own secret so the receiving
+// project can verify authenticity without needing Meta's app secret.
+async function forwardToWebhookDestinations(whatsappAccountId, payload) {
+  const destinations = await WebhookDestination.find({ whatsappAccountId, isActive: true }).lean();
+  if (!destinations.length) return;
+
+  const body = JSON.stringify(payload);
+
+  await Promise.allSettled(
+    destinations.map(async (dest) => {
+      const signature = 'sha256=' + crypto.createHmac('sha256', dest.secret).update(body).digest('hex');
+      try {
+        await axios.post(dest.url, payload, {
+          timeout: 8000,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Metabsp-Event': 'message.received',
+            'X-Metabsp-Signature-256': signature,
+          },
+        });
+        await WebhookDestination.updateOne(
+          { _id: dest._id },
+          { $set: { lastAttemptAt: new Date(), lastStatus: 'success', lastError: '' } }
+        );
+      } catch (err) {
+        console.error('[webhook-destinations] forward failed:', dest.url, err.message);
+        await WebhookDestination.updateOne(
+          { _id: dest._id },
+          { $set: { lastAttemptAt: new Date(), lastStatus: 'failed', lastError: err.message } }
+        );
+      }
+    })
+  );
+}
+
 const receiveWebhook = (req, res) => {
   try {
     const enforceSignature = String(process.env.WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE).toLowerCase() !== 'false';
@@ -1324,11 +1361,10 @@ const receiveWebhook = (req, res) => {
           }
         }
 
-        if (matchedAccount?.callbackUrl) {
-          axios.post(matchedAccount.callbackUrl, payload, {
-            timeout: 8000,
-            headers: { 'Content-Type': 'application/json', 'X-Metabsp-Event': 'message.received' },
-          }).catch((err) => console.error('[whatsapp] callback forward failed:', matchedAccount.callbackUrl, err.message));
+        if (matchedAccount?._id) {
+          forwardToWebhookDestinations(matchedAccount._id, payload).catch((err) =>
+            console.error('[whatsapp] webhook destination fan-out failed:', err.message)
+          );
         }
 
         if (matchedAccount?._id) {
@@ -1339,36 +1375,6 @@ const receiveWebhook = (req, res) => {
         }
       }
 
-      // ── Webhook routing: forward full payload to registered app URLs ─────────
-      const seenPhoneNumberIds = [...new Set([
-        ...incoming.map((m) => m.phoneNumberId),
-        ...statuses.map((s) => s.phoneNumberId),
-      ])].filter(Boolean);
-
-      if (seenPhoneNumberIds.length) {
-        const forwardBody = req.rawBody || Buffer.from(JSON.stringify(req.body));
-        const forwardSignature = req.headers['x-hub-signature-256'] || '';
-
-        const routes = await RoutingConfig.find({
-          phoneNumberId: { $in: seenPhoneNumberIds },
-          isActive: true,
-        }).lean();
-
-        await Promise.allSettled(
-          routes.map((route) => {
-            console.log(`[routing] phone_number_id=${route.phoneNumberId} → ${route.appName} (${route.appUrl})`);
-            return axios.post(route.appUrl, forwardBody, {
-              headers: {
-                'Content-Type': 'application/json',
-                ...(forwardSignature ? { 'X-Hub-Signature-256': forwardSignature } : {}),
-              },
-              timeout: 10000,
-            }).catch((err) =>
-              console.error(`[routing] forward failed for ${route.appName}:`, err.message)
-            );
-          })
-        );
-      }
       } catch (asyncErr) {
         console.error('[whatsapp] webhook async processing error:', asyncErr);
       }
@@ -1407,8 +1413,10 @@ const getAnalytics = asyncHandler(async (req, res) => {
   });
 });
 
-// ── Account Settings (callbackUrl + feature flags stored in metadata) ─────────
-const SETTINGS_KEYS = ['analyticsEnabled', 'autoReplyEnabled', 'webhookHealthAlerts', 'defaultCountryCode', 'timezone', 'callbackUrl'];
+// ── Account Settings (feature flags stored in metadata) ───────────────────────
+// Webhook forwarding is now self-service, multi-destination — see
+// routes/webhookDestinations.js — not a single callbackUrl here.
+const SETTINGS_KEYS = ['analyticsEnabled', 'autoReplyEnabled', 'webhookHealthAlerts', 'defaultCountryCode', 'timezone'];
 
 const getSettings = asyncHandler(async (req, res) => {
   const account = await WhatsAppAccount.findOne({ userId: req.user.id, isActive: true }).lean();
@@ -1421,20 +1429,18 @@ const getSettings = asyncHandler(async (req, res) => {
       webhookHealthAlerts: meta.webhookHealthAlerts ?? false,
       defaultCountryCode:  meta.defaultCountryCode  ?? '+1',
       timezone:            meta.timezone            ?? 'UTC',
-      callbackUrl:         account?.callbackUrl     ?? '',
     },
   });
 });
 
 const saveSettings = asyncHandler(async (req, res) => {
-  const { callbackUrl, ...metaFields } = Object.fromEntries(
+  const metaFields = Object.fromEntries(
     SETTINGS_KEYS.filter(k => k in req.body).map(k => [k, req.body[k]])
   );
 
   const metaUpdate = Object.fromEntries(
     Object.entries(metaFields).map(([k, v]) => [`metadata.${k}`, v])
   );
-  if (callbackUrl !== undefined) metaUpdate.callbackUrl = String(callbackUrl).trim();
 
   if (Object.keys(metaUpdate).length) {
     await WhatsAppAccount.updateOne(

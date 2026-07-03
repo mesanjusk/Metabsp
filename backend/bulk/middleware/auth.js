@@ -1,9 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-
-function getJwtSecret() {
-  return process.env.JWT_SECRET || process.env.ACCESS_TOKEN_SECRET || 'change-me-in-env';
-}
+const { getJwtSecret } = require('../utils/jwtSecret');
 
 async function protect(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -15,25 +12,9 @@ async function protect(req, res, next) {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, getJwtSecret());
 
-    if (decoded?.isHardcoded && decoded?.type === 'bootstrap-user') {
-      req.user = {
-        _id: 'hardcoded-super-admin',
-        name: process.env.BOOTSTRAP_NAME || 'Super Admin',
-        username: process.env.BOOTSTRAP_USERNAME || 'superadmin',
-        mobile: '',
-        email: '',
-        isActive: true,
-        isHardcoded: true,
-        tenantId: null,
-        eventDutyType: 'SUPER_ADMIN',
-        availabilityStatus: 'AVAILABLE',
-        stageCounts: { anchorCalls: 0, guestAwards: 0, volunteerAssignments: 0, teamAssignments: 0 },
-        roleId: { _id: 'hardcoded-role-super-admin', name: 'Super Admin', code: 'SUPER_ADMIN', permissions: ['*'] },
-      };
-      req.tenantId = null;
-      return next();
-    }
-
+    // Bootstrap logins now upsert a real DB user (see authController.upsertBootstrapUser)
+    // and issue a normal db-user token, so every request — including bootstrap sessions —
+    // is DB-verified here. No claims-only "trust the token forever" branch anymore.
     const user = await User.findById(decoded.id).populate('roleId');
     if (!user) return res.status(401).json({ message: 'Invalid token user' });
     if (!user.isActive) return res.status(403).json({ message: 'Account is inactive' });

@@ -1,36 +1,20 @@
-const jwt = require('jsonwebtoken');
 const AppError = require('../utils/AppError');
+const { protect, permit } = require('../../bulk/middleware/auth');
 
-const isAdminUser = (user) => {
-  const userName = String(user?.userName || user?.User_name || '').toLowerCase();
-  const userGroup = String(user?.userGroup || user?.User_group || '').toLowerCase();
-  return userName === 'admin' || userGroup === 'admin';
-};
-
-const requireAuth = (req, _res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next(new AppError('Authorization token is required', 401));
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  try {
-    const payload = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    req.user = {
-      id: payload.id || payload._id || payload.userId,
-      ...payload,
-    };
-
-    if (!req.user.id) {
-      return next(new AppError('Invalid token payload', 401));
+// requireAuth now delegates to the single unified auth path (backend/bulk/middleware/auth.js):
+// it DB-verifies the JWT against the unified User collection on every request (no more
+// claims-only tokens), populates roleId, and sets req.tenantId. isAdmin is derived from
+// the role's permissions so existing `req.user.isAdmin` checks across the Metabsp routes
+// keep working unchanged.
+const requireAuth = (req, res, next) => {
+  return protect(req, res, (err) => {
+    if (err) return next(err);
+    if (req.user) {
+      const permissions = req.user?.roleId?.permissions || [];
+      req.user.isAdmin = permissions.includes('*');
     }
-
-    req.user.isAdmin = isAdminUser(req.user);
     return next();
-  } catch (error) {
-    return next(new AppError('Invalid or expired token', 401));
-  }
+  });
 };
 
 const requireAdmin = (req, _res, next) => {
@@ -40,4 +24,4 @@ const requireAdmin = (req, _res, next) => {
   return next();
 };
 
-module.exports = { requireAuth, requireAdmin, isAdminUser };
+module.exports = { requireAuth, requireAdmin, protect, permit };

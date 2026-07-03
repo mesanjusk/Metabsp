@@ -2,6 +2,9 @@ import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-d
 import { ThemeProvider, CssBaseline, Box } from '@mui/material';
 
 // ── Public pages (no auth required) ──────────────────────────────────────────
+import PublicLayout         from './pages/public/PublicLayout';
+import LandingPage          from './pages/public/LandingPage';
+import NotFoundPage         from './pages/public/NotFoundPage';
 import PrivacyPolicyPage    from './pages/public/PrivacyPolicyPage';
 import TermsOfServicePage   from './pages/public/TermsOfServicePage';
 import CookiePolicyPage     from './pages/public/CookiePolicyPage';
@@ -53,16 +56,10 @@ import WhatsAppPage           from './pages/WhatsAppPage';
 import SuperAdminSettingsPage from './pages/SuperAdminSettingsPage';
 import RolesPage              from './pages/RolesPage';
 import UsersPage              from './pages/UsersPage';
-import RoutingAdminPage       from './pages/RoutingAdminPage';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Metabsp WhatsApp Cloud redirect / protected route helpers
 // ─────────────────────────────────────────────────────────────────────────────
-function AuthRedirect() {
-  const { isAuthenticated } = useAuth();
-  return <Navigate to={isAuthenticated ? ROUTES.WHATSAPP : ROUTES.LOGIN} replace />;
-}
-
 function CloudProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Navigate to={ROUTES.LOGIN} replace />;
@@ -77,7 +74,6 @@ const bulkProtectedPages = [
   ['/dashboard',            <DashboardPage />,         MODULE_PERMISSIONS.dashboard],
   ['/notifications',        <NotificationsPage />,     MODULE_PERMISSIONS.notifications],
   ['/admin',                <AdminPage />,             MODULE_PERMISSIONS.admin],
-  ['/admin/routing',        <RoutingAdminPage />,      MODULE_PERMISSIONS.admin],
   ['/whatsapp-bulk',        <WhatsAppPage />,          MODULE_PERMISSIONS.whatsapp],
   ['/super-admin/settings', <SuperAdminSettingsPage />,MODULE_PERMISSIONS.superAdminSettings],
   ['/roles',                <RolesPage />,             null],
@@ -141,21 +137,22 @@ export default function App() {
                     />
                   ))}
 
-                  {/* ── Public pages (no auth) ─────────────────────────── */}
-                  <Route path="/privacy-policy"   element={<PrivacyPolicyPage />} />
-                  <Route path="/terms-of-service" element={<TermsOfServicePage />} />
-                  <Route path="/cookie-policy"    element={<CookiePolicyPage />} />
-                  <Route path="/data-deletion"    element={<DataDeletionPage />} />
-                  <Route path="/security-info"    element={<SecurityInfoPage />} />
-                  <Route path="/about"            element={<AboutPage />} />
-                  <Route path="/contact"          element={<ContactPage />} />
-                  <Route path="/help-center"      element={<HelpCenterPage />} />
-                  <Route path="/developer-docs"   element={<DeveloperDocsPage />} />
-                  <Route path="/status"           element={<StatusPage />} />
-                  <Route path="/meta-app-review"  element={<MetaAppReviewPage />} />
-
-                  <Route path="/" element={<AuthRedirect />} />
-                  <Route path="*" element={<AuthRedirect />} />
+                  {/* ── Public pages (no auth) — shared header/footer chrome ── */}
+                  <Route element={<PublicLayout />}>
+                    <Route path="/"                 element={<LandingPage />} />
+                    <Route path="/privacy-policy"   element={<PrivacyPolicyPage />} />
+                    <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+                    <Route path="/cookie-policy"    element={<CookiePolicyPage />} />
+                    <Route path="/data-deletion"    element={<DataDeletionPage />} />
+                    <Route path="/security-info"    element={<SecurityInfoPage />} />
+                    <Route path="/about"            element={<AboutPage />} />
+                    <Route path="/contact"          element={<ContactPage />} />
+                    <Route path="/help-center"      element={<HelpCenterPage />} />
+                    <Route path="/developer-docs"   element={<DeveloperDocsPage />} />
+                    <Route path="/status"           element={<StatusPage />} />
+                    <Route path="/meta-app-review"  element={<MetaAppReviewPage />} />
+                    <Route path="*"                 element={<NotFoundPage />} />
+                  </Route>
 
                 </Routes>
 

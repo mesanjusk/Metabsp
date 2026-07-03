@@ -6,12 +6,15 @@ const Campaign        = require('../models/Campaign');
 
 exports.getSummary = async (req, res) => {
   try {
+    // null tenantId (super admin) sees global counts; everyone else is scoped
+    // to their own organization.
+    const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : {};
     const [users, notifications, waMessages, baileysMessages, campaigns] = await Promise.all([
-      User.countDocuments(),
-      Notification.countDocuments({ readBy: { $size: 0 } }).catch(() => 0),
-      WhatsAppMessage.countDocuments().catch(() => 0),
-      BaileysMessage.countDocuments().catch(() => 0),
-      Campaign.countDocuments().catch(() => 0),
+      User.countDocuments(tenantFilter),
+      Notification.countDocuments({ ...tenantFilter, readBy: { $size: 0 } }).catch(() => 0),
+      WhatsAppMessage.countDocuments(tenantFilter).catch(() => 0),
+      BaileysMessage.countDocuments(tenantFilter).catch(() => 0),
+      Campaign.countDocuments(req.tenantId ? { userId: req.user._id } : {}).catch(() => 0),
     ]);
 
     res.json({

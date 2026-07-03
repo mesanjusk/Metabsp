@@ -3,10 +3,8 @@ const Organization = require('../models/Organization');
 const User = require('../models/User');
 const Role = require('../models/Role');
 const { sendOtp, verifyOtp } = require('../services/otpService');
-
-function getJwtSecret() {
-  return process.env.JWT_SECRET || process.env.ACCESS_TOKEN_SECRET || 'change-me-in-env';
-}
+const { getJwtSecret } = require('../utils/jwtSecret');
+const { PERMISSIONS } = require('../utils/permissions');
 
 function generateToken(userId) {
   return jwt.sign({ id: userId, type: 'db-user' }, getJwtSecret(), {
@@ -14,14 +12,16 @@ function generateToken(userId) {
   });
 }
 
-// Default roles seeded for every new organization
+// Default roles seeded for every new organization. Permission strings match
+// frontend/src/utils/accessControl.js's MODULE_PERMISSIONS vocabulary so the
+// backend's permit() middleware and the frontend's canAccess() agree.
 const DEFAULT_ROLES = [
-  { name: 'Admin',        code: 'ADMIN',        permissions: ['*'],                dashboardKey: 'admin' },
-  { name: 'Team Leader',  code: 'TEAM_LEADER',  permissions: ['dashboard','users','events','categories','stage','budget','responsibilities','notifications','whatsapp'], dashboardKey: 'team_leader' },
-  { name: 'Volunteer',    code: 'VOLUNTEER',    permissions: ['dashboard','stage'], dashboardKey: 'volunteer' },
-  { name: 'Anchor',       code: 'ANCHOR',       permissions: ['dashboard','stage'], dashboardKey: 'anchor' },
-  { name: 'Guest',        code: 'GUEST',        permissions: ['dashboard'],         dashboardKey: 'guest' },
-  { name: 'Student',      code: 'STUDENT',      permissions: ['dashboard'],         dashboardKey: 'student' },
+  { name: 'Admin',        code: 'ADMIN',        permissions: ['*'], dashboardKey: 'admin' },
+  { name: 'Team Leader',  code: 'TEAM_LEADER',  permissions: [PERMISSIONS.dashboard_view, PERMISSIONS.users_manage, PERMISSIONS.categories_manage, PERMISSIONS.stage_manage, PERMISSIONS.budget_manage, PERMISSIONS.notifications_view, PERMISSIONS.whatsapp_send], dashboardKey: 'team_leader' },
+  { name: 'Volunteer',    code: 'VOLUNTEER',    permissions: [PERMISSIONS.dashboard_view, PERMISSIONS.stage_manage], dashboardKey: 'volunteer' },
+  { name: 'Anchor',       code: 'ANCHOR',       permissions: [PERMISSIONS.dashboard_view, PERMISSIONS.stage_manage], dashboardKey: 'anchor' },
+  { name: 'Guest',        code: 'GUEST',        permissions: [PERMISSIONS.dashboard_view], dashboardKey: 'guest' },
+  { name: 'Student',      code: 'STUDENT',      permissions: [PERMISSIONS.dashboard_view], dashboardKey: 'student' },
 ];
 
 async function seedOrgRoles(tenantId) {

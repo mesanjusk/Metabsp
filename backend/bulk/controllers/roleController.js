@@ -2,7 +2,10 @@ const Role = require('../models/Role');
 
 const getRoles = async (req, res) => {
   try {
-    const roles = await Role.find().sort({ createdAt: 1 });
+    // Global roles (tenantId: null) plus the caller's own tenant's roles.
+    const roles = await Role.find({
+      $or: [{ tenantId: null }, ...(req.tenantId ? [{ tenantId: req.tenantId }] : [])],
+    }).sort({ createdAt: 1 });
     res.json(roles);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -11,7 +14,9 @@ const getRoles = async (req, res) => {
 
 const createRole = async (req, res) => {
   try {
-    const role = await Role.create(req.body);
+    const payload = { ...req.body };
+    if (req.tenantId) payload.tenantId = req.tenantId;
+    const role = await Role.create(payload);
     res.status(201).json(role);
   } catch (error) {
     res.status(400).json({ message: error.message });

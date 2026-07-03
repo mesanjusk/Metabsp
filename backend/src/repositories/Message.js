@@ -22,7 +22,7 @@ const messageSchema = new mongoose.Schema(
     customerUuid: String,
     customerId: String,
 
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'Users', index: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
     whatsappAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppAccount', index: true },
 
     // NEW: interactive / flow support

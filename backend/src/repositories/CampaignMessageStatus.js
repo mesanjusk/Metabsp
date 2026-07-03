@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const campaignMessageStatusSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'Users', index: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
     whatsappAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppAccount', index: true },
     messageId: { type: String, required: true, index: true },
     status: { type: String, required: true, enum: ['sent', 'delivered', 'read', 'failed'] },

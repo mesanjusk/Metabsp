@@ -1,17 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, permit } = require('../middleware/auth');
 const {
   getSettings,
   updateSetting,
   updateSettings,
 } = require('../controllers/systemSettingsController');
 
-// All routes require authentication; super-admin wildcard permission is enforced
-// via the protect middleware checking req.user. For simplicity we keep it protect-only
-// (super admin has '*' permissions so any additional permit check would pass anyway).
+// Reading global settings only requires being logged in; changing them is
+// super-admin only (wildcard permission).
 router.get('/', protect, getSettings);
-router.put('/', protect, updateSettings);         // bulk update  { key: value, ... }
-router.put('/:key', protect, updateSetting);      // single key   { value: ... }
+router.put('/', protect, permit('*'), updateSettings);   // bulk update  { key: value, ... }
+router.put('/:key', protect, permit('*'), updateSetting); // single key   { value: ... }
 
 module.exports = router;

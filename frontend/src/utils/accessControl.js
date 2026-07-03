@@ -13,7 +13,6 @@ export const APP_ROUTES = [
   { label: 'Users',           to: '/users',                permission: MODULE_PERMISSIONS.admin },
   { label: 'Roles',           to: '/roles',                permission: MODULE_PERMISSIONS.admin },
   { label: 'Admin',           to: '/admin',                permission: MODULE_PERMISSIONS.admin },
-  { label: 'Webhook Routing', to: '/admin/routing',        permission: MODULE_PERMISSIONS.admin },
   { label: 'System Settings', to: '/super-admin/settings', permission: MODULE_PERMISSIONS.superAdminSettings },
 ];
 
