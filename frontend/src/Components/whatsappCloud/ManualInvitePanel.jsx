@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Box, Button, Card, CardContent, Chip, Grid,
-  MenuItem, Stack, TextField, Typography,
+  MenuItem, Stack, Tab, Tabs, TextField, Typography,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import apiClient from '../../apiClient';
@@ -33,10 +33,31 @@ function drawNameOnCanvas(canvas, imageEl, name, fontStyle) {
   ctx.fillText(name, x * W, y * H);
 }
 
+// Header names in real-world spreadsheets vary a lot ("Mobile Number ", "Contact No",
+// "WhatsApp No" ...) and often carry stray spaces/punctuation, so match on a
+// normalized (lowercased, alphanumeric-only) key instead of exact property names.
+const normalizeKey = (k) => String(k || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const NAME_KEYS = ['name', 'fullname', 'contactname', 'customername', 'guestname', 'studentname', 'recipientname'];
+const MOBILE_KEYS = [
+  'mobile', 'mobileno', 'mobilenumber', 'mobno', 'mob',
+  'phone', 'phoneno', 'phonenumber',
+  'number', 'contact', 'contactno', 'contactnumber',
+  'whatsapp', 'whatsappno', 'whatsappnumber',
+  'cell', 'cellno', 'cellnumber',
+];
+
 function parseRowsToRecipients(rows) {
-  return rows.map(r => {
-    const name   = String(r.Name || r.name || r.NAME || '').trim();
-    const mobile = String(r.Mobile || r.mobile || r.Phone || r.phone || r.Number || r.number || '').trim();
+  return (rows || []).map(row => {
+    const entries = Object.entries(row || {}).map(([k, v]) => [normalizeKey(k), v]);
+    const pick = (keys) => {
+      for (const [nk, v] of entries) {
+        if (keys.includes(nk) && String(v ?? '').trim() !== '') return v;
+      }
+      return '';
+    };
+    const name   = String(pick(NAME_KEYS)).trim();
+    const mobile = String(pick(MOBILE_KEYS)).trim();
     return { name, mobile };
   }).filter(r => r.mobile);
 }
@@ -56,6 +77,7 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
   const [fileName,       setFileName]        = useState('');
   const [imageLoaded,    setImageLoaded]     = useState(false);
   const [imageError,     setImageError]      = useState('');
+  const [subTab,         setSubTab]          = useState('pending');
 
   const canvasRef  = useRef(null);
   const imageElRef = useRef(null);
@@ -116,6 +138,9 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
     const workbook = XLSX.read(buffer, { type: 'array' });
     const rows     = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
     setRecipients(parseRowsToRecipients(rows).map(r => ({ ...r, checked: true })));
+    setSentSet(new Set());
+    setSavedId(null);
+    setSubTab('pending');
   };
 
   const buildWaUrl = (name, mobile) => {
@@ -129,6 +154,11 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
     : form.recipientMode === 'crm'
     ? (recipients || [])
     : (recipients || []).filter(r => r.checked !== false);
+
+  const indexedRecipients  = effectiveRecipients.map((r, idx) => ({ ...r, idx }));
+  const pendingRecipients  = indexedRecipients.filter(r => !sentSet.has(r.idx));
+  const doneRecipients     = indexedRecipients.filter(r => sentSet.has(r.idx));
+  const visibleRecipients  = subTab === 'done' ? doneRecipients : pendingRecipients;
 
   const handleMarkSent = (idx) => {
     setSentSet(prev => { const n = new Set(prev); n.add(idx); return n; });
@@ -187,7 +217,13 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField select label="Recipients" fullWidth value={form.recipientMode}
-              onChange={e => { setForm(p => ({ ...p, recipientMode: e.target.value })); if (e.target.value !== 'crm') setRecipients([]); }}
+              onChange={e => {
+                setForm(p => ({ ...p, recipientMode: e.target.value }));
+                if (e.target.value !== 'crm') setRecipients([]);
+                setSentSet(new Set());
+                setSavedId(null);
+                setSubTab('pending');
+              }}
               sx={{ mb: 2 }}>
               <MenuItem value="single">Single Number</MenuItem>
               <MenuItem value="excel">Excel / CSV File</MenuItem>
@@ -274,8 +310,23 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
             <Typography fontWeight={700} sx={{ mb: 1.5 }}>
               Recipients — {effectiveRecipients.length} total · {sentSet.size} marked sent
             </Typography>
+
+            <Tabs
+              value={subTab}
+              onChange={(_, v) => setSubTab(v)}
+              sx={{ mb: 1.5, minHeight: 36, borderBottom: '1px solid', borderColor: 'divider' }}
+            >
+              <Tab value="pending" label={`Pending (${pendingRecipients.length})`} sx={{ minHeight: 36 }} />
+              <Tab value="done"    label={`Done (${doneRecipients.length})`}       sx={{ minHeight: 36 }} />
+            </Tabs>
+
             <Stack spacing={1}>
-              {effectiveRecipients.map((r, idx) => {
+              {visibleRecipients.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                  {subTab === 'pending' ? 'No pending recipients — all links have been opened.' : 'No recipients marked done yet.'}
+                </Typography>
+              )}
+              {visibleRecipients.map(({ idx, ...r }) => {
                 const url  = buildWaUrl(r.name, r.mobile);
                 const sent = sentSet.has(idx);
                 return (
