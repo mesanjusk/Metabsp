@@ -6,6 +6,9 @@
  *   /api/whatsapp      — WhatsApp Cloud API
  *   /webhook           — Meta webhook
  *   /api/whatsapp/webhook — Meta webhook (alternate)
+ *   /api/whatsapp/webhook-inbound — receives forwarded messages from another
+ *     project's webhook-destinations fan-out (shared WhatsApp number, see
+ *     routes/webhookDestinations.js on the sending side)
  *
  * Bulk-invite (WhatsApp Automation / Baileys) routes are mounted under /api/bulk/:
  *   /api/bulk/auth              — Bulk-invite auth (login, me)
@@ -43,6 +46,7 @@ const usersRouter    = require('./routes/Users');
 const whatsappRouter = require('./routes/WhatsAppCloud');
 const webhookRouter  = require('./routes/webhook');
 const webhookDestinationsRouter = require('./routes/webhookDestinations');
+const webhookInboundRouter = require('./routes/webhookInbound');
 
 // ── Bulk-invite routes ────────────────────────────────────────────────────────
 const bulkCrudRoutes = require('../bulk/routes/crudRoutes');
@@ -135,6 +139,7 @@ app.use('/api/whatsapp',           whatsappRouter);
 app.use('/webhook',                webhookRouter);
 app.use('/api/whatsapp/webhook',   webhookRouter);
 app.use('/api/whatsapp/webhook-destinations', webhookDestinationsRouter);
+app.use('/api/whatsapp/webhook-inbound', webhookInboundRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bulk-invite (WhatsApp Automation / Baileys) routes — mounted under /api/bulk/

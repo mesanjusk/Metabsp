@@ -16,13 +16,17 @@ function validateUrl(url) {
   return null;
 }
 
-function sanitize(dest) {
+// The full secret is only ever included right after create/regenerate (the one
+// moment the caller needs it to configure signature verification on the
+// receiving end) — every other response masks it, same as an API key reveal-once flow.
+function sanitize(dest, { revealSecret = false } = {}) {
   return {
     id: String(dest._id),
     label: dest.label,
     url: dest.url,
     isActive: dest.isActive,
     secretPreview: dest.secret ? `${dest.secret.slice(0, 6)}…` : '',
+    ...(revealSecret ? { secret: dest.secret } : {}),
     lastAttemptAt: dest.lastAttemptAt,
     lastStatus: dest.lastStatus,
     lastError: dest.lastError,
@@ -83,7 +87,7 @@ router.post('/', requireAuth, async (req, res) => {
       secret: WebhookDestination.generateSecret(),
       isActive: isActive !== false,
     });
-    res.status(201).json({ success: true, data: sanitize(dest) });
+    res.status(201).json({ success: true, data: sanitize(dest, { revealSecret: true }) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -121,7 +125,7 @@ router.post('/:id/regenerate-secret', requireAuth, async (req, res) => {
       { new: true }
     );
     if (!dest) return res.status(404).json({ success: false, error: 'Webhook destination not found' });
-    res.json({ success: true, data: sanitize(dest) });
+    res.json({ success: true, data: sanitize(dest, { revealSecret: true }) });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

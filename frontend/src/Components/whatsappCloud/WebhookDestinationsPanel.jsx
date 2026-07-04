@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Chip, IconButton, Stack, Switch, TextField, Typography,
 } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
@@ -23,6 +24,7 @@ export default function WebhookDestinationsPanel() {
   const [newLabel, setNewLabel] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [revealedSecret, setRevealedSecret] = useState(null);
 
   const load = async () => {
     setIsLoading(true);
@@ -44,7 +46,8 @@ export default function WebhookDestinationsPanel() {
     setIsAdding(true);
     setError('');
     try {
-      await apiClient.post(ENDPOINT, { label: newLabel.trim() || 'My project', url: newUrl.trim() });
+      const res = await apiClient.post(ENDPOINT, { label: newLabel.trim() || 'My project', url: newUrl.trim() });
+      setRevealedSecret(res?.data?.data?.secret || null);
       setNewLabel('');
       setNewUrl('');
       await load();
@@ -66,7 +69,8 @@ export default function WebhookDestinationsPanel() {
 
   const regenerateSecret = async (dest) => {
     try {
-      await apiClient.post(`${ENDPOINT}/${dest.id}/regenerate-secret`);
+      const res = await apiClient.post(`${ENDPOINT}/${dest.id}/regenerate-secret`);
+      setRevealedSecret(res?.data?.data?.secret || null);
       await load();
     } catch (err) {
       setError(parseApiError(err, 'Could not regenerate secret.'));
@@ -95,6 +99,24 @@ export default function WebhookDestinationsPanel() {
       </Stack>
 
       {error ? <Alert severity="warning" sx={{ mb: 1.5 }}>{error}</Alert> : null}
+
+      {revealedSecret ? (
+        <Alert
+          severity="info"
+          sx={{ mb: 1.5, wordBreak: 'break-all' }}
+          onClose={() => setRevealedSecret(null)}
+          action={
+            <IconButton size="small" color="inherit" title="Copy secret" onClick={() => navigator.clipboard?.writeText(revealedSecret)}>
+              <ContentCopyIcon fontSize="small" />
+            </IconButton>
+          }
+        >
+          Copy this secret now — it won't be shown again. Use it on the receiving
+          app to verify the <code>X-Metabsp-Signature-256</code> header:
+          <br />
+          <strong>{revealedSecret}</strong>
+        </Alert>
+      ) : null}
 
       <Stack spacing={1.5}>
         {isLoading ? (

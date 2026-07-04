@@ -32,6 +32,11 @@ services:
         value: "true"
       - key: WHATSAPP_TOKEN_ENCRYPTION_KEY
         sync: false
+      # Only needed if this deployment receives messages forwarded from
+      # another project's webhook-destinations fan-out (shared WhatsApp
+      # number) instead of owning the Meta webhook subscription itself.
+      - key: WHATSAPP_FORWARD_SECRET
+        sync: false
 
       # ── Auth (shared by every login path) ────────────────────────
       - key: JWT_SECRET
