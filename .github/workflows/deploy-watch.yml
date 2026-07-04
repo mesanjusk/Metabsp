@@ -1,0 +1,96 @@
+name: Deploy Watch
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll Vercel deployment
+        id: vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "state=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA="${{ github.sha }}"
+          STATE=""
+          for i in $(seq 1 30); do
+            RESP=$(curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?limit=5&meta-githubCommitSha=$SHA")
+            STATE=$(echo "$RESP" | jq -r '.deployments[0].state // empty')
+            URL=$(echo "$RESP" | jq -r '.deployments[0].url // empty')
+            DEPLOY_UID=$(echo "$RESP" | jq -r '.deployments[0].uid // empty')
+            if [ "$STATE" = "READY" ] || [ "$STATE" = "ERROR" ] || [ "$STATE" = "CANCELED" ]; then
+              break
+            fi
+            sleep 20
+          done
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "uid=$DEPLOY_UID" >> "$GITHUB_OUTPUT"
+
+      - name: Poll Render deployment
+        id: render
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          if [ -z "$RENDER_API_KEY" ]; then
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA="${{ github.sha }}"
+          SERVICE_ID=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services?name=metabsp-backend&limit=1" | jq -r '.[0].service.id // empty')
+          if [ -z "$SERVICE_ID" ]; then
+            echo "status=service_not_found" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          STATUS=""
+          DEPLOY_ID=""
+          for i in $(seq 1 30); do
+            DEPLOYS=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$SERVICE_ID/deploys?limit=10")
+            DEPLOY=$(echo "$DEPLOYS" | jq -r --arg sha "$SHA" '[.[] | select(.deploy.commit.id == $sha)][0].deploy')
+            STATUS=$(echo "$DEPLOY" | jq -r '.status // empty')
+            DEPLOY_ID=$(echo "$DEPLOY" | jq -r '.id // empty')
+            if [ "$STATUS" = "live" ] || [ "$STATUS" = "build_failed" ] || [ "$STATUS" = "update_failed" ] || [ "$STATUS" = "canceled" ] || [ "$STATUS" = "pre_deploy_failed" ]; then
+              break
+            fi
+            sleep 20
+          done
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
+          echo "service_id=$SERVICE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: File issue on failure
+        if: steps.vercel.outputs.state == 'ERROR' || contains(fromJSON('["build_failed","update_failed","pre_deploy_failed"]'), steps.render.outputs.status)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.sha.substring(0, 7);
+            const vercelState = `${{ steps.vercel.outputs.state }}`;
+            const vercelUrl = `${{ steps.vercel.outputs.url }}`;
+            const renderStatus = `${{ steps.render.outputs.status }}`;
+            const renderServiceId = `${{ steps.render.outputs.service_id }}`;
+            const renderDeployId = `${{ steps.render.outputs.deploy_id }}`;
+            const body = [
+              `Commit: ${context.sha}`,
+              '',
+              `Vercel: ${vercelState || 'n/a'}${vercelUrl ? ` — https://${vercelUrl}` : ''}`,
+              `Render: ${renderStatus || 'n/a'}${renderServiceId && renderDeployId ? ` — https://dashboard.render.com/web/${renderServiceId}/deploys/${renderDeployId}` : ''}`,
+              '',
+              '_Opened automatically by the deploy-watch workflow._'
+            ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Deploy failure: ${sha}`,
+              body,
+              labels: ['deploy-failure']
+            });
