@@ -125,17 +125,35 @@ const sleep            = (ms) => new Promise(r => setTimeout(r, ms));
 const randDelay        = () =>
   (Math.floor(Math.random() * (DELAY_MAX_S - DELAY_MIN_S + 1)) + DELAY_MIN_S) * 1000;
 
+// Header names in real-world spreadsheets vary a lot ("Mobile Number ", "Contact No",
+// "WhatsApp No" ...) and often carry stray spaces/punctuation, so match on a
+// normalized (lowercased, alphanumeric-only) key instead of exact property names.
+const normalizeKey = (k) => String(k || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const RECIPIENT_NAME_KEYS = ['name', 'fullname', 'contactname', 'customername', 'guestname', 'studentname', 'recipientname'];
+const RECIPIENT_MOBILE_KEYS = [
+  'mobile', 'mobileno', 'mobilenumber', 'mobno', 'mob',
+  'phone', 'phoneno', 'phonenumber',
+  'number', 'contact', 'contactno', 'contactnumber',
+  'whatsapp', 'whatsappno', 'whatsappnumber',
+  'cell', 'cellno', 'cellnumber',
+];
+
 function parseRowsToRecipients(rows = []) {
-  return rows.map(row => ({
-    name: String(
-      row.name || row.fullName || row.studentName || row.guestName || row.Name || ''
-    ).trim() || 'Guest',
-    mobile: normalizePhone(
-      row.mobile || row.phone || row.number || row.whatsapp ||
-      row.Mobile || row.Phone || row.Number || row.WhatsApp || ''
-    ),
-    source: 'FILE',
-  })).filter(item => item.mobile);
+  return rows.map(row => {
+    const entries = Object.entries(row || {}).map(([k, v]) => [normalizeKey(k), v]);
+    const pick = (keys) => {
+      for (const [nk, v] of entries) {
+        if (keys.includes(nk) && String(v ?? '').trim() !== '') return v;
+      }
+      return '';
+    };
+    return {
+      name: String(pick(RECIPIENT_NAME_KEYS)).trim() || 'Guest',
+      mobile: normalizePhone(pick(RECIPIENT_MOBILE_KEYS)),
+      source: 'FILE',
+    };
+  }).filter(item => item.mobile);
 }
 
 function fmtSecs(s) {
@@ -1894,6 +1912,7 @@ function ManualInvitePanel({ isBaileys }) {
   const [saving,         setSaving]          = useState(false);
   const [savedId,        setSavedId]         = useState(null);
   const [fileName,       setFileName]        = useState('');
+  const [subTab,         setSubTab]          = useState('pending');
 
   const canvasRef  = useRef(null);
   const imageElRef = useRef(null);
@@ -1924,6 +1943,9 @@ function ManualInvitePanel({ isBaileys }) {
     const workbook = XLSX.read(buffer, { type: 'array' });
     const rows     = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
     setRecipients(parseRowsToRecipients(rows).map(r => ({ ...r, checked: true })));
+    setSentSet(new Set());
+    setSavedId(null);
+    setSubTab('pending');
   };
 
   const handleUploadImage = async (e) => {
@@ -1949,6 +1971,11 @@ function ManualInvitePanel({ isBaileys }) {
   const effectiveRecipients = form.recipientMode === 'single'
     ? [{ name: form.singleName || 'Guest', mobile: form.singleNumber }]
     : recipients.filter(r => r.checked !== false);
+
+  const indexedRecipients = effectiveRecipients.map((r, idx) => ({ ...r, idx }));
+  const pendingRecipients = indexedRecipients.filter(r => !sentSet.has(r.idx));
+  const doneRecipients    = indexedRecipients.filter(r => sentSet.has(r.idx));
+  const visibleRecipients = subTab === 'done' ? doneRecipients : pendingRecipients;
 
   const handleMarkSent = (idx) => {
     setSentSet(prev => { const n = new Set(prev); n.add(idx); return n; });
@@ -1998,7 +2025,13 @@ function ManualInvitePanel({ isBaileys }) {
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField select label="Recipients" fullWidth value={form.recipientMode}
-              onChange={e => { setForm(p => ({ ...p, recipientMode: e.target.value })); setRecipients([]); }}
+              onChange={e => {
+                setForm(p => ({ ...p, recipientMode: e.target.value }));
+                setRecipients([]);
+                setSentSet(new Set());
+                setSavedId(null);
+                setSubTab('pending');
+              }}
               sx={{ mb: 2 }}>
               <MenuItem value="single">Single Number</MenuItem>
               <MenuItem value="excel">Excel / CSV File</MenuItem>
@@ -2039,8 +2072,23 @@ function ManualInvitePanel({ isBaileys }) {
             <Typography fontWeight={700} sx={{ mb: 1.5 }}>
               Recipients — {effectiveRecipients.length} total · {sentSet.size} marked sent
             </Typography>
+
+            <Tabs
+              value={subTab}
+              onChange={(_, v) => setSubTab(v)}
+              sx={{ mb: 1.5, minHeight: 36, borderBottom: '1px solid', borderColor: 'divider' }}
+            >
+              <Tab value="pending" label={`Pending (${pendingRecipients.length})`} sx={{ minHeight: 36 }} />
+              <Tab value="done"    label={`Done (${doneRecipients.length})`}       sx={{ minHeight: 36 }} />
+            </Tabs>
+
             <Stack spacing={1}>
-              {effectiveRecipients.map((r, idx) => {
+              {visibleRecipients.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                  {subTab === 'pending' ? 'No pending recipients — all links have been opened.' : 'No recipients marked done yet.'}
+                </Typography>
+              )}
+              {visibleRecipients.map(({ idx, ...r }) => {
                 const url  = buildWaUrl(r.name, r.mobile);
                 const sent = sentSet.has(idx);
                 return (
