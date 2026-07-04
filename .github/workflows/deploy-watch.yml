@@ -20,6 +20,8 @@ jobs:
           fi
           SHA="${{ github.sha }}"
           STATE=""
+          URL=""
+          DEPLOY_UID=""
           for i in $(seq 1 30); do
             RESP=$(curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
               "https://api.vercel.com/v6/deployments?limit=5&meta-githubCommitSha=$SHA")
@@ -35,6 +37,18 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "uid=$DEPLOY_UID" >> "$GITHUB_OUTPUT"
 
+          LOGS=""
+          if [ "$STATE" = "ERROR" ] && [ -n "$DEPLOY_UID" ]; then
+            LOGS=$(curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v2/deployments/$DEPLOY_UID/events?builds=1" \
+              | jq -r '[.[] | select(.type=="stdout" or .type=="stderr" or .type=="error") | .payload.text // .text // empty] | .[-80:] | join("\n")' 2>/dev/null || true)
+          fi
+          {
+            echo "logs<<VERCEL_LOG_EOF"
+            echo "$LOGS"
+            echo "VERCEL_LOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Poll Render deployment
         id: render
         env:
@@ -45,8 +59,10 @@ jobs:
             exit 0
           fi
           SHA="${{ github.sha }}"
-          SERVICE_ID=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
-            "https://api.render.com/v1/services?name=metabsp-backend&limit=1" | jq -r '.[0].service.id // empty')
+          SERVICE_JSON=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services?name=metabsp-backend&limit=1")
+          SERVICE_ID=$(echo "$SERVICE_JSON" | jq -r '.[0].service.id // empty')
+          OWNER_ID=$(echo "$SERVICE_JSON" | jq -r '.[0].service.ownerId // empty')
           if [ -z "$SERVICE_ID" ]; then
             echo "status=service_not_found" >> "$GITHUB_OUTPUT"
             exit 0
@@ -68,6 +84,22 @@ jobs:
           echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
           echo "service_id=$SERVICE_ID" >> "$GITHUB_OUTPUT"
 
+          LOGS=""
+          case "$STATUS" in
+            build_failed|update_failed|pre_deploy_failed)
+              if [ -n "$OWNER_ID" ]; then
+                LOGS=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+                  "https://api.render.com/v1/logs?ownerId=$OWNER_ID&resource[]=$SERVICE_ID&type[]=build&type[]=app&direction=backward&limit=100" \
+                  | jq -r '[.logs[]? | "\(.timestamp) \(.message)"] | reverse | join("\n")' 2>/dev/null || true)
+              fi
+              ;;
+          esac
+          {
+            echo "logs<<RENDER_LOG_EOF"
+            echo "$LOGS"
+            echo "RENDER_LOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: File issue on failure
         if: steps.vercel.outputs.state == 'ERROR' || contains(fromJSON('["build_failed","update_failed","pre_deploy_failed"]'), steps.render.outputs.status)
         uses: actions/github-script@v7
@@ -76,21 +108,32 @@ jobs:
             const sha = context.sha.substring(0, 7);
             const vercelState = `${{ steps.vercel.outputs.state }}`;
             const vercelUrl = `${{ steps.vercel.outputs.url }}`;
+            const vercelLogs = `${{ steps.vercel.outputs.logs }}`.trim();
             const renderStatus = `${{ steps.render.outputs.status }}`;
             const renderServiceId = `${{ steps.render.outputs.service_id }}`;
             const renderDeployId = `${{ steps.render.outputs.deploy_id }}`;
-            const body = [
+            const renderLogs = `${{ steps.render.outputs.logs }}`.trim();
+
+            const truncate = (s, n) => (s.length > n ? `${s.slice(-n)}\n…(truncated)` : s);
+
+            const parts = [
               `Commit: ${context.sha}`,
               '',
               `Vercel: ${vercelState || 'n/a'}${vercelUrl ? ` — https://${vercelUrl}` : ''}`,
-              `Render: ${renderStatus || 'n/a'}${renderServiceId && renderDeployId ? ` — https://dashboard.render.com/web/${renderServiceId}/deploys/${renderDeployId}` : ''}`,
-              '',
-              '_Opened automatically by the deploy-watch workflow._'
-            ].join('\n');
+            ];
+            if (vercelLogs) {
+              parts.push('', '<details><summary>Vercel build log (tail)</summary>', '', '```', truncate(vercelLogs, 6000), '```', '</details>');
+            }
+            parts.push('', `Render: ${renderStatus || 'n/a'}${renderServiceId && renderDeployId ? ` — https://dashboard.render.com/web/${renderServiceId}/deploys/${renderDeployId}` : ''}`);
+            if (renderLogs) {
+              parts.push('', '<details><summary>Render deploy log (tail)</summary>', '', '```', truncate(renderLogs, 6000), '```', '</details>');
+            }
+            parts.push('', '_Opened automatically by the deploy-watch workflow._');
+
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: `Deploy failure: ${sha}`,
-              body,
+              body: parts.join('\n'),
               labels: ['deploy-failure']
             });
