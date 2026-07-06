@@ -26,7 +26,18 @@ const ENDPOINT = '/api/whatsapp/webhook-destinations';
 function statusChip(dest) {
   if (!dest.lastAttemptAt) return <Chip size="small" label="Not delivered yet" />;
   if (dest.lastStatus === 'success') return <Chip size="small" color="success" label="Delivering OK" />;
-  return <Chip size="small" color="error" label={`Failed: ${dest.lastError || 'unknown error'}`} />;
+  return <Chip size="small" color="error" label="Failed" />;
+}
+
+// The Chip above truncates on narrow screens, so show the full error as
+// wrapping text underneath instead of relying on a screenshot of the chip.
+function statusErrorDetail(dest) {
+  if (dest.lastStatus !== 'failed' || !dest.lastError) return null;
+  return (
+    <Typography variant="caption" color="error" sx={{ display: 'block', wordBreak: 'break-word', mt: 0.25 }}>
+      {dest.lastError}
+    </Typography>
+  );
 }
 
 export default function WebhookDestinationsPanel() {
@@ -144,6 +155,7 @@ export default function WebhookDestinationsPanel() {
                       </IconButton>
                     </Tooltip>
                   </Stack>
+                  {statusErrorDetail(dest)}
                 </Box>
                 <Stack direction="row" spacing={0.5} alignItems="center">
                   <Switch size="small" checked={dest.isActive} onChange={() => toggleActive(dest)} />
