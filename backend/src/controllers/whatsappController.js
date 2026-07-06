@@ -1134,6 +1134,27 @@ const parseIncoming = (msg = {}) => {
       mediaId: String(mediaNode.id || ''),
     };
   }
+  if (type === 'interactive') {
+    const iType = msg.interactive?.type;
+    let interactiveId = '';
+    let text = '';
+    if (iType === 'button_reply') {
+      interactiveId = msg.interactive.button_reply?.id || '';
+      text = msg.interactive.button_reply?.title || '';
+    } else if (iType === 'list_reply') {
+      interactiveId = msg.interactive.list_reply?.id || '';
+      text = msg.interactive.list_reply?.title || '';
+    } else {
+      interactiveId = JSON.stringify(msg.interactive || {});
+    }
+    return { type, message: text || interactiveId, mediaId: '', interactiveId };
+  }
+  if (type === 'button') {
+    // Legacy quick-reply button tap (older template format, distinct from
+    // the "interactive" button_reply/list_reply message type above).
+    const interactiveId = msg.button?.payload || '';
+    return { type, message: msg.button?.text || interactiveId, mediaId: '', interactiveId };
+  }
   return null;
 };
 
@@ -1265,6 +1286,7 @@ const receiveWebhook = (req, res) => {
             messageId: String(msg.id || ''),
             type: parsed.type,
             mediaId: parsed.mediaId,
+            interactiveId: parsed.interactiveId || '',
             wabaId,
             businessAccountId,
           });
