@@ -1,12 +1,11 @@
 // scripts/create-order-indexes.js
 const mongoose = require("mongoose");
 
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  "mongodb+srv://sanjuahuja:cY7NtMKm8M10MbUs@cluster0.wdfsd.mongodb.net/MISSK"; // <-- change if not using env
+const MONGO_URI = process.env.MONGO_URI;
 
 (async () => {
   try {
+    if (!MONGO_URI) throw new Error("MONGO_URI is not set");
     await mongoose.connect(MONGO_URI, {});
 
     const Orders = mongoose.connection.collection("orders");

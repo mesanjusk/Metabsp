@@ -32,6 +32,12 @@ const whatsappAccountSchema = new mongoose.Schema(
       index: true,
     },
     webhookSubscribed: { type: Boolean, default: false },
+    // True while this account holds a real-world claim on `phoneNumberId` — set
+    // false on disconnect/delete so the number can be reconnected (by this user
+    // or another) without tripping the partial unique index below. Mongo partial
+    // filter expressions only support equality, hence this flag instead of a
+    // `status: { $ne: 'disconnected' }` filter.
+    numberClaimed: { type: Boolean, default: true },
     isActive: { type: Boolean, default: true, index: true },
     connectedAt: { type: Date, default: Date.now },
     lastSyncAt: { type: Date, default: null },
@@ -50,6 +56,15 @@ whatsappAccountSchema.index({ userId: 1, accountKey: 1 }, { unique: true, sparse
 whatsappAccountSchema.index(
   { userId: 1, isActive: 1 },
   { unique: true, partialFilterExpression: { isActive: true } }
+);
+// Global cross-user guarantee: a real WhatsApp phoneNumberId can only be
+// claimed by one user's account at a time (the shared /webhook endpoint
+// routes solely by this identifier, so two users holding the same one would
+// make inbound routing ambiguous). See services/whatsappAccountService.js:
+// assertPhoneNumberAvailable for the app-level check backing this index up.
+whatsappAccountSchema.index(
+  { phoneNumberId: 1 },
+  { unique: true, partialFilterExpression: { numberClaimed: true } }
 );
 
 module.exports = mongoose.model('WhatsAppAccount', whatsappAccountSchema);

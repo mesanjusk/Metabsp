@@ -9,7 +9,8 @@
     "dev": "nodemon src/index.js",
     "seed": "node bulk/scripts/seed.js",
     "seed-admin": "node bulk/seedAdmin.js",
-    "migrate-users": "node bulk/scripts/migrateMetabspUsers.js"
+    "migrate-users": "node bulk/scripts/migrateMetabspUsers.js",
+    "migrate-whatsapp-uniqueness": "node scripts/migrate-whatsapp-account-uniqueness.js"
   },
   "author": "",
   "license": "ISC",

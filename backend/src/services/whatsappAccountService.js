@@ -106,6 +106,24 @@ const loadWhatsAppAccountByPhoneNumberId = async (phoneNumberId, options = {}) =
   return toAccountContext(account);
 };
 
+// Rejects connecting a phoneNumberId that another user already holds, so the
+// shared webhook's routing-by-phoneNumberId can never become ambiguous
+// between two tenants. Backed by the partial unique index on phoneNumberId
+// in repositories/whatsappAccount.js — this check just gives a clean error
+// instead of a raw duplicate-key failure.
+const assertPhoneNumberAvailable = async ({ phoneNumberId, userId, excludeAccountId } = {}) => {
+  const conflict = await WhatsAppAccount.findOne({
+    phoneNumberId: String(phoneNumberId || ''),
+    userId: { $ne: userId },
+    numberClaimed: true,
+    ...(excludeAccountId ? { _id: { $ne: excludeAccountId } } : {}),
+  }).lean();
+
+  if (conflict) {
+    throw new AppError('This WhatsApp number is already connected to a different account.', 409);
+  }
+};
+
 const normalizeDigits = (value) => String(value || '').replace(/\D/g, '');
 
 const loadWhatsAppAccountFromWebhookIdentifiers = async (
@@ -148,16 +166,11 @@ const loadWhatsAppAccountFromWebhookIdentifiers = async (
     account = candidates.find((item) => normalizeDigits(item.displayPhoneNumber) === normalizedDisplayPhone) || null;
   }
 
-  if (!account) {
-    const activeAccounts = await WhatsAppAccount.find({ isActive: true, status: { $ne: 'disconnected' } })
-      .sort({ updatedAt: -1 })
-      .limit(2)
-      .lean();
-    if (activeAccounts.length === 1) {
-      account = activeAccounts[0];
-    }
-  }
-
+  // No "if only one account exists system-wide, assume it's theirs" fallback
+  // here on purpose: with phoneNumberId now globally unique per claim, a
+  // payload that fails to match by identifier is genuinely unattributable —
+  // guessing would risk forwarding one tenant's message to another tenant's
+  // webhook destinations.
   if (!account) {
     if (!requireAccount) return null;
     throw new AppError('No WhatsApp account matched for webhook payload', 404);
@@ -184,4 +197,5 @@ module.exports = {
   loadWhatsAppAccountByPhoneNumberId,
   loadWhatsAppAccountFromWebhookIdentifiers,
   resolveCurrentWhatsAppAccount,
+  assertPhoneNumberAvailable,
 };

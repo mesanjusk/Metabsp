@@ -27,28 +27,38 @@ const {
   loadActiveWhatsAppAccountForUser,
   loadWhatsAppAccountByPhoneNumberId,
   loadWhatsAppAccountFromWebhookIdentifiers,
+  assertPhoneNumberAvailable,
 } = require('../services/whatsappAccountService');
 
 const normalizePhone = (v) => String(v || '').replace(/\D/g, '');
 const RESOLVED_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v19.0';
 
 const upsertAndActivateAccountForUser = async ({ userId, phoneNumberId, setPayload }) => {
+  await assertPhoneNumberAvailable({ phoneNumberId, userId });
   await WhatsAppAccount.updateMany({ userId, isActive: true }, { $set: { isActive: false } });
 
-  const account = await WhatsAppAccount.findOneAndUpdate(
-    { userId, phoneNumberId: String(phoneNumberId) },
-    {
-      $set: {
-        userId,
-        phoneNumberId: String(phoneNumberId),
-        ...setPayload,
-        isActive: true,
+  try {
+    const account = await WhatsAppAccount.findOneAndUpdate(
+      { userId, phoneNumberId: String(phoneNumberId) },
+      {
+        $set: {
+          userId,
+          phoneNumberId: String(phoneNumberId),
+          ...setPayload,
+          isActive: true,
+          numberClaimed: true,
+        },
       },
-    },
-    { upsert: true, new: true }
-  );
+      { upsert: true, new: true }
+    );
 
-  return account;
+    return account;
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new AppError('This WhatsApp number is already connected to a different account.', 409);
+    }
+    throw error;
+  }
 };
 
 const ensureWhatsAppMessagingConfig = (config) => {
@@ -413,10 +423,25 @@ const activateAccount = asyncHandler(async (req, res) => {
   const account = await WhatsAppAccount.findOne({ _id: req.params.id, userId: req.user?.id });
   if (!account) throw new AppError('Account not found', 404);
 
+  const wasDisconnected = account.status === 'disconnected';
+  if (wasDisconnected) {
+    // Reconnecting may re-claim a number someone else picked up in the meantime.
+    await assertPhoneNumberAvailable({ phoneNumberId: account.phoneNumberId, userId: req.user?.id, excludeAccountId: account._id });
+  }
+
   await WhatsAppAccount.updateMany({ userId: req.user?.id }, { $set: { isActive: false } });
   account.isActive = true;
-  account.status = account.status === 'disconnected' ? 'active' : account.status;
-  await account.save();
+  account.status = wasDisconnected ? 'active' : account.status;
+  account.numberClaimed = true;
+
+  try {
+    await account.save();
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new AppError('This WhatsApp number is already connected to a different account.', 409);
+    }
+    throw error;
+  }
 
   return res.status(200).json({ success: true, data: sanitizeAccount(account) });
 });
@@ -443,6 +468,7 @@ const deleteAccount = asyncHandler(async (req, res) => {
   const wasActive = Boolean(existing.isActive);
   existing.status = 'disconnected';
   existing.isActive = false;
+  existing.numberClaimed = false;
   await existing.save();
 
   if (wasActive) {
@@ -468,6 +494,7 @@ const disconnectAccount = asyncHandler(async (req, res) => {
   existing.status = 'disconnected';
   existing.isActive = false;
   existing.webhookSubscribed = false;
+  existing.numberClaimed = false;
   await existing.save();
 
   return res.status(200).json({ success: true, data: sanitizeAccount(existing) });
@@ -531,7 +558,12 @@ const updateManualAccount = asyncHandler(async (req, res) => {
     wabaId: resolvedWabaId,
   });
 
-  existing.phoneNumberId = String(validated.phoneNumberId || resolvedPhoneNumberId);
+  const newPhoneNumberId = String(validated.phoneNumberId || resolvedPhoneNumberId);
+  if (newPhoneNumberId !== existing.phoneNumberId) {
+    await assertPhoneNumberAvailable({ phoneNumberId: newPhoneNumberId, userId: req.user?.id, excludeAccountId: existing._id });
+  }
+
+  existing.phoneNumberId = newPhoneNumberId;
   existing.businessAccountId = String(validated.businessAccountId || resolvedBusinessAccountId);
   existing.wabaId = String(validated.wabaId || resolvedWabaId);
   existing.displayPhoneNumber = String(validated.displayPhoneNumber || displayPhoneNumber || existing.displayPhoneNumber || existing.phoneNumberId);
@@ -539,13 +571,22 @@ const updateManualAccount = asyncHandler(async (req, res) => {
   existing.accessTokenEncrypted = encryptSensitiveValue(resolvedAccessToken);
   existing.appScopedMetaUserId = String(validated.appScopedMetaUserId || existing.appScopedMetaUserId || '');
   existing.status = 'active';
+  existing.numberClaimed = true;
   existing.lastSyncAt = new Date();
   existing.metadata = {
     ...(existing.metadata || {}),
     ...(validated.metadata || {}),
     accountName: String(accountName || label || existing.metadata?.accountName || ''),
   };
-  await existing.save();
+
+  try {
+    await existing.save();
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new AppError('This WhatsApp number is already connected to a different account.', 409);
+    }
+    throw error;
+  }
 
   return res.status(200).json({ success: true, data: sanitizeAccount(existing) });
 });
