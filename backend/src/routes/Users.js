@@ -9,6 +9,7 @@ const { sendOtp, verifyOtp } = require('../services/otpService');
 const { getJwtSecret } = require('../../bulk/utils/jwtSecret');
 const jwt = require('jsonwebtoken');
 const { METABSP_ADMIN_ROLE_CODE, METABSP_USER_ROLE_CODE } = require('../../bulk/seedAdmin');
+const { assertPhoneNumberAvailable } = require('../services/whatsappAccountService');
 
 const router = express.Router();
 
@@ -222,6 +223,7 @@ router.post('/manage', requireAuth, requireAdmin, async (req, res) => {
 
     let account = null;
     if (accessToken && phoneNumberId && (businessAccountId || wabaId)) {
+      await assertPhoneNumberAvailable({ phoneNumberId, userId: user._id });
       account = await WhatsAppAccount.findOneAndUpdate(
         { userId: user._id, phoneNumberId },
         {
@@ -239,6 +241,7 @@ router.post('/manage', requireAuth, requireAdmin, async (req, res) => {
             status: 'active',
             webhookSubscribed: Boolean(whatsapp?.webhookSubscribed),
             isActive: true,
+            numberClaimed: true,
             connectedAt: new Date(),
             lastSyncAt: new Date(),
             metadata: {
@@ -265,6 +268,9 @@ router.post('/manage', requireAuth, requireAdmin, async (req, res) => {
     await session.abortTransaction();
     session.endSession();
     console.error('Create user error:', error);
+    if (error?.statusCode === 409 || error?.code === 11000) {
+      return res.status(409).json({ success: false, message: error.message || 'This WhatsApp number is already connected to a different account.' });
+    }
     return res.status(500).json({ success: false, message: 'Failed to create user.' });
   }
 });
@@ -322,6 +328,9 @@ router.put('/manage/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 
     if (accessToken && phoneNumberId && (businessAccountId || wabaId)) {
+      if (!account || phoneNumberId !== account.phoneNumberId) {
+        await assertPhoneNumberAvailable({ phoneNumberId, userId: user._id, excludeAccountId: account?._id });
+      }
       if (!account) {
         account = new WhatsAppAccount({
           userId: user._id,
@@ -340,6 +349,7 @@ router.put('/manage/:id', requireAuth, requireAdmin, async (req, res) => {
       account.status = 'active';
       account.webhookSubscribed = Boolean(whatsapp?.webhookSubscribed);
       account.isActive = true;
+      account.numberClaimed = true;
       account.lastSyncAt = new Date();
       account.metadata = {
         ...(account.metadata || {}),
@@ -364,6 +374,9 @@ router.put('/manage/:id', requireAuth, requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Update user error:', error);
+    if (error?.statusCode === 409 || error?.code === 11000) {
+      return res.status(409).json({ success: false, message: error.message || 'This WhatsApp number is already connected to a different account.' });
+    }
     return res.status(500).json({ success: false, message: 'Failed to update user.' });
   }
 });

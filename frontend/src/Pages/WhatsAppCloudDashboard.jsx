@@ -41,6 +41,7 @@ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import QueryStatsRoundedIcon from '@mui/icons-material/QueryStatsRounded';
+import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded';
 import { toast } from '../Components/Toast';
 import {
   connectWhatsAppManual,
@@ -53,6 +54,7 @@ import {
 import { parseApiError } from '../utils/parseApiError';
 import { ErrorState, LoadingSkeleton } from '../Components/ui';
 import { useAuth } from '../context/AuthContext';
+import WhatsappProviderDialog from '../Components/whatsappCloud/WhatsappProviderDialog';
 
 const MessagesPanel       = lazy(() => import('../Components/whatsappCloud/MessagesPanel'));
 const SendMessagePanel    = lazy(() => import('../Components/whatsappCloud/SendMessagePanel'));
@@ -167,10 +169,24 @@ export default function WhatsAppCloudDashboard() {
     whatsappAccount, whatsappAccountStatus,
     isAccountLoading, isAccountConnected, accountConnectionMode,
     refreshWhatsAppAccount,
+    whatsappProvider, updateWhatsappProvider,
   } = useAuth();
   const outletContext = useOutletContext() || {};
 
   const isAdminUser = String(userGroup || '').toLowerCase() === 'admin';
+
+  // Admin always sees everything; a regular user who hasn't chosen yet also
+  // sees everything until they do (the forced prompt below handles that).
+  const visibleMainTabs = useMemo(() => MAIN_TABS.filter((tab) => {
+    if (isAdminUser) return true;
+    if (tab.key === 'meta') return whatsappProvider !== 'baileys';
+    if (tab.key === 'baileys') return whatsappProvider !== 'meta';
+    return true;
+  }), [isAdminUser, whatsappProvider]);
+
+  const needsProviderChoice = !isAdminUser && !whatsappProvider;
+  const [providerDialogOpen, setProviderDialogOpen] = useState(false);
+  const handleSaveProviderChoice = useCallback((value) => updateWhatsappProvider(value), [updateWhatsappProvider]);
 
   // Main tab + sub-tab state
   const [mainTab, setMainTab] = useState('meta');
@@ -403,7 +419,7 @@ export default function WhatsAppCloudDashboard() {
           <Stack alignItems="center" sx={{ py: 2.5, height: '100%' }}>
             <Avatar sx={{ bgcolor: '#25d366', color: '#072f25', fontWeight: 700, mb: 2 }}>WA</Avatar>
             <List dense sx={{ width: '100%', px: 1 }}>
-              {MAIN_TABS.map(item => (
+              {visibleMainTabs.map(item => (
                 <ListItemButton
                   key={item.key}
                   selected={mainTab === item.key}
@@ -428,6 +444,13 @@ export default function WhatsAppCloudDashboard() {
                   <SettingsRoundedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
+              {!isAdminUser && (
+                <Tooltip title="WhatsApp provider">
+                  <IconButton sx={{ color: '#cfd4d8' }} onClick={() => setProviderDialogOpen(true)}>
+                    <SwapHorizRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title="Logout">
                 <IconButton sx={{ color: '#cfd4d8' }} onClick={outletContext.onLogout}>
                   <LogoutRoundedIcon fontSize="small" />
@@ -584,6 +607,12 @@ export default function WhatsAppCloudDashboard() {
           <ListItemIcon><SettingsRoundedIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary="Connect manually" />
         </MenuItem>
+        {!isAdminUser && (
+          <MenuItem onClick={() => { setProviderDialogOpen(true); setMobileMenuAnchorEl(null); }}>
+            <ListItemIcon><SwapHorizRoundedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText primary="WhatsApp provider" />
+          </MenuItem>
+        )}
         {whatsappAccount?.id && (
           <MenuItem onClick={() => { handleReconnect(); setMobileMenuAnchorEl(null); }}>
             <ListItemIcon><RefreshRoundedIcon fontSize="small" /></ListItemIcon>
@@ -642,6 +671,16 @@ export default function WhatsAppCloudDashboard() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {needsProviderChoice && (
+        <WhatsappProviderDialog open forced currentValue={whatsappProvider} onSubmit={handleSaveProviderChoice} />
+      )}
+      <WhatsappProviderDialog
+        open={providerDialogOpen}
+        currentValue={whatsappProvider}
+        onClose={() => setProviderDialogOpen(false)}
+        onSubmit={handleSaveProviderChoice}
+      />
     </Box>
   );
 }

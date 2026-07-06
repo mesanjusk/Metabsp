@@ -88,6 +88,7 @@ export default function Signup() {
         userName: data.user?.User_name || userName,
         userGroup: data.user?.User_group || '',
         mobileNumber: data.user?.Mobile_number || mobile,
+        whatsappProvider: data.user?.Whatsapp_provider || '',
       });
 
       toast.success('Account created successfully.');

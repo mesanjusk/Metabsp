@@ -57,6 +57,7 @@ export default function Login() {
         userName: data.user?.User_name || userName,
         userGroup: data.user?.User_group || '',
         mobileNumber: data.user?.Mobile_number || '',
+        whatsappProvider: data.user?.Whatsapp_provider || '',
       });
 
       toast.success('Login successful.');
