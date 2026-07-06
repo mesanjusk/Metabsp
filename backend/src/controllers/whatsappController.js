@@ -280,6 +280,24 @@ const dispatchMediaMessage = async ({ accountContext, userId, to, type, link, ca
   return data;
 };
 
+// App-level Meta webhook config (one shared value for the whole deployment,
+// not per-user) — shown to admins so they don't have to hunt through Render
+// env vars to configure Meta's App Dashboard webhook fields.
+const getMetaWebhookConfig = asyncHandler(async (req, res) => {
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwardedProto || req.protocol || 'https';
+  const host = req.get('host');
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      callbackUrl: `${protocol}://${host}/webhook`,
+      verifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || '',
+      appId: process.env.META_APP_ID || '',
+    },
+  });
+});
+
 const getConnectConfig = asyncHandler(async (_req, res) => {
   return res.status(200).json({
     success: true,
@@ -1522,6 +1540,7 @@ const revokeApiKey = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  getMetaWebhookConfig,
   getConnectConfig,
   exchangeMetaToken,
   completeConnection,

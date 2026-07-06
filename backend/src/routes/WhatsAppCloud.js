@@ -1,10 +1,11 @@
 const express = require('express');
 const multer = require('multer');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { createRateLimiter } = require('../middleware/rateLimit');
 const { enforceWhatsApp24hWindow } = require('../middleware/whatsapp24hGuard');
 
 const {
+  getMetaWebhookConfig,
   getConnectConfig,
   exchangeMetaToken,
   completeConnection,
@@ -51,6 +52,7 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 const messagingLimiter = createRateLimiter({ windowMs: 60 * 1000, maxRequests: 30 });
 
+router.get('/meta-webhook-config', requireAuth, requireAdmin, getMetaWebhookConfig);
 router.get('/connect/config', requireAuth, getConnectConfig);
 router.post('/connect/complete', requireAuth, completeConnection);
 router.post('/connect/manual', requireAuth, manualConnect);

@@ -64,6 +64,7 @@ const CRMPanel            = lazy(() => import('../Components/whatsappCloud/CRMPa
 const AnalyticsDashboard  = lazy(() => import('../Components/whatsappCloud/AnalyticsDashboard'));
 const WhatsAppAttendanceSettings = lazy(() => import('../Components/whatsappCloud/WhatsAppAttendanceSettings'));
 const AdminUserManagementPanel   = lazy(() => import('../Components/whatsappCloud/AdminUserManagementPanel'));
+const MetaWebhookConfigPanel     = lazy(() => import('../Components/whatsappCloud/MetaWebhookConfigPanel'));
 const ManualInvitePanel   = lazy(() => import('../Components/whatsappCloud/ManualInvitePanel'));
 const CampaignsPanel      = lazy(() => import('../Components/whatsappCloud/CampaignsPanel'));
 const BaileysPanel        = lazy(() => import('../Components/whatsappCloud/BaileysPanel'));
@@ -324,8 +325,29 @@ export default function WhatsAppCloudDashboard() {
 
   // ── Section renderer ────────────────────────────────────────────────────────
   const sectionNode = useMemo(() => {
-    // Admin override
-    if (isAdminUser && mainTab === 'meta' && activeSubTab === 'settings') return <AdminUserManagementPanel />;
+    // Admin override — admin's own account/webhook destinations, the shared
+    // Meta webhook config, and the "manage other users" panel, all in one place.
+    if (isAdminUser && mainTab === 'meta' && activeSubTab === 'settings') {
+      return (
+        <Stack spacing={2.5}>
+          <MetaWebhookConfigPanel />
+          <WhatsAppAttendanceSettings
+            whatsappAccount={whatsappAccount}
+            isAccountConnected={isAccountConnected}
+            isAccountLoading={isAccountLoading}
+            onConnect={handleConnectFlow}
+            onDisconnect={handleDisconnect}
+            onRefreshAccount={refreshWhatsAppAccount}
+            onManualConnect={() => setManualDialogOpen(true)}
+            onReconnect={handleReconnect}
+            whatsappAccountStatus={whatsappAccountStatus}
+            accountConnectionMode={accountConnectionMode}
+            accountActionLoading={isAccountActionLoading}
+          />
+          <AdminUserManagementPanel />
+        </Stack>
+      );
+    }
 
     // Baileys (no account connection needed)
     if (mainTab === 'baileys') return <BaileysPanel />;
