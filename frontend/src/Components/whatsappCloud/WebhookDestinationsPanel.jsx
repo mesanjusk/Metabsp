@@ -1,12 +1,25 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Chip, IconButton, Stack, Switch, TextField, Typography,
+  Alert, Box, Button, Chip, IconButton, Stack, Switch, TextField, Tooltip, Typography,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import apiClient from '../../apiClient';
 import { parseApiError } from '../../utils/parseApiError';
+import { toast } from '../Toast';
+
+const copySecret = async (value) => {
+  try {
+    await navigator.clipboard.writeText(value || '');
+    toast.success('Secret copied.');
+  } catch (_err) {
+    toast.error('Could not copy secret.');
+  }
+};
 
 const ENDPOINT = '/api/whatsapp/webhook-destinations';
 
@@ -23,6 +36,13 @@ export default function WebhookDestinationsPanel() {
   const [newLabel, setNewLabel] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [revealedIds, setRevealedIds] = useState(() => new Set());
+
+  const toggleReveal = (id) => setRevealedIds((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const load = async () => {
     setIsLoading(true);
@@ -108,9 +128,21 @@ export default function WebhookDestinationsPanel() {
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="body2" fontWeight={600}>{dest.label}</Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>{dest.url}</Typography>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }} flexWrap="wrap">
                     {statusChip(dest)}
-                    <Typography variant="caption" color="text.secondary">secret: {dest.secretPreview}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                      secret: {revealedIds.has(dest.id) ? dest.secret : dest.secretPreview}
+                    </Typography>
+                    <Tooltip title={revealedIds.has(dest.id) ? 'Hide' : 'Reveal full secret to paste into the receiving service'}>
+                      <IconButton size="small" onClick={() => toggleReveal(dest.id)}>
+                        {revealedIds.has(dest.id) ? <VisibilityOffRoundedIcon fontSize="inherit" /> : <VisibilityRoundedIcon fontSize="inherit" />}
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Copy full secret">
+                      <IconButton size="small" onClick={() => copySecret(dest.secret)}>
+                        <ContentCopyRoundedIcon fontSize="inherit" />
+                      </IconButton>
+                    </Tooltip>
                   </Stack>
                 </Box>
                 <Stack direction="row" spacing={0.5} alignItems="center">

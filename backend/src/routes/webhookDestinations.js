@@ -22,6 +22,11 @@ function sanitize(dest) {
     label: dest.label,
     url: dest.url,
     isActive: dest.isActive,
+    // The whole point of this secret is for the owner to hand it to their
+    // receiving service so it can verify X-Metabsp-Signature-256 — only the
+    // authenticated owner (every route below filters by userId) ever sees
+    // this response, so there's no reason to withhold the full value.
+    secret: dest.secret || '',
     secretPreview: dest.secret ? `${dest.secret.slice(0, 6)}…` : '',
     lastAttemptAt: dest.lastAttemptAt,
     lastStatus: dest.lastStatus,
