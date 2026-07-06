@@ -57,13 +57,6 @@ export function AuthProvider({ children }) {
       return null;
     }
 
-    if (String(user?.userGroup || '').toLowerCase() === 'admin') {
-      setWhatsappAccount(null);
-      setWhatsappAccountStatus('not_connected');
-      setIsAccountLoading(false);
-      return null;
-    }
-
     setIsAccountLoading(true);
     try {
       const response = await fetchWhatsAppAccount();
