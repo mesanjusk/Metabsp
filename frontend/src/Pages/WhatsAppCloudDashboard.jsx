@@ -220,9 +220,6 @@ export default function WhatsAppCloudDashboard() {
   // Cloud API status polling (only relevant for Meta tab)
   useEffect(() => {
     let active = true;
-    if (isAdminUser) {
-      setConnectionState('connected'); setConnectionStatus('Admin'); setLastCheckedAt(new Date()); return () => { active = false; };
-    }
     const refresh = async () => {
       if (!active) return;
       setConnectionState(prev => (prev === 'connected' || prev === 'disconnected' ? prev : 'loading'));
