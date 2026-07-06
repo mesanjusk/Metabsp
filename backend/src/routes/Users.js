@@ -44,10 +44,13 @@ const sanitizeUser = (userDoc) => {
     User_name: userDoc.username,
     User_group: isAdminRole(userDoc) ? 'admin' : 'user',
     Mobile_number: userDoc.mobile || '',
+    Whatsapp_provider: userDoc.whatsappProviderPreference || '',
     createdAt: userDoc.createdAt,
     updatedAt: userDoc.updatedAt,
   };
 };
+
+const WHATSAPP_PROVIDER_VALUES = ['baileys', 'meta', 'both'];
 
 const sanitizeAccount = (accountDoc) => {
   if (!accountDoc) return null;
@@ -106,6 +109,28 @@ router.get('/me', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Me endpoint error:', error);
     return res.status(500).json({ success: false, message: 'Failed to load user' });
+  }
+});
+
+router.put('/whatsapp-provider', requireAuth, async (req, res) => {
+  const provider = String(req.body?.provider || '').trim().toLowerCase();
+  if (!WHATSAPP_PROVIDER_VALUES.includes(provider)) {
+    return res.status(400).json({ success: false, message: `provider must be one of: ${WHATSAPP_PROVIDER_VALUES.join(', ')}` });
+  }
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { whatsappProviderPreference: provider } },
+      { new: true }
+    ).populate('roleId');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    return res.status(200).json({ success: true, user: sanitizeUser(user) });
+  } catch (error) {
+    console.error('Update whatsapp-provider error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update preference' });
   }
 });
 

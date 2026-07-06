@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import apiClient from '../apiClient';
 import { fetchWhatsAppAccount } from '../services/whatsappCloudService';
 import {
   STORAGE_KEYS,
@@ -15,6 +16,7 @@ const getInitialUser = () => ({
   userName: pickFirst([STORAGE_KEYS.userName]),
   userGroup: pickFirst([STORAGE_KEYS.userGroup]),
   mobileNumber: pickFirst([STORAGE_KEYS.mobileNumber]),
+  whatsappProvider: pickFirst([STORAGE_KEYS.whatsappProvider]),
 });
 
 const getAccountPayload = (response) => {
@@ -40,6 +42,7 @@ export function AuthProvider({ children }) {
       userName: userData.userName || '',
       userGroup: userData.userGroup || '',
       mobileNumber: userData.mobileNumber || '',
+      whatsappProvider: userData.whatsappProvider || '',
     };
 
     persistAuthState(nextUser);
@@ -86,11 +89,22 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     clearStoredSession();
     setToken('');
-    setUser({ userName: '', userGroup: '', mobileNumber: '' });
+    setUser({ userName: '', userGroup: '', mobileNumber: '', whatsappProvider: '' });
     setWhatsappAccount(null);
     setWhatsappAccountStatus('idle');
     setIsAccountLoading(false);
   }, [user?.userGroup]);
+
+  const updateWhatsappProvider = useCallback(async (provider) => {
+    const response = await apiClient.put('/api/users/whatsapp-provider', { provider });
+    const nextProvider = response?.data?.user?.Whatsapp_provider || provider;
+    setUser((prev) => {
+      const nextUser = { ...prev, whatsappProvider: nextProvider };
+      persistAuthState(nextUser);
+      return nextUser;
+    });
+    return nextProvider;
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -109,6 +123,7 @@ export function AuthProvider({ children }) {
       userName: user.userName,
       userGroup: user.userGroup,
       mobileNumber: user.mobileNumber,
+      whatsappProvider: user.whatsappProvider || '',
       isAuthenticated: Boolean(token),
       isAdmin: String(user.userGroup || '').toLowerCase() === 'admin',
       whatsappAccount,
@@ -124,6 +139,7 @@ export function AuthProvider({ children }) {
       refreshWhatsAppAccount,
       login,
       logout,
+      updateWhatsappProvider,
     }),
     [
       isAccountLoading,
@@ -131,6 +147,7 @@ export function AuthProvider({ children }) {
       logout,
       refreshWhatsAppAccount,
       token,
+      updateWhatsappProvider,
       user,
       whatsappAccount,
       whatsappAccountStatus,

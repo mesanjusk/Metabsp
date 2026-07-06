@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   userName: "User_name",
   userGroup: "User_group",
   mobileNumber: "Mobile_number",
+  whatsappProvider: "Whatsapp_provider",
   role: "Role",
   roleFallback: "role",
   userRoleLegacy: "User_role",
@@ -29,7 +30,7 @@ export function pickFirst(keys) {
 }
 
 export function persistAuthState(nextState = {}) {
-  const { userName = "", userGroup = "", mobileNumber = "" } = nextState;
+  const { userName = "", userGroup = "", mobileNumber = "", whatsappProvider = "" } = nextState;
 
   if (userName) localStorage.setItem(STORAGE_KEYS.userName, userName);
   else localStorage.removeItem(STORAGE_KEYS.userName);
@@ -48,6 +49,9 @@ export function persistAuthState(nextState = {}) {
 
   if (mobileNumber) localStorage.setItem(STORAGE_KEYS.mobileNumber, mobileNumber);
   else localStorage.removeItem(STORAGE_KEYS.mobileNumber);
+
+  if (whatsappProvider) localStorage.setItem(STORAGE_KEYS.whatsappProvider, whatsappProvider);
+  else localStorage.removeItem(STORAGE_KEYS.whatsappProvider);
 }
 
 export function clearStoredSession() {

@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema({
   isActive:         { type: Boolean, default: true },
   magicToken:       { type: String },
   magicTokenExpire: { type: Date },
+  // Which WhatsApp sending path this user's dashboard shows: 'baileys'
+  // (QR/WhatsApp-Web), 'meta' (official Cloud API), or 'both'. Unset until
+  // they choose on first login after signup — no default on purpose, so
+  // "unset" is distinguishable from an explicit choice.
+  whatsappProviderPreference: { type: String, enum: ['baileys', 'meta', 'both'] },
 }, { timestamps: true });
 
 // username unique per tenant (partial: skip docs where username is null/missing)
