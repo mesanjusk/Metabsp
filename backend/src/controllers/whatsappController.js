@@ -1137,6 +1137,38 @@ const parseIncoming = (msg = {}) => {
   return null;
 };
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Free-tier destinations (Render, etc.) commonly spin down when idle, so the
+// first delivery attempt can hit a cold-start 429/503/timeout even though the
+// service is otherwise fine. Retry a couple of times with backoff before
+// recording a real failure.
+const WEBHOOK_FORWARD_RETRY_DELAYS_MS = [5000, 15000];
+
+async function postToWebhookDestination(dest, payload, body, signature) {
+  let lastError = null;
+  for (let attempt = 0; attempt <= WEBHOOK_FORWARD_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      await axios.post(dest.url, payload, {
+        timeout: 8000,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Metabsp-Event': 'message.received',
+          'X-Metabsp-Signature-256': signature,
+        },
+      });
+      return { ok: true };
+    } catch (err) {
+      lastError = err;
+      const delay = WEBHOOK_FORWARD_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined) break;
+      console.warn(`[webhook-destinations] attempt ${attempt + 1} failed for ${dest.url} (${err.message}), retrying in ${delay}ms`);
+      await sleep(delay);
+    }
+  }
+  return { ok: false, error: lastError };
+}
+
 // Self-service multi-project webhook fan-out: every active WebhookDestination
 // registered against the matched WhatsApp account gets the parsed message
 // payload, HMAC-signed with that destination's own secret so the receiving
@@ -1150,24 +1182,18 @@ async function forwardToWebhookDestinations(whatsappAccountId, payload) {
   await Promise.allSettled(
     destinations.map(async (dest) => {
       const signature = 'sha256=' + crypto.createHmac('sha256', dest.secret).update(body).digest('hex');
-      try {
-        await axios.post(dest.url, payload, {
-          timeout: 8000,
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Metabsp-Event': 'message.received',
-            'X-Metabsp-Signature-256': signature,
-          },
-        });
+      const result = await postToWebhookDestination(dest, payload, body, signature);
+
+      if (result.ok) {
         await WebhookDestination.updateOne(
           { _id: dest._id },
           { $set: { lastAttemptAt: new Date(), lastStatus: 'success', lastError: '' } }
         );
-      } catch (err) {
-        console.error('[webhook-destinations] forward failed:', dest.url, err.message);
+      } else {
+        console.error('[webhook-destinations] forward failed after retries:', dest.url, result.error?.message);
         await WebhookDestination.updateOne(
           { _id: dest._id },
-          { $set: { lastAttemptAt: new Date(), lastStatus: 'failed', lastError: err.message } }
+          { $set: { lastAttemptAt: new Date(), lastStatus: 'failed', lastError: result.error?.message || 'Unknown error' } }
         );
       }
     })
