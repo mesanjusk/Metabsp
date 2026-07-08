@@ -10,6 +10,7 @@ const WhatsAppAccount = require('../repositories/whatsappAccount');
 const WebhookDestination = require('../models/WebhookDestination');
 const { emitNewMessage } = require('../socket');
 const { resolveAutoReplyAction, resolveReplyDelayMs, getCatalogFields } = require('../middleware/autoReply');
+const logger = require('../utils/logger');
 const {
   uploadWhatsAppMediaToCloudinary,
   uploadBufferToCloudinary,
@@ -1116,7 +1117,7 @@ const verifyWebhook = (req, res) => {
   const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN;
 
   if (!verifyToken) {
-    console.error('[WhatsApp] WHATSAPP_WEBHOOK_VERIFY_TOKEN not configured — rejecting verification');
+    logger.error('[WhatsApp] WHATSAPP_WEBHOOK_VERIFY_TOKEN not configured — rejecting verification');
     return res.sendStatus(403);
   }
   if (mode === 'subscribe' && token === verifyToken) return res.status(200).send(challenge);
@@ -1183,7 +1184,7 @@ async function postToWebhookDestination(dest, payload, body, signature) {
       lastError = err;
       const delay = WEBHOOK_FORWARD_RETRY_DELAYS_MS[attempt];
       if (delay === undefined) break;
-      console.warn(`[webhook-destinations] attempt ${attempt + 1} failed for ${dest.url} (${err.message}), retrying in ${delay}ms`);
+      logger.warn(`[webhook-destinations] attempt ${attempt + 1} failed for ${dest.url} (${err.message}), retrying in ${delay}ms`);
       await sleep(delay);
     }
   }
@@ -1211,7 +1212,7 @@ async function forwardToWebhookDestinations(whatsappAccountId, payload) {
           { $set: { lastAttemptAt: new Date(), lastStatus: 'success', lastError: '' } }
         );
       } else {
-        console.error('[webhook-destinations] forward failed after retries:', dest.url, result.error?.message);
+        logger.error('[webhook-destinations] forward failed after retries:', dest.url, result.error?.message);
         await WebhookDestination.updateOne(
           { _id: dest._id },
           { $set: { lastAttemptAt: new Date(), lastStatus: 'failed', lastError: result.error?.message || 'Unknown error' } }
@@ -1228,7 +1229,7 @@ const receiveWebhook = (req, res) => {
 
     if (enforceSignature) {
       if (!appSecret) {
-        console.error('[WhatsApp] META_APP_SECRET not configured — rejecting webhook');
+        logger.error('[WhatsApp] META_APP_SECRET not configured — rejecting webhook');
         return res.status(403).send('Webhook signature verification not configured');
       }
       const signature = String(req.headers['x-hub-signature-256'] || '');
@@ -1305,7 +1306,7 @@ const receiveWebhook = (req, res) => {
         if (!messageId || !['sent', 'delivered', 'read', 'failed'].includes(status)) continue;
 
         if (status === 'failed') {
-          console.error(
+          logger.error(
             '[WhatsApp][webhook] Delivery FAILED for message',
             messageId,
             'to',
@@ -1314,7 +1315,7 @@ const receiveWebhook = (req, res) => {
             JSON.stringify(statusEvent?.errors || [])
           );
         } else {
-          console.log(`[WhatsApp][webhook] Message ${messageId} status -> ${status}`);
+          logger.info(`[WhatsApp][webhook] Message ${messageId} status -> ${status}`);
         }
 
         const matchedAccountContext = await loadWhatsAppAccountFromWebhookIdentifiers(
@@ -1400,7 +1401,7 @@ const receiveWebhook = (req, res) => {
               { upsert: true }
             );
           } catch (contactErr) {
-            console.error('[whatsapp] contact upsert failed:', contactErr.message);
+            logger.error('[whatsapp] contact upsert failed:', contactErr.message);
           }
         }
 
@@ -1423,7 +1424,7 @@ const receiveWebhook = (req, res) => {
                   $set: { mediaUrl: uploaded.mediaUrl, mimeType: uploaded.mimeType },
                 })
               )
-              .catch((error) => console.error('[whatsapp] media processing failed', error.message));
+              .catch((error) => logger.error('[whatsapp] media processing failed', error.message));
           }
         }
 
@@ -1462,7 +1463,7 @@ const receiveWebhook = (req, res) => {
                   });
                 }
               } catch (error) {
-                console.error('[whatsapp] auto reply failed:', error.message);
+                logger.error('[whatsapp] auto reply failed:', error.message);
               }
             }, delay);
           }
@@ -1470,7 +1471,7 @@ const receiveWebhook = (req, res) => {
 
         if (matchedAccount?._id) {
           forwardToWebhookDestinations(matchedAccount._id, payload).catch((err) =>
-            console.error('[whatsapp] webhook destination fan-out failed:', err.message)
+            logger.error('[whatsapp] webhook destination fan-out failed:', err.message)
           );
         }
 
@@ -1483,11 +1484,11 @@ const receiveWebhook = (req, res) => {
       }
 
       } catch (asyncErr) {
-        console.error('[whatsapp] webhook async processing error:', asyncErr);
+        logger.error('[whatsapp] webhook async processing error:', asyncErr);
       }
     });
   } catch (error) {
-    console.error('[whatsapp] webhook error:', error);
+    logger.error('[whatsapp] webhook error:', error);
     return res.status(200).json({ received: true });
   }
 };

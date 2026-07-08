@@ -17,6 +17,7 @@
 //   3. Builds the partial unique index once the data is clean.
 const mongoose = require('mongoose');
 const WhatsAppAccount = require('../src/repositories/whatsappAccount');
+const logger = require('../src/utils/logger');
 
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -29,7 +30,7 @@ const MONGO_URI = process.env.MONGO_URI;
       { numberClaimed: { $exists: false } },
       [{ $set: { numberClaimed: { $ne: ['$status', 'disconnected'] } } }]
     );
-    console.log(`Backfilled numberClaimed on ${backfill.modifiedCount} account(s).`);
+    logger.info(`Backfilled numberClaimed on ${backfill.modifiedCount} account(s).`);
 
     const duplicates = await WhatsAppAccount.aggregate([
       { $match: { numberClaimed: true } },
@@ -38,9 +39,9 @@ const MONGO_URI = process.env.MONGO_URI;
     ]);
 
     if (duplicates.length) {
-      console.error(`Found ${duplicates.length} phoneNumberId(s) claimed by more than one account. Resolve these before the unique index can be built:`);
-      console.error(JSON.stringify(duplicates, null, 2));
-      console.error('Not building the index. Disconnect/reassign the conflicting accounts, then re-run this script.');
+      logger.error(`Found ${duplicates.length} phoneNumberId(s) claimed by more than one account. Resolve these before the unique index can be built:`);
+      logger.error(JSON.stringify(duplicates, null, 2));
+      logger.error('Not building the index. Disconnect/reassign the conflicting accounts, then re-run this script.');
       process.exit(1);
     }
 
@@ -48,11 +49,11 @@ const MONGO_URI = process.env.MONGO_URI;
       { phoneNumberId: 1 },
       { unique: true, partialFilterExpression: { numberClaimed: true }, name: 'phoneNumberId_1_numberClaimed_unique' }
     );
-    console.log('✅ Unique index on phoneNumberId (partial: numberClaimed=true) created.');
+    logger.info('✅ Unique index on phoneNumberId (partial: numberClaimed=true) created.');
 
     await mongoose.disconnect();
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    logger.error('❌ Migration failed:', error);
     process.exit(1);
   }
 })();

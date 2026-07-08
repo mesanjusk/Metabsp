@@ -1,33 +1,37 @@
+const rateLimit = require('express-rate-limit');
 const AppError = require('../utils/AppError');
 
-const buckets = new Map();
+// Backed by express-rate-limit (in-memory store) instead of the previous
+// hand-rolled Map — same per-instance limitation (resets on restart, not
+// shared across horizontally-scaled instances) until Phase 2 swaps in a
+// Redis store, but gets correct RateLimit-* headers and battle-tested
+// window/key handling for free. Keyed by authenticated user id when
+// available, falling back to IP, same as before.
+const createRateLimiter = ({ windowMs, maxRequests }) =>
+  rateLimit({
+    windowMs,
+    max: maxRequests,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => req.user?.id || req.ip,
+    handler: (_req, _res, next) => {
+      next(new AppError('Rate limit exceeded. Please retry later.', 429));
+    },
+  });
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of buckets.entries()) {
-    if (now > bucket.expiresAt) buckets.delete(key);
-  }
-}, 10 * 60 * 1000).unref();
+// Stricter limiter for unauthenticated auth/OTP endpoints (login, signup OTP
+// request, password reset) which have no req.user to key on and are the
+// highest-value brute-force/enumeration targets.
+const createAuthRateLimiter = ({ windowMs, maxRequests }) =>
+  rateLimit({
+    windowMs,
+    max: maxRequests,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => req.ip,
+    handler: (_req, _res, next) => {
+      next(new AppError('Too many attempts. Please try again later.', 429));
+    },
+  });
 
-const createRateLimiter = ({ windowMs, maxRequests }) => (req, _res, next) => {
-  const key = `${req.user?.id || req.ip}:${req.path}`;
-  const now = Date.now();
-
-  const bucket = buckets.get(key) || { count: 0, expiresAt: now + windowMs };
-
-  if (now > bucket.expiresAt) {
-    bucket.count = 0;
-    bucket.expiresAt = now + windowMs;
-  }
-
-  bucket.count += 1;
-  buckets.set(key, bucket);
-
-  if (bucket.count > maxRequests) {
-    return next(new AppError('Rate limit exceeded. Please retry later.', 429));
-  }
-
-  return next();
-};
-
-module.exports = { createRateLimiter };
+module.exports = { createRateLimiter, createAuthRateLimiter };

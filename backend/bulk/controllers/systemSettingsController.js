@@ -1,4 +1,5 @@
 const SystemSetting = require('../models/SystemSetting');
+const logger = require('../../src/utils/logger');
 
 // Default settings — baileys is the default provider
 const DEFAULTS = [
@@ -29,7 +30,7 @@ async function getSettings(req, res) {
     for (const s of settings) map[s.key] = s.value;
     res.json({ settings, map });
   } catch (err) {
-    console.error('[systemSettings] getSettings error:', err);
+    logger.error('[systemSettings] getSettings error:', err);
     res.status(500).json({ message: err.message || 'Failed to fetch settings' });
   }
 }
@@ -46,7 +47,7 @@ async function updateSetting(req, res) {
     );
     res.json(updated);
   } catch (err) {
-    console.error('[systemSettings] updateSetting error:', err);
+    logger.error('[systemSettings] updateSetting error:', err);
     res.status(500).json({ message: err.message || 'Failed to update setting' });
   }
 }
@@ -65,7 +66,7 @@ async function updateSettings(req, res) {
     }
     res.json({ updated: results.length, results });
   } catch (err) {
-    console.error('[systemSettings] updateSettings error:', err);
+    logger.error('[systemSettings] updateSettings error:', err);
     res.status(500).json({ message: err.message || 'Failed to update settings' });
   }
 }

@@ -4,6 +4,7 @@ const Notification   = require('../models/Notification');
 const GroupContact   = require('../models/GroupContact');
 const { emitEvent }  = require('../services/socket');
 const baileysService = require('../services/baileysService');
+const logger = require('../../src/utils/logger');
 
 function normalizePhone(value) {
   const d = String(value || '').replace(/[^\d]/g, '').trim();
@@ -21,11 +22,11 @@ async function getStatus(req, res) {
 
 async function startConnection(req, res) {
   try {
-    console.log('[baileys] /connect hit — starting connection');
+    logger.info('[baileys] /connect hit — starting connection');
     await baileysService.connect();
     res.json({ message: 'Baileys connecting…', status: baileysService.getStatus() });
   } catch (error) {
-    console.error('[baileys] startConnection error:', error.message);
+    logger.error('[baileys] startConnection error:', error.message);
     res.status(500).json({ message: error.message });
   }
 }
@@ -229,7 +230,7 @@ async function sendInvitation(req, res) {
             bodyText: `📊 Poll: ${rsvpYesLabel} / ${rsvpNoLabel}`, status: 'SENT',
             meta: { rsvp: true, rsvpYesLabel, rsvpNoLabel },
           }).catch(() => null)
-        ).catch(err => console.warn('[baileys] native poll skipped:', err.message));
+        ).catch(err => logger.warn('[baileys] native poll skipped:', err.message));
       }
 
       success++;
@@ -334,7 +335,7 @@ async function runBaileysAutoReply({ from, body, userId }) {
   if (!incomingText) return;
 
   const rules = await BaileysRule.find({ isActive: true }).sort({ priority: 1, createdAt: -1 }).lean();
-  console.log(`[baileys:autoReply] "${incomingText}" against ${rules.length} rules, userId=${userId}`);
+  logger.info(`[baileys:autoReply] "${incomingText}" against ${rules.length} rules, userId=${userId}`);
 
   for (const rule of rules) {
     const trigger = String(rule.triggerText || '').trim().toLowerCase();
@@ -346,15 +347,15 @@ async function runBaileysAutoReply({ from, body, userId }) {
 
     if (!matched) continue;
 
-    console.log(`[baileys:autoReply] matched rule "${rule.name}" (${rule.matchType})`);
+    logger.info(`[baileys:autoReply] matched rule "${rule.name}" (${rule.matchType})`);
 
     try {
       if (rule.replyType === 'TEXT' && rule.replyText) {
         await baileysService.sendText(userId, { to: from, body: rule.replyText });
-        console.log(`[baileys:autoReply] sent reply to ${from}`);
+        logger.info(`[baileys:autoReply] sent reply to ${from}`);
       }
     } catch (err) {
-      console.error(`[baileys:autoReply] send failed:`, err.message);
+      logger.error(`[baileys:autoReply] send failed:`, err.message);
     }
 
     if (rule.stopAfterMatch !== false) break;
@@ -394,7 +395,7 @@ async function saveIncomingMessage({ id, from, body, type, raw, userId }) {
 
   if (String(type || '').toLowerCase() === 'text' && body) {
     runBaileysAutoReply({ from: normalizePhone(from), body, userId }).catch((err) =>
-      console.error('[baileys:autoReply] error:', err.message)
+      logger.error('[baileys:autoReply] error:', err.message)
     );
   }
 

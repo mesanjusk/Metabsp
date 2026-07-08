@@ -1,4 +1,5 @@
 const OtpVerification = require('../models/OtpVerification');
+const logger = require('../../src/utils/logger');
 
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -24,7 +25,7 @@ async function sendOtp(mobile, purpose) {
     sent = true;
   } catch (err) {
     error = err.message;
-    console.error('[OTP] WhatsApp send error:', err.message);
+    logger.error('[OTP] WhatsApp send error:', err.message);
   }
 
   const result = { sent, error };

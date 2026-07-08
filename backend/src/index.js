@@ -27,6 +27,9 @@ const express    = require('express');
 const cors       = require('cors');
 const http       = require('http');
 const compression = require('compression');
+const helmet     = require('helmet');
+const pinoHttp   = require('pino-http');
+const logger = require('./utils/logger');
 
 // ── Metabsp dependencies ──────────────────────────────────────────────────────
 const connectDB        = require('./config/mongo');
@@ -53,18 +56,18 @@ const bulkCrudRoutes = require('../bulk/routes/crudRoutes');
 process.on('unhandledRejection', (reason) => {
   const msg = reason?.message || String(reason);
   if (msg.includes('Connection Closed') || msg.includes('Timed Out') || msg.includes('baileys')) {
-    console.warn('[unhandledRejection] Baileys internal error (ignored):', msg);
+    logger.warn('[unhandledRejection] Baileys internal error (ignored):', msg);
   } else {
-    console.error('[unhandledRejection]', reason);
+    logger.error('[unhandledRejection]', reason);
   }
 });
 
 process.on('uncaughtException', (err) => {
   const msg = err?.message || String(err);
   if (msg.includes('Connection Closed') || msg.includes('Timed Out')) {
-    console.warn('[uncaughtException] Baileys socket error (ignored):', msg);
+    logger.warn('[uncaughtException] Baileys socket error (ignored):', msg);
   } else {
-    console.error('[uncaughtException] Fatal:', err);
+    logger.error('[uncaughtException] Fatal:', err);
     process.exit(1);
   }
 });
@@ -73,6 +76,16 @@ process.on('uncaughtException', (err) => {
 // Express app
 // ─────────────────────────────────────────────────────────────────────────────
 const app = express();
+
+app.use(helmet());
+app.use(
+  pinoHttp({
+    logger: logger.raw,
+    autoLogging: {
+      ignore: (req) => req.url === '/health' || req.url === '/',
+    },
+  })
+);
 
 const allowedOrigins = [
   'http://localhost:5173',
@@ -115,8 +128,13 @@ app.get('/health', async (_req, res) => {
   try {
     const mongoose = require('mongoose');
     const state = mongoose.connection.readyState; // 1 = connected
-    if (state !== 1) return res.status(503).json({ ok: false, db: 'disconnected' });
-    res.status(200).json({ ok: true, db: 'connected' });
+    const payload = {
+      ok: state === 1,
+      db: state === 1 ? 'connected' : 'disconnected',
+      uptimeSeconds: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
+    };
+    res.status(state === 1 ? 200 : 503).json(payload);
   } catch (err) {
     res.status(503).json({ ok: false, error: err.message });
   }
@@ -195,17 +213,17 @@ async function startServer() {
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
-      console.log(`🚀 Unified server running on port ${PORT}`);
+      logger.info(`🚀 Unified server running on port ${PORT}`);
 
       // Auto-reconnect Baileys if saved credentials exist in MongoDB
       const { autoConnectIfCredentialsExist } = require('../bulk/services/baileysService');
       autoConnectIfCredentialsExist().catch((err) =>
-        console.error('[baileys] Auto-connect failed on boot:', err.message)
+        logger.error('[baileys] Auto-connect failed on boot:', err.message)
       );
     });
 
     const shutdown = (signal) => {
-      console.log(`[server] ${signal} received — shutting down gracefully`);
+      logger.info(`[server] ${signal} received — shutting down gracefully`);
       server.close(() => {
         const mongoose = require('mongoose');
         mongoose.connection.close(false, () => process.exit(0));
@@ -215,7 +233,7 @@ async function startServer() {
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT',  () => shutdown('SIGINT'));
   } catch (err) {
-    console.error('Failed to start server:', err.message);
+    logger.error('Failed to start server:', err.message);
     process.exit(1);
   }
 }

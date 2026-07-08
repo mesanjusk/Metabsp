@@ -4,10 +4,9 @@
   "description": "Unified Metabsp + Bulk-invite backend",
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --runInBand",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed": "node bulk/scripts/seed.js",
     "seed-admin": "node bulk/seedAdmin.js",
     "migrate-users": "node bulk/scripts/migrateMetabspUsers.js",
     "migrate-whatsapp-uniqueness": "node scripts/migrate-whatsapp-account-uniqueness.js"
@@ -23,15 +22,20 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.3",
     "multer": "^2.0.2",
     "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "mongodb-memory-server": "^11.2.0",
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "supertest": "^7.0.0"
   }
 }

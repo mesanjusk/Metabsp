@@ -1,5 +1,6 @@
 const axios = require('axios');
 const FormData = require('form-data');
+const logger = require('../../src/utils/logger');
 
 const GRAPH_VERSION = process.env.WHATSAPP_API_VERSION || 'v20.0';
 
@@ -106,7 +107,7 @@ async function sendTemplateMessage({
     }
   };
 
-  console.log(
+  logger.info(
     '[whatsapp] sending template',
     JSON.stringify({
       to,

@@ -56,7 +56,7 @@ Scored against every capability requested for a production Tech Provider platfor
 | 10 | Multi WABA support | Missing | One shared app-level Meta config; no WABA switcher |
 | 11 | Multi phone number support | Partial | Schema allows multiple `WhatsAppAccount`s; no dashboard UI to switch between numbers |
 | 12 | Subscription plans | Missing | None found |
-| 13 | Razorpay integration | Missing | None found |
+| 13 | UPI billing automation | Missing | None found (superseding Razorpay per product decision) |
 | 14 | Usage based billing | Missing | No metering of messages/conversations for billing |
 | 15 | Invoice generation | Missing | None found (jsPDF is present but used for unrelated exports) |
 | 16 | Customer portal | Partial | Dashboard exists; no plan/usage/billing sections |
@@ -173,7 +173,7 @@ Introduce a real `Tenant`/`Organization` as the billing+isolation boundary (migr
 Add Redis + BullMQ: broadcast/campaign send queue (replacing the blocking loops), retry queue with backoff, dead-letter queue, scheduled template-sync job; move rate limiting onto Redis so it works across instances; add an `AuditLog` model + middleware for admin/security-relevant actions.
 
 **Phase 3 — Monetization**
-Subscription plan model, Razorpay checkout + webhook handling, usage-based metering (messages/conversations against Meta's conversation-based pricing categories), PDF invoice generation, billing section in the customer portal.
+Subscription plan model, UPI-based billing automation (UPI Autopay/intent-based collection + payment-status webhook reconciliation in place of a card gateway), usage-based metering (messages/conversations against Meta's conversation-based pricing categories), PDF invoice generation, billing section in the customer portal.
 
 **Phase 4 — Portals & analytics**
 Consolidate the three fragmented admin surfaces into one Admin portal; add a Partner/reseller portal; build out conversation-cost analytics and customer usage analytics; add template create/submit-for-review CRUD on top of the existing fetch-only integration.
