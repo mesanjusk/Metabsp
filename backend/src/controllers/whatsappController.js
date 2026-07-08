@@ -591,13 +591,32 @@ const activateAccount = asyncHandler(async (req, res) => {
     await assertPhoneNumberAvailable({ phoneNumberId: account.phoneNumberId, userId: req.user?.id, excludeAccountId: account._id });
   }
 
-  await WhatsAppAccount.updateMany({ userId: req.user?.id }, { $set: { isActive: false } });
-  account.isActive = true;
-  account.status = wasDisconnected ? 'active' : account.status;
-  account.numberClaimed = true;
+  // Deactivate every other account first, then atomically flip the target
+  // on via a single findOneAndUpdate. This isn't a full multi-document
+  // transaction (this app also has to run against a plain standalone
+  // MongoDB with no replica set, where transactions aren't available), but
+  // it closes the "lost update" gap the previous read-then-.save() pattern
+  // had: the response now always reflects the actually-persisted state of
+  // the target account, rather than a JS-side object a concurrent
+  // activation request could have silently overwritten between the read
+  // and the save. The partial unique index on {userId, isActive:true}
+  // still guarantees the database itself never holds two active accounts
+  // for one user at once.
+  await WhatsAppAccount.updateMany({ userId: req.user?.id, _id: { $ne: account._id } }, { $set: { isActive: false } });
 
+  let updated;
   try {
-    await account.save();
+    updated = await WhatsAppAccount.findOneAndUpdate(
+      { _id: account._id, userId: req.user?.id },
+      {
+        $set: {
+          isActive: true,
+          numberClaimed: true,
+          ...(wasDisconnected ? { status: 'active' } : {}),
+        },
+      },
+      { new: true }
+    );
   } catch (error) {
     if (error?.code === 11000) {
       throw new AppError('This WhatsApp number is already connected to a different account.', 409);
@@ -605,7 +624,9 @@ const activateAccount = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  return res.status(200).json({ success: true, data: sanitizeAccount(account) });
+  if (!updated) throw new AppError('Account not found', 404);
+
+  return res.status(200).json({ success: true, data: sanitizeAccount(updated) });
 });
 
 const getStatus = asyncHandler(async (req, res) => {
