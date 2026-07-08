@@ -9,15 +9,18 @@ import {
   ListItem,
   ListItemText,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import PropTypes from 'prop-types';
+import Modal from '../common/Modal';
 import { toast } from '../Toast';
 import { parseApiError } from '../../utils/parseApiError';
 import {
   fetchWhatsAppAccounts,
   activateWhatsAppAccount,
   deleteWhatsAppAccount,
+  setSystemUserToken,
 } from '../../services/whatsappCloudService';
 
 const STATUS_COLOR = {
@@ -40,6 +43,9 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [pendingAccountId, setPendingAccountId] = useState('');
+  const [systemUserModalAccountId, setSystemUserModalAccountId] = useState('');
+  const [systemUserForm, setSystemUserForm] = useState({ accessToken: '', systemUserId: '' });
+  const [isSavingSystemUserToken, setIsSavingSystemUserToken] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -87,6 +93,32 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
     }
   };
 
+  const closeSystemUserModal = useCallback(() => {
+    setSystemUserModalAccountId('');
+    setSystemUserForm({ accessToken: '', systemUserId: '' });
+  }, []);
+
+  const handleSaveSystemUserToken = async (event) => {
+    event.preventDefault();
+    if (!systemUserForm.accessToken.trim()) return toast.error('Paste the System User access token first.');
+
+    setIsSavingSystemUserToken(true);
+    try {
+      await setSystemUserToken(systemUserModalAccountId, {
+        accessToken: systemUserForm.accessToken.trim(),
+        systemUserId: systemUserForm.systemUserId.trim(),
+      });
+      toast.success('System User token saved — this number no longer relies on a personal login token.');
+      closeSystemUserModal();
+      await load();
+      onChanged?.();
+    } catch (err) {
+      toast.error(parseApiError(err, 'Could not verify that token against this number.'));
+    } finally {
+      setIsSavingSystemUserToken(false);
+    }
+  };
+
   return (
     <Box>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
@@ -128,6 +160,9 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
                     ) : (
                       <Chip size="small" color="primary" label="Active" />
                     )}
+                    <Button size="small" variant="text" onClick={() => setSystemUserModalAccountId(id)} disabled={isBusy}>
+                      System User token
+                    </Button>
                     <Button size="small" color="error" variant="text" onClick={() => handleRemove(id)} disabled={isBusy}>
                       Remove
                     </Button>
@@ -139,6 +174,9 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Typography variant="body2" fontWeight={600}>{accountLabel(account)}</Typography>
                       <Chip size="small" label={account.status || 'unknown'} color={STATUS_COLOR[account.status] || 'default'} variant="outlined" />
+                      {account.tokenSource === 'system_user' ? (
+                        <Chip size="small" label="System User token" color="info" variant="outlined" />
+                      ) : null}
                     </Stack>
                   }
                   secondary={account.displayPhoneNumber || account.phoneNumberId}
@@ -148,6 +186,36 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
           })}
         </List>
       )}
+
+      {systemUserModalAccountId ? (
+        <Modal onClose={closeSystemUserModal} title="Add a System User access token">
+          <Stack component="form" onSubmit={handleSaveSystemUserToken} spacing={1.5}>
+            <Typography variant="body2" color="text.secondary">
+              Meta recommends a Business-owned System User token (generated in Meta Business Manager, usually set to never
+              expire) instead of a token tied to one admin's personal login. Generate one there, then paste it here — it's
+              verified against this number before saving.
+            </Typography>
+            <TextField
+              label="System User access token"
+              multiline
+              rows={3}
+              value={systemUserForm.accessToken}
+              onChange={(e) => setSystemUserForm((prev) => ({ ...prev, accessToken: e.target.value }))}
+            />
+            <TextField
+              label="System User ID (optional)"
+              value={systemUserForm.systemUserId}
+              onChange={(e) => setSystemUserForm((prev) => ({ ...prev, systemUserId: e.target.value }))}
+            />
+            <Stack direction="row" justifyContent="flex-end" spacing={1}>
+              <Button type="button" onClick={closeSystemUserModal} variant="outlined">Cancel</Button>
+              <Button type="submit" variant="contained" disabled={isSavingSystemUserToken}>
+                {isSavingSystemUserToken ? 'Verifying…' : 'Verify & save'}
+              </Button>
+            </Stack>
+          </Stack>
+        </Modal>
+      ) : null}
     </Box>
   );
 }

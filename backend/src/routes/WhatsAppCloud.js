@@ -16,6 +16,7 @@ const {
   deleteAccount,
   disconnectAccount,
   revalidateAccount,
+  setSystemUserToken,
   updateManualAccount,
   getStatus,
   sendText,
@@ -72,6 +73,7 @@ router.get('/accounts', requireAuth, listAccounts);
 router.post('/accounts/:id/activate', requireAuth, activateAccount);
 router.post('/account/:id/disconnect', requireAuth, disconnectAccount);
 router.post('/account/:id/revalidate', requireAuth, revalidateAccount);
+router.put('/account/:id/system-user-token', requireAuth, setSystemUserToken);
 router.put('/account/:id/manual', requireAuth, updateManualAccount);
 router.get('/status', requireAuth, getStatus);
 router.delete('/accounts/:id', requireAuth, deleteAccount);

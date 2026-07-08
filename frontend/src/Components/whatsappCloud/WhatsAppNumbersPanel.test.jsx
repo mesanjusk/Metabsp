@@ -6,12 +6,14 @@ import {
   fetchWhatsAppAccounts,
   activateWhatsAppAccount,
   deleteWhatsAppAccount,
+  setSystemUserToken,
 } from '../../services/whatsappCloudService';
 
 vi.mock('../../services/whatsappCloudService', () => ({
   fetchWhatsAppAccounts: vi.fn(),
   activateWhatsAppAccount: vi.fn(),
   deleteWhatsAppAccount: vi.fn(),
+  setSystemUserToken: vi.fn(),
 }));
 
 vi.mock('../Toast', () => ({
@@ -82,5 +84,47 @@ describe('WhatsAppNumbersPanel', () => {
     render(<WhatsAppNumbersPanel />);
 
     expect(await screen.findByText(/could not load connected whatsapp numbers/i)).toBeInTheDocument();
+  });
+
+  it('shows a "System User token" chip for accounts already using one', async () => {
+    fetchWhatsAppAccounts.mockResolvedValue({
+      data: { data: [{ ...accounts[0], tokenSource: 'system_user' }] },
+    });
+
+    render(<WhatsAppNumbersPanel />);
+    await screen.findByText('Acme Support');
+
+    // One match is the always-present action button, the other is the chip
+    // that only renders when tokenSource is 'system_user'.
+    expect(screen.getAllByText('System User token')).toHaveLength(2);
+  });
+
+  it('verifies and saves a System User token from the modal', async () => {
+    fetchWhatsAppAccounts.mockResolvedValue({ data: { data: accounts } });
+    setSystemUserToken.mockResolvedValue({ data: { success: true } });
+
+    render(<WhatsAppNumbersPanel />);
+    await screen.findByText('Acme Support');
+
+    await userEvent.click(screen.getAllByRole('button', { name: /system user token/i })[0]);
+    await userEvent.click(screen.getByLabelText(/system user access token/i));
+    await userEvent.paste('EAAG-fake-system-user-token');
+    await userEvent.click(screen.getByRole('button', { name: /verify & save/i }));
+
+    await waitFor(() =>
+      expect(setSystemUserToken).toHaveBeenCalledWith('acc-1', { accessToken: 'EAAG-fake-system-user-token', systemUserId: '' })
+    );
+  });
+
+  it('rejects saving an empty System User token', async () => {
+    fetchWhatsAppAccounts.mockResolvedValue({ data: { data: accounts } });
+
+    render(<WhatsAppNumbersPanel />);
+    await screen.findByText('Acme Support');
+
+    await userEvent.click(screen.getAllByRole('button', { name: /system user token/i })[0]);
+    await userEvent.click(screen.getByRole('button', { name: /verify & save/i }));
+
+    expect(setSystemUserToken).not.toHaveBeenCalled();
   });
 });

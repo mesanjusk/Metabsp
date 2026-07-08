@@ -22,6 +22,11 @@ async function refreshExpiringTokens() {
     isActive: true,
     status: 'active',
     tokenExpiresAt: { $ne: null, $lte: cutoff },
+    // System User tokens are managed manually in Meta Business Manager
+    // (typically set to never expire) — re-exchanging one via
+    // fb_exchange_token isn't the documented refresh path for them, so
+    // they're excluded here rather than risk invalidating a working token.
+    tokenSource: { $ne: 'system_user' },
   });
 
   let refreshed = 0;

@@ -30,3 +30,6 @@ backend/mis-auto-*.json
 coverage/
 backend/coverage/
 frontend/coverage/
+
+# Local Redis persistence dump (created by a local redis-server for dev/testing)
+dump.rdb

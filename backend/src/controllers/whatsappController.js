@@ -680,6 +680,44 @@ const revalidateAccount = asyncHandler(async (req, res) => {
   });
 });
 
+// Meta's own guidance for BSPs is a Business-owned System User token
+// (generated manually in Meta Business Manager, typically set to never
+// expire) rather than a token tied to an individual admin's personal
+// login. There's no API to auto-generate one — the admin pastes a token
+// they already generated in Business Manager, and this verifies it
+// actually works before switching the account over to it.
+const setSystemUserToken = asyncHandler(async (req, res) => {
+  const existing = await WhatsAppAccount.findOne({ _id: req.params.id, userId: req.user?.id });
+  if (!existing) throw new AppError('Account not found', 404);
+
+  const accessToken = String(req.body?.accessToken || '').trim();
+  const systemUserId = String(req.body?.systemUserId || '').trim();
+  if (!accessToken) throw new AppError('accessToken is required', 400);
+
+  const health = await checkWhatsAppHealth({
+    accessToken,
+    phoneNumberId: existing.phoneNumberId,
+    graphVersion: RESOLVED_API_VERSION,
+  });
+  if (!health.isConnected) {
+    throw new AppError('Could not verify this token against the connected phone number', 400);
+  }
+
+  existing.accessTokenEncrypted = encryptSensitiveValue(accessToken);
+  existing.tokenSource = 'system_user';
+  existing.systemUserId = systemUserId;
+  // Clearing this also removes the account from tokenRefreshService's
+  // re-exchange candidates (belt-and-suspenders alongside its own
+  // tokenSource filter) — System User tokens aren't refreshed that way.
+  existing.tokenExpiresAt = null;
+  existing.status = 'active';
+  await existing.save();
+
+  recordAuditEvent({ req, action: 'whatsapp_account.system_user_token_set', resource: 'whatsapp_account', resourceId: existing._id });
+
+  return res.status(200).json({ success: true, data: sanitizeAccount(existing) });
+});
+
 const updateManualAccount = asyncHandler(async (req, res) => {
   const existing = await WhatsAppAccount.findOne({ _id: req.params.id, userId: req.user?.id });
   if (!existing) throw new AppError('Account not found', 404);
@@ -1953,6 +1991,7 @@ module.exports = {
   deleteAccount,
   disconnectAccount,
   revalidateAccount,
+  setSystemUserToken,
   updateManualAccount,
   sendText,
   sendTemplate,
