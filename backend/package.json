@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "seed-admin": "node bulk/seedAdmin.js",
+    "seed-billing-plans": "node scripts/seed-billing-plans.js",
     "migrate-users": "node bulk/scripts/migrateMetabspUsers.js",
     "migrate-whatsapp-uniqueness": "node scripts/migrate-whatsapp-account-uniqueness.js"
   },
@@ -30,6 +31,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.3",
     "multer": "^2.0.2",
+    "pdfkit": "^0.15.1",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
     "qrcode": "^1.5.4",

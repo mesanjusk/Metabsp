@@ -38,6 +38,7 @@ const usersRouter    = require('./routes/Users');
 const whatsappRouter = require('./routes/WhatsAppCloud');
 const webhookRouter  = require('./routes/webhook');
 const webhookDestinationsRouter = require('./routes/webhookDestinations');
+const billingRouter  = require('./routes/billing');
 
 // ── Bulk-invite routes ────────────────────────────────────────────────────────
 const bulkCrudRoutes = require('../bulk/routes/crudRoutes');
@@ -120,6 +121,7 @@ app.use('/api/whatsapp',           whatsappRouter);
 app.use('/webhook',                webhookRouter);
 app.use('/api/whatsapp/webhook',   webhookRouter);
 app.use('/api/whatsapp/webhook-destinations', webhookDestinationsRouter);
+app.use('/api/billing',            billingRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bulk-invite (WhatsApp Automation / Baileys) routes — mounted under /api/bulk/

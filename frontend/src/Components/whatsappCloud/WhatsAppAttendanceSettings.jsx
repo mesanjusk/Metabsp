@@ -5,6 +5,7 @@ import apiClient from '../../apiClient';
 import { parseApiError } from '../../utils/parseApiError';
 import WebhookDestinationsPanel from './WebhookDestinationsPanel';
 import WhatsAppNumbersPanel from './WhatsAppNumbersPanel';
+import BillingPanel from './BillingPanel';
 
 const defaultConfig = {
   analyticsEnabled: true,
@@ -136,6 +137,8 @@ export default function WhatsAppAttendanceSettings({
         </Stack>
 
         <WebhookDestinationsPanel />
+
+        <BillingPanel />
 
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">
           <Button variant="outlined" onClick={load} disabled={isLoading || isSaving}>Reload</Button>

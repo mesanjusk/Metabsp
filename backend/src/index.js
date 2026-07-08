@@ -17,6 +17,7 @@ const { setIO } = require('../bulk/services/socket');
 const seedAdmin = require('../bulk/seedAdmin');
 const { startTokenRefreshScheduler } = require('./services/tokenRefreshService');
 const { startWhatsAppSendWorker } = require('./queues/whatsappSendWorker');
+const { startInvoiceScheduler } = require('./services/invoiceSchedulerService');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Process error guards (merged from both servers)
@@ -85,6 +86,10 @@ async function startServer() {
     // scale, and can be split into its own process later without changing
     // the queue/job contract at all.
     startWhatsAppSendWorker();
+
+    // Generates usage-metered invoices for subscriptions whose billing
+    // period has ended (see src/services/invoiceSchedulerService.js).
+    startInvoiceScheduler();
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
