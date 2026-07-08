@@ -33,6 +33,8 @@ const {
 } = require('../services/whatsappAccountService');
 const { ensureTenantForUser } = require('../services/tenantService');
 const { enqueueBroadcastRecipients, waitForJobResults } = require('../queues/whatsappSendQueue');
+const teamService = require('../services/teamService');
+const conversationAssignmentService = require('../services/conversationAssignmentService');
 const { recordAuditEvent } = require('../services/auditLogService');
 const { getGraphApiVersion } = require('../config/graphApi');
 
@@ -1229,8 +1231,11 @@ const getConversations = asyncHandler(async (req, res) => {
   const phones = conversations.map((item) => normalizePhone(item._id)).filter(Boolean);
   const contacts = await Contact.find({ phone: { $in: phones } }).lean();
   const contactMap = new Map(contacts.map((c) => [c.phone, c]));
+  const assignments = accountContext?.account?._id
+    ? await conversationAssignmentService.getAssignmentsForAccount(accountContext.account._id)
+    : new Map();
 
-  const data = conversations.map((item) => {
+  let data = conversations.map((item) => {
     const phone = normalizePhone(item._id);
     const contact = contactMap.get(phone);
     return {
@@ -1239,10 +1244,74 @@ const getConversations = asyncHandler(async (req, res) => {
       lastMessage: item.lastMessage,
       lastTimestamp: item.lastTimestamp,
       direction: item.direction,
+      assignedToUserId: assignments.get(phone) || null,
     };
   });
 
+  const assignedToFilter = String(req.query.assignedTo || '').trim();
+  if (assignedToFilter === 'me') {
+    data = data.filter((item) => item.assignedToUserId === String(req.user?.id));
+  } else if (assignedToFilter === 'unassigned') {
+    data = data.filter((item) => !item.assignedToUserId);
+  } else if (assignedToFilter) {
+    data = data.filter((item) => item.assignedToUserId === assignedToFilter);
+  }
+
   return res.status(200).json({ success: true, data });
+});
+
+const assignConversation = asyncHandler(async (req, res) => {
+  const accountContext = await resolveCurrentWhatsAppAccount(req);
+  const phone = normalizePhone(req.params.phone);
+  if (!phone) throw new AppError('A valid phone number is required', 400);
+
+  const assignedToUserId = req.body?.userId ? String(req.body.userId) : null;
+  if (assignedToUserId) {
+    const account = accountContext.account;
+    const isOwner = String(account.userId) === assignedToUserId;
+    const isTeamMember = (account.teamMemberIds || []).some((id) => String(id) === assignedToUserId);
+    if (!isOwner && !isTeamMember) {
+      throw new AppError('Can only assign to the account owner or a team member', 400);
+    }
+  }
+
+  const assignment = await conversationAssignmentService.setAssignment({
+    whatsappAccountId: accountContext.account._id,
+    contactPhone: phone,
+    assignedToUserId,
+  });
+
+  return res.status(200).json({ success: true, data: { phone, assignedToUserId: assignment.assignedToUserId } });
+});
+
+const getTeamMembers = asyncHandler(async (req, res) => {
+  const account = await WhatsAppAccount.findOne({ _id: req.params.id, userId: req.user?.id });
+  if (!account) throw new AppError('Account not found', 404);
+  const members = await teamService.listTeamMembers(account);
+  return res.status(200).json({
+    success: true,
+    data: members.map((m) => ({ id: m._id, name: m.name, mobile: m.mobile, email: m.email })),
+  });
+});
+
+const addTeamMemberHandler = asyncHandler(async (req, res) => {
+  const member = await teamService.addTeamMember({
+    accountId: req.params.id,
+    ownerUserId: req.user?.id,
+    mobile: req.body?.mobile,
+  });
+  recordAuditEvent({ req, action: 'team_member.add', resource: 'whatsapp_account', resourceId: req.params.id, metadata: { memberUserId: member._id } });
+  return res.status(201).json({ success: true, data: { id: member._id, name: member.name, mobile: member.mobile, email: member.email } });
+});
+
+const removeTeamMemberHandler = asyncHandler(async (req, res) => {
+  await teamService.removeTeamMember({
+    accountId: req.params.id,
+    ownerUserId: req.user?.id,
+    memberUserId: req.params.memberId,
+  });
+  recordAuditEvent({ req, action: 'team_member.remove', resource: 'whatsapp_account', resourceId: req.params.id, metadata: { memberUserId: req.params.memberId } });
+  return res.status(200).json({ success: true });
 });
 
 const verifyWebhook = (req, res) => {
@@ -1764,6 +1833,10 @@ module.exports = {
   getTemplates,
   getMessages,
   getConversations,
+  assignConversation,
+  getTeamMembers,
+  addTeamMember: addTeamMemberHandler,
+  removeTeamMember: removeTeamMemberHandler,
   verifyWebhook,
   receiveWebhook,
   getAnalytics,

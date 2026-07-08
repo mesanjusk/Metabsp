@@ -6,6 +6,7 @@ import { parseApiError } from '../../utils/parseApiError';
 import WebhookDestinationsPanel from './WebhookDestinationsPanel';
 import WhatsAppNumbersPanel from './WhatsAppNumbersPanel';
 import BillingPanel from './BillingPanel';
+import TeamManagementPanel from './TeamManagementPanel';
 
 const defaultConfig = {
   analyticsEnabled: true,
@@ -137,6 +138,8 @@ export default function WhatsAppAttendanceSettings({
         </Stack>
 
         <WebhookDestinationsPanel />
+
+        <TeamManagementPanel />
 
         <BillingPanel />
 

@@ -59,6 +59,13 @@ const whatsappAccountSchema = new mongoose.Schema(
     lastWebhookAt: { type: Date, default: null },
     callbackUrl: { type: String, default: '', trim: true },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+    // Additive — lets other platform users view/reply to this account's
+    // conversations (shared team inbox) without owning it. The owner
+    // (userId above) is implicit and not duplicated into this list.
+    teamMemberIds: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: [],
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: true },

@@ -73,6 +73,17 @@ const loadActiveWhatsAppAccountForUser = async (userId, options = {}) => {
     account = await WhatsAppAccount.findOne({ userId, status: { $ne: 'disconnected' } }).sort({ updatedAt: -1 }).lean();
   }
 
+  // Shared team inbox: a user who owns no account of their own can still be
+  // granted view/reply access to someone else's — see services/teamService.js.
+  // If they're a member of more than one shared account, this picks the most
+  // recently updated one; switching between several shared accounts is a
+  // follow-up, not built yet.
+  if (!account) {
+    account = await WhatsAppAccount.findOne({ teamMemberIds: userId, status: { $ne: 'disconnected' } })
+      .sort({ updatedAt: -1 })
+      .lean();
+  }
+
   if (!account) {
     // No legacy-env fallback here: that config is the platform's own number
     // (see otpService.js, which uses resolveLegacyEnvConfig directly for

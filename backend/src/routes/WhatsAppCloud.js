@@ -37,6 +37,10 @@ const {
   getTemplates,
   getMessages,
   getConversations,
+  assignConversation,
+  getTeamMembers,
+  addTeamMember,
+  removeTeamMember,
   getAnalytics,
   createApiKey,
   listApiKeys,
@@ -90,7 +94,13 @@ router.patch('/auto-reply/:id/toggle', requireAuth, toggleAutoReplyRule);
 router.get('/templates', requireAuth, getTemplates);
 router.get('/messages', requireAuth, getMessages);
 router.get('/conversations', requireAuth, getConversations);
+router.put('/conversations/:phone/assign', requireAuth, assignConversation);
 router.get('/analytics', requireAuth, getAnalytics);
+
+// ── Shared team inbox (owner-managed) ────────────────────────────────────────
+router.get('/accounts/:id/team-members', requireAuth, getTeamMembers);
+router.post('/accounts/:id/team-members', requireAuth, addTeamMember);
+router.delete('/accounts/:id/team-members/:memberId', requireAuth, removeTeamMember);
 
 // ── Campaigns (per-user scoped) ────────────────────────────────────────────────
 router.get('/campaigns', requireAuth, async (req, res) => {
