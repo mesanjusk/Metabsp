@@ -30,6 +30,7 @@ const compression = require('compression');
 const helmet     = require('helmet');
 const pinoHttp   = require('pino-http');
 const swaggerUi  = require('swagger-ui-express');
+const { Sentry, isEnabled: isSentryEnabled } = require('./instrument');
 const logger = require('./utils/logger');
 const openapiSpec = require('./docs/openapi');
 
@@ -161,6 +162,9 @@ app.use('/api/bulk/system-settings',    require('../bulk/routes/systemSettingsRo
 // ─────────────────────────────────────────────────────────────────────────────
 // Error handling
 // ─────────────────────────────────────────────────────────────────────────────
+if (isSentryEnabled) {
+  Sentry.setupExpressErrorHandler(app);
+}
 app.use(notFound);
 app.use(errorHandler);
 
