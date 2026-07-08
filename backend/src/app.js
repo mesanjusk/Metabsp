@@ -29,7 +29,9 @@ const cors       = require('cors');
 const compression = require('compression');
 const helmet     = require('helmet');
 const pinoHttp   = require('pino-http');
+const swaggerUi  = require('swagger-ui-express');
 const logger = require('./utils/logger');
+const openapiSpec = require('./docs/openapi');
 
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
@@ -107,6 +109,23 @@ app.get('/health', async (_req, res) => {
     res.status(503).json({ ok: false, error: err.message });
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API documentation (OpenAPI/Swagger UI) — see src/docs/openapi.js
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/api-docs.json', (_req, res) => res.status(200).json(openapiSpec));
+app.use(
+  '/api-docs',
+  (_req, res, next) => {
+    // Swagger UI's bootstrap page relies on an inline <script>, which the
+    // default helmet CSP (script-src 'self', no 'unsafe-inline') blocks —
+    // relax it for this documentation route only.
+    res.removeHeader('Content-Security-Policy');
+    next();
+  },
+  swaggerUi.serve,
+  swaggerUi.setup(openapiSpec)
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // External REST API (API-key authenticated — no JWT required)
