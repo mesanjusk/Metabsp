@@ -31,6 +31,7 @@ const {
   loadWhatsAppAccountFromWebhookIdentifiers,
   assertPhoneNumberAvailable,
 } = require('../services/whatsappAccountService');
+const { ensureTenantForUser } = require('../services/tenantService');
 
 const normalizePhone = (v) => String(v || '').replace(/\D/g, '');
 const RESOLVED_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v19.0';
@@ -38,6 +39,17 @@ const RESOLVED_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v19.0';
 const upsertAndActivateAccountForUser = async ({ userId, phoneNumberId, setPayload }) => {
   await assertPhoneNumberAvailable({ phoneNumberId, userId });
   await WhatsAppAccount.updateMany({ userId, isActive: true }, { $set: { isActive: false } });
+
+  // Best-effort — a tenant/billing entity is metadata for future
+  // multi-seat/billing features, not required for the connect flow to work,
+  // so a failure here must never block a customer from actually connecting
+  // their WhatsApp number.
+  let tenantId = null;
+  try {
+    tenantId = await ensureTenantForUser(userId);
+  } catch (error) {
+    logger.error('[tenant] Failed to provision tenant for user', userId, error.message);
+  }
 
   try {
     const account = await WhatsAppAccount.findOneAndUpdate(
@@ -47,6 +59,7 @@ const upsertAndActivateAccountForUser = async ({ userId, phoneNumberId, setPaylo
           userId,
           phoneNumberId: String(phoneNumberId),
           ...setPayload,
+          ...(tenantId ? { tenantId } : {}),
           isActive: true,
           numberClaimed: true,
         },

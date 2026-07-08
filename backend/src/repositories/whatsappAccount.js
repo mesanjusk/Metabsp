@@ -8,6 +8,18 @@ const whatsappAccountSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // Nullable/additive — the owning Organization (shared tenant model with
+    // the Bulk product, see src/services/tenantService.js). Isolation is
+    // still enforced by userId + the phoneNumberId uniqueness constraints
+    // below; tenantId is metadata for billing/quotas/multi-seat features,
+    // not (yet) a query filter, so existing accounts with tenantId: null
+    // behave exactly as before.
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
+      index: true,
+    },
     accountKey: { type: String, default: '', trim: true },
     connectionMode: {
       type: String,
