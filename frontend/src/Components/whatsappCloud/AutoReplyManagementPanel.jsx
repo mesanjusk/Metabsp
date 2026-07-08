@@ -107,10 +107,12 @@ export default function AutoReplyManagementPanel({ search }) {
               {!isLoading && filteredRules.map((rule) => (
                 <TableRow key={rule.id}>
                   <TableCell>{rule.keyword} <Typography component="span" variant="caption">({rule.matchType})</Typography></TableCell>
-                  <TableCell>{rule.ruleType === 'product_catalog' ? 'Catalog' : 'Keyword'}</TableCell>
+                  <TableCell>{rule.ruleType === 'product_catalog' ? 'Catalog' : rule.ruleType === 'ai_assistant' ? 'AI Assistant' : 'Keyword'}</TableCell>
                   <TableCell>
                     {rule.ruleType === 'product_catalog'
                       ? `${rule.catalogRows.length} products`
+                      : rule.ruleType === 'ai_assistant'
+                      ? `AI-generated${rule.aiModel ? ` · ${rule.aiModel}` : ''}`
                       : rule.replyMode === 'template'
                       ? `Template: ${rule.templateName} · ${rule.templateLanguage}`
                       : rule.replyText}
@@ -137,13 +139,28 @@ export default function AutoReplyManagementPanel({ search }) {
             <TextField select label="Rule Type" value={formData.ruleType} onChange={(event) => setFormData((prev) => ({ ...prev, ruleType: event.target.value }))}>
               <MenuItem value="keyword">Keyword Reply</MenuItem>
               <MenuItem value="product_catalog">Product Catalog / Price List</MenuItem>
+              <MenuItem value="ai_assistant">AI Assistant (fallback)</MenuItem>
             </TextField>
-            <TextField label="Keyword" value={formData.keyword} onChange={(event) => setFormData((prev) => ({ ...prev, keyword: event.target.value }))} helperText={formData.ruleType === 'product_catalog' ? 'Example: price, rate, catalog' : ''} />
-            <TextField select label="Match Type" value={formData.matchType} onChange={(event) => setFormData((prev) => ({ ...prev, matchType: event.target.value }))}>
-              <MenuItem value="contains">Contains</MenuItem>
-              <MenuItem value="exact">Exact</MenuItem>
-              <MenuItem value="starts_with">Starts with</MenuItem>
-            </TextField>
+            {formData.ruleType !== 'ai_assistant' ? (
+              <>
+                <TextField label="Keyword" value={formData.keyword} onChange={(event) => setFormData((prev) => ({ ...prev, keyword: event.target.value }))} helperText={formData.ruleType === 'product_catalog' ? 'Example: price, rate, catalog' : ''} />
+                <TextField select label="Match Type" value={formData.matchType} onChange={(event) => setFormData((prev) => ({ ...prev, matchType: event.target.value }))}>
+                  <MenuItem value="contains">Contains</MenuItem>
+                  <MenuItem value="exact">Exact</MenuItem>
+                  <MenuItem value="starts_with">Starts with</MenuItem>
+                </TextField>
+              </>
+            ) : null}
+
+            {formData.ruleType === 'ai_assistant' ? (
+              <>
+                <Typography variant="body2" color="text.secondary">
+                  Runs only when no keyword rule matches — Claude replies using this persona. Leave the model blank to use the default (Claude Opus 4.8).
+                </Typography>
+                <TextField multiline rows={3} label="System Prompt / Persona" value={formData.aiSystemPrompt} onChange={(event) => setFormData((prev) => ({ ...prev, aiSystemPrompt: event.target.value }))} placeholder="You are a helpful support assistant for..." />
+                <TextField label="Model override (optional)" value={formData.aiModel} onChange={(event) => setFormData((prev) => ({ ...prev, aiModel: event.target.value }))} placeholder="claude-opus-4-8" />
+              </>
+            ) : null}
 
             {formData.ruleType === 'keyword' ? (
               <>

@@ -6,9 +6,11 @@ const autoReplySchema = new mongoose.Schema(
     whatsappAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppAccount', index: true },
     keyword: {
       type: String,
-      required: true,
       trim: true,
       lowercase: true,
+      required() {
+        return String(this.ruleType || 'keyword') !== 'ai_assistant';
+      },
     },
 
     matchType: {
@@ -25,7 +27,7 @@ const autoReplySchema = new mongoose.Schema(
 
     ruleType: {
       type: String,
-      enum: ['keyword', 'product_catalog'],
+      enum: ['keyword', 'product_catalog', 'ai_assistant'],
       default: 'keyword',
       index: true,
     },
@@ -35,7 +37,7 @@ const autoReplySchema = new mongoose.Schema(
       trim: true,
       default: '',
       required() {
-        return String(this.ruleType || 'keyword') !== 'product_catalog';
+        return !['product_catalog', 'ai_assistant'].includes(String(this.ruleType || 'keyword'));
       },
     },
 
@@ -43,6 +45,20 @@ const autoReplySchema = new mongoose.Schema(
     templateLanguage: {
       type: String,
       default: 'en_US',
+    },
+
+    // for ruleType: 'ai_assistant' — a per-rule persona/instructions and an
+    // optional model override (e.g. a cheaper model for high-volume replies)
+    aiSystemPrompt: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    aiModel: {
+      type: String,
+      trim: true,
+      default: '',
     },
 
     catalogRows: {
