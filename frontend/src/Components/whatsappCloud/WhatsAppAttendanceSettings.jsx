@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import apiClient from '../../apiClient';
 import { parseApiError } from '../../utils/parseApiError';
 import WebhookDestinationsPanel from './WebhookDestinationsPanel';
+import WhatsAppNumbersPanel from './WhatsAppNumbersPanel';
 
 const defaultConfig = {
   analyticsEnabled: true,
@@ -115,6 +116,13 @@ export default function WhatsAppAttendanceSettings({
 
         {message ? <Alert severity="success">{message}</Alert> : null}
         {error ? <Alert severity="warning">{error}</Alert> : null}
+
+        <WhatsAppNumbersPanel
+          onConnect={onConnect}
+          onManualConnect={onManualConnect}
+          onChanged={onRefreshAccount}
+          accountActionLoading={accountActionLoading}
+        />
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <FormControlLabel control={<Switch checked={Boolean(form.analyticsEnabled)} onChange={(e) => setForm((prev) => ({ ...prev, analyticsEnabled: e.target.checked }))} />} label="Enable analytics" />
