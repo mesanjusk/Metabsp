@@ -43,54 +43,66 @@ async function stopConnection(req, res) {
 // ── Inbox ─────────────────────────────────────────────────────────────────────
 
 async function getInbox(req, res) {
-  const messages = await BaileysMessage.find({ conversationKey: { $ne: '' } })
-    .sort({ createdAt: -1 })
-    .limit(400)
-    .lean();
+  try {
+    const messages = await BaileysMessage.find({ conversationKey: { $ne: '' } })
+      .sort({ createdAt: -1 })
+      .limit(400)
+      .lean();
 
-  const grouped = new Map();
-  for (const item of messages) {
-    const key = item.conversationKey || getConversationKey(item.from || item.to);
-    if (!key) continue;
-    const current = grouped.get(key);
-    if (!current) {
-      grouped.set(key, {
-        conversationKey: key,
-        phone: key,
-        contactName: item.contactName || '',
-        lastMessage: item.bodyText || item.messageType,
-        lastMessageAt: item.createdAt,
-        lastDirection: item.direction,
-        unreadCount: item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0,
-        lastStatus: item.status,
-        messages: 1,
-        provider: 'baileys',
-      });
-    } else {
-      current.unreadCount += item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0;
-      current.messages += 1;
-      if (!current.contactName && item.contactName) current.contactName = item.contactName;
+    const grouped = new Map();
+    for (const item of messages) {
+      const key = item.conversationKey || getConversationKey(item.from || item.to);
+      if (!key) continue;
+      const current = grouped.get(key);
+      if (!current) {
+        grouped.set(key, {
+          conversationKey: key,
+          phone: key,
+          contactName: item.contactName || '',
+          lastMessage: item.bodyText || item.messageType,
+          lastMessageAt: item.createdAt,
+          lastDirection: item.direction,
+          unreadCount: item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0,
+          lastStatus: item.status,
+          messages: 1,
+          provider: 'baileys',
+        });
+      } else {
+        current.unreadCount += item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0;
+        current.messages += 1;
+        if (!current.contactName && item.contactName) current.contactName = item.contactName;
+      }
     }
-  }
 
-  res.json(
-    Array.from(grouped.values()).sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt))
-  );
+    res.json(
+      Array.from(grouped.values()).sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt))
+    );
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function getConversation(req, res) {
-  const conversationKey = getConversationKey(req.params.conversationKey);
-  const rows = await BaileysMessage.find({ conversationKey }).sort({ createdAt: 1 }).lean();
-  res.json(rows);
+  try {
+    const conversationKey = getConversationKey(req.params.conversationKey);
+    const rows = await BaileysMessage.find({ conversationKey }).sort({ createdAt: 1 }).lean();
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function markConversationRead(req, res) {
-  const conversationKey = getConversationKey(req.params.conversationKey);
-  await BaileysMessage.updateMany(
-    { conversationKey, direction: 'INCOMING', status: { $in: ['RECEIVED', 'DELIVERED'] } },
-    { $set: { status: 'READ' } }
-  );
-  res.json({ message: 'Marked as read' });
+  try {
+    const conversationKey = getConversationKey(req.params.conversationKey);
+    await BaileysMessage.updateMany(
+      { conversationKey, direction: 'INCOMING', status: { $in: ['RECEIVED', 'DELIVERED'] } },
+      { $set: { status: 'READ' } }
+    );
+    res.json({ message: 'Marked as read' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 // ── Send Text ──────────────────────────────────────────────────────────────────
