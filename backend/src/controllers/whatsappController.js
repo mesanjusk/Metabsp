@@ -32,9 +32,10 @@ const {
   assertPhoneNumberAvailable,
 } = require('../services/whatsappAccountService');
 const { ensureTenantForUser } = require('../services/tenantService');
+const { getGraphApiVersion } = require('../config/graphApi');
 
 const normalizePhone = (v) => String(v || '').replace(/\D/g, '');
-const RESOLVED_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v19.0';
+const RESOLVED_API_VERSION = getGraphApiVersion();
 
 const upsertAndActivateAccountForUser = async ({ userId, phoneNumberId, setPayload }) => {
   await assertPhoneNumberAvailable({ phoneNumberId, userId });
@@ -370,7 +371,112 @@ const exchangeMetaToken = asyncHandler(async (req, res) => {
   return res.status(200).json({ success: true, data: sanitizeAccount(account) });
 });
 
-const completeConnection = exchangeMetaToken;
+// Subscribes the app's webhook to a WABA so Meta actually starts sending
+// message/status events for it — a WABA connected via Embedded Signup does
+// not receive webhooks until the app is added to its subscribed_apps list.
+// Best-effort: a failure here shouldn't fail the whole connect flow, since
+// the account is otherwise fully usable for sending.
+const subscribeAppToWaba = async ({ wabaId, accessToken }) => {
+  try {
+    await axios.post(
+      `https://graph.facebook.com/${RESOLVED_API_VERSION}/${wabaId}/subscribed_apps`,
+      {},
+      { headers: { Authorization: `Bearer ${accessToken}` }, timeout: 15000 }
+    );
+    return true;
+  } catch (error) {
+    logger.warn('[embedded-signup] Failed to subscribe app to WABA', wabaId, error?.response?.data || error.message);
+    return false;
+  }
+};
+
+// Completes Meta's WhatsApp Embedded Signup flow: the frontend gets an
+// authorization `code` from FB.login and separately captures `wabaId`/
+// `phoneNumberId` (and optionally `businessId`) from the WA_EMBEDDED_SIGNUP
+// postMessage events Meta's JS SDK popup sends — Meta does not return those
+// identifiers from FB.login itself. This exchanges that code for a real
+// access token server-side (client secret never touches the browser), then
+// resolves phone number details and auto-subscribes the webhook.
+const completeEmbeddedSignup = asyncHandler(async (req, res) => {
+  const { code, wabaId, phoneNumberId, businessId } = req.body || {};
+
+  if (!code) throw new AppError('code is required', 400);
+  if (!wabaId) throw new AppError('wabaId is required', 400);
+  if (!phoneNumberId) throw new AppError('phoneNumberId is required', 400);
+
+  const appId = process.env.META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appId || !appSecret) throw new AppError('Meta app credentials are not configured on the server', 500);
+
+  let shortLivedToken;
+  try {
+    const tokenRes = await axios.get(`https://graph.facebook.com/${RESOLVED_API_VERSION}/oauth/access_token`, {
+      params: { client_id: appId, client_secret: appSecret, code },
+      timeout: 15000,
+    });
+    shortLivedToken = tokenRes.data?.access_token;
+  } catch (error) {
+    throw normalizeWhatsAppApiError(error, 'Failed to exchange the Meta authorization code for an access token');
+  }
+  if (!shortLivedToken) throw new AppError('Meta did not return an access token for this authorization code', 502);
+
+  // Exchange for a long-lived token (~60 days) so the customer isn't forced
+  // to redo Embedded Signup every time the short-lived token expires. Not
+  // fatal if it fails — fall back to the short-lived token.
+  let accessToken = shortLivedToken;
+  let expiresIn = null;
+  try {
+    const longLivedRes = await axios.get(`https://graph.facebook.com/${RESOLVED_API_VERSION}/oauth/access_token`, {
+      params: {
+        grant_type: 'fb_exchange_token',
+        client_id: appId,
+        client_secret: appSecret,
+        fb_exchange_token: shortLivedToken,
+      },
+      timeout: 15000,
+    });
+    accessToken = longLivedRes.data?.access_token || shortLivedToken;
+    expiresIn = longLivedRes.data?.expires_in || null;
+  } catch (error) {
+    logger.warn('[embedded-signup] Long-lived token exchange failed, using short-lived token:', error.message);
+  }
+
+  let phoneDetails = {};
+  try {
+    const phoneRes = await axios.get(`https://graph.facebook.com/${RESOLVED_API_VERSION}/${phoneNumberId}`, {
+      params: { fields: 'display_phone_number,verified_name' },
+      headers: { Authorization: `Bearer ${accessToken}` },
+      timeout: 15000,
+    });
+    phoneDetails = phoneRes.data || {};
+  } catch (error) {
+    logger.warn('[embedded-signup] Failed to fetch phone number details:', error?.response?.data || error.message);
+  }
+
+  const webhookSubscribed = await subscribeAppToWaba({ wabaId, accessToken });
+
+  const account = await upsertAndActivateAccountForUser({
+    userId: req.user?.id,
+    phoneNumberId: String(phoneNumberId),
+    setPayload: {
+      connectionMode: 'embedded_signup',
+      wabaId: String(wabaId),
+      businessAccountId: String(businessId || ''),
+      displayPhoneNumber: String(phoneDetails.display_phone_number || phoneNumberId),
+      verifiedName: String(phoneDetails.verified_name || ''),
+      accessTokenEncrypted: encryptSensitiveValue(String(accessToken)),
+      tokenType: 'Bearer',
+      tokenExpiresAt: expiresIn ? new Date(Date.now() + Number(expiresIn) * 1000) : null,
+      status: 'active',
+      webhookSubscribed,
+      connectedAt: new Date(),
+      lastSyncAt: new Date(),
+    },
+  });
+
+  return res.status(200).json({ success: true, data: sanitizeAccount(account) });
+});
+
 const manualConnect = asyncHandler(async (req, res) => {
   const {
     accessToken,
@@ -1606,7 +1712,7 @@ module.exports = {
   getMetaWebhookConfig,
   getConnectConfig,
   exchangeMetaToken,
-  completeConnection,
+  completeConnection: completeEmbeddedSignup,
   manualConnect,
   listAccounts,
   getAccount,

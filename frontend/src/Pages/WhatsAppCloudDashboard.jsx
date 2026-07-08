@@ -52,6 +52,7 @@ import {
   revalidateWhatsAppAccount,
 } from '../services/whatsappCloudService';
 import { parseApiError } from '../utils/parseApiError';
+import { loadFacebookSdk, listenForEmbeddedSignupData } from '../utils/facebookSdk';
 import { ErrorState, LoadingSkeleton } from '../Components/ui';
 import { useAuth } from '../context/AuthContext';
 import WhatsappProviderDialog from '../Components/whatsappCloud/WhatsappProviderDialog';
@@ -122,8 +123,9 @@ const getFriendlyStatusError = (error) => {
 const getConnectConfigPayload = (response) => {
   const data = response?.data?.data || response?.data || {};
   return {
-    configId: data?.configId || data?.config_id || data?.configurationId || '',
-    appId:    data?.appId    || data?.app_id    || '',
+    configId:   data?.configId   || data?.config_id   || data?.configurationId || '',
+    appId:      data?.appId      || data?.app_id      || '',
+    apiVersion: data?.apiVersion || data?.api_version  || 'v20.0',
     raw: data,
   };
 };
@@ -246,25 +248,37 @@ export default function WhatsAppCloudDashboard() {
     setIsAccountActionLoading(true);
     try {
       const cfg = getConnectConfigPayload(await fetchWhatsAppConnectConfig());
-      let payload = {};
-      if (typeof window !== 'undefined' && typeof window.FB?.login === 'function' && cfg?.configId) {
-        const lr = await new Promise(resolve => window.FB.login(resolve, {
-          config_id: cfg.configId, response_type: 'code', override_default_response_type: true, extras: { setup: {} },
-        }));
-        const code = lr?.authResponse?.code;
-        if (!code) throw new Error('Meta Embedded Signup did not return an authorization code.');
-        payload = { code, flow: 'embedded_signup', connectConfig: cfg.raw, embeddedSignupResult: lr };
-      } else if (typeof window !== 'undefined') {
-        const tok = window.prompt('Paste signup token/code from Meta Embedded Signup');
-        if (!tok) return;
-        payload = { signupToken: tok, flow: 'embedded_signup', connectConfig: cfg.raw };
+      if (!cfg.appId || !cfg.configId) {
+        toast.error('Meta Embedded Signup is not configured yet. Use "Connect manually" instead.');
+        return;
       }
-      await completeWhatsAppConnect(payload);
+
+      await loadFacebookSdk({ appId: cfg.appId, apiVersion: cfg.apiVersion });
+
+      // Start listening before FB.login — Meta's popup can post the
+      // WA_EMBEDDED_SIGNUP message before (or without ever) resolving the
+      // FB.login promise below.
+      const embeddedSignupDataPromise = listenForEmbeddedSignupData();
+
+      const loginResult = await new Promise((resolve) =>
+        window.FB.login(resolve, {
+          config_id: cfg.configId,
+          response_type: 'code',
+          override_default_response_type: true,
+          extras: { setup: {} },
+        })
+      );
+      const code = loginResult?.authResponse?.code;
+      if (!code) throw new Error('Meta Embedded Signup did not return an authorization code.');
+
+      const { wabaId, phoneNumberId, businessId } = await embeddedSignupDataPromise;
+
+      await completeWhatsAppConnect({ code, wabaId, phoneNumberId, businessId });
       await refreshWhatsAppAccount();
       setStatusTick(p => p + 1);
       toast.success('WhatsApp account connected.');
     } catch (err) {
-      toast.error(parseApiError(err, 'Could not complete WhatsApp connect.'));
+      toast.error(parseApiError(err, 'Could not complete WhatsApp connect. Try "Connect manually" instead.'));
     } finally { setIsAccountActionLoading(false); }
   }, [refreshWhatsAppAccount]);
 
