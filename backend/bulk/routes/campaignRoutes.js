@@ -3,6 +3,7 @@ const { protect }  = require('../middleware/auth');
 const Campaign     = require('../models/Campaign');
 const baileysService = require('../services/baileysService');
 const BaileysMessage = require('../models/BaileysMessage');
+const logger = require('../../src/utils/logger');
 
 function normalizePhone(v) {
   const d = String(v || '').replace(/[^\d]/g, '').trim();
@@ -111,6 +112,9 @@ async function runCampaign(campaign, userId) {
 }
 
 function startScheduler() {
+  // .unref() so this background poller doesn't keep the process (or a test
+  // worker that merely requires this route file) alive by itself — the real
+  // HTTP server's listening socket is what keeps a production process up.
   setInterval(async () => {
     try {
       const due = await Campaign.find({
@@ -118,10 +122,14 @@ function startScheduler() {
       });
       for (const c of due) {
         await Campaign.findByIdAndUpdate(c._id, { status: 'SENDING' });
-        runCampaign(c, c.userId ? String(c.userId) : undefined).catch(console.error);
+        runCampaign(c, c.userId ? String(c.userId) : undefined).catch((err) =>
+          logger.error('[campaign-scheduler] runCampaign failed:', err.message)
+        );
       }
-    } catch (_) {}
-  }, 60 * 1000);
+    } catch (err) {
+      logger.error('[campaign-scheduler] poll failed:', err.message);
+    }
+  }, 60 * 1000).unref();
 }
 
 startScheduler();

@@ -17,7 +17,10 @@ const whatsappAccountSchema = new mongoose.Schema(
     },
     wabaId: { type: String, default: '', trim: true, index: true },
     businessAccountId: { type: String, default: '', trim: true, index: true },
-    phoneNumberId: { type: String, required: true, trim: true, index: true },
+    // No field-level index here — the partial unique index below already
+    // covers {phoneNumberId: 1} and Mongoose warns on the duplicate key
+    // pattern if both are declared.
+    phoneNumberId: { type: String, required: true, trim: true },
     displayPhoneNumber: { type: String, default: '', trim: true },
     verifiedName: { type: String, default: '', trim: true },
     accessTokenEncrypted: { type: String, required: true },
