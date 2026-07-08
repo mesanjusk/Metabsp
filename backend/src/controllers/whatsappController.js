@@ -403,12 +403,18 @@ const subscribeAppToWaba = async ({ wabaId, accessToken }) => {
 // identifiers from FB.login itself. This exchanges that code for a real
 // access token server-side (client secret never touches the browser), then
 // resolves phone number details and auto-subscribes the webhook.
+// Meta's IDs (WABA, phone number, business) are always numeric strings —
+// rejecting anything else here before it reaches a Graph API call or a DB
+// write catches a malformed/tampered postMessage payload early.
+const isMetaNumericId = (value) => /^\d+$/.test(String(value || ''));
+
 const completeEmbeddedSignup = asyncHandler(async (req, res) => {
   const { code, wabaId, phoneNumberId, businessId } = req.body || {};
 
   if (!code) throw new AppError('code is required', 400);
-  if (!wabaId) throw new AppError('wabaId is required', 400);
-  if (!phoneNumberId) throw new AppError('phoneNumberId is required', 400);
+  if (!wabaId || !isMetaNumericId(wabaId)) throw new AppError('wabaId must be a valid Meta WABA ID', 400);
+  if (!phoneNumberId || !isMetaNumericId(phoneNumberId)) throw new AppError('phoneNumberId must be a valid Meta phone number ID', 400);
+  if (businessId && !isMetaNumericId(businessId)) throw new AppError('businessId must be a valid Meta business ID', 400);
 
   const appId = process.env.META_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
@@ -1617,6 +1623,15 @@ const receiveWebhook = (req, res) => {
       })();
 
       if (!isValid) return res.status(403).send('Invalid signature');
+    }
+
+    // The same Meta App/webhook URL can be subscribed to other products
+    // (Page, Instagram) sharing this one endpoint — acknowledge and ignore
+    // anything that isn't a WhatsApp payload rather than attempting to
+    // parse a differently-shaped entry/changes/value as WhatsApp data.
+    const payloadObject = String(req.body?.object || '');
+    if (payloadObject && payloadObject !== 'whatsapp_business_account') {
+      return res.status(200).json({ received: true, ignored: true });
     }
 
     const entries = Array.isArray(req.body?.entry) ? req.body.entry : [];
