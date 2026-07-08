@@ -190,11 +190,22 @@ const resolveCurrentWhatsAppAccount = async (req, options = {}) => {
 const resolveActiveWhatsAppAccount = async (userId, options = {}) =>
   loadActiveWhatsAppAccountForUser(userId, options);
 
+// Used by the broadcast queue worker (src/queues/), which only carries an
+// accountId in its Redis-persisted job payload rather than a decrypted
+// access token — re-resolving (and re-decrypting) here right before send
+// keeps plaintext tokens out of Redis job data.
+const loadAccountContextById = async (accountId) => {
+  const account = await WhatsAppAccount.findById(accountId);
+  if (!account) throw new AppError('WhatsApp account not found', 404);
+  return toAccountContext(account);
+};
+
 module.exports = {
   sanitizeAccount,
   resolveLegacyEnvConfig,
   loadActiveWhatsAppAccountForUser,
   resolveActiveWhatsAppAccount,
+  loadAccountContextById,
   loadWhatsAppAccountByPhoneNumberId,
   loadWhatsAppAccountFromWebhookIdentifiers,
   resolveCurrentWhatsAppAccount,

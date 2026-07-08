@@ -32,6 +32,7 @@ const {
   assertPhoneNumberAvailable,
 } = require('../services/whatsappAccountService');
 const { ensureTenantForUser } = require('../services/tenantService');
+const { enqueueBroadcastRecipients, waitForJobResults } = require('../queues/whatsappSendQueue');
 const { getGraphApiVersion } = require('../config/graphApi');
 
 const normalizePhone = (v) => String(v || '').replace(/\D/g, '');
@@ -855,29 +856,29 @@ const sendBroadcast = asyncHandler(async (req, res) => {
   if (String(messageType).toLowerCase() === 'template' && !String(templateName || '').trim()) throw new AppError('templateName is required', 400);
 
   const accountContext = await resolveCurrentWhatsAppAccount(req);
-  const finalCampaignId = String(campaignId || `campaign_${Date.now()}`);
-  const results = [];
+  const accountId = accountContext?.account?._id;
+  if (!accountId) throw new AppError('A connected WhatsApp account is required to send a broadcast', 400);
 
-  for (const recipient of uniqueRecipients) {
-    try {
-      if (String(messageType).toLowerCase() === 'template') {
-        await dispatchTemplateMessage({
-          accountContext,
-          userId: req.user?.id,
-          to: recipient,
-          templateName,
-          language,
-          components,
-          campaignId: finalCampaignId,
-        });
-      } else {
-        await dispatchTextMessage({ accountContext, userId: req.user?.id, to: recipient, body: resolvedBody, campaignId: finalCampaignId });
-      }
-      results.push({ recipient, success: true });
-    } catch (error) {
-      results.push({ recipient, success: false, error: error.message });
-    }
-  }
+  const finalCampaignId = String(campaignId || `campaign_${Date.now()}`);
+
+  // Queued instead of sent in a blocking loop: each recipient gets its own
+  // BullMQ job with automatic retry/backoff, and the batch survives a
+  // process restart mid-send. Waiting for the batch to finish here (rather
+  // than returning immediately) keeps this endpoint's response shape
+  // unchanged — the frontend (BulkSender.jsx) reads response.data.results
+  // synchronously — while still gaining retry/durability underneath.
+  const jobs = await enqueueBroadcastRecipients({
+    accountId,
+    userId: req.user?.id,
+    recipients: uniqueRecipients,
+    messageType: String(messageType).toLowerCase(),
+    body: resolvedBody,
+    templateName,
+    language,
+    components,
+    campaignId: finalCampaignId,
+  });
+  const results = await waitForJobResults(jobs);
 
   return res.status(200).json({
     success: true,
@@ -1718,6 +1719,12 @@ const revokeApiKey = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  // Message-dispatch primitives, exported for src/queues/whatsappSendWorker.js
+  // to reuse rather than duplicate the Graph API call/error-normalization
+  // logic that already lives here.
+  dispatchTextMessage,
+  dispatchTemplateMessage,
+  dispatchMediaMessage,
   getMetaWebhookConfig,
   getConnectConfig,
   exchangeMetaToken,

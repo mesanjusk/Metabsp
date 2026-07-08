@@ -16,6 +16,7 @@ const bulkConnectDB = require('../bulk/config/db');
 const { setIO } = require('../bulk/services/socket');
 const seedAdmin = require('../bulk/seedAdmin');
 const { startTokenRefreshScheduler } = require('./services/tokenRefreshService');
+const { startWhatsAppSendWorker } = require('./queues/whatsappSendWorker');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Process error guards (merged from both servers)
@@ -78,6 +79,12 @@ async function startServer() {
     // Periodically re-exchange WhatsApp Cloud access tokens nearing expiry
     // for fresh long-lived ones (see src/services/tokenRefreshService.js).
     startTokenRefreshScheduler();
+
+    // Processes queued broadcast sends (see src/queues/). Runs in-process
+    // rather than as a separate worker deployment for now — fine at current
+    // scale, and can be split into its own process later without changing
+    // the queue/job contract at all.
+    startWhatsAppSendWorker();
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
