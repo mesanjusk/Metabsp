@@ -60,5 +60,11 @@ contactSchema.index({ userId: 1, phone: 1 }, { unique: true, sparse: true });
 contactSchema.index({ tags: 1 });
 contactSchema.index({ lastSeen: -1 });
 contactSchema.index({ assignedAgent: 1 });
+// Serves getContacts' primary scope clause (whatsappController.js —
+// buildScopedContactFilter ANDs userId+whatsappAccountId within its main
+// $or branch) sorted by {updatedAt: -1} — previously only single-field
+// indexes existed on userId and whatsappAccountId separately, needing an
+// index intersection or in-memory sort rather than a single covering scan.
+contactSchema.index({ userId: 1, whatsappAccountId: 1, updatedAt: -1 });
 
 module.exports = mongoose.model('Contact', contactSchema);
