@@ -1,8 +1,9 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const logger = require('../../src/utils/logger');
+const { getGraphApiVersion } = require('../../src/config/graphApi');
 
-const GRAPH_VERSION = process.env.WHATSAPP_API_VERSION || 'v20.0';
+const GRAPH_VERSION = getGraphApiVersion();
 
 async function uploadWhatsAppMedia({ fileUrl, mimeType = 'image/jpeg' }) {
   const token = process.env.WHATSAPP_ACCESS_TOKEN;

@@ -1,14 +1,13 @@
 const axios = require('axios');
 const { Readable } = require('stream');
 const cloudinary = require('../utils/cloudinary');
-
-const DEFAULT_GRAPH_VERSION = process.env.WHATSAPP_API_VERSION || 'v19.0';
+const { getGraphApiVersion } = require('../config/graphApi');
 
 const buildAuthHeaders = (accessToken) => ({
   Authorization: `Bearer ${accessToken}`,
 });
 
-const fetchMediaMetadata = async ({ mediaId, accessToken, graphVersion = DEFAULT_GRAPH_VERSION }) => {
+const fetchMediaMetadata = async ({ mediaId, accessToken, graphVersion = getGraphApiVersion() }) => {
   const url = `https://graph.facebook.com/${graphVersion}/${mediaId}`;
   const response = await axios.get(url, {
     headers: buildAuthHeaders(accessToken),
@@ -57,7 +56,7 @@ const uploadBufferToCloudinary = ({ buffer, mimeType = '', folder = 'whatsapp_me
 const uploadWhatsAppMediaToCloudinary = async ({
   mediaId,
   accessToken,
-  graphVersion = DEFAULT_GRAPH_VERSION,
+  graphVersion = getGraphApiVersion(),
   folder = 'whatsapp_media',
 }) => {
   const metadata = await fetchMediaMetadata({ mediaId, accessToken, graphVersion });

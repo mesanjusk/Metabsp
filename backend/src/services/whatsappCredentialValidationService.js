@@ -1,7 +1,8 @@
 const axios = require('axios');
 const AppError = require('../utils/AppError');
+const { getGraphApiVersion } = require('../config/graphApi');
 
-const GRAPH_VERSION = process.env.WHATSAPP_API_VERSION || process.env.META_API_VERSION || 'v19.0';
+const GRAPH_VERSION = getGraphApiVersion();
 
 const authHeader = (accessToken) => ({ Authorization: `Bearer ${accessToken}` });
 

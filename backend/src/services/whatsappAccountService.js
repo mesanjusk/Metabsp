@@ -1,8 +1,7 @@
 const WhatsAppAccount = require('../repositories/whatsappAccount');
 const AppError = require('../utils/AppError');
 const { decryptSensitiveValue } = require('../utils/crypto');
-
-const graphVersion = () => process.env.WHATSAPP_API_VERSION || process.env.META_API_VERSION || 'v19.0';
+const { getGraphApiVersion: graphVersion } = require('../config/graphApi');
 
 const sanitizeAccount = (accountDoc) => {
   if (!accountDoc) return null;

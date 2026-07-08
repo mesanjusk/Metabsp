@@ -11,6 +11,7 @@ const WebhookDestination = require('../models/WebhookDestination');
 const { emitNewMessage } = require('../socket');
 const { resolveAutoReplyAction, resolveReplyDelayMs, getCatalogFields } = require('../middleware/autoReply');
 const logger = require('../utils/logger');
+const { getWebhookVerifyToken } = require('../config/graphApi');
 const {
   uploadWhatsAppMediaToCloudinary,
   uploadBufferToCloudinary,
@@ -293,7 +294,7 @@ const getMetaWebhookConfig = asyncHandler(async (req, res) => {
     success: true,
     data: {
       callbackUrl: `${protocol}://${host}/webhook`,
-      verifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || '',
+      verifyToken: getWebhookVerifyToken(),
       appId: process.env.META_APP_ID || '',
     },
   });
@@ -1114,7 +1115,7 @@ const verifyWebhook = (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-  const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN;
+  const verifyToken = getWebhookVerifyToken();
 
   if (!verifyToken) {
     logger.error('[WhatsApp] WHATSAPP_WEBHOOK_VERIFY_TOKEN not configured — rejecting verification');
