@@ -1065,6 +1065,20 @@ const getContacts = asyncHandler(async (req, res) => {
   });
 });
 
+// Fire-and-forget fan-out of a contact lifecycle event to every active
+// WebhookDestination on this account — the same self-service, HMAC-signed
+// mechanism already used for inbound messages (forwardToWebhookDestinations,
+// below). This is the "CRM connector": rather than build a bespoke
+// integration for one vendor, any external CRM (via Zapier, Make, or a
+// custom receiver) can subscribe to contact.upserted/contact.deleted events
+// through the same webhook destinations a user already manages.
+const notifyContactWebhooks = (accountId, event, contact) => {
+  if (!accountId) return;
+  forwardToWebhookDestinations(accountId, { event, contact }).catch((err) =>
+    logger.error('[crm-webhook] contact event fan-out failed:', err.message)
+  );
+};
+
 const createContact = asyncHandler(async (req, res) => {
   const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
   const payload = normalizeContactPayload(req.body || {});
@@ -1074,6 +1088,7 @@ const createContact = asyncHandler(async (req, res) => {
     { $set: { ...payload, userId: req.user?.id, whatsappAccountId: accountContext?.account?._id || null } },
     { upsert: true, new: true }
   );
+  notifyContactWebhooks(accountContext?.account?._id, 'contact.upserted', data);
   return res.status(201).json({ success: true, data });
 });
 
@@ -1089,6 +1104,7 @@ const updateContact = asyncHandler(async (req, res) => {
     tags: payload.tags, assignedAgent: payload.assignedAgent, customFields: payload.customFields,
   });
   await existing.save();
+  notifyContactWebhooks(accountContext?.account?._id, 'contact.upserted', existing);
   return res.status(200).json({ success: true, data: existing });
 });
 
@@ -1096,6 +1112,7 @@ const deleteContact = asyncHandler(async (req, res) => {
   const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
   const deleted = await Contact.findOneAndDelete({ _id: req.params.id, ...buildScopedContactFilter(req, accountContext) });
   if (!deleted) throw new AppError('Contact not found', 404);
+  notifyContactWebhooks(accountContext?.account?._id, 'contact.deleted', { _id: deleted._id, phone: deleted.phone });
   return res.status(200).json({ success: true });
 });
 

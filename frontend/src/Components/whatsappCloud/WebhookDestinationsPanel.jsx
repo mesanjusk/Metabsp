@@ -119,9 +119,10 @@ export default function WebhookDestinationsPanel() {
         <Typography variant="subtitle1" fontWeight={700}>Webhook destinations</Typography>
         <Typography variant="body2" color="text.secondary">
           There is one WhatsApp webhook URL for your whole account. Add as many of your own
-          project URLs here as you like (School, Clinic, Print Ordering, etc.) — every
-          incoming message on this number is forwarded to all of them. Each destination gets
-          its own secret to verify the <code>X-Metabsp-Signature-256</code> header.
+          project URLs here as you like (School, Clinic, Print Ordering, a CRM via Zapier/Make,
+          etc.) — every incoming message, and every contact created/updated/deleted, is
+          forwarded to all of them as a signed <code>{'{ event, ... }'}</code> payload. Each
+          destination gets its own secret to verify the <code>X-Metabsp-Signature-256</code> header.
         </Typography>
       </Stack>
 
