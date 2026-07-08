@@ -28,6 +28,11 @@ const {
   deleteAutoReplyRule,
   toggleAutoReplyRule,
   getAutoReplyRules,
+  createWorkflow,
+  updateWorkflow,
+  deleteWorkflow,
+  toggleWorkflow,
+  getWorkflows,
   getContacts,
   createContact,
   updateContact,
@@ -90,6 +95,12 @@ router.get('/auto-reply', requireAuth, getAutoReplyRules);
 router.put('/auto-reply/:id', requireAuth, updateAutoReplyRule);
 router.delete('/auto-reply/:id', requireAuth, deleteAutoReplyRule);
 router.patch('/auto-reply/:id/toggle', requireAuth, toggleAutoReplyRule);
+
+router.post('/workflows', requireAuth, createWorkflow);
+router.get('/workflows', requireAuth, getWorkflows);
+router.put('/workflows/:id', requireAuth, updateWorkflow);
+router.delete('/workflows/:id', requireAuth, deleteWorkflow);
+router.patch('/workflows/:id/toggle', requireAuth, toggleWorkflow);
 
 router.get('/templates', requireAuth, getTemplates);
 router.get('/messages', requireAuth, getMessages);

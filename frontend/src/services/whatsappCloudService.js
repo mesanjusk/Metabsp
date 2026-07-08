@@ -211,6 +211,14 @@ export const deleteAutoReplyRule = (id) =>
 export const toggleAutoReplyRule = (id) =>
   apiClient.patch(`/api/whatsapp/auto-reply/${id}/toggle`);
 
+export const getWorkflows = () => apiClient.get('/api/whatsapp/workflows');
+export const createWorkflow = (payload) =>
+  apiClient.post('/api/whatsapp/workflows', payload, { headers: { 'Content-Type': 'application/json' } });
+export const updateWorkflow = (id, payload) =>
+  apiClient.put(`/api/whatsapp/workflows/${id}`, payload, { headers: { 'Content-Type': 'application/json' } });
+export const deleteWorkflow = (id) => apiClient.delete(`/api/whatsapp/workflows/${id}`);
+export const toggleWorkflow = (id) => apiClient.patch(`/api/whatsapp/workflows/${id}/toggle`);
+
 
 export const fetchManagedUsers = () => apiClient.get('/api/users/manage');
 export const createManagedUser = (payload) =>

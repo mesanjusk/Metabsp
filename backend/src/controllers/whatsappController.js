@@ -35,6 +35,8 @@ const { ensureTenantForUser } = require('../services/tenantService');
 const { enqueueBroadcastRecipients, waitForJobResults } = require('../queues/whatsappSendQueue');
 const teamService = require('../services/teamService');
 const conversationAssignmentService = require('../services/conversationAssignmentService');
+const Workflow = require('../repositories/Workflow');
+const { resolveMatchingWorkflow } = require('../services/workflowService');
 const { recordAuditEvent } = require('../services/auditLogService');
 const { getGraphApiVersion } = require('../config/graphApi');
 
@@ -1007,6 +1009,115 @@ const getAutoReplyRules = asyncHandler(async (req, res) => {
   return res.status(200).json({ success: true, data });
 });
 
+const normalizeWorkflowPayload = (payload = {}) => ({
+  name: String(payload.name || '').trim(),
+  keyword: String(payload.keyword || '').trim(),
+  matchType: ['exact', 'contains', 'starts_with'].includes(String(payload.matchType || '').toLowerCase())
+    ? String(payload.matchType).toLowerCase()
+    : 'contains',
+  isActive: typeof payload.isActive === 'boolean' ? payload.isActive : true,
+  steps: (Array.isArray(payload.steps) ? payload.steps : [])
+    .map((step) => ({
+      delaySeconds: Math.min(3600, Math.max(0, Number(step?.delaySeconds) || 0)),
+      replyType: String(step?.replyType || 'text').toLowerCase() === 'template' ? 'template' : 'text',
+      reply: String(step?.reply || '').trim(),
+      templateLanguage: String(step?.templateLanguage || 'en_US').trim() || 'en_US',
+    }))
+    .filter((step) => step.reply),
+});
+
+const createWorkflow = asyncHandler(async (req, res) => {
+  const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
+  const payload = normalizeWorkflowPayload(req.body || {});
+  if (!payload.name) throw new AppError('Workflow name is required', 400);
+  if (!payload.keyword) throw new AppError('Trigger keyword is required', 400);
+  if (!payload.steps.length) throw new AppError('At least one step is required', 400);
+
+  const workflow = await Workflow.create({
+    ...payload,
+    userId: req.user?.id,
+    whatsappAccountId: accountContext?.account?._id,
+  });
+  return res.status(201).json({ success: true, data: workflow });
+});
+
+const updateWorkflow = asyncHandler(async (req, res) => {
+  const payload = normalizeWorkflowPayload(req.body || {});
+  if (!payload.name) throw new AppError('Workflow name is required', 400);
+  if (!payload.keyword) throw new AppError('Trigger keyword is required', 400);
+  if (!payload.steps.length) throw new AppError('At least one step is required', 400);
+
+  const workflow = await Workflow.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user?.id },
+    payload,
+    { new: true, runValidators: true }
+  );
+  if (!workflow) throw new AppError('Workflow not found', 404);
+  return res.status(200).json({ success: true, data: workflow });
+});
+
+const deleteWorkflow = asyncHandler(async (req, res) => {
+  const deleted = await Workflow.findOneAndDelete({ _id: req.params.id, userId: req.user?.id });
+  if (!deleted) throw new AppError('Workflow not found', 404);
+  return res.status(200).json({ success: true });
+});
+
+const toggleWorkflow = asyncHandler(async (req, res) => {
+  const workflow = await Workflow.findOne({ _id: req.params.id, userId: req.user?.id });
+  if (!workflow) throw new AppError('Workflow not found', 404);
+  workflow.isActive = !workflow.isActive;
+  await workflow.save();
+  return res.status(200).json({ success: true, data: workflow });
+});
+
+const getWorkflows = asyncHandler(async (req, res) => {
+  const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
+  const filter = {
+    userId: req.user?.id,
+    ...(accountContext?.account?._id ? { whatsappAccountId: accountContext.account._id } : {}),
+  };
+  const data = await Workflow.find(filter).sort({ createdAt: -1 }).lean();
+  return res.status(200).json({ success: true, data });
+});
+
+// Runs a matched workflow's steps in order, each after its own delay
+// (cumulative from trigger time) — same fire-and-forget setTimeout
+// reliability model AutoReply already uses; not durable across a process
+// restart mid-sequence, consistent with existing behavior rather than a
+// regression. A BullMQ-backed delayed-job version is a reasonable
+// follow-up if steps need to survive restarts.
+const runWorkflowSteps = (workflow, matchedAccount, payload) => {
+  let cumulativeDelayMs = 0;
+  for (const step of workflow.steps) {
+    cumulativeDelayMs += Math.max(0, Number(step.delaySeconds) || 0) * 1000;
+    const stepDelayMs = cumulativeDelayMs;
+
+    setTimeout(async () => {
+      try {
+        const accountContext = await loadWhatsAppAccountByPhoneNumberId(payload.phoneNumberId);
+        if (step.replyType === 'template') {
+          await dispatchTemplateMessage({
+            accountContext,
+            userId: matchedAccount.userId,
+            to: payload.from,
+            templateName: step.reply,
+            language: step.templateLanguage || 'en_US',
+            components: [],
+          });
+        } else {
+          await dispatchTextMessage({
+            accountContext,
+            userId: matchedAccount.userId,
+            to: payload.from,
+            body: step.reply,
+          });
+        }
+      } catch (error) {
+        logger.error('[whatsapp] workflow step failed:', error.message);
+      }
+    }, stepDelayMs);
+  }
+};
 
 const normalizeContactPayload = (payload = {}) => ({
   phone:    normalizePhone(payload.phone || payload.mobile || payload.number),
@@ -1652,14 +1763,26 @@ const receiveWebhook = (req, res) => {
         if (!isDuplicate && payload.type === 'text' && matchedAccount?._id && matchedAccount?.userId) {
           const phone = normalizePhone(payload.from);
           const contactDoc = phone ? await Contact.findOne({ phone }) : null;
-          const matchedRule = await resolveAutoReplyAction({
-            incomingText: payload.message,
-            filters: {
-              userId: matchedAccount.userId,
-              whatsappAccountId: matchedAccount._id,
-            },
-            contactDoc,
+
+          const matchedWorkflow = await resolveMatchingWorkflow(payload.message, {
+            userId: matchedAccount.userId,
+            whatsappAccountId: matchedAccount._id,
           });
+
+          if (matchedWorkflow) {
+            runWorkflowSteps(matchedWorkflow, matchedAccount, payload);
+          }
+
+          const matchedRule = matchedWorkflow
+            ? null
+            : await resolveAutoReplyAction({
+                incomingText: payload.message,
+                filters: {
+                  userId: matchedAccount.userId,
+                  whatsappAccountId: matchedAccount._id,
+                },
+                contactDoc,
+              });
 
           if (matchedRule) {
             const delay = resolveReplyDelayMs(matchedRule);
@@ -1841,6 +1964,11 @@ module.exports = {
   deleteAutoReplyRule,
   toggleAutoReplyRule,
   getAutoReplyRules,
+  createWorkflow,
+  updateWorkflow,
+  deleteWorkflow,
+  toggleWorkflow,
+  getWorkflows,
   getContacts,
   createContact,
   updateContact,

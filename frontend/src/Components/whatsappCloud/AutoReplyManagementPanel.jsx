@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import {
   Box,
   Button,
@@ -50,6 +51,12 @@ export default function AutoReplyManagementPanel({ search }) {
   const filteredRules = normalizedSearch
     ? rules.filter((rule) => `${rule.keyword} ${rule.replyText} ${rule.templateName} ${rule.templateLanguage} ${rule.menuTitle}`.toLowerCase().includes(normalizedSearch))
     : rules;
+
+  // Modal's effect depends on onClose and re-arms a "focus the first field"
+  // timeout whenever that reference changes — an inline arrow here changes
+  // identity on every keystroke (formData updates on every field change)
+  // and steals focus back to the first field mid-typing.
+  const closeModal = useCallback(() => setIsModalOpen(false), [setIsModalOpen]);
 
   const handleCatalogUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -134,7 +141,7 @@ export default function AutoReplyManagementPanel({ search }) {
       </Stack>
 
       {isModalOpen ? (
-        <Modal onClose={() => setIsModalOpen(false)} title={editingRule ? 'Edit Rule' : 'Add Rule'}>
+        <Modal onClose={closeModal} title={editingRule ? 'Edit Rule' : 'Add Rule'}>
           <Stack component="form" onSubmit={handleSaveRule} spacing={1.5}>
             <TextField select label="Rule Type" value={formData.ruleType} onChange={(event) => setFormData((prev) => ({ ...prev, ruleType: event.target.value }))}>
               <MenuItem value="keyword">Keyword Reply</MenuItem>
@@ -192,7 +199,7 @@ export default function AutoReplyManagementPanel({ search }) {
             <TextField type="number" label="Delay Seconds" inputProps={{ min: 0, max: 30 }} value={formData.delaySeconds} onChange={(event) => setFormData((prev) => ({ ...prev, delaySeconds: event.target.value }))} />
             <FormControlLabel control={<Switch checked={formData.active} onChange={(event) => setFormData((prev) => ({ ...prev, active: event.target.checked }))} />} label="Active" />
             <Stack direction="row" justifyContent="flex-end" spacing={1}>
-              <Button type="button" onClick={() => setIsModalOpen(false)} variant="outlined">Cancel</Button>
+              <Button type="button" onClick={closeModal} variant="outlined">Cancel</Button>
               <Button type="submit" disabled={isSavingRule} variant="contained">{isSavingRule ? 'Saving...' : 'Save'}</Button>
             </Stack>
           </Stack>

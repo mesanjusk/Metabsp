@@ -61,6 +61,7 @@ const MessagesPanel       = lazy(() => import('../Components/whatsappCloud/Messa
 const SendMessagePanel    = lazy(() => import('../Components/whatsappCloud/SendMessagePanel'));
 const BulkSender          = lazy(() => import('../Components/whatsappCloud/BulkSender'));
 const AutoReplyManagementPanel = lazy(() => import('../Components/whatsappCloud/AutoReplyManagementPanel'));
+const WorkflowManagementPanel  = lazy(() => import('../Components/whatsappCloud/WorkflowManagementPanel'));
 const CRMPanel            = lazy(() => import('../Components/whatsappCloud/CRMPanel'));
 const AnalyticsDashboard  = lazy(() => import('../Components/whatsappCloud/AnalyticsDashboard'));
 const WhatsAppAttendanceSettings = lazy(() => import('../Components/whatsappCloud/WhatsAppAttendanceSettings'));
@@ -81,7 +82,7 @@ const MAIN_TABS = [
 
 // ── Sub-tabs per main tab ─────────────────────────────────────────────────────
 const SUB_TABS = {
-  meta:    ['inbox', 'templates', 'broadcast', 'autoReply', 'analytics', 'settings'],
+  meta:    ['inbox', 'templates', 'broadcast', 'autoReply', 'workflows', 'analytics', 'settings'],
   baileys: ['setup', 'send'],
   manual:  ['wame', 'campaigns'],
   crm:     [],
@@ -92,6 +93,7 @@ const SUB_TAB_LABELS = {
   templates: 'Templates',
   broadcast: 'Broadcast',
   autoReply: 'Auto Reply',
+  workflows: 'Workflows',
   analytics: 'Analytics',
   settings:  'Settings',
   setup:     'QR Setup',
@@ -105,6 +107,7 @@ const SEARCH_PLACEHOLDER = {
   templates: 'Search templates',
   broadcast: 'Search broadcasts',
   autoReply: 'Search auto replies',
+  workflows: 'Search workflows',
   setup:     '',
   send:      '',
   wame:      'Enter recipient name or number',
@@ -424,6 +427,7 @@ export default function WhatsAppCloudDashboard() {
       if (activeSubTab === 'templates') return <SendMessagePanel search={search} />;
       if (activeSubTab === 'broadcast') return <BulkSender standalone search={search} />;
       if (activeSubTab === 'autoReply') return <AutoReplyManagementPanel search={search} />;
+      if (activeSubTab === 'workflows') return <WorkflowManagementPanel search={search} />;
     }
 
     return null;
