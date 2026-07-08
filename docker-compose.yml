@@ -1,0 +1,56 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/metabsp
+      REDIS_URL: redis://redis:6379
+      # Dev-only placeholder secrets — override with real values via a local
+      # .env file or your shell before running this in anything but a
+      # throwaway local environment.
+      JWT_SECRET: dev-only-change-me
+      WHATSAPP_TOKEN_ENCRYPTION_KEY: ZGV2LW9ubHktMzItYnl0ZS1rZXktY2hhbmdlLW1lITE=
+      FRONTEND_URL: http://localhost:8080
+    depends_on:
+      - mongo
+      - redis
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_SERVER: http://localhost:5000
+        VITE_API_URL: http://localhost:5000/api/bulk
+        VITE_SOCKET_URL: http://localhost:5000
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
+  redis_data:
