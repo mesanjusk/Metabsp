@@ -7,6 +7,7 @@
     "test": "jest --runInBand",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "worker": "node src/worker.js",
     "seed-admin": "node bulk/seedAdmin.js",
     "seed-billing-plans": "node scripts/seed-billing-plans.js",
     "migrate-users": "node bulk/scripts/migrateMetabspUsers.js",
