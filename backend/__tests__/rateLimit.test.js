@@ -1,6 +1,7 @@
 const express = require('express');
 const request = require('supertest');
 const { createAuthRateLimiter } = require('../src/middleware/rateLimit');
+const { getRedisConnection, closeRedisConnection } = require('../src/config/redis');
 
 describe('middleware/rateLimit createAuthRateLimiter', () => {
   const buildApp = (maxRequests) => {
@@ -12,6 +13,20 @@ describe('middleware/rateLimit createAuthRateLimiter', () => {
     });
     return app;
   };
+
+  // The rate limiter is now backed by real Redis (shared across test runs
+  // in this same process/environment), so each test needs a clean slate —
+  // otherwise counts left over from a previous run of this same suite would
+  // make "allows requests under the limit" flaky.
+  beforeEach(async () => {
+    const redis = getRedisConnection();
+    const keys = await redis.keys('rl:auth:*');
+    if (keys.length) await redis.del(keys);
+  });
+
+  afterAll(async () => {
+    await closeRedisConnection();
+  });
 
   it('allows requests under the limit', async () => {
     const app = buildApp(3);

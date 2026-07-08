@@ -33,6 +33,7 @@ const {
 } = require('../services/whatsappAccountService');
 const { ensureTenantForUser } = require('../services/tenantService');
 const { enqueueBroadcastRecipients, waitForJobResults } = require('../queues/whatsappSendQueue');
+const { recordAuditEvent } = require('../services/auditLogService');
 const { getGraphApiVersion } = require('../config/graphApi');
 
 const normalizePhone = (v) => String(v || '').replace(/\D/g, '');
@@ -475,6 +476,7 @@ const completeEmbeddedSignup = asyncHandler(async (req, res) => {
     },
   });
 
+  recordAuditEvent({ req, action: 'whatsapp_account.connect', resource: 'whatsapp_account', resourceId: account._id, metadata: { connectionMode: 'embedded_signup', phoneNumberId } });
   return res.status(200).json({ success: true, data: sanitizeAccount(account) });
 });
 
@@ -537,6 +539,7 @@ const manualConnect = asyncHandler(async (req, res) => {
     },
   });
 
+  recordAuditEvent({ req, action: 'whatsapp_account.connect', resource: 'whatsapp_account', resourceId: account._id, metadata: { connectionMode: 'manual', phoneNumberId: normalizedPhoneNumberId } });
   return res.status(200).json({ success: true, data: sanitizeAccount(account) });
 });
 
@@ -633,6 +636,7 @@ const deleteAccount = asyncHandler(async (req, res) => {
     }
   }
 
+  recordAuditEvent({ req, action: 'whatsapp_account.delete', resource: 'whatsapp_account', resourceId: existing._id, metadata: { phoneNumberId: existing.phoneNumberId } });
   return res.status(200).json({ success: true, message: 'Account removed' });
 });
 
@@ -646,6 +650,7 @@ const disconnectAccount = asyncHandler(async (req, res) => {
   existing.numberClaimed = false;
   await existing.save();
 
+  recordAuditEvent({ req, action: 'whatsapp_account.disconnect', resource: 'whatsapp_account', resourceId: existing._id, metadata: { phoneNumberId: existing.phoneNumberId } });
   return res.status(200).json({ success: true, data: sanitizeAccount(existing) });
 });
 
@@ -1707,6 +1712,7 @@ const listApiKeys = asyncHandler(async (req, res) => {
 const createApiKey = asyncHandler(async (req, res) => {
   const { name } = req.body;
   const apiKey = await ApiKey.generate(req.user.id, name || 'Default');
+  recordAuditEvent({ req, action: 'api_key.create', resource: 'api_key', resourceId: apiKey._id, metadata: { name: apiKey.name } });
   res.status(201).json({ success: true, key: apiKey.key, name: apiKey.name, id: apiKey._id });
 });
 
@@ -1715,6 +1721,7 @@ const revokeApiKey = asyncHandler(async (req, res) => {
     { _id: req.params.id, userId: req.user.id },
     { isActive: false }
   );
+  recordAuditEvent({ req, action: 'api_key.revoke', resource: 'api_key', resourceId: req.params.id });
   res.json({ success: true });
 });
 

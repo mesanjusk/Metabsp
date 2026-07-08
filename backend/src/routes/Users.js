@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const { METABSP_ADMIN_ROLE_CODE, METABSP_USER_ROLE_CODE } = require('../../bulk/seedAdmin');
 const { assertPhoneNumberAvailable } = require('../services/whatsappAccountService');
 const { createAuthRateLimiter } = require('../middleware/rateLimit');
+const { recordAuditEvent } = require('../services/auditLogService');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -95,13 +96,16 @@ router.post('/login', loginLimiter, async (req, res) => {
   try {
     const user = await User.findOne({ username: normalizedUserName, tenantId: null }).populate('roleId');
     if (!user || !(await user.matchPassword(Password))) {
+      recordAuditEvent({ req, action: 'login', resource: 'user', outcome: 'failure', metadata: { username: normalizedUserName } });
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
     if (!user.isActive) {
+      recordAuditEvent({ req, userId: user._id, action: 'login', resource: 'user', resourceId: user._id, outcome: 'failure', metadata: { reason: 'inactive' } });
       return res.status(403).json({ success: false, message: 'Account is inactive' });
     }
 
     const token = signTokenForUser(user._id);
+    recordAuditEvent({ req, userId: user._id, action: 'login', resource: 'user', resourceId: user._id, outcome: 'success' });
     return res.status(200).json({ success: true, token, user: sanitizeUser(user) });
   } catch (error) {
     logger.error('Login error:', error);
