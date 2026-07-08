@@ -15,6 +15,7 @@ const { initSocket } = require('./socket');
 const bulkConnectDB = require('../bulk/config/db');
 const { setIO } = require('../bulk/services/socket');
 const seedAdmin = require('../bulk/seedAdmin');
+const { startTokenRefreshScheduler } = require('./services/tokenRefreshService');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Process error guards (merged from both servers)
@@ -73,6 +74,10 @@ async function startServer() {
       // join-role-room is used by bulk-invite real-time events
       socket.on('join-role-room', (role) => socket.join(`role:${role}`));
     });
+
+    // Periodically re-exchange WhatsApp Cloud access tokens nearing expiry
+    // for fresh long-lived ones (see src/services/tokenRefreshService.js).
+    startTokenRefreshScheduler();
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {

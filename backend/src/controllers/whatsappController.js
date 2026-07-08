@@ -503,13 +503,21 @@ const manualConnect = asyncHandler(async (req, res) => {
   });
 
   const normalizedPhoneNumberId = String(validated.phoneNumberId || phoneNumberId);
+  const resolvedWabaId = String(validated.wabaId || wabaId || '');
+
+  // Same auto-subscription the Embedded Signup path does — a manually
+  // pasted token is otherwise just as capable of sending/receiving, but
+  // previously never got the app subscribed to its WABA's webhooks.
+  const webhookSubscribed = resolvedWabaId
+    ? await subscribeAppToWaba({ wabaId: resolvedWabaId, accessToken })
+    : false;
 
   const account = await upsertAndActivateAccountForUser({
     userId: req.user?.id,
     phoneNumberId: normalizedPhoneNumberId,
     setPayload: {
       connectionMode: 'manual',
-      wabaId: String(validated.wabaId || wabaId || ''),
+      wabaId: resolvedWabaId,
       businessAccountId: String(validated.businessAccountId || businessAccountId || ''),
       displayPhoneNumber: String(validated.displayPhoneNumber || displayPhoneNumber || normalizedPhoneNumberId),
       verifiedName: String(validated.verifiedName || verifiedName || ''),
@@ -518,6 +526,7 @@ const manualConnect = asyncHandler(async (req, res) => {
       tokenExpiresAt: expiresIn ? new Date(Date.now() + Number(expiresIn) * 1000) : null,
       appScopedMetaUserId: String(validated.appScopedMetaUserId || ''),
       status: 'active',
+      webhookSubscribed,
       connectedAt: new Date(),
       lastSyncAt: new Date(),
       metadata: {
