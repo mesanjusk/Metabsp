@@ -5,6 +5,7 @@ const Role = require('../models/Role');
 const { sendOtp, verifyOtp } = require('../services/otpService');
 const { getJwtSecret } = require('../utils/jwtSecret');
 const { PERMISSIONS } = require('../utils/permissions');
+const logger = require('../../src/utils/logger');
 
 function generateToken(userId) {
   return jwt.sign({ id: userId, type: 'db-user' }, getJwtSecret(), {
@@ -132,7 +133,7 @@ async function verifySignupOtp(req, res) {
       message: 'Account created successfully! Welcome.',
     });
   } catch (err) {
-    console.error('[org] verifySignupOtp:', err);
+    logger.error('[org] verifySignupOtp:', err);
     res.status(500).json({ message: err.message });
   }
 }

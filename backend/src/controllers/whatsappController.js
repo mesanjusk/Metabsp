@@ -10,6 +10,8 @@ const WhatsAppAccount = require('../repositories/whatsappAccount');
 const WebhookDestination = require('../models/WebhookDestination');
 const { emitNewMessage } = require('../socket');
 const { resolveAutoReplyAction, resolveReplyDelayMs, getCatalogFields } = require('../middleware/autoReply');
+const logger = require('../utils/logger');
+const { getWebhookVerifyToken } = require('../config/graphApi');
 const {
   uploadWhatsAppMediaToCloudinary,
   uploadBufferToCloudinary,
@@ -29,13 +31,32 @@ const {
   loadWhatsAppAccountFromWebhookIdentifiers,
   assertPhoneNumberAvailable,
 } = require('../services/whatsappAccountService');
+const { ensureTenantForUser } = require('../services/tenantService');
+const { enqueueBroadcastRecipients, waitForJobResults } = require('../queues/whatsappSendQueue');
+const teamService = require('../services/teamService');
+const conversationAssignmentService = require('../services/conversationAssignmentService');
+const Workflow = require('../repositories/Workflow');
+const { resolveMatchingWorkflow } = require('../services/workflowService');
+const { recordAuditEvent } = require('../services/auditLogService');
+const { getGraphApiVersion } = require('../config/graphApi');
 
 const normalizePhone = (v) => String(v || '').replace(/\D/g, '');
-const RESOLVED_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v19.0';
+const RESOLVED_API_VERSION = getGraphApiVersion();
 
 const upsertAndActivateAccountForUser = async ({ userId, phoneNumberId, setPayload }) => {
   await assertPhoneNumberAvailable({ phoneNumberId, userId });
   await WhatsAppAccount.updateMany({ userId, isActive: true }, { $set: { isActive: false } });
+
+  // Best-effort — a tenant/billing entity is metadata for future
+  // multi-seat/billing features, not required for the connect flow to work,
+  // so a failure here must never block a customer from actually connecting
+  // their WhatsApp number.
+  let tenantId = null;
+  try {
+    tenantId = await ensureTenantForUser(userId);
+  } catch (error) {
+    logger.error('[tenant] Failed to provision tenant for user', userId, error.message);
+  }
 
   try {
     const account = await WhatsAppAccount.findOneAndUpdate(
@@ -45,6 +66,7 @@ const upsertAndActivateAccountForUser = async ({ userId, phoneNumberId, setPaylo
           userId,
           phoneNumberId: String(phoneNumberId),
           ...setPayload,
+          ...(tenantId ? { tenantId } : {}),
           isActive: true,
           numberClaimed: true,
         },
@@ -292,7 +314,7 @@ const getMetaWebhookConfig = asyncHandler(async (req, res) => {
     success: true,
     data: {
       callbackUrl: `${protocol}://${host}/webhook`,
-      verifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || '',
+      verifyToken: getWebhookVerifyToken(),
       appId: process.env.META_APP_ID || '',
     },
   });
@@ -355,7 +377,113 @@ const exchangeMetaToken = asyncHandler(async (req, res) => {
   return res.status(200).json({ success: true, data: sanitizeAccount(account) });
 });
 
-const completeConnection = exchangeMetaToken;
+// Subscribes the app's webhook to a WABA so Meta actually starts sending
+// message/status events for it — a WABA connected via Embedded Signup does
+// not receive webhooks until the app is added to its subscribed_apps list.
+// Best-effort: a failure here shouldn't fail the whole connect flow, since
+// the account is otherwise fully usable for sending.
+const subscribeAppToWaba = async ({ wabaId, accessToken }) => {
+  try {
+    await axios.post(
+      `https://graph.facebook.com/${RESOLVED_API_VERSION}/${wabaId}/subscribed_apps`,
+      {},
+      { headers: { Authorization: `Bearer ${accessToken}` }, timeout: 15000 }
+    );
+    return true;
+  } catch (error) {
+    logger.warn('[embedded-signup] Failed to subscribe app to WABA', wabaId, error?.response?.data || error.message);
+    return false;
+  }
+};
+
+// Completes Meta's WhatsApp Embedded Signup flow: the frontend gets an
+// authorization `code` from FB.login and separately captures `wabaId`/
+// `phoneNumberId` (and optionally `businessId`) from the WA_EMBEDDED_SIGNUP
+// postMessage events Meta's JS SDK popup sends — Meta does not return those
+// identifiers from FB.login itself. This exchanges that code for a real
+// access token server-side (client secret never touches the browser), then
+// resolves phone number details and auto-subscribes the webhook.
+const completeEmbeddedSignup = asyncHandler(async (req, res) => {
+  const { code, wabaId, phoneNumberId, businessId } = req.body || {};
+
+  if (!code) throw new AppError('code is required', 400);
+  if (!wabaId) throw new AppError('wabaId is required', 400);
+  if (!phoneNumberId) throw new AppError('phoneNumberId is required', 400);
+
+  const appId = process.env.META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appId || !appSecret) throw new AppError('Meta app credentials are not configured on the server', 500);
+
+  let shortLivedToken;
+  try {
+    const tokenRes = await axios.get(`https://graph.facebook.com/${RESOLVED_API_VERSION}/oauth/access_token`, {
+      params: { client_id: appId, client_secret: appSecret, code },
+      timeout: 15000,
+    });
+    shortLivedToken = tokenRes.data?.access_token;
+  } catch (error) {
+    throw normalizeWhatsAppApiError(error, 'Failed to exchange the Meta authorization code for an access token');
+  }
+  if (!shortLivedToken) throw new AppError('Meta did not return an access token for this authorization code', 502);
+
+  // Exchange for a long-lived token (~60 days) so the customer isn't forced
+  // to redo Embedded Signup every time the short-lived token expires. Not
+  // fatal if it fails — fall back to the short-lived token.
+  let accessToken = shortLivedToken;
+  let expiresIn = null;
+  try {
+    const longLivedRes = await axios.get(`https://graph.facebook.com/${RESOLVED_API_VERSION}/oauth/access_token`, {
+      params: {
+        grant_type: 'fb_exchange_token',
+        client_id: appId,
+        client_secret: appSecret,
+        fb_exchange_token: shortLivedToken,
+      },
+      timeout: 15000,
+    });
+    accessToken = longLivedRes.data?.access_token || shortLivedToken;
+    expiresIn = longLivedRes.data?.expires_in || null;
+  } catch (error) {
+    logger.warn('[embedded-signup] Long-lived token exchange failed, using short-lived token:', error.message);
+  }
+
+  let phoneDetails = {};
+  try {
+    const phoneRes = await axios.get(`https://graph.facebook.com/${RESOLVED_API_VERSION}/${phoneNumberId}`, {
+      params: { fields: 'display_phone_number,verified_name' },
+      headers: { Authorization: `Bearer ${accessToken}` },
+      timeout: 15000,
+    });
+    phoneDetails = phoneRes.data || {};
+  } catch (error) {
+    logger.warn('[embedded-signup] Failed to fetch phone number details:', error?.response?.data || error.message);
+  }
+
+  const webhookSubscribed = await subscribeAppToWaba({ wabaId, accessToken });
+
+  const account = await upsertAndActivateAccountForUser({
+    userId: req.user?.id,
+    phoneNumberId: String(phoneNumberId),
+    setPayload: {
+      connectionMode: 'embedded_signup',
+      wabaId: String(wabaId),
+      businessAccountId: String(businessId || ''),
+      displayPhoneNumber: String(phoneDetails.display_phone_number || phoneNumberId),
+      verifiedName: String(phoneDetails.verified_name || ''),
+      accessTokenEncrypted: encryptSensitiveValue(String(accessToken)),
+      tokenType: 'Bearer',
+      tokenExpiresAt: expiresIn ? new Date(Date.now() + Number(expiresIn) * 1000) : null,
+      status: 'active',
+      webhookSubscribed,
+      connectedAt: new Date(),
+      lastSyncAt: new Date(),
+    },
+  });
+
+  recordAuditEvent({ req, action: 'whatsapp_account.connect', resource: 'whatsapp_account', resourceId: account._id, metadata: { connectionMode: 'embedded_signup', phoneNumberId } });
+  return res.status(200).json({ success: true, data: sanitizeAccount(account) });
+});
+
 const manualConnect = asyncHandler(async (req, res) => {
   const {
     accessToken,
@@ -382,13 +510,21 @@ const manualConnect = asyncHandler(async (req, res) => {
   });
 
   const normalizedPhoneNumberId = String(validated.phoneNumberId || phoneNumberId);
+  const resolvedWabaId = String(validated.wabaId || wabaId || '');
+
+  // Same auto-subscription the Embedded Signup path does — a manually
+  // pasted token is otherwise just as capable of sending/receiving, but
+  // previously never got the app subscribed to its WABA's webhooks.
+  const webhookSubscribed = resolvedWabaId
+    ? await subscribeAppToWaba({ wabaId: resolvedWabaId, accessToken })
+    : false;
 
   const account = await upsertAndActivateAccountForUser({
     userId: req.user?.id,
     phoneNumberId: normalizedPhoneNumberId,
     setPayload: {
       connectionMode: 'manual',
-      wabaId: String(validated.wabaId || wabaId || ''),
+      wabaId: resolvedWabaId,
       businessAccountId: String(validated.businessAccountId || businessAccountId || ''),
       displayPhoneNumber: String(validated.displayPhoneNumber || displayPhoneNumber || normalizedPhoneNumberId),
       verifiedName: String(validated.verifiedName || verifiedName || ''),
@@ -397,6 +533,7 @@ const manualConnect = asyncHandler(async (req, res) => {
       tokenExpiresAt: expiresIn ? new Date(Date.now() + Number(expiresIn) * 1000) : null,
       appScopedMetaUserId: String(validated.appScopedMetaUserId || ''),
       status: 'active',
+      webhookSubscribed,
       connectedAt: new Date(),
       lastSyncAt: new Date(),
       metadata: {
@@ -406,6 +543,7 @@ const manualConnect = asyncHandler(async (req, res) => {
     },
   });
 
+  recordAuditEvent({ req, action: 'whatsapp_account.connect', resource: 'whatsapp_account', resourceId: account._id, metadata: { connectionMode: 'manual', phoneNumberId: normalizedPhoneNumberId } });
   return res.status(200).json({ success: true, data: sanitizeAccount(account) });
 });
 
@@ -502,6 +640,7 @@ const deleteAccount = asyncHandler(async (req, res) => {
     }
   }
 
+  recordAuditEvent({ req, action: 'whatsapp_account.delete', resource: 'whatsapp_account', resourceId: existing._id, metadata: { phoneNumberId: existing.phoneNumberId } });
   return res.status(200).json({ success: true, message: 'Account removed' });
 });
 
@@ -515,6 +654,7 @@ const disconnectAccount = asyncHandler(async (req, res) => {
   existing.numberClaimed = false;
   await existing.save();
 
+  recordAuditEvent({ req, action: 'whatsapp_account.disconnect', resource: 'whatsapp_account', resourceId: existing._id, metadata: { phoneNumberId: existing.phoneNumberId } });
   return res.status(200).json({ success: true, data: sanitizeAccount(existing) });
 });
 
@@ -725,29 +865,29 @@ const sendBroadcast = asyncHandler(async (req, res) => {
   if (String(messageType).toLowerCase() === 'template' && !String(templateName || '').trim()) throw new AppError('templateName is required', 400);
 
   const accountContext = await resolveCurrentWhatsAppAccount(req);
-  const finalCampaignId = String(campaignId || `campaign_${Date.now()}`);
-  const results = [];
+  const accountId = accountContext?.account?._id;
+  if (!accountId) throw new AppError('A connected WhatsApp account is required to send a broadcast', 400);
 
-  for (const recipient of uniqueRecipients) {
-    try {
-      if (String(messageType).toLowerCase() === 'template') {
-        await dispatchTemplateMessage({
-          accountContext,
-          userId: req.user?.id,
-          to: recipient,
-          templateName,
-          language,
-          components,
-          campaignId: finalCampaignId,
-        });
-      } else {
-        await dispatchTextMessage({ accountContext, userId: req.user?.id, to: recipient, body: resolvedBody, campaignId: finalCampaignId });
-      }
-      results.push({ recipient, success: true });
-    } catch (error) {
-      results.push({ recipient, success: false, error: error.message });
-    }
-  }
+  const finalCampaignId = String(campaignId || `campaign_${Date.now()}`);
+
+  // Queued instead of sent in a blocking loop: each recipient gets its own
+  // BullMQ job with automatic retry/backoff, and the batch survives a
+  // process restart mid-send. Waiting for the batch to finish here (rather
+  // than returning immediately) keeps this endpoint's response shape
+  // unchanged — the frontend (BulkSender.jsx) reads response.data.results
+  // synchronously — while still gaining retry/durability underneath.
+  const jobs = await enqueueBroadcastRecipients({
+    accountId,
+    userId: req.user?.id,
+    recipients: uniqueRecipients,
+    messageType: String(messageType).toLowerCase(),
+    body: resolvedBody,
+    templateName,
+    language,
+    components,
+    campaignId: finalCampaignId,
+  });
+  const results = await waitForJobResults(jobs);
 
   return res.status(200).json({
     success: true,
@@ -869,6 +1009,115 @@ const getAutoReplyRules = asyncHandler(async (req, res) => {
   return res.status(200).json({ success: true, data });
 });
 
+const normalizeWorkflowPayload = (payload = {}) => ({
+  name: String(payload.name || '').trim(),
+  keyword: String(payload.keyword || '').trim(),
+  matchType: ['exact', 'contains', 'starts_with'].includes(String(payload.matchType || '').toLowerCase())
+    ? String(payload.matchType).toLowerCase()
+    : 'contains',
+  isActive: typeof payload.isActive === 'boolean' ? payload.isActive : true,
+  steps: (Array.isArray(payload.steps) ? payload.steps : [])
+    .map((step) => ({
+      delaySeconds: Math.min(3600, Math.max(0, Number(step?.delaySeconds) || 0)),
+      replyType: String(step?.replyType || 'text').toLowerCase() === 'template' ? 'template' : 'text',
+      reply: String(step?.reply || '').trim(),
+      templateLanguage: String(step?.templateLanguage || 'en_US').trim() || 'en_US',
+    }))
+    .filter((step) => step.reply),
+});
+
+const createWorkflow = asyncHandler(async (req, res) => {
+  const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
+  const payload = normalizeWorkflowPayload(req.body || {});
+  if (!payload.name) throw new AppError('Workflow name is required', 400);
+  if (!payload.keyword) throw new AppError('Trigger keyword is required', 400);
+  if (!payload.steps.length) throw new AppError('At least one step is required', 400);
+
+  const workflow = await Workflow.create({
+    ...payload,
+    userId: req.user?.id,
+    whatsappAccountId: accountContext?.account?._id,
+  });
+  return res.status(201).json({ success: true, data: workflow });
+});
+
+const updateWorkflow = asyncHandler(async (req, res) => {
+  const payload = normalizeWorkflowPayload(req.body || {});
+  if (!payload.name) throw new AppError('Workflow name is required', 400);
+  if (!payload.keyword) throw new AppError('Trigger keyword is required', 400);
+  if (!payload.steps.length) throw new AppError('At least one step is required', 400);
+
+  const workflow = await Workflow.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user?.id },
+    payload,
+    { new: true, runValidators: true }
+  );
+  if (!workflow) throw new AppError('Workflow not found', 404);
+  return res.status(200).json({ success: true, data: workflow });
+});
+
+const deleteWorkflow = asyncHandler(async (req, res) => {
+  const deleted = await Workflow.findOneAndDelete({ _id: req.params.id, userId: req.user?.id });
+  if (!deleted) throw new AppError('Workflow not found', 404);
+  return res.status(200).json({ success: true });
+});
+
+const toggleWorkflow = asyncHandler(async (req, res) => {
+  const workflow = await Workflow.findOne({ _id: req.params.id, userId: req.user?.id });
+  if (!workflow) throw new AppError('Workflow not found', 404);
+  workflow.isActive = !workflow.isActive;
+  await workflow.save();
+  return res.status(200).json({ success: true, data: workflow });
+});
+
+const getWorkflows = asyncHandler(async (req, res) => {
+  const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
+  const filter = {
+    userId: req.user?.id,
+    ...(accountContext?.account?._id ? { whatsappAccountId: accountContext.account._id } : {}),
+  };
+  const data = await Workflow.find(filter).sort({ createdAt: -1 }).lean();
+  return res.status(200).json({ success: true, data });
+});
+
+// Runs a matched workflow's steps in order, each after its own delay
+// (cumulative from trigger time) — same fire-and-forget setTimeout
+// reliability model AutoReply already uses; not durable across a process
+// restart mid-sequence, consistent with existing behavior rather than a
+// regression. A BullMQ-backed delayed-job version is a reasonable
+// follow-up if steps need to survive restarts.
+const runWorkflowSteps = (workflow, matchedAccount, payload) => {
+  let cumulativeDelayMs = 0;
+  for (const step of workflow.steps) {
+    cumulativeDelayMs += Math.max(0, Number(step.delaySeconds) || 0) * 1000;
+    const stepDelayMs = cumulativeDelayMs;
+
+    setTimeout(async () => {
+      try {
+        const accountContext = await loadWhatsAppAccountByPhoneNumberId(payload.phoneNumberId);
+        if (step.replyType === 'template') {
+          await dispatchTemplateMessage({
+            accountContext,
+            userId: matchedAccount.userId,
+            to: payload.from,
+            templateName: step.reply,
+            language: step.templateLanguage || 'en_US',
+            components: [],
+          });
+        } else {
+          await dispatchTextMessage({
+            accountContext,
+            userId: matchedAccount.userId,
+            to: payload.from,
+            body: step.reply,
+          });
+        }
+      } catch (error) {
+        logger.error('[whatsapp] workflow step failed:', error.message);
+      }
+    }, stepDelayMs);
+  }
+};
 
 const normalizeContactPayload = (payload = {}) => ({
   phone:    normalizePhone(payload.phone || payload.mobile || payload.number),
@@ -927,6 +1176,20 @@ const getContacts = asyncHandler(async (req, res) => {
   });
 });
 
+// Fire-and-forget fan-out of a contact lifecycle event to every active
+// WebhookDestination on this account — the same self-service, HMAC-signed
+// mechanism already used for inbound messages (forwardToWebhookDestinations,
+// below). This is the "CRM connector": rather than build a bespoke
+// integration for one vendor, any external CRM (via Zapier, Make, or a
+// custom receiver) can subscribe to contact.upserted/contact.deleted events
+// through the same webhook destinations a user already manages.
+const notifyContactWebhooks = (accountId, event, contact) => {
+  if (!accountId) return;
+  forwardToWebhookDestinations(accountId, { event, contact }).catch((err) =>
+    logger.error('[crm-webhook] contact event fan-out failed:', err.message)
+  );
+};
+
 const createContact = asyncHandler(async (req, res) => {
   const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
   const payload = normalizeContactPayload(req.body || {});
@@ -936,6 +1199,7 @@ const createContact = asyncHandler(async (req, res) => {
     { $set: { ...payload, userId: req.user?.id, whatsappAccountId: accountContext?.account?._id || null } },
     { upsert: true, new: true }
   );
+  notifyContactWebhooks(accountContext?.account?._id, 'contact.upserted', data);
   return res.status(201).json({ success: true, data });
 });
 
@@ -951,6 +1215,7 @@ const updateContact = asyncHandler(async (req, res) => {
     tags: payload.tags, assignedAgent: payload.assignedAgent, customFields: payload.customFields,
   });
   await existing.save();
+  notifyContactWebhooks(accountContext?.account?._id, 'contact.upserted', existing);
   return res.status(200).json({ success: true, data: existing });
 });
 
@@ -958,6 +1223,7 @@ const deleteContact = asyncHandler(async (req, res) => {
   const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
   const deleted = await Contact.findOneAndDelete({ _id: req.params.id, ...buildScopedContactFilter(req, accountContext) });
   if (!deleted) throw new AppError('Contact not found', 404);
+  notifyContactWebhooks(accountContext?.account?._id, 'contact.deleted', { _id: deleted._id, phone: deleted.phone });
   return res.status(200).json({ success: true });
 });
 
@@ -1093,8 +1359,11 @@ const getConversations = asyncHandler(async (req, res) => {
   const phones = conversations.map((item) => normalizePhone(item._id)).filter(Boolean);
   const contacts = await Contact.find({ phone: { $in: phones } }).lean();
   const contactMap = new Map(contacts.map((c) => [c.phone, c]));
+  const assignments = accountContext?.account?._id
+    ? await conversationAssignmentService.getAssignmentsForAccount(accountContext.account._id)
+    : new Map();
 
-  const data = conversations.map((item) => {
+  let data = conversations.map((item) => {
     const phone = normalizePhone(item._id);
     const contact = contactMap.get(phone);
     return {
@@ -1103,20 +1372,84 @@ const getConversations = asyncHandler(async (req, res) => {
       lastMessage: item.lastMessage,
       lastTimestamp: item.lastTimestamp,
       direction: item.direction,
+      assignedToUserId: assignments.get(phone) || null,
     };
   });
 
+  const assignedToFilter = String(req.query.assignedTo || '').trim();
+  if (assignedToFilter === 'me') {
+    data = data.filter((item) => item.assignedToUserId === String(req.user?.id));
+  } else if (assignedToFilter === 'unassigned') {
+    data = data.filter((item) => !item.assignedToUserId);
+  } else if (assignedToFilter) {
+    data = data.filter((item) => item.assignedToUserId === assignedToFilter);
+  }
+
   return res.status(200).json({ success: true, data });
+});
+
+const assignConversation = asyncHandler(async (req, res) => {
+  const accountContext = await resolveCurrentWhatsAppAccount(req);
+  const phone = normalizePhone(req.params.phone);
+  if (!phone) throw new AppError('A valid phone number is required', 400);
+
+  const assignedToUserId = req.body?.userId ? String(req.body.userId) : null;
+  if (assignedToUserId) {
+    const account = accountContext.account;
+    const isOwner = String(account.userId) === assignedToUserId;
+    const isTeamMember = (account.teamMemberIds || []).some((id) => String(id) === assignedToUserId);
+    if (!isOwner && !isTeamMember) {
+      throw new AppError('Can only assign to the account owner or a team member', 400);
+    }
+  }
+
+  const assignment = await conversationAssignmentService.setAssignment({
+    whatsappAccountId: accountContext.account._id,
+    contactPhone: phone,
+    assignedToUserId,
+  });
+
+  return res.status(200).json({ success: true, data: { phone, assignedToUserId: assignment.assignedToUserId } });
+});
+
+const getTeamMembers = asyncHandler(async (req, res) => {
+  const account = await WhatsAppAccount.findOne({ _id: req.params.id, userId: req.user?.id });
+  if (!account) throw new AppError('Account not found', 404);
+  const members = await teamService.listTeamMembers(account);
+  return res.status(200).json({
+    success: true,
+    data: members.map((m) => ({ id: m._id, name: m.name, mobile: m.mobile, email: m.email })),
+  });
+});
+
+const addTeamMemberHandler = asyncHandler(async (req, res) => {
+  const member = await teamService.addTeamMember({
+    accountId: req.params.id,
+    ownerUserId: req.user?.id,
+    mobile: req.body?.mobile,
+  });
+  recordAuditEvent({ req, action: 'team_member.add', resource: 'whatsapp_account', resourceId: req.params.id, metadata: { memberUserId: member._id } });
+  return res.status(201).json({ success: true, data: { id: member._id, name: member.name, mobile: member.mobile, email: member.email } });
+});
+
+const removeTeamMemberHandler = asyncHandler(async (req, res) => {
+  await teamService.removeTeamMember({
+    accountId: req.params.id,
+    ownerUserId: req.user?.id,
+    memberUserId: req.params.memberId,
+  });
+  recordAuditEvent({ req, action: 'team_member.remove', resource: 'whatsapp_account', resourceId: req.params.id, metadata: { memberUserId: req.params.memberId } });
+  return res.status(200).json({ success: true });
 });
 
 const verifyWebhook = (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-  const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN;
+  const verifyToken = getWebhookVerifyToken();
 
   if (!verifyToken) {
-    console.error('[WhatsApp] WHATSAPP_WEBHOOK_VERIFY_TOKEN not configured — rejecting verification');
+    logger.error('[WhatsApp] WHATSAPP_WEBHOOK_VERIFY_TOKEN not configured — rejecting verification');
     return res.sendStatus(403);
   }
   if (mode === 'subscribe' && token === verifyToken) return res.status(200).send(challenge);
@@ -1183,7 +1516,7 @@ async function postToWebhookDestination(dest, payload, body, signature) {
       lastError = err;
       const delay = WEBHOOK_FORWARD_RETRY_DELAYS_MS[attempt];
       if (delay === undefined) break;
-      console.warn(`[webhook-destinations] attempt ${attempt + 1} failed for ${dest.url} (${err.message}), retrying in ${delay}ms`);
+      logger.warn(`[webhook-destinations] attempt ${attempt + 1} failed for ${dest.url} (${err.message}), retrying in ${delay}ms`);
       await sleep(delay);
     }
   }
@@ -1211,7 +1544,7 @@ async function forwardToWebhookDestinations(whatsappAccountId, payload) {
           { $set: { lastAttemptAt: new Date(), lastStatus: 'success', lastError: '' } }
         );
       } else {
-        console.error('[webhook-destinations] forward failed after retries:', dest.url, result.error?.message);
+        logger.error('[webhook-destinations] forward failed after retries:', dest.url, result.error?.message);
         await WebhookDestination.updateOne(
           { _id: dest._id },
           { $set: { lastAttemptAt: new Date(), lastStatus: 'failed', lastError: result.error?.message || 'Unknown error' } }
@@ -1228,7 +1561,7 @@ const receiveWebhook = (req, res) => {
 
     if (enforceSignature) {
       if (!appSecret) {
-        console.error('[WhatsApp] META_APP_SECRET not configured — rejecting webhook');
+        logger.error('[WhatsApp] META_APP_SECRET not configured — rejecting webhook');
         return res.status(403).send('Webhook signature verification not configured');
       }
       const signature = String(req.headers['x-hub-signature-256'] || '');
@@ -1305,7 +1638,7 @@ const receiveWebhook = (req, res) => {
         if (!messageId || !['sent', 'delivered', 'read', 'failed'].includes(status)) continue;
 
         if (status === 'failed') {
-          console.error(
+          logger.error(
             '[WhatsApp][webhook] Delivery FAILED for message',
             messageId,
             'to',
@@ -1314,7 +1647,7 @@ const receiveWebhook = (req, res) => {
             JSON.stringify(statusEvent?.errors || [])
           );
         } else {
-          console.log(`[WhatsApp][webhook] Message ${messageId} status -> ${status}`);
+          logger.info(`[WhatsApp][webhook] Message ${messageId} status -> ${status}`);
         }
 
         const matchedAccountContext = await loadWhatsAppAccountFromWebhookIdentifiers(
@@ -1400,7 +1733,7 @@ const receiveWebhook = (req, res) => {
               { upsert: true }
             );
           } catch (contactErr) {
-            console.error('[whatsapp] contact upsert failed:', contactErr.message);
+            logger.error('[whatsapp] contact upsert failed:', contactErr.message);
           }
         }
 
@@ -1423,21 +1756,33 @@ const receiveWebhook = (req, res) => {
                   $set: { mediaUrl: uploaded.mediaUrl, mimeType: uploaded.mimeType },
                 })
               )
-              .catch((error) => console.error('[whatsapp] media processing failed', error.message));
+              .catch((error) => logger.error('[whatsapp] media processing failed', error.message));
           }
         }
 
         if (!isDuplicate && payload.type === 'text' && matchedAccount?._id && matchedAccount?.userId) {
           const phone = normalizePhone(payload.from);
           const contactDoc = phone ? await Contact.findOne({ phone }) : null;
-          const matchedRule = await resolveAutoReplyAction({
-            incomingText: payload.message,
-            filters: {
-              userId: matchedAccount.userId,
-              whatsappAccountId: matchedAccount._id,
-            },
-            contactDoc,
+
+          const matchedWorkflow = await resolveMatchingWorkflow(payload.message, {
+            userId: matchedAccount.userId,
+            whatsappAccountId: matchedAccount._id,
           });
+
+          if (matchedWorkflow) {
+            runWorkflowSteps(matchedWorkflow, matchedAccount, payload);
+          }
+
+          const matchedRule = matchedWorkflow
+            ? null
+            : await resolveAutoReplyAction({
+                incomingText: payload.message,
+                filters: {
+                  userId: matchedAccount.userId,
+                  whatsappAccountId: matchedAccount._id,
+                },
+                contactDoc,
+              });
 
           if (matchedRule) {
             const delay = resolveReplyDelayMs(matchedRule);
@@ -1462,7 +1807,7 @@ const receiveWebhook = (req, res) => {
                   });
                 }
               } catch (error) {
-                console.error('[whatsapp] auto reply failed:', error.message);
+                logger.error('[whatsapp] auto reply failed:', error.message);
               }
             }, delay);
           }
@@ -1470,7 +1815,7 @@ const receiveWebhook = (req, res) => {
 
         if (matchedAccount?._id) {
           forwardToWebhookDestinations(matchedAccount._id, payload).catch((err) =>
-            console.error('[whatsapp] webhook destination fan-out failed:', err.message)
+            logger.error('[whatsapp] webhook destination fan-out failed:', err.message)
           );
         }
 
@@ -1483,11 +1828,11 @@ const receiveWebhook = (req, res) => {
       }
 
       } catch (asyncErr) {
-        console.error('[whatsapp] webhook async processing error:', asyncErr);
+        logger.error('[whatsapp] webhook async processing error:', asyncErr);
       }
     });
   } catch (error) {
-    console.error('[whatsapp] webhook error:', error);
+    logger.error('[whatsapp] webhook error:', error);
     return res.status(200).json({ received: true });
   }
 };
@@ -1576,6 +1921,7 @@ const listApiKeys = asyncHandler(async (req, res) => {
 const createApiKey = asyncHandler(async (req, res) => {
   const { name } = req.body;
   const apiKey = await ApiKey.generate(req.user.id, name || 'Default');
+  recordAuditEvent({ req, action: 'api_key.create', resource: 'api_key', resourceId: apiKey._id, metadata: { name: apiKey.name } });
   res.status(201).json({ success: true, key: apiKey.key, name: apiKey.name, id: apiKey._id });
 });
 
@@ -1584,14 +1930,21 @@ const revokeApiKey = asyncHandler(async (req, res) => {
     { _id: req.params.id, userId: req.user.id },
     { isActive: false }
   );
+  recordAuditEvent({ req, action: 'api_key.revoke', resource: 'api_key', resourceId: req.params.id });
   res.json({ success: true });
 });
 
 module.exports = {
+  // Message-dispatch primitives, exported for src/queues/whatsappSendWorker.js
+  // to reuse rather than duplicate the Graph API call/error-normalization
+  // logic that already lives here.
+  dispatchTextMessage,
+  dispatchTemplateMessage,
+  dispatchMediaMessage,
   getMetaWebhookConfig,
   getConnectConfig,
   exchangeMetaToken,
-  completeConnection,
+  completeConnection: completeEmbeddedSignup,
   manualConnect,
   listAccounts,
   getAccount,
@@ -1611,6 +1964,11 @@ module.exports = {
   deleteAutoReplyRule,
   toggleAutoReplyRule,
   getAutoReplyRules,
+  createWorkflow,
+  updateWorkflow,
+  deleteWorkflow,
+  toggleWorkflow,
+  getWorkflows,
   getContacts,
   createContact,
   updateContact,
@@ -1620,6 +1978,10 @@ module.exports = {
   getTemplates,
   getMessages,
   getConversations,
+  assignConversation,
+  getTeamMembers,
+  addTeamMember: addTeamMemberHandler,
+  removeTeamMember: removeTeamMemberHandler,
   verifyWebhook,
   receiveWebhook,
   getAnalytics,

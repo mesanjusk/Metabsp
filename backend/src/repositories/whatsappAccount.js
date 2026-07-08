@@ -8,6 +8,18 @@ const whatsappAccountSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // Nullable/additive — the owning Organization (shared tenant model with
+    // the Bulk product, see src/services/tenantService.js). Isolation is
+    // still enforced by userId + the phoneNumberId uniqueness constraints
+    // below; tenantId is metadata for billing/quotas/multi-seat features,
+    // not (yet) a query filter, so existing accounts with tenantId: null
+    // behave exactly as before.
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
+      index: true,
+    },
     accountKey: { type: String, default: '', trim: true },
     connectionMode: {
       type: String,
@@ -17,7 +29,10 @@ const whatsappAccountSchema = new mongoose.Schema(
     },
     wabaId: { type: String, default: '', trim: true, index: true },
     businessAccountId: { type: String, default: '', trim: true, index: true },
-    phoneNumberId: { type: String, required: true, trim: true, index: true },
+    // No field-level index here — the partial unique index below already
+    // covers {phoneNumberId: 1} and Mongoose warns on the duplicate key
+    // pattern if both are declared.
+    phoneNumberId: { type: String, required: true, trim: true },
     displayPhoneNumber: { type: String, default: '', trim: true },
     verifiedName: { type: String, default: '', trim: true },
     accessTokenEncrypted: { type: String, required: true },
@@ -44,6 +59,13 @@ const whatsappAccountSchema = new mongoose.Schema(
     lastWebhookAt: { type: Date, default: null },
     callbackUrl: { type: String, default: '', trim: true },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+    // Additive — lets other platform users view/reply to this account's
+    // conversations (shared team inbox) without owning it. The owner
+    // (userId above) is implicit and not duplicated into this list.
+    teamMemberIds: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: [],
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: true },

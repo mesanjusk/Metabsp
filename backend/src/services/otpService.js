@@ -2,6 +2,7 @@ const axios = require('axios');
 const OtpVerification = require('../models/OtpVerification');
 const { resolveLegacyEnvConfig } = require('./whatsappAccountService');
 const normalizeWhatsAppNumber = require('../utils/normalizeNumber');
+const logger = require('../utils/logger');
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 // Must match an approved WhatsApp "Authentication" category template (e.g.
@@ -46,7 +47,7 @@ const sendWhatsAppOtpMessage = async (mobile, code) => {
     }
   );
 
-  console.log(
+  logger.info(
     '[OTP] WhatsApp send accepted. phoneNumberId=%s to=%s response=%s',
     config.phoneNumberId,
     to,
@@ -68,7 +69,7 @@ const sendOtp = async (mobile, purpose) => {
     sent = true;
   } catch (err) {
     error = err?.response?.data?.error?.message || err.message;
-    console.error('[OTP] WhatsApp send error:', error);
+    logger.error('[OTP] WhatsApp send error:', error);
   }
 
   const result = { sent, error };

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const logger = require('../utils/logger');
 
 const connectDB = async () => {
   try {
@@ -22,9 +23,9 @@ const connectDB = async () => {
       autoIndex: !isProduction,
     });
 
-    console.log("✅ MongoDB connected");
+    logger.info("✅ MongoDB connected");
   } catch (error) {
-    console.error("❌ MongoDB connection error:", error);
+    logger.error("❌ MongoDB connection error:", error);
     process.exit(1);
   }
 };

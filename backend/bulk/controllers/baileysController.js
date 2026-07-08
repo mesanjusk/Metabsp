@@ -4,6 +4,7 @@ const Notification   = require('../models/Notification');
 const GroupContact   = require('../models/GroupContact');
 const { emitEvent }  = require('../services/socket');
 const baileysService = require('../services/baileysService');
+const logger = require('../../src/utils/logger');
 
 function normalizePhone(value) {
   const d = String(value || '').replace(/[^\d]/g, '').trim();
@@ -21,11 +22,11 @@ async function getStatus(req, res) {
 
 async function startConnection(req, res) {
   try {
-    console.log('[baileys] /connect hit — starting connection');
+    logger.info('[baileys] /connect hit — starting connection');
     await baileysService.connect();
     res.json({ message: 'Baileys connecting…', status: baileysService.getStatus() });
   } catch (error) {
-    console.error('[baileys] startConnection error:', error.message);
+    logger.error('[baileys] startConnection error:', error.message);
     res.status(500).json({ message: error.message });
   }
 }
@@ -42,54 +43,66 @@ async function stopConnection(req, res) {
 // ── Inbox ─────────────────────────────────────────────────────────────────────
 
 async function getInbox(req, res) {
-  const messages = await BaileysMessage.find({ conversationKey: { $ne: '' } })
-    .sort({ createdAt: -1 })
-    .limit(400)
-    .lean();
+  try {
+    const messages = await BaileysMessage.find({ conversationKey: { $ne: '' } })
+      .sort({ createdAt: -1 })
+      .limit(400)
+      .lean();
 
-  const grouped = new Map();
-  for (const item of messages) {
-    const key = item.conversationKey || getConversationKey(item.from || item.to);
-    if (!key) continue;
-    const current = grouped.get(key);
-    if (!current) {
-      grouped.set(key, {
-        conversationKey: key,
-        phone: key,
-        contactName: item.contactName || '',
-        lastMessage: item.bodyText || item.messageType,
-        lastMessageAt: item.createdAt,
-        lastDirection: item.direction,
-        unreadCount: item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0,
-        lastStatus: item.status,
-        messages: 1,
-        provider: 'baileys',
-      });
-    } else {
-      current.unreadCount += item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0;
-      current.messages += 1;
-      if (!current.contactName && item.contactName) current.contactName = item.contactName;
+    const grouped = new Map();
+    for (const item of messages) {
+      const key = item.conversationKey || getConversationKey(item.from || item.to);
+      if (!key) continue;
+      const current = grouped.get(key);
+      if (!current) {
+        grouped.set(key, {
+          conversationKey: key,
+          phone: key,
+          contactName: item.contactName || '',
+          lastMessage: item.bodyText || item.messageType,
+          lastMessageAt: item.createdAt,
+          lastDirection: item.direction,
+          unreadCount: item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0,
+          lastStatus: item.status,
+          messages: 1,
+          provider: 'baileys',
+        });
+      } else {
+        current.unreadCount += item.direction === 'INCOMING' && item.status !== 'READ' ? 1 : 0;
+        current.messages += 1;
+        if (!current.contactName && item.contactName) current.contactName = item.contactName;
+      }
     }
-  }
 
-  res.json(
-    Array.from(grouped.values()).sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt))
-  );
+    res.json(
+      Array.from(grouped.values()).sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt))
+    );
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function getConversation(req, res) {
-  const conversationKey = getConversationKey(req.params.conversationKey);
-  const rows = await BaileysMessage.find({ conversationKey }).sort({ createdAt: 1 }).lean();
-  res.json(rows);
+  try {
+    const conversationKey = getConversationKey(req.params.conversationKey);
+    const rows = await BaileysMessage.find({ conversationKey }).sort({ createdAt: 1 }).lean();
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function markConversationRead(req, res) {
-  const conversationKey = getConversationKey(req.params.conversationKey);
-  await BaileysMessage.updateMany(
-    { conversationKey, direction: 'INCOMING', status: { $in: ['RECEIVED', 'DELIVERED'] } },
-    { $set: { status: 'READ' } }
-  );
-  res.json({ message: 'Marked as read' });
+  try {
+    const conversationKey = getConversationKey(req.params.conversationKey);
+    await BaileysMessage.updateMany(
+      { conversationKey, direction: 'INCOMING', status: { $in: ['RECEIVED', 'DELIVERED'] } },
+      { $set: { status: 'READ' } }
+    );
+    res.json({ message: 'Marked as read' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 // ── Send Text ──────────────────────────────────────────────────────────────────
@@ -229,7 +242,7 @@ async function sendInvitation(req, res) {
             bodyText: `📊 Poll: ${rsvpYesLabel} / ${rsvpNoLabel}`, status: 'SENT',
             meta: { rsvp: true, rsvpYesLabel, rsvpNoLabel },
           }).catch(() => null)
-        ).catch(err => console.warn('[baileys] native poll skipped:', err.message));
+        ).catch(err => logger.warn('[baileys] native poll skipped:', err.message));
       }
 
       success++;
@@ -334,7 +347,7 @@ async function runBaileysAutoReply({ from, body, userId }) {
   if (!incomingText) return;
 
   const rules = await BaileysRule.find({ isActive: true }).sort({ priority: 1, createdAt: -1 }).lean();
-  console.log(`[baileys:autoReply] "${incomingText}" against ${rules.length} rules, userId=${userId}`);
+  logger.info(`[baileys:autoReply] "${incomingText}" against ${rules.length} rules, userId=${userId}`);
 
   for (const rule of rules) {
     const trigger = String(rule.triggerText || '').trim().toLowerCase();
@@ -346,15 +359,15 @@ async function runBaileysAutoReply({ from, body, userId }) {
 
     if (!matched) continue;
 
-    console.log(`[baileys:autoReply] matched rule "${rule.name}" (${rule.matchType})`);
+    logger.info(`[baileys:autoReply] matched rule "${rule.name}" (${rule.matchType})`);
 
     try {
       if (rule.replyType === 'TEXT' && rule.replyText) {
         await baileysService.sendText(userId, { to: from, body: rule.replyText });
-        console.log(`[baileys:autoReply] sent reply to ${from}`);
+        logger.info(`[baileys:autoReply] sent reply to ${from}`);
       }
     } catch (err) {
-      console.error(`[baileys:autoReply] send failed:`, err.message);
+      logger.error(`[baileys:autoReply] send failed:`, err.message);
     }
 
     if (rule.stopAfterMatch !== false) break;
@@ -394,7 +407,7 @@ async function saveIncomingMessage({ id, from, body, type, raw, userId }) {
 
   if (String(type || '').toLowerCase() === 'text' && body) {
     runBaileysAutoReply({ from: normalizePhone(from), body, userId }).catch((err) =>
-      console.error('[baileys:autoReply] error:', err.message)
+      logger.error('[baileys:autoReply] error:', err.message)
     );
   }
 

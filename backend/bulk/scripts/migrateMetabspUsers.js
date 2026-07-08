@@ -16,6 +16,7 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const Role = require('../models/Role');
 const { PERMISSIONS } = require('../utils/permissions');
+const logger = require('../../src/utils/logger');
 
 const METABSP_ADMIN_ROLE_CODE = 'METABSP_ADMIN';
 const METABSP_USER_ROLE_CODE = 'METABSP_USER';
@@ -24,7 +25,7 @@ async function run() {
   const mongoURI = process.env.MONGO_URI;
   if (!mongoURI) throw new Error('MONGO_URI is not set');
   await mongoose.connect(mongoURI);
-  console.log('[migrate] connected to', mongoURI.replace(/\/\/.*@/, '//***@'));
+  logger.info('[migrate] connected to', mongoURI.replace(/\/\/.*@/, '//***@'));
 
   const adminRole = await Role.findOneAndUpdate(
     { code: METABSP_ADMIN_ROLE_CODE, tenantId: null },
@@ -39,7 +40,7 @@ async function run() {
 
   const usersCollection = mongoose.connection.collection('users');
   const legacyDocs = await usersCollection.find({ User_name: { $exists: true } }).toArray();
-  console.log(`[migrate] found ${legacyDocs.length} legacy Metabsp user document(s) to migrate`);
+  logger.info(`[migrate] found ${legacyDocs.length} legacy Metabsp user document(s) to migrate`);
 
   let migrated = 0;
   for (const doc of legacyDocs) {
@@ -68,13 +69,13 @@ async function run() {
     migrated++;
   }
 
-  console.log(`[migrate] done — migrated ${migrated} user(s).`);
+  logger.info(`[migrate] done — migrated ${migrated} user(s).`);
   await mongoose.disconnect();
 }
 
 run()
   .then(() => process.exit(0))
   .catch((err) => {
-    console.error('[migrate] failed:', err);
+    logger.error('[migrate] failed:', err);
     process.exit(1);
   });

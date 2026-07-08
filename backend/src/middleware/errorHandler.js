@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 const formatErrorResponse = (err, req) => ({
   success: false,
@@ -13,7 +14,7 @@ const errorHandler = (err, req, res, next) => {
   const formatted = formatErrorResponse(err, req);
 
   if (!err.isOperational) {
-    console.error('Unexpected error:', err);
+    logger.error('Unexpected error:', err);
   }
 
   res.status(statusCode).json(formatted);

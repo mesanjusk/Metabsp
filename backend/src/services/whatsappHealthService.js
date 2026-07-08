@@ -1,8 +1,8 @@
 const axios = require('axios');
+const logger = require('../utils/logger');
+const { getGraphApiVersion: getGraphVersion } = require('../config/graphApi');
 
 const TOKEN_ERROR_CODES = new Set([190, 10, 102, 200, 2500]);
-
-const getGraphVersion = () => process.env.WHATSAPP_API_VERSION || process.env.META_API_VERSION || 'v19.0';
 
 const classifyWhatsAppApiError = (error) => {
   if (!error) {
@@ -78,7 +78,7 @@ const checkWhatsAppHealth = async (overrides = {}) => {
     return { isConnected: true, reason: null, details: response.data };
   } catch (error) {
     const normalized = classifyWhatsAppApiError(error);
-    console.error('[whatsapp] health-check failed:', normalized.code, error?.response?.status || error?.message);
+    logger.error('[whatsapp] health-check failed:', normalized.code, error?.response?.status || error?.message);
     return {
       isConnected: false,
       reason: normalized.code,

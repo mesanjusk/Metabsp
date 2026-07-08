@@ -12,6 +12,7 @@
 
 const { emitEvent } = require('./socket');
 const { useMongoAuthState, clearMongoAuthState, listSavedUserIds } = require('./baileysAuthState');
+const logger = require('../../src/utils/logger');
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const DEFAULT_USER = '_global_';
@@ -55,14 +56,14 @@ async function getWASocketAndVersion() {
       ]);
       if (Array.isArray(result?.version) && result.version.length === 3) {
         version = result.version;
-        console.log('[baileys] live WA version:', version.join('.'));
+        logger.info('[baileys] live WA version:', version.join('.'));
       }
     } catch (e) {
-      console.warn('[baileys] version fetch error:', e.message, '— using fallback');
+      logger.warn('[baileys] version fetch error:', e.message, '— using fallback');
     }
   } else {
-    console.warn('[baileys] fetchLatestBaileysVersion not found — using fallback');
-    console.log('[baileys] module keys:', Object.keys(mod).join(', '));
+    logger.warn('[baileys] fetchLatestBaileysVersion not found — using fallback');
+    logger.info('[baileys] module keys:', Object.keys(mod).join(', '));
   }
 
   return { makeWASocket, version };
@@ -116,11 +117,11 @@ async function connect(userId = DEFAULT_USER) {
   const tag = `[baileys:${userId}]`;
 
   if (session.isConnecting) {
-    console.log(`${tag} resetting stuck isConnecting flag...`);
+    logger.info(`${tag} resetting stuck isConnecting flag...`);
     session.isConnecting = false;
   }
   session.isConnecting = true;
-  console.log(`${tag} connect() called — starting Baileys socket...`);
+  logger.info(`${tag} connect() called — starting Baileys socket...`);
 
   if (session.reconnectTimer) { clearTimeout(session.reconnectTimer); session.reconnectTimer = null; }
   killSocket(session);
@@ -152,7 +153,7 @@ async function connect(userId = DEFAULT_USER) {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        console.log(`${tag} QR received`);
+        logger.info(`${tag} QR received`);
         const qrDataUrl = await toQrDataUrl(qr);
         session.state = { qr: qrDataUrl, status: 'QR_PENDING', phone: '' };
         emitEvent('baileys_status', { userId, ...session.state });
@@ -162,7 +163,7 @@ async function connect(userId = DEFAULT_USER) {
         const phone = sock.user?.id?.split(':')[0] || sock.user?.id || '';
         session.state = { qr: null, status: 'CONNECTED', phone };
         emitEvent('baileys_status', { userId, ...session.state });
-        console.log(`${tag} connected as +${phone}`);
+        logger.info(`${tag} connected as +${phone}`);
         session.isConnecting   = false;
         session.reconnectCount = 0;
       }
@@ -170,7 +171,7 @@ async function connect(userId = DEFAULT_USER) {
       if (connection === 'close') {
         const code      = lastDisconnect?.error?.output?.statusCode;
         const loggedOut = code === 401;
-        console.log(`${tag} disconnected code=${code}`);
+        logger.info(`${tag} disconnected code=${code}`);
 
         session.state  = { qr: null, status: 'DISCONNECTED', phone: '' };
         session.socket = null;
@@ -181,18 +182,18 @@ async function connect(userId = DEFAULT_USER) {
           if (code !== 440) await clearMongoAuthState(userId).catch(console.error);
           session.reconnectCount = 0;
           if (code === 440) {
-            console.log(`${tag} code=440 — another session took over. Remove old Linked Device then reconnect.`);
+            logger.info(`${tag} code=440 — another session took over. Remove old Linked Device then reconnect.`);
           } else {
-            console.log(`${tag} code=${code} — credentials cleared. Click Connect for a fresh QR.`);
+            logger.info(`${tag} code=${code} — credentials cleared. Click Connect for a fresh QR.`);
           }
         } else {
           session.reconnectCount++;
           if (session.reconnectCount <= MAX_RECONNECT_ATTEMPTS) {
             const delay = Math.min(5000 * session.reconnectCount, 25000);
-            console.log(`${tag} reconnecting in ${delay}ms (attempt ${session.reconnectCount}/${MAX_RECONNECT_ATTEMPTS})…`);
+            logger.info(`${tag} reconnecting in ${delay}ms (attempt ${session.reconnectCount}/${MAX_RECONNECT_ATTEMPTS})…`);
             session.reconnectTimer = setTimeout(() => connect(userId).catch(console.error), delay);
           } else {
-            console.log(`${tag} max reconnect attempts reached. Manual reconnect required.`);
+            logger.info(`${tag} max reconnect attempts reached. Manual reconnect required.`);
             session.reconnectCount = 0;
           }
         }
@@ -212,7 +213,7 @@ async function connect(userId = DEFAULT_USER) {
 
   } catch (err) {
     session.isConnecting = false;
-    console.error(`${tag} connect() error:`, err.message);
+    logger.error(`${tag} connect() error:`, err.message);
     session.state = { qr: null, status: 'DISCONNECTED', phone: '' };
     emitEvent('baileys_status', { userId, ...session.state });
     throw err;
@@ -228,7 +229,7 @@ async function disconnect(userId = DEFAULT_USER) {
   session.state = { qr: null, status: 'DISCONNECTED', phone: '' };
   session.isConnecting = false;
   emitEvent('baileys_status', { userId, ...session.state });
-  console.log(`[baileys:${userId}] disconnected and credentials cleared.`);
+  logger.info(`[baileys:${userId}] disconnected and credentials cleared.`);
 }
 
 async function sendText(userIdOrOpts, optsOrUndefined) {
@@ -317,7 +318,7 @@ async function getGroups(userId = DEFAULT_USER) {
     const groups = await session.socket.groupFetchAllParticipating();
     return Object.entries(groups).map(([id, meta]) => ({ id, name: meta.subject || '' }));
   } catch (e) {
-    console.error(`[baileys:${userId}] getGroups error:`, e.message);
+    logger.error(`[baileys:${userId}] getGroups error:`, e.message);
     return [];
   }
 }
@@ -337,7 +338,7 @@ async function getGroupsWithMembers(userId = DEFAULT_USER) {
       }),
     }));
   } catch (e) {
-    console.error(`[baileys:${userId}] getGroupsWithMembers error:`, e.message);
+    logger.error(`[baileys:${userId}] getGroupsWithMembers error:`, e.message);
     return [];
   }
 }
@@ -348,26 +349,26 @@ async function autoConnectIfCredentialsExist(userId) {
     try {
       const { state } = await useMongoAuthState(userId);
       if (state?.creds?.me || state?.creds?.noiseKey) {
-        console.log(`[baileys:${userId}] Saved credentials found — auto-connecting…`);
+        logger.info(`[baileys:${userId}] Saved credentials found — auto-connecting…`);
         await connect(userId);
       }
     } catch (err) {
-      console.error(`[baileys:${userId}] autoConnect error:`, err.message);
+      logger.error(`[baileys:${userId}] autoConnect error:`, err.message);
     }
   } else {
     // Reconnect all users with saved credentials
     try {
       const userIds = await listSavedUserIds();
       if (!userIds.length) {
-        console.log('[baileys] No saved credentials found — waiting for manual QR scan.');
+        logger.info('[baileys] No saved credentials found — waiting for manual QR scan.');
         return;
       }
-      console.log(`[baileys] Auto-connecting ${userIds.length} saved session(s)…`);
+      logger.info(`[baileys] Auto-connecting ${userIds.length} saved session(s)…`);
       for (const uid of userIds) {
-        await connect(uid).catch(err => console.error(`[baileys:${uid}] autoConnect error:`, err.message));
+        await connect(uid).catch(err => logger.error(`[baileys:${uid}] autoConnect error:`, err.message));
       }
     } catch (err) {
-      console.error('[baileys] autoConnectIfCredentialsExist error:', err.message);
+      logger.error('[baileys] autoConnectIfCredentialsExist error:', err.message);
     }
   }
 }

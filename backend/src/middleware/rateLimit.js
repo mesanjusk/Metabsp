@@ -1,33 +1,59 @@
+const rateLimit = require('express-rate-limit');
+const { RedisStore } = require('rate-limit-redis');
 const AppError = require('../utils/AppError');
+const { getRedisConnection } = require('../config/redis');
+const logger = require('../utils/logger');
 
-const buckets = new Map();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of buckets.entries()) {
-    if (now > bucket.expiresAt) buckets.delete(key);
+// Backed by Redis (via the same ioredis connection the broadcast queue
+// uses) instead of express-rate-limit's default in-memory store, so limits
+// are actually enforced consistently across horizontally-scaled instances
+// and survive a process restart — the previous in-memory version reset per
+// instance and per deploy, giving a false sense of protection at scale.
+let sharedStorePrefix = 'rl:';
+const buildStore = (prefix) => {
+  try {
+    return new RedisStore({
+      sendCommand: (...args) => getRedisConnection().call(...args),
+      prefix: `${sharedStorePrefix}${prefix}:`,
+    });
+  } catch (error) {
+    logger.warn('[rateLimit] Falling back to in-memory store — Redis store init failed:', error.message);
+    return undefined; // express-rate-limit's own default MemoryStore
   }
-}, 10 * 60 * 1000).unref();
-
-const createRateLimiter = ({ windowMs, maxRequests }) => (req, _res, next) => {
-  const key = `${req.user?.id || req.ip}:${req.path}`;
-  const now = Date.now();
-
-  const bucket = buckets.get(key) || { count: 0, expiresAt: now + windowMs };
-
-  if (now > bucket.expiresAt) {
-    bucket.count = 0;
-    bucket.expiresAt = now + windowMs;
-  }
-
-  bucket.count += 1;
-  buckets.set(key, bucket);
-
-  if (bucket.count > maxRequests) {
-    return next(new AppError('Rate limit exceeded. Please retry later.', 429));
-  }
-
-  return next();
 };
 
-module.exports = { createRateLimiter };
+const createRateLimiter = ({ windowMs, maxRequests }) =>
+  rateLimit({
+    windowMs,
+    max: maxRequests,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: buildStore('user'),
+    // A Redis outage should degrade to "no rate limiting" rather than take
+    // down messaging/API routes entirely — availability over strict
+    // limiting during a transient infra failure.
+    passOnStoreError: true,
+    keyGenerator: (req) => req.user?.id || req.ip,
+    handler: (_req, _res, next) => {
+      next(new AppError('Rate limit exceeded. Please retry later.', 429));
+    },
+  });
+
+// Stricter limiter for unauthenticated auth/OTP endpoints (login, signup OTP
+// request, password reset) which have no req.user to key on and are the
+// highest-value brute-force/enumeration targets.
+const createAuthRateLimiter = ({ windowMs, maxRequests }) =>
+  rateLimit({
+    windowMs,
+    max: maxRequests,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: buildStore('auth'),
+    passOnStoreError: true,
+    keyGenerator: (req) => req.ip,
+    handler: (_req, _res, next) => {
+      next(new AppError('Too many attempts. Please try again later.', 429));
+    },
+  });
+
+module.exports = { createRateLimiter, createAuthRateLimiter };

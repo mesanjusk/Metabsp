@@ -1,4 +1,6 @@
 const AutoReply = require('../repositories/AutoReply');
+const aiChatbotService = require('../services/aiChatbotService');
+const logger = require('../utils/logger');
 
 const DEFAULT_DELAY_MIN_SECONDS = 2;
 const DEFAULT_DELAY_MAX_SECONDS = 5;
@@ -244,13 +246,40 @@ const resolveAutoReplyAction = async ({ incomingText, filters = {}, contactDoc =
   }
 
   const matchedRule = matchAutoReplyRule(incomingText, rules);
-  if (!matchedRule) return null;
-
-  if (String(matchedRule.ruleType || 'keyword') === 'product_catalog') {
-    return startCatalogSession({ rule: matchedRule, contactDoc });
+  if (matchedRule) {
+    if (String(matchedRule.ruleType || 'keyword') === 'product_catalog') {
+      return startCatalogSession({ rule: matchedRule, contactDoc });
+    }
+    return matchedRule;
   }
 
-  return matchedRule;
+  return resolveAiAssistantReply({ rules, incomingText });
+};
+
+const resolveAiAssistantReply = async ({ rules, incomingText }) => {
+  const aiRule = rules.find((rule) => rule?.isActive && String(rule.ruleType || 'keyword') === 'ai_assistant');
+  if (!aiRule) return null;
+
+  try {
+    const aiReply = await aiChatbotService.generateReply({
+      systemPrompt: aiRule.aiSystemPrompt,
+      incomingText,
+      model: aiRule.aiModel,
+    });
+
+    if (!aiReply) return null;
+
+    return {
+      _id: aiRule._id,
+      ruleType: 'ai_assistant',
+      replyType: 'text',
+      reply: aiReply,
+      delaySeconds: aiRule.delaySeconds,
+    };
+  } catch (error) {
+    logger.error(error, '[autoReply] AI assistant reply generation failed');
+    return null;
+  }
 };
 
 const resolveReplyDelayMs = (rule) => {

@@ -22,6 +22,7 @@ const express      = require('express');
 const { requireApiKey } = require('../middleware/apiKeyAuth');
 const { createRateLimiter } = require('../middleware/rateLimit');
 const baileysService = require('../../bulk/services/baileysService');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 const limiter = createRateLimiter({ windowMs: 60 * 1000, maxRequests: 60 });
@@ -134,7 +135,7 @@ router.post('/baileys/send-bulk', requireApiKey, async (req, res) => {
     if (i < recipients.length - 1) await sleep(actualDelay);
   }
 
-  console.log(`[external-api] bulk send complete: ${results.filter(r => r.status === 'SENT').length}/${results.length} sent`);
+  logger.info(`[external-api] bulk send complete: ${results.filter(r => r.status === 'SENT').length}/${results.length} sent`);
 });
 
 module.exports = router;

@@ -28,6 +28,11 @@ const {
   deleteAutoReplyRule,
   toggleAutoReplyRule,
   getAutoReplyRules,
+  createWorkflow,
+  updateWorkflow,
+  deleteWorkflow,
+  toggleWorkflow,
+  getWorkflows,
   getContacts,
   createContact,
   updateContact,
@@ -37,6 +42,10 @@ const {
   getTemplates,
   getMessages,
   getConversations,
+  assignConversation,
+  getTeamMembers,
+  addTeamMember,
+  removeTeamMember,
   getAnalytics,
   createApiKey,
   listApiKeys,
@@ -87,10 +96,22 @@ router.put('/auto-reply/:id', requireAuth, updateAutoReplyRule);
 router.delete('/auto-reply/:id', requireAuth, deleteAutoReplyRule);
 router.patch('/auto-reply/:id/toggle', requireAuth, toggleAutoReplyRule);
 
+router.post('/workflows', requireAuth, createWorkflow);
+router.get('/workflows', requireAuth, getWorkflows);
+router.put('/workflows/:id', requireAuth, updateWorkflow);
+router.delete('/workflows/:id', requireAuth, deleteWorkflow);
+router.patch('/workflows/:id/toggle', requireAuth, toggleWorkflow);
+
 router.get('/templates', requireAuth, getTemplates);
 router.get('/messages', requireAuth, getMessages);
 router.get('/conversations', requireAuth, getConversations);
+router.put('/conversations/:phone/assign', requireAuth, assignConversation);
 router.get('/analytics', requireAuth, getAnalytics);
+
+// ── Shared team inbox (owner-managed) ────────────────────────────────────────
+router.get('/accounts/:id/team-members', requireAuth, getTeamMembers);
+router.post('/accounts/:id/team-members', requireAuth, addTeamMember);
+router.delete('/accounts/:id/team-members/:memberId', requireAuth, removeTeamMember);
 
 // ── Campaigns (per-user scoped) ────────────────────────────────────────────────
 router.get('/campaigns', requireAuth, async (req, res) => {

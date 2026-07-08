@@ -10,10 +10,20 @@ const { getJwtSecret } = require('../../bulk/utils/jwtSecret');
 const jwt = require('jsonwebtoken');
 const { METABSP_ADMIN_ROLE_CODE, METABSP_USER_ROLE_CODE } = require('../../bulk/seedAdmin');
 const { assertPhoneNumberAvailable } = require('../services/whatsappAccountService');
+const { createAuthRateLimiter } = require('../middleware/rateLimit');
+const { recordAuditEvent } = require('../services/auditLogService');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
 const RESERVED_USERNAME = 'admin';
+
+// Unauthenticated, high-value brute-force/enumeration targets: login,
+// OTP request/verify, password reset. No req.user to key on, so these are
+// limited per-IP rather than per-user.
+const loginLimiter = createAuthRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 20 });
+const otpRequestLimiter = createAuthRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 5 });
+const otpVerifyLimiter = createAuthRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 10 });
 
 // Legacy Metabsp API contract (User_name / User_group / Mobile_number) is kept
 // so the existing frontend pages don't need to change, but everything underneath
@@ -75,7 +85,7 @@ const sanitizeAccount = (accountDoc) => {
 const signTokenForUser = (userId) =>
   jwt.sign({ id: userId, type: 'db-user' }, getJwtSecret(), { expiresIn: '99d' });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { User_name, Password } = req.body || {};
   const normalizedUserName = String(User_name || '').trim();
 
@@ -86,16 +96,19 @@ router.post('/login', async (req, res) => {
   try {
     const user = await User.findOne({ username: normalizedUserName, tenantId: null }).populate('roleId');
     if (!user || !(await user.matchPassword(Password))) {
+      recordAuditEvent({ req, action: 'login', resource: 'user', outcome: 'failure', metadata: { username: normalizedUserName } });
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
     if (!user.isActive) {
+      recordAuditEvent({ req, userId: user._id, action: 'login', resource: 'user', resourceId: user._id, outcome: 'failure', metadata: { reason: 'inactive' } });
       return res.status(403).json({ success: false, message: 'Account is inactive' });
     }
 
     const token = signTokenForUser(user._id);
+    recordAuditEvent({ req, userId: user._id, action: 'login', resource: 'user', resourceId: user._id, outcome: 'success' });
     return res.status(200).json({ success: true, token, user: sanitizeUser(user) });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     return res.status(500).json({ success: false, message: 'Login failed' });
   }
 });
@@ -108,7 +121,7 @@ router.get('/me', requireAuth, async (req, res) => {
     }
     return res.status(200).json({ success: true, user: sanitizeUser(user) });
   } catch (error) {
-    console.error('Me endpoint error:', error);
+    logger.error('Me endpoint error:', error);
     return res.status(500).json({ success: false, message: 'Failed to load user' });
   }
 });
@@ -130,7 +143,7 @@ router.put('/whatsapp-provider', requireAuth, async (req, res) => {
     }
     return res.status(200).json({ success: true, user: sanitizeUser(user) });
   } catch (error) {
-    console.error('Update whatsapp-provider error:', error);
+    logger.error('Update whatsapp-provider error:', error);
     return res.status(500).json({ success: false, message: 'Failed to update preference' });
   }
 });
@@ -163,7 +176,7 @@ router.get('/manage', requireAuth, requireAdmin, async (_req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Manage users list error:', error);
+    logger.error('Manage users list error:', error);
     return res.status(500).json({ success: false, message: 'Failed to load users' });
   }
 });
@@ -267,7 +280,7 @@ router.post('/manage', requireAuth, requireAdmin, async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error('Create user error:', error);
+    logger.error('Create user error:', error);
     if (error?.statusCode === 409 || error?.code === 11000) {
       return res.status(409).json({ success: false, message: error.message || 'This WhatsApp number is already connected to a different account.' });
     }
@@ -373,7 +386,7 @@ router.put('/manage/:id', requireAuth, requireAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Update user error:', error);
+    logger.error('Update user error:', error);
     if (error?.statusCode === 409 || error?.code === 11000) {
       return res.status(409).json({ success: false, message: error.message || 'This WhatsApp number is already connected to a different account.' });
     }
@@ -385,7 +398,7 @@ router.put('/manage/:id', requireAuth, requireAdmin, async (req, res) => {
 // Self-service signup (mobile + WhatsApp OTP)
 // ─────────────────────────────────────────────────────────────────────────
 
-router.post('/signup/request-otp', async (req, res) => {
+router.post('/signup/request-otp', otpRequestLimiter, async (req, res) => {
   const { User_name, Mobile_number } = req.body || {};
   const userName = String(User_name || '').trim();
   const mobile = String(Mobile_number || '').trim();
@@ -415,12 +428,12 @@ router.post('/signup/request-otp', async (req, res) => {
       devOtp: result.devOtp,
     });
   } catch (error) {
-    console.error('Signup request-otp error:', error);
+    logger.error('Signup request-otp error:', error);
     return res.status(500).json({ success: false, message: error.message || 'Failed to send OTP.' });
   }
 });
 
-router.post('/signup/verify', async (req, res) => {
+router.post('/signup/verify', otpVerifyLimiter, async (req, res) => {
   const { User_name, Mobile_number, Password, code } = req.body || {};
   const userName = String(User_name || '').trim();
   const mobile = String(Mobile_number || '').trim();
@@ -457,7 +470,7 @@ router.post('/signup/verify', async (req, res) => {
 
     return res.status(201).json({ success: true, token, user: sanitizeUser(await user.populate('roleId')) });
   } catch (error) {
-    console.error('Signup verify error:', error);
+    logger.error('Signup verify error:', error);
     return res.status(500).json({ success: false, message: error.message || 'Failed to create account.' });
   }
 });
@@ -466,7 +479,7 @@ router.post('/signup/verify', async (req, res) => {
 // Forgot password (mobile + WhatsApp OTP)
 // ─────────────────────────────────────────────────────────────────────────
 
-router.post('/forgot-password/request-otp', async (req, res) => {
+router.post('/forgot-password/request-otp', otpRequestLimiter, async (req, res) => {
   const mobile = String(req.body?.Mobile_number || '').trim();
 
   if (!mobile) {
@@ -491,12 +504,12 @@ router.post('/forgot-password/request-otp', async (req, res) => {
       devOtp: result.devOtp,
     });
   } catch (error) {
-    console.error('Forgot-password request-otp error:', error);
+    logger.error('Forgot-password request-otp error:', error);
     return res.status(500).json({ success: false, message: error.message || 'Failed to send OTP.' });
   }
 });
 
-router.post('/forgot-password/reset', async (req, res) => {
+router.post('/forgot-password/reset', otpVerifyLimiter, async (req, res) => {
   const mobile = String(req.body?.Mobile_number || '').trim();
   const otpCode = String(req.body?.code || '').trim();
   const newPassword = String(req.body?.newPassword || '').trim();
@@ -521,7 +534,7 @@ router.post('/forgot-password/reset', async (req, res) => {
 
     return res.status(200).json({ success: true, message: 'Password reset successful. Please log in.' });
   } catch (error) {
-    console.error('Forgot-password reset error:', error);
+    logger.error('Forgot-password reset error:', error);
     return res.status(500).json({ success: false, message: error.message || 'Failed to reset password.' });
   }
 });

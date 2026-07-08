@@ -142,6 +142,12 @@ export const revalidateWhatsAppAccount = (accountId) =>
     (endpoint) => apiClient.post(endpoint)
   );
 
+export const fetchTeamMembers = (accountId) => apiClient.get(`/api/whatsapp/accounts/${accountId}/team-members`);
+export const addTeamMember = (accountId, mobile) =>
+  apiClient.post(`/api/whatsapp/accounts/${accountId}/team-members`, { mobile }, { headers: { 'Content-Type': 'application/json' } });
+export const removeTeamMember = (accountId, memberId) =>
+  apiClient.delete(`/api/whatsapp/accounts/${accountId}/team-members/${memberId}`);
+
 export const fetchWhatsAppMessages = () => apiClient.get('/api/whatsapp/messages');
 
 
@@ -204,6 +210,14 @@ export const deleteAutoReplyRule = (id) =>
 
 export const toggleAutoReplyRule = (id) =>
   apiClient.patch(`/api/whatsapp/auto-reply/${id}/toggle`);
+
+export const getWorkflows = () => apiClient.get('/api/whatsapp/workflows');
+export const createWorkflow = (payload) =>
+  apiClient.post('/api/whatsapp/workflows', payload, { headers: { 'Content-Type': 'application/json' } });
+export const updateWorkflow = (id, payload) =>
+  apiClient.put(`/api/whatsapp/workflows/${id}`, payload, { headers: { 'Content-Type': 'application/json' } });
+export const deleteWorkflow = (id) => apiClient.delete(`/api/whatsapp/workflows/${id}`);
+export const toggleWorkflow = (id) => apiClient.patch(`/api/whatsapp/workflows/${id}/toggle`);
 
 
 export const fetchManagedUsers = () => apiClient.get('/api/users/manage');

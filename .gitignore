@@ -25,3 +25,8 @@ yarn-debug.log*
 
 # Backend secrets
 backend/mis-auto-*.json
+
+# Test coverage output
+coverage/
+backend/coverage/
+frontend/coverage/

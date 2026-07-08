@@ -1,5 +1,6 @@
 // scripts/create-order-indexes.js
 const mongoose = require("mongoose");
+const logger = require('../src/utils/logger');
 
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -27,10 +28,10 @@ const MONGO_URI = process.env.MONGO_URI;
     // Optional: text index if you want free-text search on remarks
     // await Orders.createIndex({ "Items.Remark": "text" });
 
-    console.log("✅ Indexes created successfully.");
+    logger.info("✅ Indexes created successfully.");
     await mongoose.disconnect();
   } catch (e) {
-    console.error("❌ Index creation failed:", e);
+    logger.error("❌ Index creation failed:", e);
     process.exit(1);
   }
 })();

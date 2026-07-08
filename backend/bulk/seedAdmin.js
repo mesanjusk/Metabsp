@@ -1,6 +1,7 @@
 const User = require('./models/User');
 const Role = require('./models/Role');
 const { PERMISSIONS } = require('./utils/permissions');
+const logger = require('../src/utils/logger');
 
 // Global (tenantId: null) roles used by the former "Metabsp" WhatsApp-BSP
 // product, which has no organization/tenant concept of its own.
@@ -29,7 +30,7 @@ async function seedAdmin() {
     { name: 'Super Admin', code: 'SUPER_ADMIN', permissions: ['*'], tenantId: null, dashboardKey: 'super_admin' },
     { new: true, upsert: true }
   );
-  console.log('✅ Super Admin role ready');
+  logger.info('✅ Super Admin role ready');
 
   // ── Super Admin user — only seeded when explicitly configured. No hardcoded
   // default credentials: an unset SUPER_ADMIN_PASSWORD means "don't seed one",
@@ -38,7 +39,7 @@ async function seedAdmin() {
   const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
 
   if (!superAdminUsername || !superAdminPassword) {
-    console.warn('⚠️  SUPER_ADMIN_USERNAME/SUPER_ADMIN_PASSWORD not set — skipping super admin seed. Set both env vars to create one.');
+    logger.warn('⚠️  SUPER_ADMIN_USERNAME/SUPER_ADMIN_PASSWORD not set — skipping super admin seed. Set both env vars to create one.');
     return;
   }
 
@@ -54,9 +55,9 @@ async function seedAdmin() {
       eventDutyType: 'SUPER_ADMIN',
       isActive: true,
     });
-    console.log(`✅ Super Admin user created (username: ${superAdminUsername})`);
+    logger.info(`✅ Super Admin user created (username: ${superAdminUsername})`);
   } else {
-    console.log('ℹ️  Super Admin already exists');
+    logger.info('ℹ️  Super Admin already exists');
   }
 }
 

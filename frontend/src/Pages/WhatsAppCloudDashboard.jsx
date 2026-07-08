@@ -52,6 +52,7 @@ import {
   revalidateWhatsAppAccount,
 } from '../services/whatsappCloudService';
 import { parseApiError } from '../utils/parseApiError';
+import { loadFacebookSdk, listenForEmbeddedSignupData } from '../utils/facebookSdk';
 import { ErrorState, LoadingSkeleton } from '../Components/ui';
 import { useAuth } from '../context/AuthContext';
 import WhatsappProviderDialog from '../Components/whatsappCloud/WhatsappProviderDialog';
@@ -60,11 +61,13 @@ const MessagesPanel       = lazy(() => import('../Components/whatsappCloud/Messa
 const SendMessagePanel    = lazy(() => import('../Components/whatsappCloud/SendMessagePanel'));
 const BulkSender          = lazy(() => import('../Components/whatsappCloud/BulkSender'));
 const AutoReplyManagementPanel = lazy(() => import('../Components/whatsappCloud/AutoReplyManagementPanel'));
+const WorkflowManagementPanel  = lazy(() => import('../Components/whatsappCloud/WorkflowManagementPanel'));
 const CRMPanel            = lazy(() => import('../Components/whatsappCloud/CRMPanel'));
 const AnalyticsDashboard  = lazy(() => import('../Components/whatsappCloud/AnalyticsDashboard'));
 const WhatsAppAttendanceSettings = lazy(() => import('../Components/whatsappCloud/WhatsAppAttendanceSettings'));
 const AdminUserManagementPanel   = lazy(() => import('../Components/whatsappCloud/AdminUserManagementPanel'));
 const MetaWebhookConfigPanel     = lazy(() => import('../Components/whatsappCloud/MetaWebhookConfigPanel'));
+const AdminAnalyticsPanel        = lazy(() => import('../Components/whatsappCloud/AdminAnalyticsPanel'));
 const ManualInvitePanel   = lazy(() => import('../Components/whatsappCloud/ManualInvitePanel'));
 const CampaignsPanel      = lazy(() => import('../Components/whatsappCloud/CampaignsPanel'));
 const BaileysPanel        = lazy(() => import('../Components/whatsappCloud/BaileysPanel'));
@@ -79,7 +82,7 @@ const MAIN_TABS = [
 
 // ── Sub-tabs per main tab ─────────────────────────────────────────────────────
 const SUB_TABS = {
-  meta:    ['inbox', 'templates', 'broadcast', 'autoReply', 'analytics', 'settings'],
+  meta:    ['inbox', 'templates', 'broadcast', 'autoReply', 'workflows', 'analytics', 'settings'],
   baileys: ['setup', 'send'],
   manual:  ['wame', 'campaigns'],
   crm:     [],
@@ -90,6 +93,7 @@ const SUB_TAB_LABELS = {
   templates: 'Templates',
   broadcast: 'Broadcast',
   autoReply: 'Auto Reply',
+  workflows: 'Workflows',
   analytics: 'Analytics',
   settings:  'Settings',
   setup:     'QR Setup',
@@ -103,6 +107,7 @@ const SEARCH_PLACEHOLDER = {
   templates: 'Search templates',
   broadcast: 'Search broadcasts',
   autoReply: 'Search auto replies',
+  workflows: 'Search workflows',
   setup:     '',
   send:      '',
   wame:      'Enter recipient name or number',
@@ -122,8 +127,9 @@ const getFriendlyStatusError = (error) => {
 const getConnectConfigPayload = (response) => {
   const data = response?.data?.data || response?.data || {};
   return {
-    configId: data?.configId || data?.config_id || data?.configurationId || '',
-    appId:    data?.appId    || data?.app_id    || '',
+    configId:   data?.configId   || data?.config_id   || data?.configurationId || '',
+    appId:      data?.appId      || data?.app_id      || '',
+    apiVersion: data?.apiVersion || data?.api_version  || 'v20.0',
     raw: data,
   };
 };
@@ -246,25 +252,37 @@ export default function WhatsAppCloudDashboard() {
     setIsAccountActionLoading(true);
     try {
       const cfg = getConnectConfigPayload(await fetchWhatsAppConnectConfig());
-      let payload = {};
-      if (typeof window !== 'undefined' && typeof window.FB?.login === 'function' && cfg?.configId) {
-        const lr = await new Promise(resolve => window.FB.login(resolve, {
-          config_id: cfg.configId, response_type: 'code', override_default_response_type: true, extras: { setup: {} },
-        }));
-        const code = lr?.authResponse?.code;
-        if (!code) throw new Error('Meta Embedded Signup did not return an authorization code.');
-        payload = { code, flow: 'embedded_signup', connectConfig: cfg.raw, embeddedSignupResult: lr };
-      } else if (typeof window !== 'undefined') {
-        const tok = window.prompt('Paste signup token/code from Meta Embedded Signup');
-        if (!tok) return;
-        payload = { signupToken: tok, flow: 'embedded_signup', connectConfig: cfg.raw };
+      if (!cfg.appId || !cfg.configId) {
+        toast.error('Meta Embedded Signup is not configured yet. Use "Connect manually" instead.');
+        return;
       }
-      await completeWhatsAppConnect(payload);
+
+      await loadFacebookSdk({ appId: cfg.appId, apiVersion: cfg.apiVersion });
+
+      // Start listening before FB.login — Meta's popup can post the
+      // WA_EMBEDDED_SIGNUP message before (or without ever) resolving the
+      // FB.login promise below.
+      const embeddedSignupDataPromise = listenForEmbeddedSignupData();
+
+      const loginResult = await new Promise((resolve) =>
+        window.FB.login(resolve, {
+          config_id: cfg.configId,
+          response_type: 'code',
+          override_default_response_type: true,
+          extras: { setup: {} },
+        })
+      );
+      const code = loginResult?.authResponse?.code;
+      if (!code) throw new Error('Meta Embedded Signup did not return an authorization code.');
+
+      const { wabaId, phoneNumberId, businessId } = await embeddedSignupDataPromise;
+
+      await completeWhatsAppConnect({ code, wabaId, phoneNumberId, businessId });
       await refreshWhatsAppAccount();
       setStatusTick(p => p + 1);
       toast.success('WhatsApp account connected.');
     } catch (err) {
-      toast.error(parseApiError(err, 'Could not complete WhatsApp connect.'));
+      toast.error(parseApiError(err, 'Could not complete WhatsApp connect. Try "Connect manually" instead.'));
     } finally { setIsAccountActionLoading(false); }
   }, [refreshWhatsAppAccount]);
 
@@ -327,6 +345,7 @@ export default function WhatsAppCloudDashboard() {
     if (isAdminUser && mainTab === 'meta' && activeSubTab === 'settings') {
       return (
         <Stack spacing={2.5}>
+          <AdminAnalyticsPanel />
           <MetaWebhookConfigPanel />
           <WhatsAppAttendanceSettings
             whatsappAccount={whatsappAccount}
@@ -408,6 +427,7 @@ export default function WhatsAppCloudDashboard() {
       if (activeSubTab === 'templates') return <SendMessagePanel search={search} />;
       if (activeSubTab === 'broadcast') return <BulkSender standalone search={search} />;
       if (activeSubTab === 'autoReply') return <AutoReplyManagementPanel search={search} />;
+      if (activeSubTab === 'workflows') return <WorkflowManagementPanel search={search} />;
     }
 
     return null;

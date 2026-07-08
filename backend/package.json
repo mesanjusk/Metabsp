@@ -4,34 +4,48 @@
   "description": "Unified Metabsp + Bulk-invite backend",
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --runInBand",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed": "node bulk/scripts/seed.js",
     "seed-admin": "node bulk/seedAdmin.js",
+    "seed-billing-plans": "node scripts/seed-billing-plans.js",
     "migrate-users": "node bulk/scripts/migrateMetabspUsers.js",
-    "migrate-whatsapp-uniqueness": "node scripts/migrate-whatsapp-account-uniqueness.js"
+    "migrate-whatsapp-uniqueness": "node scripts/migrate-whatsapp-account-uniqueness.js",
+    "backup:mongo": "bash scripts/backup-mongo.sh",
+    "restore:mongo": "bash scripts/restore-mongo.sh"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@sentry/node": "^10.64.0",
     "@whiskeysockets/baileys": "^6.7.18",
     "axios": "^1.6.8",
     "bcryptjs": "^2.4.3",
+    "bullmq": "^5.28.0",
     "cloudinary": "^2.8.0",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
+    "rate-limit-redis": "^4.2.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.3",
     "multer": "^2.0.2",
+    "pdfkit": "^0.15.1",
     "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "mongodb-memory-server": "^11.2.0",
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "supertest": "^7.0.0"
   }
 }

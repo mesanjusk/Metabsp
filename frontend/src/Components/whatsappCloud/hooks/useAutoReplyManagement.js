@@ -17,6 +17,8 @@ export const initialFormState = {
   menuIntro: 'Choose product options to get the latest price.',
   catalogRows: [],
   catalogSummary: '',
+  aiSystemPrompt: '',
+  aiModel: '',
 };
 
 export const matchesRule = (rule, input) => {
@@ -45,6 +47,8 @@ export const normalizeRules = (list) =>
       menuTitle: String(rule?.catalogConfig?.menuTitle || 'Product Price Finder'),
       menuIntro: String(rule?.catalogConfig?.menuIntro || 'Choose product options to get the latest price.'),
       catalogRows: Array.isArray(rule?.catalogRows) ? rule.catalogRows : [],
+      aiSystemPrompt: String(rule?.aiSystemPrompt || ''),
+      aiModel: String(rule?.aiModel || ''),
     };
   });
 
@@ -102,6 +106,8 @@ export function useAutoReplyManagement() {
       menuIntro: rule.menuIntro || initialFormState.menuIntro,
       catalogRows: Array.isArray(rule.catalogRows) ? rule.catalogRows : [],
       catalogSummary: Array.isArray(rule.catalogRows) ? `${rule.catalogRows.length} products loaded` : '',
+      aiSystemPrompt: rule.aiSystemPrompt || '',
+      aiModel: rule.aiModel || '',
     });
     setIsModalOpen(true);
   };
@@ -117,12 +123,14 @@ export function useAutoReplyManagement() {
     delaySeconds: formData.delaySeconds === '' ? null : Number(formData.delaySeconds),
     catalogRows: formData.ruleType === 'product_catalog' ? formData.catalogRows : [],
     catalogConfig: formData.ruleType === 'product_catalog' ? { menuTitle: formData.menuTitle, menuIntro: formData.menuIntro } : undefined,
+    aiSystemPrompt: formData.ruleType === 'ai_assistant' ? formData.aiSystemPrompt.trim() : undefined,
+    aiModel: formData.ruleType === 'ai_assistant' ? formData.aiModel.trim() : undefined,
   });
 
   const handleSaveRule = async (event) => {
     event.preventDefault();
     const payload = buildRulePayload();
-    if (!payload.keyword) return toast.error('Keyword is required.');
+    if (payload.ruleType !== 'ai_assistant' && !payload.keyword) return toast.error('Keyword is required.');
     if (payload.ruleType === 'product_catalog' && !payload.catalogRows.length) return toast.error('Please upload the price list first.');
     if (payload.ruleType === 'keyword' && payload.replyType === 'text' && !payload.reply) return toast.error('Reply text is required for text mode.');
     if (payload.ruleType === 'keyword' && payload.replyType === 'template' && !payload.reply) return toast.error('Template name is required for template mode.');

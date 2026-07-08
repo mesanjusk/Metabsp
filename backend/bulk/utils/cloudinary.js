@@ -1,9 +1,4 @@
-const { v2: cloudinary } = require('cloudinary');
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-module.exports = cloudinary;
+// cloudinary.v2 is a process-wide singleton, so re-use the single
+// configuration in backend/utils/cloudinary.js instead of calling
+// cloudinary.config() a second time with the same values.
+module.exports = require('../../utils/cloudinary');

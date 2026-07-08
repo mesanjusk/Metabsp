@@ -1,8 +1,7 @@
 const WhatsAppAccount = require('../repositories/whatsappAccount');
 const AppError = require('../utils/AppError');
 const { decryptSensitiveValue } = require('../utils/crypto');
-
-const graphVersion = () => process.env.WHATSAPP_API_VERSION || process.env.META_API_VERSION || 'v19.0';
+const { getGraphApiVersion: graphVersion } = require('../config/graphApi');
 
 const sanitizeAccount = (accountDoc) => {
   if (!accountDoc) return null;
@@ -72,6 +71,17 @@ const loadActiveWhatsAppAccountForUser = async (userId, options = {}) => {
 
   if (!account) {
     account = await WhatsAppAccount.findOne({ userId, status: { $ne: 'disconnected' } }).sort({ updatedAt: -1 }).lean();
+  }
+
+  // Shared team inbox: a user who owns no account of their own can still be
+  // granted view/reply access to someone else's — see services/teamService.js.
+  // If they're a member of more than one shared account, this picks the most
+  // recently updated one; switching between several shared accounts is a
+  // follow-up, not built yet.
+  if (!account) {
+    account = await WhatsAppAccount.findOne({ teamMemberIds: userId, status: { $ne: 'disconnected' } })
+      .sort({ updatedAt: -1 })
+      .lean();
   }
 
   if (!account) {
@@ -191,11 +201,22 @@ const resolveCurrentWhatsAppAccount = async (req, options = {}) => {
 const resolveActiveWhatsAppAccount = async (userId, options = {}) =>
   loadActiveWhatsAppAccountForUser(userId, options);
 
+// Used by the broadcast queue worker (src/queues/), which only carries an
+// accountId in its Redis-persisted job payload rather than a decrypted
+// access token — re-resolving (and re-decrypting) here right before send
+// keeps plaintext tokens out of Redis job data.
+const loadAccountContextById = async (accountId) => {
+  const account = await WhatsAppAccount.findById(accountId);
+  if (!account) throw new AppError('WhatsApp account not found', 404);
+  return toAccountContext(account);
+};
+
 module.exports = {
   sanitizeAccount,
   resolveLegacyEnvConfig,
   loadActiveWhatsAppAccountForUser,
   resolveActiveWhatsAppAccount,
+  loadAccountContextById,
   loadWhatsAppAccountByPhoneNumberId,
   loadWhatsAppAccountFromWebhookIdentifiers,
   resolveCurrentWhatsAppAccount,
