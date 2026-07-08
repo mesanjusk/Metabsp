@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
@@ -15,9 +15,19 @@ const {
   classifyWebhookEvent,
 } = require('../services/paymentGatewayService');
 const { recordAuditEvent } = require('../services/auditLogService');
+const { getAdminOverview } = require('../services/adminAnalyticsService');
 const Organization = require('../../bulk/models/Organization');
 
 const router = express.Router();
+
+router.get('/admin/overview', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const { periodStart, periodEnd } = req.query || {};
+  const overview = await getAdminOverview({
+    periodStart: periodStart ? new Date(periodStart) : undefined,
+    periodEnd: periodEnd ? new Date(periodEnd) : undefined,
+  });
+  res.json({ success: true, data: overview });
+}));
 
 router.get('/plans', requireAuth, asyncHandler(async (_req, res) => {
   const plans = await SubscriptionPlan.find({ isActive: true }).sort({ priceInPaise: 1 }).lean();

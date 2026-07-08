@@ -66,6 +66,7 @@ const AnalyticsDashboard  = lazy(() => import('../Components/whatsappCloud/Analy
 const WhatsAppAttendanceSettings = lazy(() => import('../Components/whatsappCloud/WhatsAppAttendanceSettings'));
 const AdminUserManagementPanel   = lazy(() => import('../Components/whatsappCloud/AdminUserManagementPanel'));
 const MetaWebhookConfigPanel     = lazy(() => import('../Components/whatsappCloud/MetaWebhookConfigPanel'));
+const AdminAnalyticsPanel        = lazy(() => import('../Components/whatsappCloud/AdminAnalyticsPanel'));
 const ManualInvitePanel   = lazy(() => import('../Components/whatsappCloud/ManualInvitePanel'));
 const CampaignsPanel      = lazy(() => import('../Components/whatsappCloud/CampaignsPanel'));
 const BaileysPanel        = lazy(() => import('../Components/whatsappCloud/BaileysPanel'));
@@ -341,6 +342,7 @@ export default function WhatsAppCloudDashboard() {
     if (isAdminUser && mainTab === 'meta' && activeSubTab === 'settings') {
       return (
         <Stack spacing={2.5}>
+          <AdminAnalyticsPanel />
           <MetaWebhookConfigPanel />
           <WhatsAppAttendanceSettings
             whatsappAccount={whatsappAccount}
