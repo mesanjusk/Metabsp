@@ -13,7 +13,8 @@
     "migrate-users": "node bulk/scripts/migrateMetabspUsers.js",
     "migrate-whatsapp-uniqueness": "node scripts/migrate-whatsapp-account-uniqueness.js",
     "backup:mongo": "bash scripts/backup-mongo.sh",
-    "restore:mongo": "bash scripts/restore-mongo.sh"
+    "restore:mongo": "bash scripts/restore-mongo.sh",
+    "verify-restore": "node scripts/verify-restore.js"
   },
   "author": "",
   "license": "ISC",
