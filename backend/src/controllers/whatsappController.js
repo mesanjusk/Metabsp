@@ -403,12 +403,18 @@ const subscribeAppToWaba = async ({ wabaId, accessToken }) => {
 // identifiers from FB.login itself. This exchanges that code for a real
 // access token server-side (client secret never touches the browser), then
 // resolves phone number details and auto-subscribes the webhook.
+// Meta's IDs (WABA, phone number, business) are always numeric strings —
+// rejecting anything else here before it reaches a Graph API call or a DB
+// write catches a malformed/tampered postMessage payload early.
+const isMetaNumericId = (value) => /^\d+$/.test(String(value || ''));
+
 const completeEmbeddedSignup = asyncHandler(async (req, res) => {
   const { code, wabaId, phoneNumberId, businessId } = req.body || {};
 
   if (!code) throw new AppError('code is required', 400);
-  if (!wabaId) throw new AppError('wabaId is required', 400);
-  if (!phoneNumberId) throw new AppError('phoneNumberId is required', 400);
+  if (!wabaId || !isMetaNumericId(wabaId)) throw new AppError('wabaId must be a valid Meta WABA ID', 400);
+  if (!phoneNumberId || !isMetaNumericId(phoneNumberId)) throw new AppError('phoneNumberId must be a valid Meta phone number ID', 400);
+  if (businessId && !isMetaNumericId(businessId)) throw new AppError('businessId must be a valid Meta business ID', 400);
 
   const appId = process.env.META_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
@@ -585,13 +591,32 @@ const activateAccount = asyncHandler(async (req, res) => {
     await assertPhoneNumberAvailable({ phoneNumberId: account.phoneNumberId, userId: req.user?.id, excludeAccountId: account._id });
   }
 
-  await WhatsAppAccount.updateMany({ userId: req.user?.id }, { $set: { isActive: false } });
-  account.isActive = true;
-  account.status = wasDisconnected ? 'active' : account.status;
-  account.numberClaimed = true;
+  // Deactivate every other account first, then atomically flip the target
+  // on via a single findOneAndUpdate. This isn't a full multi-document
+  // transaction (this app also has to run against a plain standalone
+  // MongoDB with no replica set, where transactions aren't available), but
+  // it closes the "lost update" gap the previous read-then-.save() pattern
+  // had: the response now always reflects the actually-persisted state of
+  // the target account, rather than a JS-side object a concurrent
+  // activation request could have silently overwritten between the read
+  // and the save. The partial unique index on {userId, isActive:true}
+  // still guarantees the database itself never holds two active accounts
+  // for one user at once.
+  await WhatsAppAccount.updateMany({ userId: req.user?.id, _id: { $ne: account._id } }, { $set: { isActive: false } });
 
+  let updated;
   try {
-    await account.save();
+    updated = await WhatsAppAccount.findOneAndUpdate(
+      { _id: account._id, userId: req.user?.id },
+      {
+        $set: {
+          isActive: true,
+          numberClaimed: true,
+          ...(wasDisconnected ? { status: 'active' } : {}),
+        },
+      },
+      { new: true }
+    );
   } catch (error) {
     if (error?.code === 11000) {
       throw new AppError('This WhatsApp number is already connected to a different account.', 409);
@@ -599,7 +624,9 @@ const activateAccount = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  return res.status(200).json({ success: true, data: sanitizeAccount(account) });
+  if (!updated) throw new AppError('Account not found', 404);
+
+  return res.status(200).json({ success: true, data: sanitizeAccount(updated) });
 });
 
 const getStatus = asyncHandler(async (req, res) => {
@@ -678,6 +705,44 @@ const revalidateAccount = asyncHandler(async (req, res) => {
     data: sanitizeAccount(existing),
     validation: health,
   });
+});
+
+// Meta's own guidance for BSPs is a Business-owned System User token
+// (generated manually in Meta Business Manager, typically set to never
+// expire) rather than a token tied to an individual admin's personal
+// login. There's no API to auto-generate one — the admin pastes a token
+// they already generated in Business Manager, and this verifies it
+// actually works before switching the account over to it.
+const setSystemUserToken = asyncHandler(async (req, res) => {
+  const existing = await WhatsAppAccount.findOne({ _id: req.params.id, userId: req.user?.id });
+  if (!existing) throw new AppError('Account not found', 404);
+
+  const accessToken = String(req.body?.accessToken || '').trim();
+  const systemUserId = String(req.body?.systemUserId || '').trim();
+  if (!accessToken) throw new AppError('accessToken is required', 400);
+
+  const health = await checkWhatsAppHealth({
+    accessToken,
+    phoneNumberId: existing.phoneNumberId,
+    graphVersion: RESOLVED_API_VERSION,
+  });
+  if (!health.isConnected) {
+    throw new AppError('Could not verify this token against the connected phone number', 400);
+  }
+
+  existing.accessTokenEncrypted = encryptSensitiveValue(accessToken);
+  existing.tokenSource = 'system_user';
+  existing.systemUserId = systemUserId;
+  // Clearing this also removes the account from tokenRefreshService's
+  // re-exchange candidates (belt-and-suspenders alongside its own
+  // tokenSource filter) — System User tokens aren't refreshed that way.
+  existing.tokenExpiresAt = null;
+  existing.status = 'active';
+  await existing.save();
+
+  recordAuditEvent({ req, action: 'whatsapp_account.system_user_token_set', resource: 'whatsapp_account', resourceId: existing._id });
+
+  return res.status(200).json({ success: true, data: sanitizeAccount(existing) });
 });
 
 const updateManualAccount = asyncHandler(async (req, res) => {
@@ -1581,6 +1646,15 @@ const receiveWebhook = (req, res) => {
       if (!isValid) return res.status(403).send('Invalid signature');
     }
 
+    // The same Meta App/webhook URL can be subscribed to other products
+    // (Page, Instagram) sharing this one endpoint — acknowledge and ignore
+    // anything that isn't a WhatsApp payload rather than attempting to
+    // parse a differently-shaped entry/changes/value as WhatsApp data.
+    const payloadObject = String(req.body?.object || '');
+    if (payloadObject && payloadObject !== 'whatsapp_business_account') {
+      return res.status(200).json({ received: true, ignored: true });
+    }
+
     const entries = Array.isArray(req.body?.entry) ? req.body.entry : [];
     const incoming = [];
     const statuses = [];
@@ -1953,6 +2027,7 @@ module.exports = {
   deleteAccount,
   disconnectAccount,
   revalidateAccount,
+  setSystemUserToken,
   updateManualAccount,
   sendText,
   sendTemplate,

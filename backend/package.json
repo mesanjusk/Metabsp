@@ -7,12 +7,18 @@
     "test": "jest --runInBand",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "worker": "node src/worker.js",
     "seed-admin": "node bulk/seedAdmin.js",
     "seed-billing-plans": "node scripts/seed-billing-plans.js",
     "migrate-users": "node bulk/scripts/migrateMetabspUsers.js",
     "migrate-whatsapp-uniqueness": "node scripts/migrate-whatsapp-account-uniqueness.js",
     "backup:mongo": "bash scripts/backup-mongo.sh",
-    "restore:mongo": "bash scripts/restore-mongo.sh"
+    "restore:mongo": "bash scripts/restore-mongo.sh",
+    "verify-restore": "node scripts/verify-restore.js",
+    "loadtest:health": "node loadtest/autocannon-health.js",
+    "loadtest:webhook": "node loadtest/autocannon-webhook.js",
+    "loadtest:health:k6": "k6 run loadtest/k6/health.js",
+    "loadtest:webhook:k6": "k6 run loadtest/k6/webhook.js"
   },
   "author": "",
   "license": "ISC",
@@ -40,9 +46,11 @@
     "pino-http": "^10.3.0",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.1",
+    "@socket.io/redis-adapter": "^8.3.0",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "autocannon": "^8.0.0",
     "jest": "^29.7.0",
     "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.4",

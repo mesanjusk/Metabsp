@@ -222,6 +222,27 @@ const openapiSpec = {
         responses: { 200: { description: 'Activated' }, 404: { description: 'Not found' } },
       },
     },
+    '/api/whatsapp/account/{id}/system-user-token': {
+      put: {
+        tags: ['Accounts'],
+        summary: 'Attach a Business-owned System User token to a connected account (verified against the phone number before saving; recommended over a personal-login token for production)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['accessToken'],
+                properties: { accessToken: { type: 'string' }, systemUserId: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: { 200: { description: 'Verified and saved' }, 400: { description: 'Token could not be verified against this number' }, 404: { description: 'Account not found' } },
+      },
+    },
     '/api/whatsapp/connect/complete': {
       post: {
         tags: ['Accounts'],

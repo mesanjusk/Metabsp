@@ -18,6 +18,7 @@ const seedAdmin = require('../bulk/seedAdmin');
 const { startTokenRefreshScheduler } = require('./services/tokenRefreshService');
 const { startWhatsAppSendWorker } = require('./queues/whatsappSendWorker');
 const { startInvoiceScheduler } = require('./services/invoiceSchedulerService');
+const { startBackupScheduler } = require('./services/backupSchedulerService');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Process error guards (merged from both servers)
@@ -90,6 +91,11 @@ async function startServer() {
     // Generates usage-metered invoices for subscriptions whose billing
     // period has ended (see src/services/invoiceSchedulerService.js).
     startInvoiceScheduler();
+
+    // Optional, off by default (see src/services/backupSchedulerService.js
+    // and docs/BACKUP_RESTORE.md) — set ENABLE_SCHEDULED_BACKUPS=true and
+    // BACKUP_DIR to a real, persistent (ideally off-host) mount to enable.
+    startBackupScheduler();
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {

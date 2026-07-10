@@ -1,9 +1,23 @@
 const router       = require('express').Router();
 const { protect }  = require('../middleware/auth');
+const { requireBaileysEnabled } = require('../middleware/baileysGate');
 const Campaign     = require('../models/Campaign');
 const baileysService = require('../services/baileysService');
 const BaileysMessage = require('../models/BaileysMessage');
+const User = require('../models/User');
+const Organization = require('../models/Organization');
 const logger = require('../../src/utils/logger');
+
+// Used by the background scheduler below, which isn't behind an HTTP
+// middleware — resolves whether the campaign owner's org still has Baileys
+// enabled, so a campaign scheduled before an org was disabled doesn't fire.
+async function ownerOrgHasBaileysEnabled(userId) {
+  if (!userId) return true; // no owner to resolve — let existing behavior stand
+  const owner = await User.findById(userId).select('tenantId').lean();
+  if (!owner?.tenantId) return true; // super-admin-owned campaigns are unaffected
+  const org = await Organization.findById(owner.tenantId).select('baileysEnabled').lean();
+  return !!org?.baileysEnabled;
+}
 
 function normalizePhone(v) {
   const d = String(v || '').replace(/[^\d]/g, '').trim();
@@ -20,21 +34,21 @@ function ownershipFilter(req) {
   return isSuperAdmin(req) ? {} : { userId: req.user._id };
 }
 
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, requireBaileysEnabled, async (req, res) => {
   try {
     const campaigns = await Campaign.find(ownershipFilter(req)).sort({ createdAt: -1 }).lean();
     res.json(campaigns);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, requireBaileysEnabled, async (req, res) => {
   try {
     const campaign = await Campaign.create({ ...req.body, userId: req.user._id });
     res.status(201).json(campaign);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.get('/:id', protect, async (req, res) => {
+router.get('/:id', protect, requireBaileysEnabled, async (req, res) => {
   try {
     const c = await Campaign.findOne({ _id: req.params.id, ...ownershipFilter(req) }).lean();
     if (!c) return res.status(404).json({ message: 'Not found' });
@@ -42,7 +56,7 @@ router.get('/:id', protect, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.patch('/:id', protect, async (req, res) => {
+router.patch('/:id', protect, requireBaileysEnabled, async (req, res) => {
   try {
     const c = await Campaign.findOneAndUpdate({ _id: req.params.id, ...ownershipFilter(req) }, req.body, { new: true });
     if (!c) return res.status(404).json({ message: 'Not found' });
@@ -50,7 +64,7 @@ router.patch('/:id', protect, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.delete('/:id', protect, async (req, res) => {
+router.delete('/:id', protect, requireBaileysEnabled, async (req, res) => {
   try {
     const deleted = await Campaign.findOneAndDelete({ _id: req.params.id, ...ownershipFilter(req) });
     if (!deleted) return res.status(404).json({ message: 'Not found' });
@@ -58,7 +72,7 @@ router.delete('/:id', protect, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.post('/:id/send', protect, async (req, res) => {
+router.post('/:id/send', protect, requireBaileysEnabled, async (req, res) => {
   try {
     const campaign = await Campaign.findOne({ _id: req.params.id, ...ownershipFilter(req) });
     if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
@@ -121,6 +135,11 @@ function startScheduler() {
         status: 'SCHEDULED', type: 'AUTO', scheduledAt: { $lte: new Date() },
       });
       for (const c of due) {
+        if (!(await ownerOrgHasBaileysEnabled(c.userId))) {
+          await Campaign.findByIdAndUpdate(c._id, { status: 'CANCELLED' });
+          logger.warn(`[campaign-scheduler] Skipped campaign ${c._id} — WhatsApp-Web features are disabled for its organization.`);
+          continue;
+        }
         await Campaign.findByIdAndUpdate(c._id, { status: 'SENDING' });
         runCampaign(c, c.userId ? String(c.userId) : undefined).catch((err) =>
           logger.error('[campaign-scheduler] runCampaign failed:', err.message)

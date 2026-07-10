@@ -16,6 +16,7 @@ const {
   deleteAccount,
   disconnectAccount,
   revalidateAccount,
+  setSystemUserToken,
   updateManualAccount,
   getStatus,
   sendText,
@@ -60,19 +61,25 @@ const baileysService = require('../../bulk/services/baileysService');
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 const messagingLimiter = createRateLimiter({ windowMs: 60 * 1000, maxRequests: 30 });
+// OAuth/connect endpoints call out to Meta's Graph API on every request and
+// aren't something a legitimate user does repeatedly in a short window —
+// tighter than messagingLimiter to curb abuse and avoid burning through
+// Meta's own per-app API rate limits.
+const connectLimiter = createRateLimiter({ windowMs: 5 * 60 * 1000, maxRequests: 10 });
 
 router.get('/meta-webhook-config', requireAuth, requireAdmin, getMetaWebhookConfig);
 router.get('/connect/config', requireAuth, getConnectConfig);
-router.post('/connect/complete', requireAuth, completeConnection);
-router.post('/connect/manual', requireAuth, manualConnect);
+router.post('/connect/complete', requireAuth, connectLimiter, completeConnection);
+router.post('/connect/manual', requireAuth, connectLimiter, manualConnect);
 router.get('/account', requireAuth, getAccount);
-router.post('/embedded-signup/exchange-code', requireAuth, exchangeMetaToken);
+router.post('/embedded-signup/exchange-code', requireAuth, connectLimiter, exchangeMetaToken);
 
 router.get('/accounts', requireAuth, listAccounts);
 router.post('/accounts/:id/activate', requireAuth, activateAccount);
 router.post('/account/:id/disconnect', requireAuth, disconnectAccount);
 router.post('/account/:id/revalidate', requireAuth, revalidateAccount);
-router.put('/account/:id/manual', requireAuth, updateManualAccount);
+router.put('/account/:id/system-user-token', requireAuth, connectLimiter, setSystemUserToken);
+router.put('/account/:id/manual', requireAuth, connectLimiter, updateManualAccount);
 router.get('/status', requireAuth, getStatus);
 router.delete('/accounts/:id', requireAuth, deleteAccount);
 router.delete('/account/:id', requireAuth, deleteAccount);

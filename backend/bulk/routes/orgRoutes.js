@@ -6,6 +6,7 @@ const {
   requestForgotOtp,
   resetPassword,
   listOrgs,
+  setBaileysEnabled,
 } = require('../controllers/orgController');
 const { protect, permit } = require('../middleware/auth');
 
@@ -20,5 +21,6 @@ router.post('/reset-password',        resetPassword);
 
 // Protected — super admin only (wildcard permission)
 router.get('/', protect, permit('*'), listOrgs);
+router.patch('/:id/baileys', protect, permit('*'), setBaileysEnabled);
 
 module.exports = router;

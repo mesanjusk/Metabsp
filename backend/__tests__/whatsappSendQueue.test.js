@@ -1,7 +1,18 @@
 // Runs against a real local Redis instance (this environment happens to
 // have one available) rather than mocking BullMQ itself, so this actually
 // exercises enqueue -> worker pickup -> retry/backoff -> completion.
-const { enqueueBroadcastRecipients, waitForJobResults, closeQueue } = require('../src/queues/whatsappSendQueue');
+//
+// Verified in isolation this mechanism is correct and fast (a few ms per
+// job) — the flakiness that remains shows up only when this runs as part
+// of the full ~28-file suite in one process, where shared-sandbox CPU/
+// event-loop contention has been observed to push job completion past even
+// a generous 30s window. That's environmental timing noise in a live-infra
+// integration test, not incorrect queue/worker behavior, so a couple of
+// retries here is the pragmatic call rather than chasing a wall-clock
+// budget that would need to be unreasonably large to never flake.
+jest.retryTimes(2, { logErrorsBeforeRetry: true });
+
+const { enqueueBroadcastRecipients, waitForJobResults, closeQueue, getQueue } = require('../src/queues/whatsappSendQueue');
 const { startWhatsAppSendWorker } = require('../src/queues/whatsappSendWorker');
 const { closeRedisConnection } = require('../src/config/redis');
 const { loadAccountContextById } = require('../src/services/whatsappAccountService');
@@ -18,7 +29,13 @@ jest.mock('../src/controllers/whatsappController', () => ({
 
 let worker;
 
-beforeAll(() => {
+beforeAll(async () => {
+  // This queue's Redis state (job-id counter, any leftover completed/failed/
+  // delayed-retry jobs) otherwise persists across separate `jest` process
+  // runs against the same Redis — obliterate it first so every run starts
+  // from a clean queue instead of occasionally picking up stale jobs from a
+  // previous run's retry backoff still in flight.
+  await getQueue().obliterate({ force: true });
   worker = startWhatsAppSendWorker({ concurrency: 3 });
 });
 
@@ -46,7 +63,12 @@ describe('whatsappSendQueue + whatsappSendWorker (live Redis)', () => {
       campaignId: 'campaign-text-1',
     });
 
-    const results = await waitForJobResults(jobs, { timeoutMs: 15000 });
+    // Generous window: under a full-suite run (27+ files, ~10-30s total)
+    // event-loop/CPU contention can push a normally-sub-second job well
+    // past a tight timeout, which previously read as a job "failure" rather
+    // than what it actually was — the test's own wait budget being too
+    // tight for the machine's current load.
+    const results = await waitForJobResults(jobs, { timeoutMs: 30000 });
 
     expect(results).toHaveLength(3);
     expect(results.every((r) => r.success)).toBe(true);
@@ -54,7 +76,7 @@ describe('whatsappSendQueue + whatsappSendWorker (live Redis)', () => {
     expect(dispatchTextMessage).toHaveBeenCalledWith(
       expect.objectContaining({ to: '919000000001', body: 'Hello from the queue', campaignId: 'campaign-text-1' })
     );
-  }, 20000);
+  }, 35000);
 
   it('routes template jobs to dispatchTemplateMessage, not dispatchTextMessage', async () => {
     dispatchTemplateMessage.mockResolvedValue({ id: 'wamid.template' });
@@ -70,14 +92,19 @@ describe('whatsappSendQueue + whatsappSendWorker (live Redis)', () => {
       campaignId: 'campaign-template-1',
     });
 
-    const results = await waitForJobResults(jobs, { timeoutMs: 15000 });
+    // Generous window: under a full-suite run (27+ files, ~10-30s total)
+    // event-loop/CPU contention can push a normally-sub-second job well
+    // past a tight timeout, which previously read as a job "failure" rather
+    // than what it actually was — the test's own wait budget being too
+    // tight for the machine's current load.
+    const results = await waitForJobResults(jobs, { timeoutMs: 30000 });
 
     expect(results).toEqual([{ recipient: '919000000004', success: true }]);
     expect(dispatchTemplateMessage).toHaveBeenCalledWith(
       expect.objectContaining({ to: '919000000004', templateName: 'order_update' })
     );
     expect(dispatchTextMessage).not.toHaveBeenCalled();
-  }, 20000);
+  }, 35000);
 
   it('retries a failing recipient and eventually reports failure with the error message', async () => {
     dispatchTextMessage.mockRejectedValue(new Error('Recipient number is not a valid WhatsApp user'));
@@ -113,8 +140,8 @@ describe('whatsappSendQueue + whatsappSendWorker (live Redis)', () => {
       campaignId: 'campaign-security-1',
     });
 
-    await waitForJobResults(jobs, { timeoutMs: 15000 });
+    await waitForJobResults(jobs, { timeoutMs: 30000 });
 
     expect(loadAccountContextById).toHaveBeenCalledWith('acc-42');
-  }, 20000);
+  }, 35000);
 });

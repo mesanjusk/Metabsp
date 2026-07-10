@@ -1,0 +1,283 @@
+{
+  "info": {
+    "name": "Metabsp WhatsApp Tech Provider API",
+    "description": "Core REST API for the Metabsp WhatsApp BSP platform. Mirrors backend/src/docs/openapi.js (served at /api-docs). Set the baseUrl, jwt, and apiKey collection variables before running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "jwt", "value": "", "type": "string" },
+    { "key": "apiKey", "value": "", "type": "string" },
+    { "key": "accountId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "External API (API key)",
+      "item": [
+        {
+          "name": "Get connection status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/baileys/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "baileys", "status"] }
+          }
+        },
+        {
+          "name": "Send text/image",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{apiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"to\": \"919876543210\",\n  \"message\": \"Hello from Postman!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/baileys/send", "host": ["{{baseUrl}}"], "path": ["api", "v1", "baileys", "send"] }
+          }
+        },
+        {
+          "name": "Send bulk",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{apiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"recipients\": [\n    {\"to\": \"919876543210\", \"message\": \"Hi John!\"},\n    {\"to\": \"919876543211\", \"message\": \"Hi Jane!\"}\n  ],\n  \"delay\": 12000\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/baileys/send-bulk", "host": ["{{baseUrl}}"], "path": ["api", "v1", "baileys", "send-bulk"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts (JWT)",
+      "item": [
+        {
+          "name": "List connected numbers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/accounts", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "accounts"] }
+          }
+        },
+        {
+          "name": "Activate an account",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/accounts/{{accountId}}/activate", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "accounts", "{{accountId}}", "activate"] }
+          }
+        },
+        {
+          "name": "Connect manually",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"accessToken\": \"EAAG...\",\n  \"phoneNumberId\": \"123456789012345\",\n  \"wabaId\": \"987654321098765\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/connect/manual", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "connect", "manual"] }
+          }
+        },
+        {
+          "name": "Set System User token",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"accessToken\": \"EAAG...\",\n  \"systemUserId\": \"123456789\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/account/{{accountId}}/system-user-token", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "account", "{{accountId}}", "system-user-token"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messaging (JWT)",
+      "item": [
+        {
+          "name": "Send text",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"to\": \"919876543210\",\n  \"body\": \"Hello!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/send-text", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "send-text"] }
+          }
+        },
+        {
+          "name": "Send template",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"to\": \"919876543210\",\n  \"templateName\": \"order_update\",\n  \"language\": \"en_US\",\n  \"components\": []\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/send-template", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "send-template"] }
+          }
+        },
+        {
+          "name": "Broadcast",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"recipients\": [\"919876543210\", \"919876543211\"],\n  \"templateName\": \"order_update\",\n  \"language\": \"en_US\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/broadcast", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "broadcast"] }
+          }
+        },
+        {
+          "name": "List conversations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/conversations?assignedTo=me", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "conversations"], "query": [{ "key": "assignedTo", "value": "me" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contacts (JWT)",
+      "item": [
+        {
+          "name": "List contacts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/contacts?search=john", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "contacts"], "query": [{ "key": "search", "value": "john" }] }
+          }
+        },
+        {
+          "name": "Create contact",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"919876543210\",\n  \"name\": \"John Doe\",\n  \"category\": \"lead\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/contacts", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "contacts"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auto Reply & Workflows (JWT)",
+      "item": [
+        {
+          "name": "List auto-reply rules",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/auto-reply", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "auto-reply"] }
+          }
+        },
+        {
+          "name": "Create AI assistant rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"ruleType\": \"ai_assistant\",\n  \"aiSystemPrompt\": \"You are a helpful support assistant.\",\n  \"isActive\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/auto-reply", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "auto-reply"] }
+          }
+        },
+        {
+          "name": "Create workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Welcome sequence\",\n  \"keyword\": \"start\",\n  \"matchType\": \"contains\",\n  \"steps\": [\n    {\"delaySeconds\": 0, \"replyType\": \"text\", \"reply\": \"Welcome!\"},\n    {\"delaySeconds\": 30, \"replyType\": \"text\", \"reply\": \"Need anything else?\"}\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/workflows", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "workflows"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Team Inbox (JWT)",
+      "item": [
+        {
+          "name": "Add team member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"mobile\": \"919000000002\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/accounts/{{accountId}}/team-members", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "accounts", "{{accountId}}", "team-members"] }
+          }
+        },
+        {
+          "name": "Assign a conversation",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"<user-id-or-null-to-unassign>\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/whatsapp/conversations/919876543210/assign", "host": ["{{baseUrl}}"], "path": ["api", "whatsapp", "conversations", "919876543210", "assign"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Billing (JWT)",
+      "item": [
+        {
+          "name": "List plans",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": { "raw": "{{baseUrl}}/api/billing/plans", "host": ["{{baseUrl}}"], "path": ["api", "billing", "plans"] }
+          }
+        },
+        {
+          "name": "Subscribe (UPI Autopay)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"planCode\": \"growth\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/billing/subscribe", "host": ["{{baseUrl}}"], "path": ["api", "billing", "subscribe"] }
+          }
+        },
+        {
+          "name": "List invoices",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt}}" }],
+            "url": { "raw": "{{baseUrl}}/api/billing/invoices", "host": ["{{baseUrl}}"], "path": ["api", "billing", "invoices"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health & Docs",
+      "item": [
+        {
+          "name": "Health check",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] } }
+        },
+        {
+          "name": "OpenAPI spec (JSON)",
+          "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api-docs.json", "host": ["{{baseUrl}}"], "path": ["api-docs.json"] } }
+        }
+      ]
+    }
+  ]
+}

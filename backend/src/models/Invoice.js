@@ -18,4 +18,10 @@ const invoiceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Serves GET /api/billing/invoices (routes/billing.js), which queries
+// exactly {tenantId} sorted by {createdAt: -1} — the field-level tenantId
+// index alone would need a separate in-memory sort stage at any real
+// invoice volume.
+invoiceSchema.index({ tenantId: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Invoice', invoiceSchema);

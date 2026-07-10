@@ -5,10 +5,8 @@ import {
 } from '@mui/material';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import ForumIcon from '@mui/icons-material/Forum';
-import CampaignIcon from '@mui/icons-material/Campaign';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import QrCode2Icon from '@mui/icons-material/QrCode2';
 import HubIcon from '@mui/icons-material/Hub';
 import ApiIcon from '@mui/icons-material/Api';
 import VerifiedIcon from '@mui/icons-material/Verified';
@@ -49,7 +47,7 @@ const FEATURES = [
   {
     icon: <ForumIcon sx={{ fontSize: 32 }} />,
     title: 'Unified inbox',
-    description: 'One WhatsApp-Web-style inbox for every conversation, with real-time delivery, read receipts, and media support.',
+    description: 'One shared inbox for every conversation, with real-time delivery, read receipts, and media support.',
   },
   {
     icon: <WhatsAppIcon sx={{ fontSize: 32 }} />,
@@ -57,19 +55,9 @@ const FEATURES = [
     description: 'Send approved WhatsApp templates and broadcast to many contacts at once, with the 24-hour customer-service window handled for you.',
   },
   {
-    icon: <QrCode2Icon sx={{ fontSize: 32 }} />,
-    title: 'QR quick-connect',
-    description: 'No Meta approval needed to get started — pair a number by QR code and start sending in minutes.',
-  },
-  {
-    icon: <CampaignIcon sx={{ fontSize: 32 }} />,
-    title: 'Campaigns',
-    description: 'Schedule and run bulk sends with per-recipient delivery tracking and personalization, throttled to protect your number.',
-  },
-  {
     icon: <ContactsIcon sx={{ fontSize: 32 }} />,
     title: 'Built-in CRM',
-    description: 'Tag, categorize, and assign contacts; import from Excel or WhatsApp groups; hand any list straight into a campaign.',
+    description: 'Tag, categorize, and assign contacts; import from Excel; hand any list straight into a broadcast.',
   },
   {
     icon: <AutoFixHighIcon sx={{ fontSize: 32 }} />,
@@ -113,9 +101,8 @@ export default function LandingPage() {
                 Run your WhatsApp business messaging from one place
               </Typography>
               <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.75)', maxWidth: 620, mx: 'auto', lineHeight: 1.8 }}>
-                Inbox, templates, broadcast, campaigns, CRM, and auto-reply — over the official
-                WhatsApp Cloud API or QR-based quick-connect — plus a self-service webhook that
-                fans out to every project you run.
+                Inbox, templates, broadcast, CRM, and auto-reply — over the official WhatsApp
+                Cloud API — plus a self-service webhook that fans out to every project you run.
               </Typography>
               <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ mt: 4 }} flexWrap="wrap" useFlexGap>
                 <Button component={RouterLink} to="/signup" variant="contained" size="large" sx={{ bgcolor: '#25d366', color: '#05260f', fontWeight: 700, px: 4, '&:hover': { bgcolor: '#1ebe5a' } }}>
@@ -137,7 +124,8 @@ export default function LandingPage() {
           <Box sx={{ mb: 8 }}>
             <Typography variant="h4" fontWeight={800} sx={{ mb: 1, textAlign: 'center' }}>Everything you need to message at scale</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', mb: 5, maxWidth: 640, mx: 'auto' }}>
-              One dashboard covers the official WhatsApp Cloud API and QR-based automation, so you can start free and upgrade when you're ready for Meta approval.
+              One dashboard for the official WhatsApp Cloud API — connect a number through Meta's
+              own Embedded Signup and start sending in minutes.
             </Typography>
             <Grid container spacing={3}>
               {FEATURES.map((feature, i) => (
@@ -158,10 +146,10 @@ export default function LandingPage() {
                 <Step number={1} title="Create your account" description="Sign up with your mobile number — no WhatsApp Business account required to start." />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <Step number={2} title="Connect a number" description="Pair a number by QR code in minutes, or connect the official Cloud API when you're ready." />
+                <Step number={2} title="Connect a number" description="Connect your WhatsApp Business number through Meta's official Embedded Signup flow." />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <Step number={3} title="Send and automate" description="Chat, broadcast, run campaigns, and route events to as many of your own projects as you need." />
+                <Step number={3} title="Send and automate" description="Chat, broadcast, and route events to as many of your own projects as you need." />
               </Grid>
             </Grid>
           </Box>

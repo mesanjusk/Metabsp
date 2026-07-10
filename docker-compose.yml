@@ -37,6 +37,28 @@ services:
       - mongo
       - redis
 
+  # Optional standalone broadcast-send worker (see backend/src/worker.js) —
+  # scale send throughput independently of the API by running this as its
+  # own replica set, instead of relying on the backend's in-process worker.
+  # Not started by a plain `docker compose up`; opt in with
+  # `docker compose --profile scale-workers up worker`.
+  worker:
+    profiles: ["scale-workers"]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    command: ["npm", "run", "worker", "--workspace=backend"]
+    environment:
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongo:27017/metabsp
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-only-change-me
+      WHATSAPP_TOKEN_ENCRYPTION_KEY: ZGV2LW9ubHktMzItYnl0ZS1rZXktY2hhbmdlLW1lITE=
+    depends_on:
+      - mongo
+      - redis
+
   frontend:
     build:
       context: .

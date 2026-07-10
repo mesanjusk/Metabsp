@@ -38,6 +38,18 @@ const whatsappAccountSchema = new mongoose.Schema(
     accessTokenEncrypted: { type: String, required: true },
     tokenType: { type: String, default: 'Bearer', trim: true },
     tokenExpiresAt: { type: Date, default: null },
+    // Meta's own guidance for BSPs: prefer a Business-owned System User
+    // token (generated manually in Meta Business Manager, typically set to
+    // never expire) over a token tied to an individual admin's personal
+    // login. tokenSource is additive/backward-compatible — every existing
+    // account defaults to 'user_token' (today's only path) and behaves
+    // identically; tokenRefreshService.js skips 'system_user' accounts
+    // since Meta's System User tokens aren't refreshed the same way.
+    tokenSource: {
+      type: String,
+      enum: ['user_token', 'system_user'],
+      default: 'user_token',
+    },
     systemUserId: { type: String, default: '', trim: true },
     appScopedMetaUserId: { type: String, default: '', trim: true },
     status: {

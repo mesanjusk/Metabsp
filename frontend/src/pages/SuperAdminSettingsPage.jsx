@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
-  Divider, MenuItem, Select, Snackbar, Stack, Typography,
+  Divider, MenuItem, Select, Snackbar, Stack, Switch, Typography,
 } from '@mui/material';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -11,8 +11,130 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import MicIcon from '@mui/icons-material/Mic';
 import SchoolIcon from '@mui/icons-material/School';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import PageHeader from '../components/PageHeader';
 import api from '../api';
+
+// ── Baileys / WhatsApp-Web feature flag per organization ─────────────────────
+// Off by default for every org (see backend/bulk/models/Organization.js).
+// This section is how a super admin turns it on for a specific customer —
+// e.g. after a Meta App Review decision — without touching code or config.
+function BaileysFeatureFlagSection() {
+  const [orgs, setOrgs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState(null);
+  const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/org');
+      setOrgs(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setError('Failed to load organizations.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const toggle = async (org) => {
+    setSavingId(org._id);
+    try {
+      const res = await api.patch(`/org/${org._id}/baileys`, { enabled: !org.baileysEnabled });
+      setOrgs((prev) => prev.map((o) => (o._id === org._id ? res.data : o)));
+      setToast({ type: 'success', msg: `WhatsApp-Web features ${res.data.baileysEnabled ? 'enabled' : 'disabled'} for ${org.name}.` });
+    } catch (e) {
+      setToast({ type: 'error', msg: e?.response?.data?.message || 'Failed to update.' });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  return (
+    <Stack spacing={3}>
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <QrCode2Icon sx={{ color: '#b45309', fontSize: 22 }} />
+        <Typography variant="subtitle1" fontWeight={700} color="text.secondary">
+          Baileys / WhatsApp-Web Features — Per-Organization
+        </Typography>
+      </Stack>
+
+      <Card variant="outlined" sx={{ borderRadius: 3 }}>
+        <CardContent>
+          <Stack spacing={2.5}>
+            <Alert severity="info" sx={{ fontSize: 13, borderRadius: 2 }}>
+              Baileys (QR code / WhatsApp-Web) features — manual connect, campaigns, and the
+              External API's <code>/api/v1/baileys/*</code> endpoints — are hidden and disabled
+              by default for every new organization. Turn it on below only for organizations you've
+              specifically decided should have it (e.g. existing customers migrated before this
+              change, or after your own Meta App Review decision). See{' '}
+              <code>docs/meta-tech-provider/APP_REVIEW.md</code> for the underlying reasoning.
+            </Alert>
+
+            <Divider />
+
+            {loading ? (
+              <Stack alignItems="center" sx={{ py: 3 }}>
+                <CircularProgress size={24} />
+              </Stack>
+            ) : error ? (
+              <Alert severity="warning" sx={{ borderRadius: 2, fontSize: 13 }}>{error}</Alert>
+            ) : orgs.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No organizations found.</Typography>
+            ) : (
+              <Stack spacing={1.5}>
+                {orgs.map((org) => (
+                  <Stack
+                    key={org._id}
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider' }}
+                  >
+                    <Box>
+                      <Typography fontWeight={600} fontSize={14}>{org.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{org.mobile}</Typography>
+                    </Box>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      {savingId === org._id && <CircularProgress size={16} />}
+                      <Chip
+                        label={org.baileysEnabled ? 'Enabled' : 'Disabled'}
+                        size="small"
+                        color={org.baileysEnabled ? 'warning' : 'default'}
+                        variant={org.baileysEnabled ? 'filled' : 'outlined'}
+                        sx={{ height: 22, fontSize: 11 }}
+                      />
+                      <Switch
+                        checked={!!org.baileysEnabled}
+                        disabled={savingId === org._id}
+                        onChange={() => toggle(org)}
+                      />
+                    </Stack>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={3500}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={toast?.type || 'info'} onClose={() => setToast(null)} sx={{ width: '100%' }}>
+          {toast?.msg}
+        </Alert>
+      </Snackbar>
+    </Stack>
+  );
+}
 
 // ── data hook ────────────────────────────────────────────────────────────────
 function useSystemSettings() {
@@ -403,6 +525,8 @@ export default function SuperAdminSettingsPage() {
           </Card>
 
           <RegistrationGroupsSection map={map} saving={saving} save={save} />
+
+          <BaileysFeatureFlagSection />
 
         </Stack>
       )}

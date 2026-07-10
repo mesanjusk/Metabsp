@@ -48,6 +48,21 @@ const bulkCrudRoutes = require('../bulk/routes/crudRoutes');
 
 const app = express();
 
+// Required behind any reverse proxy/load balancer (Render, Railway, nginx,
+// Cloudflare, ...) — without it, req.ip resolves to the proxy's address for
+// every request, which would make the Redis-backed rate limiter (keyed by
+// req.ip for unauthenticated routes) treat every user behind that proxy as
+// a single client. TRUST_PROXY takes a hop count (default 1, the common
+// single-reverse-proxy case) or 'true'/'false' to trust all/none.
+const trustProxySetting = (() => {
+  const raw = String(process.env.TRUST_PROXY ?? '1').trim().toLowerCase();
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  const hops = Number(raw);
+  return Number.isFinite(hops) && hops >= 0 ? hops : 1;
+})();
+app.set('trust proxy', trustProxySetting);
+
 app.use(helmet());
 app.use(
   pinoHttp({
