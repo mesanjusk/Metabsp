@@ -14,6 +14,23 @@ const { emitEvent } = require('./socket');
 const { useMongoAuthState, clearMongoAuthState, listSavedUserIds } = require('./baileysAuthState');
 const logger = require('../../src/utils/logger');
 
+// Only auto-reconnects sessions for users whose organization has explicitly
+// enabled Baileys/WhatsApp-Web features (see models/Organization.js and
+// middleware/baileysGate.js) — feature is off by default for every org.
+async function filterUserIdsWithBaileysEnabled(userIds) {
+  const User = require('../models/User');
+  const Organization = require('../models/Organization');
+  const users = await User.find({ _id: { $in: userIds } }).select('tenantId').lean();
+  const tenantIdByUser = new Map(users.map(u => [String(u._id), u.tenantId ? String(u.tenantId) : null]));
+  const tenantIds = [...new Set([...tenantIdByUser.values()].filter(Boolean))];
+  const orgs = await Organization.find({ _id: { $in: tenantIds } }).select('baileysEnabled').lean();
+  const enabledTenantIds = new Set(orgs.filter(o => o.baileysEnabled).map(o => String(o._id)));
+  return userIds.filter((uid) => {
+    const tenantId = tenantIdByUser.get(String(uid));
+    return tenantId ? enabledTenantIds.has(tenantId) : true; // no tenant = super-admin-owned, unaffected
+  });
+}
+
 const MAX_RECONNECT_ATTEMPTS = 5;
 const DEFAULT_USER = '_global_';
 
@@ -358,9 +375,14 @@ async function autoConnectIfCredentialsExist(userId) {
   } else {
     // Reconnect all users with saved credentials
     try {
-      const userIds = await listSavedUserIds();
-      if (!userIds.length) {
+      const allUserIds = await listSavedUserIds();
+      if (!allUserIds.length) {
         logger.info('[baileys] No saved credentials found — waiting for manual QR scan.');
+        return;
+      }
+      const userIds = await filterUserIdsWithBaileysEnabled(allUserIds);
+      if (!userIds.length) {
+        logger.info(`[baileys] ${allUserIds.length} saved session(s) found, but Baileys is disabled for all of their organizations — skipping auto-connect.`);
         return;
       }
       logger.info(`[baileys] Auto-connecting ${userIds.length} saved session(s)…`);

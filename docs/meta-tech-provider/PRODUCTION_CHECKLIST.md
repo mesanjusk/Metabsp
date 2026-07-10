@@ -27,19 +27,28 @@ where a fuller doc already covers something.
       (`docs/BACKUP_RESTORE.md`)
 
 ## Security
-- [ ] `npm audit` reviewed on both `backend/` and `frontend/` — decide
-      and document a position on any unresolved findings rather than
-      leaving them silent (`xlsx` has no upstream fix as of this writing;
-      confirm current status)
+- [x] `npm audit` reviewed on both `backend/` and `frontend/` — `dompurify`
+      and `ws` fixed via `npm audit fix`; `jspdf` bumped to 4.2.1 (resolves
+      10 critical/high CVEs in the real in-app PDF export feature, build
+      verified after the bump). Remaining: `xlsx` has no upstream fix as of
+      this writing (used for spreadsheet import, not Baileys-specific —
+      confirm current status before launch); a handful of dev/test-only
+      findings (`esbuild`/`vitest`, `tar`/`canvas`/`jsdom`, `uuid`/`hyperid`/
+      `autocannon`) are accepted as non-runtime risk.
 - [ ] Cashfree UPI Autopay integration verified against live docs before
       accepting real payments (`backend/src/services/paymentGatewayService.js`'s
       own "verify before production" header) — this is currently
       unverified and is a real launch blocker if billing is enabled
 
 ## Compliance
-- [ ] The Baileys-based "Campaigns" Terms-of-Service exposure resolved
-      (see `APP_REVIEW.md`) — before any real customer traffic, not just
-      before App Review submission
+- [x] The Baileys-based "Campaigns"/manual-connect Terms-of-Service exposure
+      mitigated: disabled by default for every organization, gated behind
+      `Organization.baileysEnabled` at every route, hidden from the
+      dashboard nav and the public landing page (see `APP_REVIEW.md`) — a
+      super admin must explicitly opt an organization in. Still make and
+      document your own business decision before enabling it for any
+      Tech-Provider-branded customer; the underlying Platform Terms risk is
+      unchanged for orgs you do choose to enable it for.
 - [ ] Privacy Policy / Terms of Service / DPA reviewed by an actual lawyer
       and published (`docs/legal/` — templates only as shipped)
 - [ ] A real data retention policy implemented in code, not just

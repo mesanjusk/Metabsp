@@ -20,6 +20,7 @@
 
 const express      = require('express');
 const { requireApiKey } = require('../middleware/apiKeyAuth');
+const { requireBaileysEnabled } = require('../../bulk/middleware/baileysGate');
 const { createRateLimiter } = require('../middleware/rateLimit');
 const baileysService = require('../../bulk/services/baileysService');
 const logger = require('../utils/logger');
@@ -35,7 +36,7 @@ function normalizePhone(v) {
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // ── GET /baileys/status ───────────────────────────────────────────────────────
-router.get('/baileys/status', requireApiKey, (req, res) => {
+router.get('/baileys/status', requireApiKey, requireBaileysEnabled, (req, res) => {
   const status = baileysService.getStatus(req.user.id);
   res.json({ success: true, ...status });
 });
@@ -46,7 +47,7 @@ router.get('/baileys/status', requireApiKey, (req, res) => {
 // Body:
 //   { "to": "919876543210", "message": "Hello!" }
 //   { "to": "919876543210", "message": "Caption", "imageUrl": "https://..." }
-router.post('/baileys/send', requireApiKey, limiter, async (req, res) => {
+router.post('/baileys/send', requireApiKey, requireBaileysEnabled, limiter, async (req, res) => {
   const { to, message, imageUrl } = req.body;
   if (!to)      return res.status(400).json({ success: false, error: '"to" is required' });
   if (!message) return res.status(400).json({ success: false, error: '"message" is required' });
@@ -65,7 +66,7 @@ router.post('/baileys/send', requireApiKey, limiter, async (req, res) => {
 });
 
 // ── POST /baileys/send-text ───────────────────────────────────────────────────
-router.post('/baileys/send-text', requireApiKey, limiter, async (req, res) => {
+router.post('/baileys/send-text', requireApiKey, requireBaileysEnabled, limiter, async (req, res) => {
   const { to, message, body } = req.body;
   const text  = message || body;
   const phone = normalizePhone(to);
@@ -80,7 +81,7 @@ router.post('/baileys/send-text', requireApiKey, limiter, async (req, res) => {
 });
 
 // ── POST /baileys/send-image ──────────────────────────────────────────────────
-router.post('/baileys/send-image', requireApiKey, limiter, async (req, res) => {
+router.post('/baileys/send-image', requireApiKey, requireBaileysEnabled, limiter, async (req, res) => {
   const { to, imageUrl, caption = '' } = req.body;
   const phone = normalizePhone(to);
   if (!phone)    return res.status(400).json({ success: false, error: '"to" is required' });
@@ -102,7 +103,7 @@ router.post('/baileys/send-image', requireApiKey, limiter, async (req, res) => {
 //     ],
 //     "delay": 12000   // ms between sends (default 12000, min 5000, max 60000)
 //   }
-router.post('/baileys/send-bulk', requireApiKey, async (req, res) => {
+router.post('/baileys/send-bulk', requireApiKey, requireBaileysEnabled, async (req, res) => {
   const { recipients, delay = 12000 } = req.body;
   if (!Array.isArray(recipients) || !recipients.length) {
     return res.status(400).json({ success: false, error: '"recipients" must be a non-empty array' });

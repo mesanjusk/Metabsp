@@ -29,6 +29,15 @@ const orgSchema = new mongoose.Schema({
     enum: ['bulk_signup', 'whatsapp_cloud_signup'],
     default: 'bulk_signup',
   },
+
+  // Gates the Baileys/WhatsApp-Web (unofficial protocol) feature set — QR
+  // connect, manual-invite sending, and Baileys-based campaigns. Off by
+  // default for every organization (existing and new): the feature stays
+  // fully implemented in the codebase, just not reachable, until a super
+  // admin explicitly turns it on for a given customer (see
+  // PATCH /api/bulk/org/:id/baileys). This is a business/Meta-review
+  // decision, not a code removal — see docs/meta-tech-provider/APP_REVIEW.md.
+  baileysEnabled: { type: Boolean, default: false },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Organization', orgSchema);

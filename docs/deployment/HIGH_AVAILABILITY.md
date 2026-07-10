@@ -34,7 +34,7 @@ tiers.
 
 ## What is NOT yet HA in this codebase — be honest about these
 
-### In-process schedulers run once per process, with no leader election
+### In-process schedulers — now leader-elected, no longer N-fold duplicated
 
 `backend/src/index.js` starts three schedulers unconditionally in every
 API process that boots:
@@ -46,76 +46,52 @@ startInvoiceScheduler();        // generates usage-metered invoices
 startBackupScheduler();         // optional, off unless ENABLE_SCHEDULED_BACKUPS=true
 ```
 
-None of these have a distributed lock, leader election, or any mechanism
-to ensure only one instance runs them. **Run N API replicas today and you
-get N copies of the token-refresh scheduler, N copies of the invoice
-scheduler, and — if `ENABLE_SCHEDULED_BACKUPS=true` — N copies of the
-backup scheduler, all firing on their own independent timers.** Concretely:
+**Update:** all three (token refresh, invoice generation, scheduled backup)
+now wrap their scheduled work in `withLeaderLock()`
+(`backend/src/services/schedulerLock.js`) — a short-lived Redis `SET …
+NX PX` lock per tick, so only one API replica actually executes the task on
+any given cycle; every other replica's timer fires, fails to acquire the
+lock, and skips silently. This closes the duplicate-billing risk on invoice
+generation and the redundant-Graph-API-calls/duplicate-mongodump problems
+described below in earlier revisions of this document. A dead lock holder
+self-heals via TTL expiry rather than requiring an explicit release, and if
+Redis itself is unreachable the lock check fails open (runs anyway) rather
+than silently skipping scheduled work — the same risk profile this app
+already accepted before leader election existed, not a new one.
 
-- **Token refresh**: likely idempotent-ish in effect (re-exchanging an
-  already-fresh token is probably harmless), but still N redundant calls
-  to the Meta Graph API per cycle instead of 1 — wasted quota, and a risk
-  if Meta's token-exchange endpoint isn't safe to call concurrently for
-  the same account from multiple processes.
-- **Invoice generation**: the higher-risk one — if
-  `invoiceSchedulerService.js`'s query-then-generate logic has any window
-  where two processes could both see a subscription as "not yet invoiced
-  for this period" and both generate an invoice, that's a duplicate
-  billing event. This has not been verified to be safe under concurrent
-  execution across replicas; treat it as unverified rather than assuming
-  it's fine.
-- **Scheduled backups**: if `ENABLE_SCHEDULED_BACKUPS=true` across N
-  replicas, you get N simultaneous `mongodump` runs against the same
-  database on the same 24h cycle — wasted resources at best, load-spike
-  contention at worst. This is exactly why `docs/BACKUP_RESTORE.md`
-  recommends platform-native scheduling (a single cron job/CronJob) as
-  "still the recommended default" over the in-process scheduler — that
-  recommendation is doubly true once you're running more than one API
-  replica.
+`startWhatsAppSendWorker()` was never part of this problem — BullMQ's own
+per-job locking already makes concurrent consumers across replicas safe
+(see [SCALING.md](./SCALING.md)).
 
-**Mitigation for now**: either run exactly one API replica if these
-schedulers matter to your deployment, or explicitly disable them (there's
-no per-replica env flag for this yet — you'd need to fork the startup
-logic or gate these calls behind an env var like `ENABLE_SCHEDULERS`
-you'd add yourself) on all but one designated replica, and always leave
-`ENABLE_SCHEDULED_BACKUPS=false` in favor of a platform-native scheduled
-job outside the app process entirely, per `docs/BACKUP_RESTORE.md`.
-
-### Baileys (WhatsApp-Web) sessions are in-memory, per-process, with no coordination
+### Baileys (WhatsApp-Web) sessions — now opt-in per organization, off by default
 
 `backend/bulk/services/baileysService.js` keeps live WhatsApp-Web socket
 connections in an in-memory `Map<userId, SessionState>`, and
-`backend/src/index.js` calls `autoConnectIfCredentialsExist()` on **every**
-boot of **every** process:
+`backend/src/index.js` calls `autoConnectIfCredentialsExist()` on every
+boot of every process. There is still no locking, leader election, or
+session-ownership coordination in this path — that structural limitation
+is unchanged.
 
-```js
-server.listen(PORT, () => {
-  ...
-  const { autoConnectIfCredentialsExist } = require('../bulk/services/baileysService');
-  autoConnectIfCredentialsExist().catch(...);
-});
-```
+**Update:** the entire Baileys/WhatsApp-Web feature set (manual connect,
+campaigns, the `/api/v1/baileys/*` External API) is now **disabled by
+default for every organization** (`Organization.baileysEnabled`, default
+`false`) and gated at every route by `requireBaileysEnabled` middleware.
+`autoConnectIfCredentialsExist()` itself now filters its saved-session list
+down to only users whose organization has the flag on before reconnecting
+anything. This means the reconnect-storm/session-invalidation risk
+described here **only applies to organizations a super admin has
+explicitly opted in** via `PATCH /api/bulk/org/:id/baileys` — for the
+default (and now typical) case of Cloud-API-only customers, this entire
+section doesn't apply, and the API tier scales exactly as described in the
+"Multi-AZ" section above.
 
-There is no locking, leader election, or session-ownership coordination
-anywhere in this path. **If you run more than one API replica and the
-bulk-invite/Baileys product surface has any linked WhatsApp-Web sessions,
-every replica will independently try to open the same session on boot.**
-WhatsApp-Web only tolerates one active connection per linked device —
-multiple replicas fighting over the same session typically manifests as
-reconnect storms, session invalidation, or one instance silently winning
-while others spin retrying. This is the single biggest structural
-obstacle to horizontally scaling the API tier as-is, if Baileys/bulk-invite
-traffic is in active use.
-
-**Mitigation for now**: if the Baileys/bulk-invite feature set is actively
-used, run a single API replica (accepting that as the availability
-trade-off) or route Baileys-dependent traffic to a dedicated
-single-instance deployment separate from the horizontally-scaled Cloud-API
-traffic, until session ownership gets a real distributed lock. If your
-deployment only uses the Meta WhatsApp Cloud API surface (no linked
-WhatsApp-Web/Baileys sessions), this caveat doesn't apply to you — the
-Cloud API side (messages, templates, webhooks) has no equivalent
-in-memory, single-owner state.
+**If you do opt an organization in:** the same caveat as before still
+holds for that organization's traffic specifically — run a single API
+replica while Baileys/bulk-invite is actively used for it, or route that
+org's traffic to a dedicated single-instance deployment, until session
+ownership gets a real distributed lock. This is now a per-organization
+business decision (see `docs/meta-tech-provider/APP_REVIEW.md`) rather
+than an all-or-nothing constraint on the whole deployment.
 
 ### Single points of failure that remain even with the above addressed
 
@@ -134,9 +110,9 @@ in-memory, single-owner state.
   `REDIS_CLUSTER_NODES` once you need it) — both entirely infra-level,
   no app changes.
 - Multiple API replicas behind a load balancer — safe for the Cloud-API/
-  chat surface given the Redis Socket.IO adapter, **but only if** you've
-  either accepted or mitigated the scheduler-duplication and
-  Baileys-session risks above.
+  chat surface given the Redis Socket.IO adapter and the scheduler leader
+  election above; the remaining Baileys-session caveat only applies to
+  organizations you've explicitly opted into that feature.
 - Multiple standalone worker replicas (`backend/src/worker.js`) — safe by
   design, BullMQ handles concurrent consumers correctly.
 - A platform-native (not in-process) scheduled backup job, per

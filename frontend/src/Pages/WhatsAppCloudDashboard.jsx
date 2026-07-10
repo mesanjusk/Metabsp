@@ -43,6 +43,7 @@ import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import QueryStatsRoundedIcon from '@mui/icons-material/QueryStatsRounded';
 import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded';
 import { toast } from '../Components/Toast';
+import apiClient from '../apiClient';
 import {
   connectWhatsAppManual,
   completeWhatsAppConnect,
@@ -182,16 +183,43 @@ export default function WhatsAppCloudDashboard() {
 
   const isAdminUser = String(userGroup || '').toLowerCase() === 'admin';
 
-  // Admin always sees everything; a regular user who hasn't chosen yet also
-  // sees everything until they do (the forced prompt below handles that).
+  // Baileys/WhatsApp-Web (QR connect, manual invite, campaigns) is off by
+  // default for every organization — a platform super admin turns it on per
+  // customer (see docs/meta-tech-provider/APP_REVIEW.md and
+  // PATCH /api/bulk/org/:id/baileys). null = not yet loaded (hide/wait,
+  // never auto-decide on a guess); true/false = confirmed from the server.
+  const [baileysFeatureEnabled, setBaileysFeatureEnabled] = useState(null);
+  useEffect(() => {
+    let active = true;
+    apiClient.get('/api/bulk/auth/me')
+      .then((res) => { if (active) setBaileysFeatureEnabled(!!res?.data?.baileysEnabled); })
+      .catch(() => { if (active) setBaileysFeatureEnabled(false); });
+    return () => { active = false; };
+  }, []);
+
+  // Admin always sees everything within the Meta/CRM surface; a regular user
+  // who hasn't chosen yet also sees everything until they do (the forced
+  // prompt below handles that). Baileys/Manual specifically stay hidden for
+  // every role — including while the flag is still loading — until the
+  // org's flag is confirmed on, regardless of admin status.
   const visibleMainTabs = useMemo(() => MAIN_TABS.filter((tab) => {
+    if ((tab.key === 'baileys' || tab.key === 'manual') && !baileysFeatureEnabled) return false;
     if (isAdminUser) return true;
     if (tab.key === 'meta') return whatsappProvider !== 'baileys';
     if (tab.key === 'baileys') return whatsappProvider !== 'meta';
     return true;
-  }), [isAdminUser, whatsappProvider]);
+  }), [isAdminUser, whatsappProvider, baileysFeatureEnabled]);
 
-  const needsProviderChoice = !isAdminUser && !whatsappProvider;
+  // Wait for the Baileys flag to load before deciding whether to ask at all —
+  // if it's confirmed off, there's only one real choice (Meta), so skip the
+  // prompt and select it automatically rather than asking a question with a
+  // fake second option.
+  const needsProviderChoice = !isAdminUser && !whatsappProvider && baileysFeatureEnabled !== null && baileysFeatureEnabled;
+  useEffect(() => {
+    if (!isAdminUser && !whatsappProvider && baileysFeatureEnabled === false) {
+      updateWhatsappProvider('meta');
+    }
+  }, [isAdminUser, whatsappProvider, baileysFeatureEnabled, updateWhatsappProvider]);
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const handleSaveProviderChoice = useCallback((value) => updateWhatsappProvider(value), [updateWhatsappProvider]);
 
@@ -712,13 +740,14 @@ export default function WhatsAppCloudDashboard() {
       </Dialog>
 
       {needsProviderChoice && (
-        <WhatsappProviderDialog open forced currentValue={whatsappProvider} onSubmit={handleSaveProviderChoice} />
+        <WhatsappProviderDialog open forced currentValue={whatsappProvider} onSubmit={handleSaveProviderChoice} allowBaileys={baileysFeatureEnabled} />
       )}
       <WhatsappProviderDialog
         open={providerDialogOpen}
         currentValue={whatsappProvider}
         onClose={() => setProviderDialogOpen(false)}
         onSubmit={handleSaveProviderChoice}
+        allowBaileys={baileysFeatureEnabled}
       />
     </Box>
   );

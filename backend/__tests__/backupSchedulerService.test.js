@@ -1,7 +1,13 @@
 const mockExecFile = jest.fn((cmd, args, opts, callback) => callback(null, { stdout: '', stderr: '' }));
 
 jest.mock('child_process', () => ({ execFile: (...args) => mockExecFile(...args) }));
-jest.mock('fs', () => ({ mkdirSync: jest.fn() }));
+// Only stub mkdirSync — spreading the real module keeps every other fs method
+// (notably fs.write/fs.open, which pino's stdout destination needs internally)
+// intact. A full fs replacement here previously broke logger calls made from
+// inside runScheduledBackup() whenever this file's sandbox was the first to
+// initialize pino's destination stream, an order-dependent full-suite-only
+// failure unrelated to whatever this test is actually meant to check.
+jest.mock('fs', () => ({ ...jest.requireActual('fs'), mkdirSync: jest.fn() }));
 
 const { runScheduledBackup, startBackupScheduler, isEnabled } = require('../src/services/backupSchedulerService');
 

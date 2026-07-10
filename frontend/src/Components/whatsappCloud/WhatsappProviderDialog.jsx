@@ -4,7 +4,7 @@ import {
   Radio, RadioGroup, FormControlLabel, Stack, Alert,
 } from '@mui/material';
 
-const OPTIONS = [
+const ALL_OPTIONS = [
   { value: 'baileys', label: 'Baileys (WhatsApp Web / QR code)' },
   { value: 'meta', label: 'Meta (official WhatsApp Cloud API)' },
   { value: 'both', label: 'Both' },
@@ -12,8 +12,12 @@ const OPTIONS = [
 
 // forced=true: no close button, can't dismiss without choosing (first-login prompt).
 // forced=false: dismissible "change later" dialog from settings.
-export default function WhatsappProviderDialog({ open, forced = false, currentValue = '', onClose, onSubmit }) {
-  const [value, setValue] = useState(currentValue || 'both');
+// allowBaileys: whether this org has Baileys/WhatsApp-Web enabled (off by
+// default — see docs/meta-tech-provider/APP_REVIEW.md). When false, only the
+// official Meta option is offered — there's no real second choice to present.
+export default function WhatsappProviderDialog({ open, forced = false, currentValue = '', onClose, onSubmit, allowBaileys = false }) {
+  const OPTIONS = allowBaileys ? ALL_OPTIONS : ALL_OPTIONS.filter((opt) => opt.value === 'meta');
+  const [value, setValue] = useState(allowBaileys ? (currentValue || 'both') : 'meta');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 

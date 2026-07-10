@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { protect } = require('../middleware/auth');
+const { requireBaileysEnabled } = require('../middleware/baileysGate');
 const {
   getStatus,
   startConnection,
@@ -17,29 +18,29 @@ const {
 } = require('../controllers/baileysController');
 
 // Status & connection management
-router.get('/status',      protect, getStatus);
-router.post('/connect',    protect, startConnection);
-router.post('/disconnect', protect, stopConnection);
+router.get('/status',      protect, requireBaileysEnabled, getStatus);
+router.post('/connect',    protect, requireBaileysEnabled, startConnection);
+router.post('/disconnect', protect, requireBaileysEnabled, stopConnection);
 
 // Inbox & conversations
-router.get('/inbox',                               protect, getInbox);
-router.get('/conversation/:conversationKey',       protect, getConversation);
-router.post('/conversation/:conversationKey/read', protect, markConversationRead);
+router.get('/inbox',                               protect, requireBaileysEnabled, getInbox);
+router.get('/conversation/:conversationKey',       protect, requireBaileysEnabled, getConversation);
+router.post('/conversation/:conversationKey/read', protect, requireBaileysEnabled, markConversationRead);
 
 // Send
-router.post('/send-text',   protect, sendText);
-router.post('/send-invite', protect, sendInvitation);
+router.post('/send-text',   protect, requireBaileysEnabled, sendText);
+router.post('/send-invite', protect, requireBaileysEnabled, sendInvitation);
 
 // Logs
-router.get('/logs', protect, getLogs);
+router.get('/logs', protect, requireBaileysEnabled, getLogs);
 
 // Auto-reply rules
-router.get('/rules',     protect, getRules);
-router.post('/rules',    protect, saveRule);
-router.put('/rules/:id', protect, saveRule);
+router.get('/rules',     protect, requireBaileysEnabled, getRules);
+router.post('/rules',    protect, requireBaileysEnabled, saveRule);
+router.put('/rules/:id', protect, requireBaileysEnabled, saveRule);
 
 // Group members
-router.get('/groups',         protect, getGroupsWithMembers);
-router.post('/groups/import', protect, importGroupContacts);
+router.get('/groups',         protect, requireBaileysEnabled, getGroupsWithMembers);
+router.post('/groups/import', protect, requireBaileysEnabled, importGroupContacts);
 
 module.exports = router;

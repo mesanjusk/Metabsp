@@ -2,6 +2,7 @@ const axios = require('axios');
 const WhatsAppAccount = require('../repositories/whatsappAccount');
 const { encryptSensitiveValue, decryptSensitiveValue } = require('../utils/crypto');
 const { getGraphApiVersion } = require('../config/graphApi');
+const { withLeaderLock } = require('./schedulerLock');
 const logger = require('../utils/logger');
 
 const REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // refresh once within 7 days of expiry
@@ -69,9 +70,12 @@ async function refreshExpiringTokens() {
 
 // .unref() so this background poller never keeps the process alive by
 // itself (matches the fix applied to the campaign scheduler in Phase 0).
+// withLeaderLock ensures only one API replica actually runs this on any
+// given tick — every replica boots this scheduler independently otherwise
+// (see docs/deployment/HIGH_AVAILABILITY.md).
 function startTokenRefreshScheduler({ intervalMs = 24 * 60 * 60 * 1000 } = {}) {
   return setInterval(() => {
-    refreshExpiringTokens().catch((error) =>
+    withLeaderLock('token-refresh', refreshExpiringTokens).catch((error) =>
       logger.error('[token-refresh] Scheduled refresh run failed:', error.message)
     );
   }, intervalMs).unref();

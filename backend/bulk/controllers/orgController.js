@@ -208,6 +208,28 @@ async function listOrgs(req, res) {
   }
 }
 
+// ── Toggle Baileys/WhatsApp-Web features for an org (super admin only) ───────
+// Off by default for every organization (see models/Organization.js). This is
+// the "activate later" switch — flip it on for a specific customer once
+// you're ready (e.g. after a Meta App Review decision), without touching code.
+async function setBaileysEnabled(req, res) {
+  try {
+    const { enabled } = req.body;
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ message: '"enabled" (boolean) is required' });
+    }
+    const org = await Organization.findByIdAndUpdate(
+      req.params.id,
+      { baileysEnabled: enabled },
+      { new: true }
+    );
+    if (!org) return res.status(404).json({ message: 'Organization not found' });
+    res.json(org);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
 module.exports = {
   checkMobile,
   requestSignupOtp,
@@ -215,4 +237,5 @@ module.exports = {
   requestForgotOtp,
   resetPassword,
   listOrgs,
+  setBaileysEnabled,
 };

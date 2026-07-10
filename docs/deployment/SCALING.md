@@ -18,13 +18,16 @@ to instance count. With `TRUST_PROXY` set correctly for your proxy chain
 cloud-specific guides), the Redis-backed rate limiter also behaves
 correctly across instances.
 
-**But** — read
-[HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) before actually setting API
-replicas above 1 in a deployment that has Baileys (bulk-invite/WhatsApp-Web)
-traffic in active use, or that relies on the in-process schedulers
-(token refresh, invoicing, scheduled backups). Those pieces run once *per
-process*, with no leader election, so N API replicas today means N copies
-of each of those, not one.
+The in-process schedulers (token refresh, invoicing, scheduled backups) are
+now leader-elected via a short-lived Redis lock (`schedulerLock.js`), so N
+API replicas no longer means N duplicate runs of each — see
+[HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) for the mechanism. The one
+remaining caveat: if a specific organization has Baileys (bulk-invite/
+WhatsApp-Web) explicitly enabled for it (off by default for every org — see
+`docs/meta-tech-provider/APP_REVIEW.md`), that organization's in-memory
+WhatsApp-Web session still has no cross-replica coordination — read
+[HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) before scaling API replicas
+above 1 in a deployment where any organization has that flag on.
 
 **The standalone worker** (`backend/src/worker.js`) is the one piece of
 this app built from the ground up to run at N replicas safely. BullMQ
@@ -114,5 +117,6 @@ What actually determines your ceiling, qualitatively:
 ## Next steps
 
 - [HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) — read this before
-  raising API replica count in a bulk-invite/Baileys-active deployment.
+  raising API replica count in a deployment with any Baileys-enabled
+  organization.
 - `backend/loadtest/README.md` for actually measuring before scaling.

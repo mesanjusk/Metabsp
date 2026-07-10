@@ -1,6 +1,7 @@
 const Subscription = require('../models/Subscription');
 const SubscriptionPlan = require('../models/SubscriptionPlan');
 const { generateInvoiceForPeriod } = require('./billingService');
+const { withLeaderLock } = require('./schedulerLock');
 const logger = require('../utils/logger');
 
 // Runs daily; only actually generates an invoice for a subscription once
@@ -48,9 +49,13 @@ async function generateDueInvoices() {
   return { checked: dueSubscriptions.length, generated, failed };
 }
 
+// withLeaderLock ensures only one API replica generates invoices on any given
+// tick — this is the highest-risk scheduler to run N-fold duplicated (see
+// docs/deployment/HIGH_AVAILABILITY.md), since duplicate execution here means
+// duplicate billing, not just wasted work.
 function startInvoiceScheduler({ intervalMs = 24 * 60 * 60 * 1000 } = {}) {
   return setInterval(() => {
-    generateDueInvoices().catch((error) =>
+    withLeaderLock('invoice-generation', generateDueInvoices).catch((error) =>
       logger.error('[invoice-scheduler] Scheduled run failed:', error.message)
     );
   }, intervalMs).unref();

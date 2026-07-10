@@ -31,17 +31,24 @@ review, not something this codebase automates.
    today; see `docs/legal/DATA_RETENTION_POLICY.md` for the template to
    fill in and then actually implement a matching TTL/cleanup job before
    claiming a retention period to Meta or to customers).
-3. **Platform Terms compliance** — this is the one genuine blocker in this
-   codebase to flag honestly: the "Campaigns" feature reachable from the
-   WhatsApp Cloud dashboard (`/api/whatsapp/campaigns` routes) sends via
-   `bulk/services/baileysService` — an unofficial, reverse-engineered
-   WhatsApp-Web client, not the official Cloud API. Using this for
-   customers of the Tech Provider product risks their numbers being
-   banned by Meta and is very likely to fail (or later get flagged after
-   passing) App Review's Platform Terms review. **Resolve this — either
-   remove/relabel that route out of the Cloud-API-branded product, or
-   keep it strictly on the separate Bulk product with no BSP/Tech
-   Provider claims attached — before submitting.**
+3. **Platform Terms compliance — now mitigated, not eliminated.** The
+   Baileys/WhatsApp-Web features (manual connect, campaigns, and the
+   `/api/v1/baileys/*` External API) send via `bulk/services/baileysService`
+   — an unofficial, reverse-engineered WhatsApp-Web client, not the official
+   Cloud API. As of this round, these are **disabled by default for every
+   organization** — hidden from the dashboard nav, blocked at every backend
+   route (`requireBaileysEnabled` middleware, `Organization.baileysEnabled`,
+   default `false`) — and can only be turned on per customer by a super
+   admin via `PATCH /api/bulk/org/:id/baileys` or the toggle in
+   `SuperAdminSettingsPage`. For an App Review submission and demo
+   environment where this flag is left off, reviewers testing the Cloud-API
+   BSP product will never reach or see these features at all, which
+   substantially de-risks the review. **Still resolve explicitly before
+   submitting:** confirm the flag is off for whatever org/demo account you
+   hand reviewers, and make your own business decision about whether to
+   ever enable it for a Tech-Provider-branded customer — the underlying
+   Platform Terms risk (an unofficial client sending on a customer's behalf)
+   is unchanged for any organization you do choose to enable it for.
 
 ## After approval
 

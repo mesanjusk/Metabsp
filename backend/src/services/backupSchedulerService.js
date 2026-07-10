@@ -2,6 +2,7 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
+const { withLeaderLock } = require('./schedulerLock');
 const logger = require('../utils/logger');
 
 const execFileAsync = promisify(execFile);
@@ -46,7 +47,10 @@ function startBackupScheduler({ intervalMs = 24 * 60 * 60 * 1000 } = {}) {
   }
 
   return setInterval(() => {
-    runScheduledBackup().catch((error) =>
+    // Longer TTL than the other schedulers' default — mongodump itself is
+    // allowed up to 15 minutes (see the execFileAsync timeout above), so the
+    // lock needs to outlive the actual backup run, not just a quick DB scan.
+    withLeaderLock('scheduled-backup', runScheduledBackup, { ttlMs: 20 * 60 * 1000 }).catch((error) =>
       logger.error('[backup-scheduler] Scheduled run failed:', error.message)
     );
   }, intervalMs).unref();
