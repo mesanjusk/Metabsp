@@ -151,6 +151,10 @@ function startScheduler() {
   }, 60 * 1000).unref();
 }
 
-startScheduler();
+// Skip under test — requiring this route file (e.g. via supertest against
+// src/app) shouldn't start a real 60s Mongo-polling interval; nothing in the
+// test suite provisions a live Mongo connection for it to query, so it was
+// only ever failing with a buffering-timeout error in the background.
+if (process.env.NODE_ENV !== 'test') startScheduler();
 
 module.exports = router;

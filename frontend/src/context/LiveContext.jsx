@@ -25,7 +25,13 @@ export function LiveProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (user?.roleId?.code) socket.emit('join-role-room', user.roleId.code);
+    if (user?.roleId?.code) {
+      socket.connect();
+      socket.emit('join-role-room', user.roleId.code);
+    } else {
+      socket.disconnect();
+    }
+    return () => socket.disconnect();
   }, [user]);
 
   return <LiveContext.Provider value={useMemo(() => ({ events, connected }), [events, connected])}>{children}</LiveContext.Provider>;
