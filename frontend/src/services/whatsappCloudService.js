@@ -162,6 +162,8 @@ export const sendWhatsAppBroadcast = (payload) => apiClient.post('/api/whatsapp/
 
 
 export const fetchWhatsAppTemplates = () => apiClient.get('/api/whatsapp/templates');
+export const createWhatsAppTemplate = (payload) =>
+  apiClient.post('/api/whatsapp/templates', payload, { headers: { 'Content-Type': 'application/json' } });
 
 export const sendWhatsAppTextMessage = (payload) =>
   apiClient.post('/api/whatsapp/send-text', payload);
@@ -297,6 +299,7 @@ export const whatsappCloudService = {
   importContacts,
   sendBroadcast: sendWhatsAppBroadcast,
   getTemplates: fetchWhatsAppTemplates,
+  createTemplate: createWhatsAppTemplate,
   getStatus: fetchWhatsAppStatus,
   getAccount: fetchWhatsAppAccount,
   getAccounts: fetchWhatsAppAccounts,

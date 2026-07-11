@@ -1372,6 +1372,56 @@ const getTemplates = asyncHandler(async (req, res) => {
   }
 });
 
+const TEMPLATE_NAME_PATTERN = /^[a-z0-9_]{1,512}$/;
+const TEMPLATE_CATEGORIES = ['MARKETING', 'UTILITY', 'AUTHENTICATION'];
+
+const createTemplate = asyncHandler(async (req, res) => {
+  const {
+    name,
+    category,
+    language = 'en_US',
+    header = '',
+    body,
+    footer = '',
+  } = req.body || {};
+
+  const resolvedName = String(name || '').trim().toLowerCase();
+  const resolvedCategory = String(category || '').trim().toUpperCase();
+  const resolvedBody = String(body || '').trim();
+
+  if (!TEMPLATE_NAME_PATTERN.test(resolvedName)) {
+    throw new AppError('Template name must use only lowercase letters, numbers, and underscores', 400);
+  }
+  if (!TEMPLATE_CATEGORIES.includes(resolvedCategory)) {
+    throw new AppError(`category must be one of ${TEMPLATE_CATEGORIES.join(', ')}`, 400);
+  }
+  if (!resolvedBody) throw new AppError('body is required', 400);
+
+  const components = [{ type: 'BODY', text: resolvedBody }];
+  const resolvedHeader = String(header || '').trim();
+  if (resolvedHeader) components.push({ type: 'HEADER', format: 'TEXT', text: resolvedHeader });
+  const resolvedFooter = String(footer || '').trim();
+  if (resolvedFooter) components.push({ type: 'FOOTER', text: resolvedFooter });
+
+  const accountContext = await resolveCurrentWhatsAppAccount(req);
+  const wabaId = String(accountContext.wabaId || accountContext.businessAccountId || '').trim();
+  const accessToken = String(accountContext.accessToken || '').trim();
+  if (!accessToken || !wabaId) throw new AppError('Missing WhatsApp credentials', 400);
+
+  try {
+    const response = await axios.post(
+      `https://graph.facebook.com/${RESOLVED_API_VERSION}/${wabaId}/message_templates`,
+      { name: resolvedName, category: resolvedCategory, language, components },
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, timeout: 15000 }
+    );
+
+    recordAuditEvent({ req, action: 'whatsapp_template.create', resource: 'whatsapp_template', metadata: { name: resolvedName, category: resolvedCategory } });
+    return res.status(201).json({ success: true, data: response?.data });
+  } catch (error) {
+    throw normalizeWhatsAppApiError(error, 'Failed to create WhatsApp template');
+  }
+});
+
 const getMessages = asyncHandler(async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
@@ -2051,6 +2101,7 @@ module.exports = {
   bulkUpdateContacts,
   importContacts,
   getTemplates,
+  createTemplate,
   getMessages,
   getConversations,
   assignConversation,
