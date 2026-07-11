@@ -85,6 +85,8 @@ const loadActiveWhatsAppAccountForUser = async (userId, options = {}) => {
   }
 
   if (!account) {
+    if (!requireAccount) return null;
+
     // No legacy-env fallback for regular users: that config is the platform's
     // own number (see otpService.js, which uses resolveLegacyEnvConfig
     // directly for signup/reset OTPs), and a tenant's own send/status/
@@ -103,7 +105,6 @@ const loadActiveWhatsAppAccountForUser = async (userId, options = {}) => {
       if (legacyConfig) return legacyConfig;
     }
 
-    if (!requireAccount) return null;
     throw new AppError('No active WhatsApp account connected', 404);
   }
 

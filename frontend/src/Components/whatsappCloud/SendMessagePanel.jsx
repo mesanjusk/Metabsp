@@ -2,6 +2,7 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { Box, Paper, Stack, TextField, Typography } from '@mui/material';
 import TemplateMessageComposer from './TemplateMessageComposer';
+import CreateTemplateForm from './CreateTemplateForm';
 import BulkSender from './BulkSender';
 
 const initialForm = { to: '' };
@@ -27,6 +28,10 @@ export default function SendMessagePanel({ search }) {
 
           <TemplateMessageComposer recipient={form.to} className="space-y-3" buttonLabel="Send Template Message" />
         </Stack>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+        <CreateTemplateForm />
       </Paper>
 
       <BulkSender search={search} />

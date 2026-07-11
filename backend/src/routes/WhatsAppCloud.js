@@ -41,6 +41,7 @@ const {
   bulkUpdateContacts,
   importContacts,
   getTemplates,
+  createTemplate,
   getMessages,
   getConversations,
   assignConversation,
@@ -110,6 +111,7 @@ router.delete('/workflows/:id', requireAuth, deleteWorkflow);
 router.patch('/workflows/:id/toggle', requireAuth, toggleWorkflow);
 
 router.get('/templates', requireAuth, getTemplates);
+router.post('/templates', requireAuth, messagingLimiter, createTemplate);
 router.get('/messages', requireAuth, getMessages);
 router.get('/conversations', requireAuth, getConversations);
 router.put('/conversations/:phone/assign', requireAuth, assignConversation);
