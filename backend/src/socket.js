@@ -18,6 +18,11 @@ let ioInstance = null;
 const initSocket = (server) => {
   const pubClient = getRedisConnection();
   const subClient = pubClient.duplicate();
+  // duplicate() doesn't carry over pubClient's listeners, so without this
+  // the adapter falls back to its own bare console.warn("missing 'error'
+  // handler on this Redis client") on every reconnect attempt instead of
+  // our structured logger.
+  subClient.on('error', (error) => logger.error('[socket.io redis] Subscriber connection error:', error.message));
 
   ioInstance = new Server(server, {
     cors: {

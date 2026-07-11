@@ -46,3 +46,43 @@ describe('middleware/rateLimit createAuthRateLimiter', () => {
     expect(blocked.body.success).toBe(false);
   });
 });
+
+describe('middleware/rateLimit createAuthRateLimiter when Redis is unreachable', () => {
+  // Regression test for a real production incident: getRedisConnection()
+  // uses maxRetriesPerRequest: null (required by BullMQ elsewhere), so a
+  // command sent while Redis is down never resolves *or* rejects — it just
+  // queues forever. That silently defeated passOnStoreError, which only
+  // triggers on a rejected store call, so every login/OTP request hung
+  // until the client gave up. Login/signup/forgot-password all share this
+  // limiter, so this hung every auth flow, not just login.
+  it('times out the stalled Redis call and lets the request through instead of hanging', async () => {
+    jest.resetModules();
+    jest.doMock('../src/config/redis', () => ({
+      getRedisConnection: () => ({
+        // rate-limit-redis's RedisStore constructor eagerly loads a script
+        // for its unused .get() method alongside the increment one this
+        // flow actually exercises. Resolving that one immediately (real
+        // Redis would too — SCRIPT LOAD is near-instant when reachable)
+        // keeps this test focused on what it's meant to prove: the
+        // increment path times out and degrades gracefully instead of
+        // hanging, without leaving an unrelated dangling promise around.
+        call: (...args) => {
+          const isUnusedGetScriptLoad =
+            args[0] === 'SCRIPT' && args[1] === 'LOAD' && typeof args[2] === 'string' && !args[2].includes('INCR');
+          return isUnusedGetScriptLoad ? Promise.resolve('unused-get-script-sha') : new Promise(() => {});
+        },
+      }),
+    }));
+
+    const { createAuthRateLimiter } = require('../src/middleware/rateLimit');
+    const app = express();
+    app.use(createAuthRateLimiter({ windowMs: 60_000, maxRequests: 3 }));
+    app.post('/login', (_req, res) => res.status(200).json({ ok: true }));
+
+    const res = await request(app).post('/login');
+    expect(res.status).toBe(200);
+
+    jest.dontMock('../src/config/redis');
+    jest.resetModules();
+  }, 5000);
+});
