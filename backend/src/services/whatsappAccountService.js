@@ -85,10 +85,24 @@ const loadActiveWhatsAppAccountForUser = async (userId, options = {}) => {
   }
 
   if (!account) {
-    // No legacy-env fallback here: that config is the platform's own number
-    // (see otpService.js, which uses resolveLegacyEnvConfig directly for
-    // signup/reset OTPs). A logged-in user's own send/status/template calls
-    // must never silently borrow it — surface "connect your own number" instead.
+    // No legacy-env fallback for regular users: that config is the platform's
+    // own number (see otpService.js, which uses resolveLegacyEnvConfig
+    // directly for signup/reset OTPs), and a tenant's own send/status/
+    // template calls must never silently borrow it — surface "connect your
+    // own number" instead. SUPER_ADMIN is the one exception: that account is
+    // the platform operator's own (seeded from Render env vars, see
+    // bulk/seedAdmin.js / bulk/controllers/authController.js's bootstrap
+    // login), so it's expected to always be "connected" via the same
+    // Render-configured WhatsApp number rather than needing its own
+    // Embedded Signup connection — needed so App Review demo videos (send
+    // message / create template) can be recorded straight from this login.
+    const User = require('../../bulk/models/User');
+    const user = await User.findById(userId).select('eventDutyType').lean();
+    if (user?.eventDutyType === 'SUPER_ADMIN') {
+      const legacyConfig = resolveLegacyEnvConfig();
+      if (legacyConfig) return legacyConfig;
+    }
+
     if (!requireAccount) return null;
     throw new AppError('No active WhatsApp account connected', 404);
   }
