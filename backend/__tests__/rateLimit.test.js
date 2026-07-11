@@ -59,13 +59,16 @@ describe('middleware/rateLimit createAuthRateLimiter when Redis is unreachable',
     jest.resetModules();
     jest.doMock('../src/config/redis', () => ({
       getRedisConnection: () => ({
-        // rate-limit-redis's RedisStore constructor eagerly loads a script
-        // for its unused .get() method alongside the increment one this
-        // flow actually exercises. Resolving that one immediately (real
-        // Redis would too — SCRIPT LOAD is near-instant when reachable)
-        // keeps this test focused on what it's meant to prove: the
-        // increment path times out and degrades gracefully instead of
-        // hanging, without leaving an unrelated dangling promise around.
+        // rate-limit-redis's RedisStore constructor also eagerly loads a
+        // script for its .get() method, which this app never calls anywhere
+        // — nobody ever awaits that promise. Resolving that specific load
+        // immediately (real Redis would too — SCRIPT LOAD is near-instant
+        // when reachable) keeps this test deterministic and focused on what
+        // it's meant to prove — the increment path times out and degrades
+        // gracefully — without depending on jest.setup.js's process-wide
+        // unhandledRejection safety net (which exists for this exact
+        // dangling promise in general, but shouldn't be what makes *this*
+        // specific test pass or fail).
         call: (...args) => {
           const isUnusedGetScriptLoad =
             args[0] === 'SCRIPT' && args[1] === 'LOAD' && typeof args[2] === 'string' && !args[2].includes('INCR');
@@ -84,5 +87,5 @@ describe('middleware/rateLimit createAuthRateLimiter when Redis is unreachable',
 
     jest.dontMock('../src/config/redis');
     jest.resetModules();
-  }, 5000);
+  }, 8000); // retryableIncrement retries once on failure, so up to 2x REDIS_COMMAND_TIMEOUT_MS
 });

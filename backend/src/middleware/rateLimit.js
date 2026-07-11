@@ -18,14 +18,26 @@ let sharedStorePrefix = 'rl:';
 // limit only falls back to "allow the request" on a *rejected* store call,
 // so a Redis outage would otherwise hang every login/OTP request forever
 // instead of degrading to no rate limiting.
-const REDIS_COMMAND_TIMEOUT_MS = 1500;
-const sendCommandWithTimeout = (...args) =>
-  Promise.race([
+const REDIS_COMMAND_TIMEOUT_MS = 2500;
+const sendCommandWithTimeout = (...args) => {
+  const raced = Promise.race([
     getRedisConnection().call(...args),
     new Promise((_resolve, reject) =>
       setTimeout(() => reject(new Error('[rateLimit] Redis command timed out')), REDIS_COMMAND_TIMEOUT_MS)
     ),
   ]);
+  // rate-limit-redis's RedisStore eagerly loads a script for its .get()
+  // method that this app never calls anywhere, so that particular call's
+  // result is never awaited by anyone else. Attaching a no-op catch here —
+  // on this exact promise, not a derived one — marks it "handled" for
+  // Node's unhandled-rejection bookkeeping without affecting the real
+  // awaiter on the (used) increment path: multiple independent .catch/await
+  // calls on the same promise each still see its rejection normally: this
+  // one just stops it from being reported as unhandled if nothing else
+  // ever awaits this particular call.
+  raced.catch(() => {});
+  return raced;
+};
 
 const buildStore = (prefix) => {
   try {

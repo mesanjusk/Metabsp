@@ -6,7 +6,8 @@ const MockServer = jest.fn().mockImplementation(() => ({ on: mockOn, emit: jest.
 jest.mock('@socket.io/redis-adapter', () => ({ createAdapter: mockCreateAdapter }));
 jest.mock('socket.io', () => ({ Server: MockServer }));
 
-const mockDuplicate = jest.fn().mockReturnValue({ __mockSubClient: true });
+const mockSubClientOn = jest.fn();
+const mockDuplicate = jest.fn().mockReturnValue({ __mockSubClient: true, on: mockSubClientOn });
 const mockPubClient = { duplicate: mockDuplicate };
 jest.mock('../src/config/redis', () => ({ getRedisConnection: jest.fn().mockReturnValue(mockPubClient) }));
 
@@ -15,7 +16,7 @@ const { initSocket } = require('../src/socket');
 describe('initSocket', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockDuplicate.mockReturnValue({ __mockSubClient: true });
+    mockDuplicate.mockReturnValue({ __mockSubClient: true, on: mockSubClientOn });
   });
 
   it('wires a Redis pub/sub adapter using a duplicated connection, not the shared singleton, as the subscriber', () => {
@@ -23,10 +24,16 @@ describe('initSocket', () => {
     initSocket(fakeHttpServer);
 
     expect(mockDuplicate).toHaveBeenCalledTimes(1);
-    expect(mockCreateAdapter).toHaveBeenCalledWith(mockPubClient, { __mockSubClient: true });
+    expect(mockCreateAdapter).toHaveBeenCalledWith(mockPubClient, { __mockSubClient: true, on: mockSubClientOn });
     expect(MockServer).toHaveBeenCalledWith(
       fakeHttpServer,
       expect.objectContaining({ adapter: mockAdapterInstance })
     );
+  });
+
+  it('attaches an error listener to the duplicated subscriber connection, since duplicate() does not inherit one', () => {
+    initSocket({});
+
+    expect(mockSubClientOn).toHaveBeenCalledWith('error', expect.any(Function));
   });
 });
