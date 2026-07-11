@@ -10,10 +10,27 @@ const logger = require('../utils/logger');
 // and survive a process restart — the previous in-memory version reset per
 // instance and per deploy, giving a false sense of protection at scale.
 let sharedStorePrefix = 'rl:';
+
+// getRedisConnection() is configured with maxRetriesPerRequest: null for
+// BullMQ's sake, which means a command issued while Redis is unreachable
+// queues silently and its promise never settles — not even a rejection.
+// Without this timeout, passOnStoreError below is dead code: express-rate-
+// limit only falls back to "allow the request" on a *rejected* store call,
+// so a Redis outage would otherwise hang every login/OTP request forever
+// instead of degrading to no rate limiting.
+const REDIS_COMMAND_TIMEOUT_MS = 1500;
+const sendCommandWithTimeout = (...args) =>
+  Promise.race([
+    getRedisConnection().call(...args),
+    new Promise((_resolve, reject) =>
+      setTimeout(() => reject(new Error('[rateLimit] Redis command timed out')), REDIS_COMMAND_TIMEOUT_MS)
+    ),
+  ]);
+
 const buildStore = (prefix) => {
   try {
     return new RedisStore({
-      sendCommand: (...args) => getRedisConnection().call(...args),
+      sendCommand: sendCommandWithTimeout,
       prefix: `${sharedStorePrefix}${prefix}:`,
     });
   } catch (error) {
