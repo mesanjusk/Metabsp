@@ -625,7 +625,7 @@ export default function WhatsAppCloudDashboard() {
             onChange={(_, v) => setMainTab(v)}
             sx={{ height: 66, '& .MuiBottomNavigationAction-root': { minWidth: 0 }, '& .MuiBottomNavigationAction-label': { fontSize: '0.68rem' } }}
           >
-            {MAIN_TABS.map(item => (
+            {visibleMainTabs.map(item => (
               <BottomNavigationAction
                 key={item.key}
                 value={item.key}
