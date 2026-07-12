@@ -8,6 +8,7 @@ const AutoReply = require('../repositories/AutoReply');
 const CampaignMessageStatus = require('../repositories/CampaignMessageStatus');
 const WhatsAppAccount = require('../repositories/whatsappAccount');
 const WebhookDestination = require('../models/WebhookDestination');
+const ConversationOwner = require('../models/ConversationOwner');
 const { emitNewMessage } = require('../socket');
 const { resolveAutoReplyAction, resolveReplyDelayMs, getCatalogFields } = require('../middleware/autoReply');
 const logger = require('../utils/logger');
@@ -1671,12 +1672,17 @@ async function postToWebhookDestination(dest, payload, body, signature) {
   return { ok: false, error: lastError };
 }
 
-// Self-service multi-project webhook fan-out: every active WebhookDestination
-// registered against the matched WhatsApp account gets the parsed message
-// payload, HMAC-signed with that destination's own secret so the receiving
-// project can verify authenticity without needing Meta's app secret.
+// Non-message events (contact created/updated/deleted) still fan out to every
+// active destination: they don't trigger bot replies, so there is no flooding
+// risk and every project may want to stay in sync.
 async function forwardToWebhookDestinations(whatsappAccountId, payload) {
   const destinations = await WebhookDestination.find({ whatsappAccountId, isActive: true }).lean();
+  return deliverToDestinations(destinations, payload);
+}
+
+// Delivers one payload to the given destinations, HMAC-signed per destination
+// so the receiving project can verify authenticity without Meta's app secret.
+async function deliverToDestinations(destinations, payload) {
   if (!destinations.length) return;
 
   const body = JSON.stringify(payload);
@@ -1700,6 +1706,83 @@ async function forwardToWebhookDestinations(whatsappAccountId, payload) {
       }
     })
   );
+}
+
+// ── Keyword routing for inbound messages ─────────────────────────────────────
+// Instead of blindly fanning every inbound message out to all destinations
+// (which made several projects reply to one message), each message is routed
+// to (a) the destination whose entry keyword starts the message, or (b) the
+// owner of the sender's active conversation (30-minute inactivity expiry,
+// released on EXIT). Messages that match neither go only to legacy
+// destinations without an entryKeyword or with fanoutFallback enabled.
+// Metabsp's own bot flow (auto-replies/workflows) is a routing target like
+// any other project, owning the SETUP keyword — it no longer answers
+// greetings or unrelated traffic.
+
+const SELF_ENTRY_KEYWORD = 'SETUP';
+const UNIVERSAL_EXIT_KEYWORD = 'EXIT';
+
+const startsWithKeyword = (upperText, keyword) => {
+  const kw = String(keyword || '').trim().toUpperCase();
+  return Boolean(kw) && (upperText === kw || upperText.startsWith(`${kw} `));
+};
+
+async function resolveInboundRouting(whatsappAccountId, payload) {
+  const phone = normalizePhone(payload.from);
+  const text = payload.type === 'text' ? String(payload.message || '').trim() : '';
+  const upperText = text.toUpperCase();
+
+  const destinations = await WebhookDestination.find({ whatsappAccountId, isActive: true }).lean();
+
+  // 1. Metabsp's own entry keyword claims the conversation for its bot flow.
+  if (startsWithKeyword(upperText, SELF_ENTRY_KEYWORD)) {
+    await ConversationOwner.updateOne(
+      { whatsappAccountId, phone },
+      { $set: { ownerType: 'self', destinationId: null, lastActivityAt: new Date() } },
+      { upsert: true }
+    );
+    return { selfOwned: true, targets: [] };
+  }
+
+  // 2. A destination's entry keyword (or alias) claims it.
+  const keywordDest = destinations.find((dest) =>
+    [dest.entryKeyword, ...(dest.aliases || [])].some((kw) => startsWithKeyword(upperText, kw))
+  );
+  if (keywordDest) {
+    await ConversationOwner.updateOne(
+      { whatsappAccountId, phone },
+      { $set: { ownerType: 'destination', destinationId: keywordDest._id, lastActivityAt: new Date() } },
+      { upsert: true }
+    );
+    return { selfOwned: false, targets: [keywordDest] };
+  }
+
+  // 3. The sender's active conversation owner (keyword-opened, 30-min expiry).
+  const owner = phone ? await ConversationOwner.findOne({ whatsappAccountId, phone }).lean() : null;
+  const ownerActive = Boolean(
+    owner?.lastActivityAt && Date.now() - new Date(owner.lastActivityAt).getTime() < ConversationOwner.TTL_MS
+  );
+  if (ownerActive) {
+    if (upperText === UNIVERSAL_EXIT_KEYWORD) {
+      // Still deliver EXIT to the owner so it can close its own session,
+      // but release ownership here so the next message routes fresh.
+      await ConversationOwner.deleteOne({ _id: owner._id });
+    } else {
+      await ConversationOwner.updateOne({ _id: owner._id }, { $set: { lastActivityAt: new Date() } });
+    }
+    if (owner.ownerType === 'self') return { selfOwned: true, targets: [] };
+    const ownedDest = destinations.find((dest) => String(dest._id) === String(owner.destinationId));
+    return { selfOwned: false, targets: ownedDest ? [ownedDest] : [] };
+  }
+
+  // 4. No keyword, no active conversation: only legacy destinations (no
+  // entryKeyword declared) or ones that explicitly opted into fan-out
+  // fallback receive it. With every destination migrated to a keyword and
+  // fallback off, unmatched messages are forwarded nowhere.
+  return {
+    selfOwned: false,
+    targets: destinations.filter((dest) => dest.fanoutFallback || !dest.entryKeyword),
+  };
 }
 
 const receiveWebhook = (req, res) => {
@@ -1917,7 +2000,20 @@ const receiveWebhook = (req, res) => {
           }
         }
 
-        if (!isDuplicate && payload.type === 'text' && matchedAccount?._id && matchedAccount?.userId) {
+        // Keyword routing decides who this message belongs to: Metabsp's own
+        // bot (SETUP / its active session) or specific destinations. Runs only
+        // for fresh messages so Meta's delivery retries are never re-routed or
+        // re-forwarded.
+        let routing = { selfOwned: false, targets: [] };
+        if (!isDuplicate && matchedAccount?._id) {
+          try {
+            routing = await resolveInboundRouting(matchedAccount._id, payload);
+          } catch (routingErr) {
+            logger.error('[whatsapp] inbound routing failed:', routingErr.message);
+          }
+        }
+
+        if (!isDuplicate && routing.selfOwned && payload.type === 'text' && matchedAccount?._id && matchedAccount?.userId) {
           const phone = normalizePhone(payload.from);
           const contactDoc = phone ? await Contact.findOne({ phone }) : null;
 
@@ -1970,9 +2066,9 @@ const receiveWebhook = (req, res) => {
           }
         }
 
-        if (matchedAccount?._id) {
-          forwardToWebhookDestinations(matchedAccount._id, payload).catch((err) =>
-            logger.error('[whatsapp] webhook destination fan-out failed:', err.message)
+        if (!isDuplicate && routing.targets.length) {
+          deliverToDestinations(routing.targets, payload).catch((err) =>
+            logger.error('[whatsapp] webhook destination forward failed:', err.message)
           );
         }
 
@@ -2143,6 +2239,8 @@ module.exports = {
   removeTeamMember: removeTeamMemberHandler,
   verifyWebhook,
   receiveWebhook,
+  // Exported for __tests__/inboundRouting.test.js — not mounted as a route.
+  resolveInboundRouting,
   getAnalytics,
   createApiKey,
   listApiKeys,

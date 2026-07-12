@@ -13,6 +13,15 @@ const webhookDestinationSchema = new mongoose.Schema(
     url: { type: String, required: true, trim: true },
     secret: { type: String, required: true }, // HMAC key so the destination can verify authenticity independent of Meta's app secret
     isActive: { type: Boolean, default: true },
+    // Keyword routing: each destination declares the ONE entry keyword it owns
+    // on the shared number (plus optional globally-unique aliases). Inbound
+    // messages are forwarded only to the destination whose keyword matches or
+    // that owns the sender's active conversation. Destinations with no
+    // entryKeyword (legacy) — or with fanoutFallback on — also receive
+    // messages that match no keyword and no active conversation.
+    entryKeyword: { type: String, default: '', trim: true, uppercase: true },
+    aliases: { type: [String], default: [] },
+    fanoutFallback: { type: Boolean, default: false },
     lastAttemptAt: { type: Date, default: null },
     lastStatus: { type: String, enum: ['', 'success', 'failed'], default: '' },
     lastError: { type: String, default: '' },
