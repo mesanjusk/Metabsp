@@ -142,7 +142,7 @@ const SectionSurface = ({ children }) => (
       height: '100%',
       minHeight: 0,
       borderRadius: { xs: 0, lg: 4 },
-      overflow: 'hidden',
+      overflow: 'auto',
       borderColor: 'rgba(17, 27, 33, 0.12)',
       boxShadow: { lg: '0 24px 55px rgba(17, 27, 33, 0.14)' },
       bgcolor: '#f7f8fa',
@@ -478,7 +478,7 @@ export default function WhatsAppCloudDashboard() {
   const subTabList = SUB_TABS[mainTab] || [];
 
   return (
-    <Box sx={{ minHeight: '100dvh', display: 'grid', gridTemplateColumns: { lg: '72px minmax(0, 1fr)' }, bgcolor: { xs: '#e9edef', lg: '#111b21' } }}>
+    <Box sx={{ height: '100dvh', overflow: 'hidden', display: 'grid', gridTemplateColumns: { lg: '72px minmax(0, 1fr)' }, gridTemplateRows: '1fr', bgcolor: { xs: '#e9edef', lg: '#111b21' } }}>
 
       {/* ── Desktop sidebar (4 main tabs as icon list) ── */}
       {isDesktop && (
@@ -529,7 +529,7 @@ export default function WhatsAppCloudDashboard() {
       )}
 
       {/* ── Main content column ── */}
-      <Stack sx={{ minWidth: 0, minHeight: '100dvh', pb: { xs: 8, md: 0 } }}>
+      <Stack sx={{ minWidth: 0, height: '100%', minHeight: 0, overflow: 'hidden', pb: { xs: 8, md: 0 } }}>
 
         {/* Header */}
         <Paper square elevation={0} sx={{
