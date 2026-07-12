@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import {
   Box,
   Button,
   FormControl,
+  Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -19,18 +20,47 @@ import { useTemplates } from '../../hooks/useTemplates';
 const CATEGORIES = ['UTILITY', 'MARKETING', 'AUTHENTICATION'];
 const initialForm = { name: '', category: 'UTILITY', language: 'en_US', header: '', body: '', footer: '' };
 
+// Meta rejects templates with {{n}} variables unless an example value is
+// supplied for each one (example.body_text / example.header_text) — without
+// this, reviewers/automation have no real content to evaluate against.
+const countVariables = (text) => {
+  const matches = String(text || '').match(/\{\{\d+\}\}/g) || [];
+  const numbers = matches.map((token) => Number(token.replace(/\D/g, ''))).filter(Number.isFinite);
+  return numbers.length ? Math.max(...numbers) : 0;
+};
+
 export default function CreateTemplateForm() {
   const [form, setForm] = useState(initialForm);
+  const [bodyExamples, setBodyExamples] = useState([]);
+  const [headerExample, setHeaderExample] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { refetchTemplates } = useTemplates();
 
+  const bodyVariableCount = useMemo(() => countVariables(form.body), [form.body]);
+  const headerHasVariable = useMemo(() => countVariables(form.header) > 0, [form.header]);
+
   const updateField = (field) => (event) => setForm((prev) => ({ ...prev, [field]: event.target.value }));
+  const updateBodyExample = (index) => (event) =>
+    setBodyExamples((prev) => {
+      const next = [...prev];
+      next[index] = event.target.value;
+      return next;
+    });
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!form.name.trim() || !form.body.trim()) {
       toast.error('Template name and body are required.');
+      return;
+    }
+
+    if (bodyVariableCount > 0 && Array.from({ length: bodyVariableCount }).some((_, i) => !bodyExamples[i]?.trim())) {
+      toast.error('Provide an example value for every {{variable}} in the body.');
+      return;
+    }
+    if (headerHasVariable && !headerExample.trim()) {
+      toast.error('Provide an example value for the {{variable}} in the header.');
       return;
     }
 
@@ -41,11 +71,15 @@ export default function CreateTemplateForm() {
         category: form.category,
         language: form.language,
         header: form.header.trim(),
+        headerExample: headerExample.trim(),
         body: form.body.trim(),
+        bodyExamples: bodyExamples.slice(0, bodyVariableCount).map((v) => v.trim()),
         footer: form.footer.trim(),
       });
       toast.success('Template submitted to Meta for approval.');
       setForm(initialForm);
+      setBodyExamples([]);
+      setHeaderExample('');
       refetchTemplates();
     } catch (error) {
       toast.error(parseApiError(error, 'Failed to create template.'));
@@ -109,6 +143,18 @@ export default function CreateTemplateForm() {
           disabled={isSubmitting}
         />
 
+        {headerHasVariable && (
+          <TextField
+            label="Example value for header {{1}}"
+            value={headerExample}
+            onChange={(event) => setHeaderExample(event.target.value)}
+            placeholder="Order #12345"
+            helperText="Meta requires a realistic example for every variable — templates without one are auto-rejected"
+            disabled={isSubmitting}
+            required
+          />
+        )}
+
         <TextField
           label="Body"
           value={form.body}
@@ -120,6 +166,29 @@ export default function CreateTemplateForm() {
           disabled={isSubmitting}
           required
         />
+
+        {bodyVariableCount > 0 && (
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Meta requires a realistic example value for every body variable — templates without one are auto-rejected.
+            </Typography>
+            <Grid container spacing={1.5}>
+              {Array.from({ length: bodyVariableCount }).map((_, index) => (
+                <Grid item xs={12} sm={6} key={index}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={`Example for {{${index + 1}}}`}
+                    value={bodyExamples[index] || ''}
+                    onChange={updateBodyExample(index)}
+                    disabled={isSubmitting}
+                    required
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
 
         <TextField
           label="Footer (optional)"
