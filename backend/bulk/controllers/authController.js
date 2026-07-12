@@ -49,10 +49,18 @@ function canUseBootstrapLogin() {
 // can hide/show Baileys-related tabs without a separate round trip — off by
 // default for every organization (see models/Organization.js) until a super
 // admin flips it on for that customer (PATCH /api/bulk/org/:id/baileys).
+//
+// Super admin / no-org accounts have no Organization document to carry this
+// flag, but they should still default to "off" in the UI — Baileys/
+// WhatsApp-Web features must not be visible-by-default on the account used
+// for Meta App Review demos. requireBaileysEnabled (src/middleware/
+// baileysGate.js) still lets super admins through at the API layer
+// regardless of this flag (support/testing), this only controls what the
+// frontend shows by default.
 async function withBaileysFlag(userDoc) {
   const payload = userDoc?.toObject ? userDoc.toObject() : { ...userDoc };
   if (!payload.tenantId) {
-    payload.baileysEnabled = true; // super admin / no org — unaffected by the toggle
+    payload.baileysEnabled = false;
     return payload;
   }
   const Organization = require('../models/Organization');

@@ -30,6 +30,7 @@ import SearchIcon       from '@mui/icons-material/Search';
 import SaveAltIcon      from '@mui/icons-material/SaveAlt';
 import PageHeader    from '../components/PageHeader';
 import PageSurface   from '../components/PageSurface';
+import { useAuth }   from '../context/BulkAuthContext';
 import ResponsiveDialog from '../components/ResponsiveDialog';
 import ResponsiveTable  from '../components/ResponsiveTable';
 import whatsappService  from '../services/whatsappService';
@@ -2506,6 +2507,14 @@ function GroupMembersPanel() {
 
 export default function WhatsAppPage() {
 
+  // Baileys/WhatsApp-Web is off-by-default per organization (and, since this
+  // feature must never be visible-by-default on the account used for Meta
+  // App Review demos, for super-admin/no-org accounts too — see
+  // withBaileysFlag in bulk/controllers/authController.js). The toggle/tabs
+  // below only ever render when the backend says this account has it on.
+  const { user } = useAuth();
+  const baileysEnabled = !!user?.baileysEnabled;
+
   const [useBaileys, setUseBaileys] = useState(
     () => localStorage.getItem('wa_provider') !== 'official'
   );
@@ -2612,11 +2621,19 @@ export default function WhatsAppPage() {
     await whatsappService.baileysMarkRead(key).catch(() => null);
   };
 
+  // Force out of Baileys mode (regardless of a stale localStorage
+  // preference from before this account lost/never had access) whenever the
+  // account isn't actually allowed to see it.
+  useEffect(() => {
+    if (!baileysEnabled && useBaileys) setUseBaileys(false);
+  }, [baileysEnabled, useBaileys]);
+
   useEffect(() => { if (useBaileys) loadBaileys(); else loadOfficial(); }, [useBaileys]);
   useEffect(() => { if (!useBaileys) loadOfficialConversation(selectedConversationKey); }, [selectedConversationKey]);
   useEffect(() => { if (useBaileys)  loadBaileysConversation(baileysSelectedKey);       }, [baileysSelectedKey]);
 
   const handleToggle = () => {
+    if (!baileysEnabled) return;
     setUseBaileys(v => {
       const next = !v;
       if (next) localStorage.removeItem('wa_provider');
@@ -2826,7 +2843,11 @@ export default function WhatsAppPage() {
       <PageHeader
         eyebrow="Communication"
         title="WhatsApp Management"
-        subtitle="Switch between Official Cloud API and Baileys with separate inboxes, auto-reply, invitation, blast history, and QR-based connection."
+        subtitle={
+          baileysEnabled
+            ? 'Switch between Official Cloud API and Baileys with separate inboxes, auto-reply, invitation, blast history, and QR-based connection.'
+            : 'Send messages, manage templates, auto-reply, and invitations through the official WhatsApp Cloud API.'
+        }
         chips={[
           { label: useBaileys ? '🐝 Baileys Mode' : '✅ Official API', color: useBaileys ? 'warning' : 'success' },
           { label: useBaileys ? `${baileysInbox.length} Conversations` : `${inbox.length} Conversations`, color: 'success' },
@@ -2836,7 +2857,9 @@ export default function WhatsAppPage() {
         ]}
       />
 
-      <ProviderToggle useBaileys={useBaileys} onToggle={handleToggle} baileysStatus={baileysStatus?.status} />
+      {baileysEnabled && (
+        <ProviderToggle useBaileys={useBaileys} onToggle={handleToggle} baileysStatus={baileysStatus?.status} />
+      )}
 
       <PageSurface sx={{ mb: 2 }}>
         <Tabs
