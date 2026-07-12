@@ -1375,13 +1375,37 @@ const getTemplates = asyncHandler(async (req, res) => {
 const TEMPLATE_NAME_PATTERN = /^[a-z0-9_]{1,512}$/;
 const TEMPLATE_CATEGORIES = ['MARKETING', 'UTILITY', 'AUTHENTICATION'];
 
+// Meta requires an example value for every {{n}} variable in a text
+// component ("example.body_text"/"example.header_text") — without it,
+// templates with variables are auto-rejected (reviewers/automation have no
+// real content to evaluate the template against). Variables must also be
+// numbered 1..N with no gaps.
+const extractVariableNumbers = (text) =>
+  Array.from(new Set(Array.from(String(text || '').matchAll(/\{\{(\d+)\}\}/g), (m) => Number(m[1])))).sort((a, b) => a - b);
+
+const validateVariablesHaveExamples = (text, examples, label) => {
+  const variableNumbers = extractVariableNumbers(text);
+  if (!variableNumbers.length) return null;
+
+  const isSequential = variableNumbers.every((n, i) => n === i + 1);
+  if (!isSequential) throw new AppError(`${label} variables must be numbered {{1}}, {{2}}, ... with no gaps`, 400);
+
+  const resolvedExamples = (Array.isArray(examples) ? examples : []).map((v) => String(v || '').trim());
+  if (resolvedExamples.length !== variableNumbers.length || resolvedExamples.some((v) => !v)) {
+    throw new AppError(`Provide an example value for each ${label} variable ({{1}}..{{${variableNumbers.length}}})`, 400);
+  }
+  return resolvedExamples;
+};
+
 const createTemplate = asyncHandler(async (req, res) => {
   const {
     name,
     category,
     language = 'en_US',
     header = '',
+    headerExample = '',
     body,
+    bodyExamples = [],
     footer = '',
   } = req.body || {};
 
@@ -1397,9 +1421,18 @@ const createTemplate = asyncHandler(async (req, res) => {
   }
   if (!resolvedBody) throw new AppError('body is required', 400);
 
-  const components = [{ type: 'BODY', text: resolvedBody }];
+  const resolvedBodyExamples = validateVariablesHaveExamples(resolvedBody, bodyExamples, 'body');
+  const bodyComponent = { type: 'BODY', text: resolvedBody };
+  if (resolvedBodyExamples) bodyComponent.example = { body_text: [resolvedBodyExamples] };
+  const components = [bodyComponent];
+
   const resolvedHeader = String(header || '').trim();
-  if (resolvedHeader) components.push({ type: 'HEADER', format: 'TEXT', text: resolvedHeader });
+  if (resolvedHeader) {
+    const resolvedHeaderExamples = validateVariablesHaveExamples(resolvedHeader, [headerExample], 'header');
+    const headerComponent = { type: 'HEADER', format: 'TEXT', text: resolvedHeader };
+    if (resolvedHeaderExamples) headerComponent.example = { header_text: resolvedHeaderExamples };
+    components.push(headerComponent);
+  }
   const resolvedFooter = String(footer || '').trim();
   if (resolvedFooter) components.push({ type: 'FOOTER', text: resolvedFooter });
 
