@@ -19,6 +19,7 @@ const { startTokenRefreshScheduler } = require('./services/tokenRefreshService')
 const { startWhatsAppSendWorker } = require('./queues/whatsappSendWorker');
 const { startInvoiceScheduler } = require('./services/invoiceSchedulerService');
 const { startBackupScheduler } = require('./services/backupSchedulerService');
+const { startRenderKeepAlive } = require('./services/renderKeepAliveService');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Process error guards (merged from both servers)
@@ -96,6 +97,12 @@ async function startServer() {
     // and docs/BACKUP_RESTORE.md) — set ENABLE_SCHEDULED_BACKUPS=true and
     // BACKUP_DIR to a real, persistent (ideally off-host) mount to enable.
     startBackupScheduler();
+
+    // Pings the sibling Render services every 10 minutes so none of them
+    // spin down on Render's free tier (see renderKeepAliveService.js).
+    // Redundant with .github/workflows/render-keep-alive.yml — set
+    // ENABLE_RENDER_KEEP_ALIVE=false to disable.
+    startRenderKeepAlive();
 
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {

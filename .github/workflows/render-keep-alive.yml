@@ -1,0 +1,32 @@
+name: Render keep-alive
+
+# Render's free web-service tier spins a service down after ~15 minutes with
+# no inbound HTTP request. Pinging each service's health endpoint well inside
+# that window keeps all four backends (which share one WhatsApp number
+# through this hub) warm, so an inbound WhatsApp webhook never hits a cold
+# start. This does not touch WhatsApp/Meta at all — it's a plain HTTP GET.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: metabsp-backend
+            url: https://bulk-invite.onrender.com/health
+          - name: printmart-api
+            url: https://print-mart-dv0h.onrender.com/api/whatsapp/webhook-metabsp
+          - name: hostel-backend
+            url: https://hostel-dpqg.onrender.com/api/whatsapp/webhook-metabsp
+          - name: mis-both-backend
+            url: https://mis-both.onrender.com/webhook/metabsp
+    steps:
+      - name: Ping ${{ matrix.target.name }}
+        run: |
+          curl -sS -o /dev/null -w "${{ matrix.target.name }}: HTTP %{http_code} in %{time_total}s\n" \
+            --max-time 25 "${{ matrix.target.url }}" || true
