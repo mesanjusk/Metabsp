@@ -84,6 +84,22 @@ function sanitize(dest) {
   };
 }
 
+// Unauthenticated on purpose: a keep-alive pinger (GitHub Actions or any
+// other external cron) needs to discover which sibling services to ping
+// without needing credentials. Only label + url are exposed — never a
+// secret — so there's nothing sensitive in this response.
+router.get('/keep-alive-targets', async (_req, res) => {
+  try {
+    const destinations = await WebhookDestination.find({ isActive: true }).select('label url').lean();
+    res.json({
+      success: true,
+      targets: destinations.map((dest) => ({ label: dest.label, url: dest.url })),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Resolves (and one-time-migrates) the caller's active WhatsApp account.
 async function resolveOwnedAccount(req) {
   const account = await WhatsAppAccount.findOne({ userId: req.user.id, isActive: true }).sort({ updatedAt: -1 });

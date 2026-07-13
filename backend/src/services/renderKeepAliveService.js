@@ -1,32 +1,31 @@
 const axios = require('axios');
+const WebhookDestination = require('../models/WebhookDestination');
 const logger = require('../utils/logger');
 
-// Keeps the sibling Render free-tier services (which receive this hub's
-// forwarded WhatsApp webhooks) warm by pinging their public health-check GET
-// endpoints well inside Render's ~15-minute spin-down window. Pure HTTP, no
-// WhatsApp/Meta involvement at all. A GitHub Actions workflow
-// (.github/workflows/render-keep-alive.yml) does the same ping independently
-// on its own schedule — this is a redundant second layer in case that run is
-// ever delayed, not the primary mechanism.
-const DEFAULT_TARGETS = [
-  { name: 'printmart-api', url: 'https://print-mart-dv0h.onrender.com/api/whatsapp/webhook-metabsp' },
-  { name: 'hostel-backend', url: 'https://hostel-dpqg.onrender.com/api/whatsapp/webhook-metabsp' },
-  { name: 'mis-both-backend', url: 'https://mis-both.onrender.com/webhook/metabsp' },
-];
-
+// Keeps every registered sibling destination (whatever is currently in the
+// WebhookDestination collection — not a fixed list, so a newly added project
+// is covered automatically) warm on Render's free tier by pinging each
+// destination's own URL, well inside Render's ~15-minute spin-down window.
+// Pure HTTP, no WhatsApp/Meta involvement. A GitHub Actions workflow
+// (.github/workflows/render-keep-alive.yml) pings the same destinations
+// (plus Metabsp itself) independently on its own schedule — this is a
+// redundant second layer in case that run is ever delayed, not the primary
+// mechanism.
 const INTERVAL_MS = 10 * 60 * 1000;
 
-function getTargets() {
-  const configured = String(process.env.RENDER_KEEP_ALIVE_URLS || '')
+async function getTargets() {
+  const overrides = String(process.env.RENDER_KEEP_ALIVE_URLS || '')
     .split(',')
     .map((url) => url.trim())
     .filter(Boolean);
-  if (!configured.length) return DEFAULT_TARGETS;
-  return configured.map((url) => ({ name: url, url }));
+  if (overrides.length) return overrides.map((url) => ({ name: url, url }));
+
+  const destinations = await WebhookDestination.find({ isActive: true }).select('label url').lean();
+  return destinations.map((dest) => ({ name: dest.label || dest.url, url: dest.url }));
 }
 
 async function pingTargets() {
-  const targets = getTargets();
+  const targets = await getTargets();
   await Promise.allSettled(
     targets.map(async ({ name, url }) => {
       try {
@@ -43,8 +42,8 @@ async function pingTargets() {
 function startRenderKeepAlive() {
   if (String(process.env.ENABLE_RENDER_KEEP_ALIVE).toLowerCase() === 'false') return;
   setInterval(() => {
-    pingTargets().catch(() => {});
+    pingTargets().catch((err) => logger.debug(`[render-keep-alive] cycle failed: ${err.message}`));
   }, INTERVAL_MS).unref();
 }
 
-module.exports = { startRenderKeepAlive, pingTargets };
+module.exports = { startRenderKeepAlive, pingTargets, getTargets };
