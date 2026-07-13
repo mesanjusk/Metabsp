@@ -28,10 +28,7 @@ async function sendOtp(mobile, purpose) {
     logger.error('[OTP] WhatsApp send error:', err.message);
   }
 
-  const result = { sent, error };
-  // In non-production, surface OTP in response for easy testing
-  if (process.env.NODE_ENV !== 'production') result.devOtp = code;
-  return result;
+  return { sent, error };
 }
 
 async function verifyOtp(mobile, code, purpose) {

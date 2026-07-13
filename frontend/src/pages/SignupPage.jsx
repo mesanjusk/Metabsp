@@ -66,7 +66,7 @@ export default function SignupPage() {
         setError(data.message);
         return;
       }
-      setInfo(data.message + (data.devOtp ? ` [DEV OTP: ${data.devOtp}]` : ''));
+      setInfo(data.message);
       setStep(2);
     } catch (err) {
       const d = err?.response?.data;
@@ -186,7 +186,7 @@ export default function SignupPage() {
                   setLoading(true);
                   try {
                     const { data } = await api.post('/org/request-signup-otp', { mobile, orgName, adminName, password });
-                    setInfo('OTP resent.' + (data.devOtp ? ` [DEV: ${data.devOtp}]` : ''));
+                    setInfo('OTP resent.');
                   } catch (err) {
                     setError(err?.response?.data?.message || 'Failed to resend OTP');
                   } finally { setLoading(false); }

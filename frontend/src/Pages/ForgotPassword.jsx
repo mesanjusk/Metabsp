@@ -52,7 +52,7 @@ export default function ForgotPassword() {
         return;
       }
 
-      setInfoText(data.message + (data.devOtp ? ` [DEV OTP: ${data.devOtp}]` : ''));
+      setInfoText(data.message);
       setStep(1);
     } catch (error) {
       setErrorText(error?.response?.data?.message || 'Failed to send OTP.');
