@@ -170,7 +170,7 @@ export default function WebhookDestinationsPanel() {
           is forwarded only to the destination whose keyword starts the message, or to the
           destination the sender is already in a conversation with (30-minute inactivity
           expiry, released on EXIT). Generic words (HI, HELLO, START, MENU, HELP, STOP, YES,
-          NO, OK) are banned as keywords; SETUP is reserved for Metabsp&apos;s own bot. A
+          NO, OK) are banned as keywords, and EXIT is reserved to close a conversation. A
           destination without a keyword still receives all unmatched messages (legacy
           fan-out) until you assign one. Each destination gets its own secret to verify the{' '}
           <code>X-Metabsp-Signature-256</code> header.

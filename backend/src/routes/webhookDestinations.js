@@ -18,10 +18,9 @@ function validateUrl(url) {
 
 // Generic words are banned as entry keywords everywhere: they collide across
 // projects sharing the number and are only meaningful inside an active
-// session. SETUP is reserved for Metabsp's own registration/admin bot flow,
-// and EXIT is the universal close-session command.
+// session. EXIT is reserved as the universal close-session command.
 const BANNED_KEYWORDS = ['HI', 'HELLO', 'HEY', 'START', 'MENU', 'HELP', 'STOP', 'YES', 'NO', 'OK'];
-const RESERVED_KEYWORDS = ['SETUP', 'EXIT'];
+const RESERVED_KEYWORDS = ['EXIT'];
 const KEYWORD_PATTERN = /^[A-Z][A-Z0-9_-]{1,19}$/;
 
 function normalizeKeyword(value) {
@@ -46,7 +45,7 @@ async function validateKeywords({ entryKeyword, aliases, whatsappAccountId, excl
       return `"${kw}" is a banned generic word — it cannot be an entry keyword or alias in any project`;
     }
     if (RESERVED_KEYWORDS.includes(kw)) {
-      return `"${kw}" is reserved (SETUP is Metabsp's own bot keyword, EXIT closes sessions)`;
+      return `"${kw}" is reserved (EXIT closes an active conversation)`;
     }
   }
   if (new Set(all).size !== all.length) return 'entryKeyword and aliases must not repeat';

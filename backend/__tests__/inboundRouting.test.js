@@ -1,7 +1,9 @@
 // Keyword routing for inbound messages on a shared WhatsApp number: each
 // message goes only to the destination whose entry keyword starts it, or to
 // the owner of the sender's active conversation — never blind fan-out to
-// keyworded destinations.
+// keyworded destinations. This only decides which sibling destinations get
+// forwarded a message; Metabsp's own Auto Reply/Workflow rules run
+// unconditionally and are untouched by this routing.
 
 jest.mock('../src/models/WebhookDestination', () => ({
   find: jest.fn(),
@@ -42,38 +44,25 @@ beforeEach(() => {
   mockOwner(null);
 });
 
-describe('resolveInboundRouting — legacy accounts (no destination has adopted a keyword)', () => {
-  it('keeps Auto Reply/Workflow answering everything and fans out to every active destination when nobody has a keyword', async () => {
-    mockDestinations([legacyDest]);
+describe('resolveInboundRouting', () => {
+  it('returns no targets for an account with zero destinations', async () => {
+    mockDestinations([]);
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('hello'));
+    const targets = await resolveInboundRouting(ACCOUNT_ID, textPayload('hello'));
 
-    expect(routing.selfOwned).toBe(true);
-    expect(routing.targets).toEqual([legacyDest]);
+    expect(targets).toEqual([]);
     expect(ConversationOwner.updateOne).not.toHaveBeenCalled();
   });
 
-  it('is self-owned with no forwarding targets for an account with zero destinations', async () => {
-    mockDestinations([]);
-
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('hello'));
-
-    expect(routing.selfOwned).toBe(true);
-    expect(routing.targets).toEqual([]);
-  });
-});
-
-describe('resolveInboundRouting', () => {
   it('routes a keyword-prefixed message only to the destination owning that keyword', async () => {
     mockDestinations([printDest, hostelDest, legacyDest]);
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('PRINT need 500 flyers'));
+    const targets = await resolveInboundRouting(ACCOUNT_ID, textPayload('PRINT need 500 flyers'));
 
-    expect(routing.selfOwned).toBe(false);
-    expect(routing.targets).toEqual([printDest]);
+    expect(targets).toEqual([printDest]);
     expect(ConversationOwner.updateOne).toHaveBeenCalledWith(
       { whatsappAccountId: ACCOUNT_ID, phone: '919999999999' },
-      { $set: expect.objectContaining({ ownerType: 'destination', destinationId: 'dest-print' }) },
+      { $set: expect.objectContaining({ destinationId: 'dest-print' }) },
       { upsert: true }
     );
   });
@@ -81,40 +70,26 @@ describe('resolveInboundRouting', () => {
   it('matches aliases case-insensitively', async () => {
     mockDestinations([printDest, hostelDest]);
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('printmart'));
+    const targets = await resolveInboundRouting(ACCOUNT_ID, textPayload('printmart'));
 
-    expect(routing.targets).toEqual([printDest]);
+    expect(targets).toEqual([printDest]);
   });
 
   it('does not treat a keyword mid-message or as a prefix of a longer word as a match', async () => {
     mockDestinations([printDest, hostelDest]);
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('PRINTING please'));
+    const targets = await resolveInboundRouting(ACCOUNT_ID, textPayload('PRINTING please'));
 
-    expect(routing.targets).toEqual([]);
+    expect(targets).toEqual([]);
   });
 
-  it('claims the conversation for Metabsp itself on SETUP and forwards to nobody', async () => {
+  it("routes a generic message to the sender's active conversation owner and refreshes it", async () => {
     mockDestinations([printDest, hostelDest]);
+    mockOwner({ _id: 'owner-1', destinationId: 'dest-hostel', lastActivityAt: new Date() });
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('SETUP'));
+    const targets = await resolveInboundRouting(ACCOUNT_ID, textPayload('hello'));
 
-    expect(routing.selfOwned).toBe(true);
-    expect(routing.targets).toEqual([]);
-    expect(ConversationOwner.updateOne).toHaveBeenCalledWith(
-      { whatsappAccountId: ACCOUNT_ID, phone: '919999999999' },
-      { $set: expect.objectContaining({ ownerType: 'self', destinationId: null }) },
-      { upsert: true }
-    );
-  });
-
-  it('routes a generic message to the sender\'s active conversation owner and refreshes it', async () => {
-    mockDestinations([printDest, hostelDest]);
-    mockOwner({ _id: 'owner-1', ownerType: 'destination', destinationId: 'dest-hostel', lastActivityAt: new Date() });
-
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('hello'));
-
-    expect(routing.targets).toEqual([hostelDest]);
+    expect(targets).toEqual([hostelDest]);
     expect(ConversationOwner.updateOne).toHaveBeenCalledWith(
       { _id: 'owner-1' },
       { $set: { lastActivityAt: expect.any(Date) } }
@@ -125,64 +100,52 @@ describe('resolveInboundRouting', () => {
     mockDestinations([printDest, hostelDest]);
     mockOwner({
       _id: 'owner-1',
-      ownerType: 'destination',
       destinationId: 'dest-hostel',
       lastActivityAt: new Date(Date.now() - 31 * 60 * 1000),
     });
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('hello'));
+    const targets = await resolveInboundRouting(ACCOUNT_ID, textPayload('hello'));
 
-    expect(routing.targets).toEqual([]);
+    expect(targets).toEqual([]);
   });
 
   it('still delivers EXIT to the active owner but releases the conversation', async () => {
     mockDestinations([printDest, hostelDest]);
-    mockOwner({ _id: 'owner-1', ownerType: 'destination', destinationId: 'dest-hostel', lastActivityAt: new Date() });
+    mockOwner({ _id: 'owner-1', destinationId: 'dest-hostel', lastActivityAt: new Date() });
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('EXIT'));
+    const targets = await resolveInboundRouting(ACCOUNT_ID, textPayload('EXIT'));
 
-    expect(routing.targets).toEqual([hostelDest]);
+    expect(targets).toEqual([hostelDest]);
     expect(ConversationOwner.deleteOne).toHaveBeenCalledWith({ _id: 'owner-1' });
-  });
-
-  it('keeps Metabsp\'s own bot in charge of an active self-owned conversation', async () => {
-    mockDestinations([printDest]);
-    mockOwner({ _id: 'owner-1', ownerType: 'self', destinationId: null, lastActivityAt: new Date() });
-
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('2'));
-
-    expect(routing.selfOwned).toBe(true);
-    expect(routing.targets).toEqual([]);
   });
 
   it('falls back to keyword-less (legacy) and fanoutFallback destinations for unmatched messages', async () => {
     const optedIn = { ...hostelDest, fanoutFallback: true };
     mockDestinations([printDest, optedIn, legacyDest]);
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('hi'));
+    const targets = await resolveInboundRouting(ACCOUNT_ID, textPayload('hi'));
 
-    expect(routing.selfOwned).toBe(false);
-    expect(routing.targets).toEqual([optedIn, legacyDest]);
+    expect(targets).toEqual([optedIn, legacyDest]);
   });
 
   it('forwards an unmatched message to nobody once every destination has a keyword and fallback is off', async () => {
     mockDestinations([printDest, hostelDest]);
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('HELLO'));
+    const targets = await resolveInboundRouting(ACCOUNT_ID, textPayload('HELLO'));
 
-    expect(routing.targets).toEqual([]);
+    expect(targets).toEqual([]);
   });
 
   it('routes non-text messages (media/interactive) by conversation owner, never by keyword', async () => {
     mockDestinations([printDest, hostelDest]);
-    mockOwner({ _id: 'owner-1', ownerType: 'destination', destinationId: 'dest-print', lastActivityAt: new Date() });
+    mockOwner({ _id: 'owner-1', destinationId: 'dest-print', lastActivityAt: new Date() });
 
-    const routing = await resolveInboundRouting(ACCOUNT_ID, {
+    const targets = await resolveInboundRouting(ACCOUNT_ID, {
       from: '919999999999',
       type: 'image',
       message: 'PRINT', // caption text must not count as a keyword
     });
 
-    expect(routing.targets).toEqual([printDest]);
+    expect(targets).toEqual([printDest]);
   });
 });
