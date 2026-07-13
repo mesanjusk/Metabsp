@@ -72,12 +72,10 @@ async function requestSignupOtp(req, res) {
     }
 
     const result = await sendOtp(clean, 'SIGNUP');
-    return res.json({
-      message: result.sent
-        ? 'OTP sent to your WhatsApp number'
-        : 'OTP generated (WhatsApp not connected — check devOtp in non-production)',
-      ...(result.devOtp ? { devOtp: result.devOtp } : {}),
-    });
+    if (!result.sent) {
+      return res.status(502).json({ message: result.error || 'Could not send OTP via WhatsApp. Please try again later.' });
+    }
+    return res.json({ message: 'OTP sent to your WhatsApp number' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -154,12 +152,10 @@ async function requestForgotOtp(req, res) {
     }
 
     const result = await sendOtp(clean, 'FORGOT_PASSWORD');
-    return res.json({
-      message: result.sent
-        ? 'OTP sent to your WhatsApp number'
-        : 'OTP generated (WhatsApp not connected)',
-      ...(result.devOtp ? { devOtp: result.devOtp } : {}),
-    });
+    if (!result.sent) {
+      return res.status(502).json({ message: result.error || 'Could not send OTP via WhatsApp. Please try again later.' });
+    }
+    return res.json({ message: 'OTP sent to your WhatsApp number' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

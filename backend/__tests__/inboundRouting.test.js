@@ -42,6 +42,27 @@ beforeEach(() => {
   mockOwner(null);
 });
 
+describe('resolveInboundRouting — legacy accounts (no destination has adopted a keyword)', () => {
+  it('keeps Auto Reply/Workflow answering everything and fans out to every active destination when nobody has a keyword', async () => {
+    mockDestinations([legacyDest]);
+
+    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('hello'));
+
+    expect(routing.selfOwned).toBe(true);
+    expect(routing.targets).toEqual([legacyDest]);
+    expect(ConversationOwner.updateOne).not.toHaveBeenCalled();
+  });
+
+  it('is self-owned with no forwarding targets for an account with zero destinations', async () => {
+    mockDestinations([]);
+
+    const routing = await resolveInboundRouting(ACCOUNT_ID, textPayload('hello'));
+
+    expect(routing.selfOwned).toBe(true);
+    expect(routing.targets).toEqual([]);
+  });
+});
+
 describe('resolveInboundRouting', () => {
   it('routes a keyword-prefixed message only to the destination owning that keyword', async () => {
     mockDestinations([printDest, hostelDest, legacyDest]);

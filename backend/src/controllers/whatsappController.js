@@ -1734,6 +1734,18 @@ async function resolveInboundRouting(whatsappAccountId, payload) {
 
   const destinations = await WebhookDestination.find({ whatsappAccountId, isActive: true }).lean();
 
+  // Auto Reply/Workflow rules are Metabsp's own multi-tenant product feature —
+  // every customer configures these for their own connected number, and they
+  // have nothing to do with a shared number being fanned out to sibling
+  // projects. Only gate Metabsp's own bot behind SETUP once this account has
+  // actually opted into keyword routing (i.e. at least one destination has
+  // claimed a keyword); otherwise every message is self-owned and every active
+  // destination still gets it, exactly as before keyword routing existed.
+  const usesKeywordRouting = destinations.some((dest) => dest.entryKeyword);
+  if (!usesKeywordRouting) {
+    return { selfOwned: true, targets: destinations };
+  }
+
   // 1. Metabsp's own entry keyword claims the conversation for its bot flow.
   if (startsWithKeyword(upperText, SELF_ENTRY_KEYWORD)) {
     await ConversationOwner.updateOne(
