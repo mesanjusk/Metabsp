@@ -1710,16 +1710,18 @@ async function deliverToDestinations(destinations, payload) {
 
 // ── Keyword routing for inbound messages ─────────────────────────────────────
 // Instead of blindly fanning every inbound message out to all destinations
-// (which made several projects reply to one message), each message is routed
-// to (a) the destination whose entry keyword starts the message, or (b) the
-// owner of the sender's active conversation (30-minute inactivity expiry,
-// released on EXIT). Messages that match neither go only to legacy
+// (which made several sibling projects reply to one message), each message is
+// routed to (a) the destination whose entry keyword starts the message, or
+// (b) the owner of the sender's active conversation (30-minute inactivity
+// expiry, released on EXIT). Messages that match neither go only to legacy
 // destinations without an entryKeyword or with fanoutFallback enabled.
-// Metabsp's own bot flow (auto-replies/workflows) is a routing target like
-// any other project, owning the SETUP keyword — it no longer answers
-// greetings or unrelated traffic.
+//
+// This only decides which OTHER projects (destinations) receive the forwarded
+// webhook. Metabsp's own Auto Reply/Workflow rules are a separate, existing
+// multi-tenant feature where every rule already declares its own trigger
+// keyword — there is no separate "Metabsp bot" to gate behind an account-wide
+// keyword, and gating it here previously broke Auto Reply for every tenant.
 
-const SELF_ENTRY_KEYWORD = 'SETUP';
 const UNIVERSAL_EXIT_KEYWORD = 'EXIT';
 
 const startsWithKeyword = (upperText, keyword) => {
@@ -1727,49 +1729,29 @@ const startsWithKeyword = (upperText, keyword) => {
   return Boolean(kw) && (upperText === kw || upperText.startsWith(`${kw} `));
 };
 
+// Returns the array of WebhookDestinations this message should be forwarded to.
 async function resolveInboundRouting(whatsappAccountId, payload) {
   const phone = normalizePhone(payload.from);
   const text = payload.type === 'text' ? String(payload.message || '').trim() : '';
   const upperText = text.toUpperCase();
 
   const destinations = await WebhookDestination.find({ whatsappAccountId, isActive: true }).lean();
+  if (!destinations.length) return [];
 
-  // Auto Reply/Workflow rules are Metabsp's own multi-tenant product feature —
-  // every customer configures these for their own connected number, and they
-  // have nothing to do with a shared number being fanned out to sibling
-  // projects. Only gate Metabsp's own bot behind SETUP once this account has
-  // actually opted into keyword routing (i.e. at least one destination has
-  // claimed a keyword); otherwise every message is self-owned and every active
-  // destination still gets it, exactly as before keyword routing existed.
-  const usesKeywordRouting = destinations.some((dest) => dest.entryKeyword);
-  if (!usesKeywordRouting) {
-    return { selfOwned: true, targets: destinations };
-  }
-
-  // 1. Metabsp's own entry keyword claims the conversation for its bot flow.
-  if (startsWithKeyword(upperText, SELF_ENTRY_KEYWORD)) {
-    await ConversationOwner.updateOne(
-      { whatsappAccountId, phone },
-      { $set: { ownerType: 'self', destinationId: null, lastActivityAt: new Date() } },
-      { upsert: true }
-    );
-    return { selfOwned: true, targets: [] };
-  }
-
-  // 2. A destination's entry keyword (or alias) claims it.
+  // 1. A destination's entry keyword (or alias) claims it.
   const keywordDest = destinations.find((dest) =>
     [dest.entryKeyword, ...(dest.aliases || [])].some((kw) => startsWithKeyword(upperText, kw))
   );
   if (keywordDest) {
     await ConversationOwner.updateOne(
       { whatsappAccountId, phone },
-      { $set: { ownerType: 'destination', destinationId: keywordDest._id, lastActivityAt: new Date() } },
+      { $set: { destinationId: keywordDest._id, lastActivityAt: new Date() } },
       { upsert: true }
     );
-    return { selfOwned: false, targets: [keywordDest] };
+    return [keywordDest];
   }
 
-  // 3. The sender's active conversation owner (keyword-opened, 30-min expiry).
+  // 2. The sender's active conversation owner (keyword-opened, 30-min expiry).
   const owner = phone ? await ConversationOwner.findOne({ whatsappAccountId, phone }).lean() : null;
   const ownerActive = Boolean(
     owner?.lastActivityAt && Date.now() - new Date(owner.lastActivityAt).getTime() < ConversationOwner.TTL_MS
@@ -1782,19 +1764,15 @@ async function resolveInboundRouting(whatsappAccountId, payload) {
     } else {
       await ConversationOwner.updateOne({ _id: owner._id }, { $set: { lastActivityAt: new Date() } });
     }
-    if (owner.ownerType === 'self') return { selfOwned: true, targets: [] };
     const ownedDest = destinations.find((dest) => String(dest._id) === String(owner.destinationId));
-    return { selfOwned: false, targets: ownedDest ? [ownedDest] : [] };
+    return ownedDest ? [ownedDest] : [];
   }
 
-  // 4. No keyword, no active conversation: only legacy destinations (no
+  // 3. No keyword, no active conversation: only legacy destinations (no
   // entryKeyword declared) or ones that explicitly opted into fan-out
   // fallback receive it. With every destination migrated to a keyword and
   // fallback off, unmatched messages are forwarded nowhere.
-  return {
-    selfOwned: false,
-    targets: destinations.filter((dest) => dest.fanoutFallback || !dest.entryKeyword),
-  };
+  return destinations.filter((dest) => dest.fanoutFallback || !dest.entryKeyword);
 }
 
 const receiveWebhook = (req, res) => {
@@ -2012,20 +1990,19 @@ const receiveWebhook = (req, res) => {
           }
         }
 
-        // Keyword routing decides who this message belongs to: Metabsp's own
-        // bot (SETUP / its active session) or specific destinations. Runs only
-        // for fresh messages so Meta's delivery retries are never re-routed or
-        // re-forwarded.
-        let routing = { selfOwned: false, targets: [] };
+        // Keyword routing decides which sibling destinations this message
+        // gets forwarded to. Runs only for fresh messages so Meta's delivery
+        // retries are never re-forwarded.
+        let routingTargets = [];
         if (!isDuplicate && matchedAccount?._id) {
           try {
-            routing = await resolveInboundRouting(matchedAccount._id, payload);
+            routingTargets = await resolveInboundRouting(matchedAccount._id, payload);
           } catch (routingErr) {
             logger.error('[whatsapp] inbound routing failed:', routingErr.message);
           }
         }
 
-        if (!isDuplicate && routing.selfOwned && payload.type === 'text' && matchedAccount?._id && matchedAccount?.userId) {
+        if (!isDuplicate && payload.type === 'text' && matchedAccount?._id && matchedAccount?.userId) {
           const phone = normalizePhone(payload.from);
           const contactDoc = phone ? await Contact.findOne({ phone }) : null;
 
@@ -2078,8 +2055,8 @@ const receiveWebhook = (req, res) => {
           }
         }
 
-        if (!isDuplicate && routing.targets.length) {
-          deliverToDestinations(routing.targets, payload).catch((err) =>
+        if (!isDuplicate && routingTargets.length) {
+          deliverToDestinations(routingTargets, payload).catch((err) =>
             logger.error('[whatsapp] webhook destination forward failed:', err.message)
           );
         }
