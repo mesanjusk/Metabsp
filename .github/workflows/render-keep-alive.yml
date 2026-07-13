@@ -1,32 +1,51 @@
 name: Render keep-alive
 
 # Render's free web-service tier spins a service down after ~15 minutes with
-# no inbound HTTP request. Pinging each service's health endpoint well inside
-# that window keeps all four backends (which share one WhatsApp number
-# through this hub) warm, so an inbound WhatsApp webhook never hits a cold
-# start. This does not touch WhatsApp/Meta at all — it's a plain HTTP GET.
+# no inbound HTTP request. Pinging every service well inside that window
+# keeps them warm, so an inbound WhatsApp webhook forwarded to a sibling
+# project never hits a cold start. This does not touch WhatsApp/Meta at all
+# — it's plain HTTP GETs.
+#
+# Runs every 12 minutes, but only 7:00 AM-11:00 PM IST (Asia/Kolkata, UTC+5:30
+# — India does not observe DST, so this offset is fixed year-round). GitHub
+# Actions cron is UTC-only, so the three schedule entries below are the same
+# window converted to UTC (01:30-17:30), with the 12-minute tick offset by
+# +6 minutes so the 7:00 AM/11:00 PM boundaries land exactly on a tick
+# instead of being rounded off:
+#   - hour 1  (01:xx UTC): only the ticks at/after 01:30 (07:00 AM IST)
+#   - hours 2-16 UTC: every 12 minutes, the full hour
+#   - hour 17 (17:xx UTC): only the ticks at/before 17:30 (11:00 PM IST)
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '30,42,54 1 * * *'
+    - cron: '6,18,30,42,54 2-16 * * *'
+    - cron: '6,18,30 17 * * *'
   workflow_dispatch: {}
+
+env:
+  METABSP_URL: https://bulk-invite.onrender.com
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - name: metabsp-backend
-            url: https://bulk-invite.onrender.com/health
-          - name: printmart-api
-            url: https://print-mart-dv0h.onrender.com/api/whatsapp/webhook-metabsp
-          - name: hostel-backend
-            url: https://hostel-dpqg.onrender.com/api/whatsapp/webhook-metabsp
-          - name: mis-both-backend
-            url: https://mis-both.onrender.com/webhook/metabsp
     steps:
-      - name: Ping ${{ matrix.target.name }}
+      - name: Ping Metabsp itself
         run: |
-          curl -sS -o /dev/null -w "${{ matrix.target.name }}: HTTP %{http_code} in %{time_total}s\n" \
-            --max-time 25 "${{ matrix.target.url }}" || true
+          curl -sS -o /dev/null -w "metabsp-backend (self): HTTP %{http_code} in %{time_total}s\n" \
+            --max-time 25 "${METABSP_URL}/health" || true
+
+      - name: Ping every registered webhook destination
+        run: |
+          targets=$(curl -sS --max-time 25 "${METABSP_URL}/api/whatsapp/webhook-destinations/keep-alive-targets" \
+            | jq -r '.targets[]? | "\(.label)\t\(.url)"') || true
+
+          if [ -z "$targets" ]; then
+            echo "No active webhook destinations returned — nothing else to ping."
+            exit 0
+          fi
+
+          echo "$targets" | while IFS=$'\t' read -r label url; do
+            [ -z "$url" ] && continue
+            curl -sS -o /dev/null -w "${label}: HTTP %{http_code} in %{time_total}s\n" \
+              --max-time 25 "$url" || true
+          done
