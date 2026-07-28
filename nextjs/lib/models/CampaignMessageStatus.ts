@@ -1,0 +1,21 @@
+import mongoose, { Schema } from 'mongoose';
+
+// Ported from backend/src/repositories/CampaignMessageStatus.js.
+const campaignMessageStatusSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+    whatsappAccountId: { type: Schema.Types.ObjectId, ref: 'WhatsAppAccount', index: true },
+    messageId: { type: String, required: true, index: true },
+    status: { type: String, required: true, enum: ['sent', 'delivered', 'read', 'failed'] },
+    timestamp: { type: Date, required: true },
+    campaignId: { type: String, default: '' },
+  },
+  { timestamps: true }
+);
+
+campaignMessageStatusSchema.index({ userId: 1, whatsappAccountId: 1, messageId: 1, status: 1 }, { unique: true });
+campaignMessageStatusSchema.index({ userId: 1, whatsappAccountId: 1, campaignId: 1, status: 1, timestamp: -1 });
+
+export const CampaignMessageStatus =
+  (mongoose.models.CampaignMessageStatus as any) || mongoose.model('CampaignMessageStatus', campaignMessageStatusSchema);
+export default CampaignMessageStatus;
