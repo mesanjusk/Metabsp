@@ -3,30 +3,21 @@ import { connectDB } from '@/lib/db/mongo';
 import { User } from '@/lib/models';
 import { signTokenForUser } from '@/lib/auth/jwt';
 import { recordAuditEvent } from '@/lib/services/auditLogService';
+import { checkAuthRateLimit } from '@/lib/http/rateLimit';
+import { sanitizeUser } from '@/lib/http/sanitizeUser';
 import logger from '@/lib/utils/logger';
 
 // Ported from backend/src/routes/Users.js's POST /login. Same request/
 // response contract (User_name/Password in, {success,token,user} out) so
 // the existing frontend's Cloud auth context works against this endpoint
-// unchanged. Rate limiting (loginLimiter, 20/15min/IP in the Express
-// version) is not yet ported here — see nextjs/STATUS.md.
-const isAdminRole = (user: any) => Array.isArray(user?.roleId?.permissions) && user.roleId.permissions.includes('*');
-
-const sanitizeUser = (userDoc: any) => {
-  if (!userDoc) return null;
-  return {
-    id: String(userDoc._id),
-    User_name: userDoc.username,
-    User_group: isAdminRole(userDoc) ? 'admin' : 'user',
-    Mobile_number: userDoc.mobile || '',
-    Whatsapp_provider: userDoc.whatsappProviderPreference || '',
-    createdAt: userDoc.createdAt,
-    updatedAt: userDoc.updatedAt,
-  };
-};
-
+// unchanged. Same rate limit as the original's loginLimiter (20/15min/IP).
 export async function POST(req: NextRequest) {
   await connectDB();
+
+  const allowed = await checkAuthRateLimit(req, { windowMs: 15 * 60 * 1000, maxRequests: 20 });
+  if (!allowed) {
+    return NextResponse.json({ success: false, message: 'Too many attempts. Please try again later.' }, { status: 429 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const { User_name, Password } = body || {};

@@ -54,46 +54,68 @@ Socket.IO, the BullMQ `Worker`, and the four `setInterval` schedulers.
 - **Auth**: `lib/auth/jwt.ts` + `lib/auth/session.ts` (JWT sign/verify,
   DB-reverified `requireAuth`, same 99-day token as the original). Routes:
   `POST /api/users/login`, `GET /api/users/me`, `POST /api/users/logout`,
-  `PUT /api/users/whatsapp-provider` — ported from `backend/src/routes/Users.js`
-  with an identical request/response contract so the existing frontend's
-  Cloud auth context (`frontend/src/context/AuthContext.jsx`,
+  `PUT /api/users/whatsapp-provider`, `POST /api/users/signup/request-otp`,
+  `POST /api/users/signup/verify`, `POST /api/users/forgot-password/request-otp`,
+  `POST /api/users/forgot-password/reset` — ported from
+  `backend/src/routes/Users.js` with an identical request/response contract
+  so the existing frontend's Cloud auth context (`frontend/src/context/AuthContext.jsx`,
   `frontend/src/apiClient.js`) can point at this app without its own changes.
+- **Rate limiting** (`lib/http/rateLimit.ts`) — a small Redis fixed-window
+  counter (INCR + PEXPIRE over the same shared Redis, fail-open on a Redis
+  error/timeout) standing in for `express-rate-limit`/`rate-limit-redis`,
+  which are Express-only. Applied to login (20/15min/IP), signup/forgot-
+  password OTP request (5/15min/IP) and verify (10/15min/IP), and the
+  authenticated connect/messaging endpoints (10/5min and 30/min per user,
+  matching the original's `connectLimiter`/`messagingLimiter`).
+- **Connect/account management** (`app/api/whatsapp/{connect,embedded-signup,account,accounts,status,meta-webhook-config}/*`)
+  — embedded signup code exchange, manual connect, account list/get/activate/
+  delete/disconnect/revalidate, status. Ported from
+  `backend/src/controllers/whatsappController.js`'s connection-management
+  section (lines ~309-817) via the shared `lib/whatsapp/connect.ts` helpers.
+  Not yet ported: `PUT .../system-user-token`, `PUT .../manual` (account
+  update) — lower priority, less frequently used than the connect flow.
+- **Messaging** (`app/api/whatsapp/{send-text,send-template,send-media,send-message,broadcast}`)
+  — ported from the same controller's message-dispatch section, reusing
+  `lib/whatsapp/dispatch.ts` (built for the webhook) and a new
+  `lib/whatsapp/twentyFourHourGuard.ts` (ported from
+  `backend/src/middleware/whatsapp24hGuard.js`). `send-media` uses the Web
+  `FormData`/`File` API instead of `multer` (Express-only) for uploads.
+  **`broadcast` still blocks the HTTP response for up to 5 minutes**
+  (`maxDuration = 300`), same as the original — flagged as a real risk in
+  the migration plan (§1.2/§2.3) and NOT fixed here; a proper fix makes this
+  fire-and-forget with a polling/status endpoint instead.
 - `GET /api/health` — ported from `backend/src/app.js`.
 
 ## Not yet ported (in rough priority order for the next session)
 
-1. **Signup/OTP/forgot-password** (`/api/users/signup/*`, `/forgot-password/*`)
-   — depends on porting `otpService.js` (sends OTP via the legacy env-config
-   WhatsApp number) and rate limiting.
-2. **Rate limiting** — the Express version uses `express-rate-limit` +
-   `rate-limit-redis`; nothing here enforces the same limits yet (login,
-   OTP, messaging, connect endpoints are all currently unlimited on this
-   app). Do not go live without this — see
-   `docs/NEXTJS_MIGRATION_AUDIT_AND_PLAN.md` §1.10 for the Next.js-native
-   options considered (Vercel-compatible rate limiting over the same Redis).
-3. **The rest of `/api/whatsapp/*`**: connect/account management (embedded
-   signup exchange, manual connect, account CRUD), send-text/template/media/
-   message, broadcast (needs the fire-and-forget-with-polling rewrite noted
-   in the audit — the original blocks up to 5 minutes, which doesn't fit a
-   Vercel function regardless of worker placement), contacts CRUD, templates,
-   conversations/messages read models + assignment, analytics, team members,
-   campaigns (the Cloud-API-side copy — see audit §1.3 on consolidating with
-   the Bulk-side duplicate rather than porting both), API key management.
-   Source of truth: `backend/src/controllers/whatsappController.js` (2239
-   lines) + `backend/src/routes/WhatsAppCloud.js`.
-4. **Billing** (`/api/billing/*`) — Cashfree UPI Autopay integration; the
+1. **`PUT /api/whatsapp/account/:id/system-user-token`** and
+   **`PUT /api/whatsapp/account/:id/manual`** (account update) — see
+   `backend/src/controllers/whatsappController.js` lines ~717-810.
+2. **Contacts CRUD, templates, conversations/messages read models +
+   assignment, analytics, team members, campaigns** (the Cloud-API-side
+   copy — see audit §1.3 on consolidating with the Bulk-side duplicate
+   rather than porting both), **API key management**. Source of truth:
+   `backend/src/controllers/whatsappController.js` (2239 lines) +
+   `backend/src/routes/WhatsAppCloud.js`.
+3. **Billing** (`/api/billing/*`) — Cashfree UPI Autopay integration; the
    original code's own comments flag its exact field/signature shapes as
    unverified against live Cashfree docs — verify before porting, don't
    assume the Express version is correct as a reference.
-5. **Frontend dashboard UI** — none of `frontend/src/Pages`,
+4. **Frontend dashboard UI** — none of `frontend/src/Pages`,
    `frontend/src/Components/whatsappCloud/*` has been ported into `app/`.
    This is the largest remaining workstream (full React Router → App Router
    rewrite, MUI SSR setup, the two-auth-context consolidation decision — see
    the main audit doc §1.1/§1.10).
-6. **CORS / security headers** — `helmet()` and the custom CORS allowlist
+5. **CORS / security headers** — `helmet()` and the custom CORS allowlist
    from `backend/src/app.js` have no Next.js-native equivalent wired up yet
    (`next.config.js` `headers()` only currently sets the no-cache rule for
    `/`, ported from the existing stale-cache fix).
+6. **`send-message`'s request-forwarding approach** (`app/api/whatsapp/send-message/route.ts`)
+   re-serializes the parsed body into a new `NextRequest` to forward to the
+   dedicated `send-text`/`send-template`/`send-media` handlers, since a
+   Request body can only be read once — works, but is a bit of an odd
+   pattern; consider refactoring to shared handler functions instead of
+   route-module re-exports if this needs to change again.
 
 ## Things deliberately NOT ported here (stay on `backend/`, unchanged)
 

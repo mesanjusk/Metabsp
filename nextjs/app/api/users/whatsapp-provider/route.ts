@@ -3,20 +3,10 @@ import { connectDB } from '@/lib/db/mongo';
 import { User } from '@/lib/models';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
+import { sanitizeUser } from '@/lib/http/sanitizeUser';
 
 // Ported from backend/src/routes/Users.js's PUT /whatsapp-provider.
 const WHATSAPP_PROVIDER_VALUES = ['baileys', 'meta', 'both'];
-
-const isAdminRole = (user: any) => Array.isArray(user?.roleId?.permissions) && user.roleId.permissions.includes('*');
-const sanitizeUser = (userDoc: any) => ({
-  id: String(userDoc._id),
-  User_name: userDoc.username,
-  User_group: isAdminRole(userDoc) ? 'admin' : 'user',
-  Mobile_number: userDoc.mobile || '',
-  Whatsapp_provider: userDoc.whatsappProviderPreference || '',
-  createdAt: userDoc.createdAt,
-  updatedAt: userDoc.updatedAt,
-});
 
 export async function PUT(req: NextRequest) {
   await connectDB();
