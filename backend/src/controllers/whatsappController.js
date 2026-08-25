@@ -340,6 +340,16 @@ const isCoexistenceEnabled = () =>
 // no WhatsApp Business app still gets the ordinary Cloud API flow.
 const COEXISTENCE_FEATURE_TYPE = 'whatsapp_business_app_onboarding';
 
+// Meta's Embedded Signup flow version, sent as `extras.version`. Distinct from
+// `sessionInfoVersion` (the postMessage payload schema) and from the Graph API
+// version. Meta's own reference implementation
+// (fbsamples/business-messaging-sample-tech-provider-app) always sends it;
+// omitting it leaves Meta to pick a default, which is how a flow silently ends
+// up on an older ES version than the App Dashboard reports.
+// Known values: v2, v2-public-preview, v3-alpha-1, v3, v3-public-preview, v4,
+// v4-public-preview.
+const DEFAULT_ES_VERSION = 'v4';
+
 const getConnectConfig = asyncHandler(async (_req, res) => {
   const coexistenceEnabled = isCoexistenceEnabled();
   return res.status(200).json({
@@ -354,6 +364,7 @@ const getConnectConfig = asyncHandler(async (_req, res) => {
       // Meta's session-info schema version for the WA_EMBEDDED_SIGNUP
       // postMessage payloads; v3 is what carries the coexistence steps.
       sessionInfoVersion: '3',
+      esVersion: String(process.env.META_ES_VERSION || DEFAULT_ES_VERSION).trim(),
     },
   });
 });

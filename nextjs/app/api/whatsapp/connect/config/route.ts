@@ -13,6 +13,10 @@ const isCoexistenceEnabled = () =>
 
 const COEXISTENCE_FEATURE_TYPE = 'whatsapp_business_app_onboarding';
 
+// Embedded Signup flow version (`extras.version`) — see the backend's
+// getConnectConfig for why this is sent explicitly.
+const DEFAULT_ES_VERSION = 'v4';
+
 // Ported from backend/src/controllers/whatsappController.js's getConnectConfig.
 export async function GET(req: NextRequest) {
   await connectDB();
@@ -28,6 +32,7 @@ export async function GET(req: NextRequest) {
         coexistenceEnabled,
         featureType: coexistenceEnabled ? COEXISTENCE_FEATURE_TYPE : '',
         sessionInfoVersion: '3',
+        esVersion: String(process.env.META_ES_VERSION || DEFAULT_ES_VERSION).trim(),
       },
     });
   } catch (error) {

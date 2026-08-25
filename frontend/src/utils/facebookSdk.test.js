@@ -93,19 +93,28 @@ describe('listenForEmbeddedSignupData', () => {
     });
   });
 
-  it('flags coexistence on a FINISH whose last step was the WhatsApp Business app screen', async () => {
+  it('rejects promptly when the popup is abandoned mid-flow', async () => {
+    // Meta's reference app treats `current_step` as "the user closed the popup
+    // on this step", not as a result. Previously this was read as a
+    // coexistence hint, so a real abandonment waited out the full timeout.
+    const promise = listenForEmbeddedSignupData({ timeoutMs: 5000 });
+    postFacebookMessage({
+      type: 'WA_EMBEDDED_SIGNUP',
+      data: { current_step: 'WHATSAPP_BUSINESS_APP_ONBOARDING' },
+    });
+
+    await expect(promise).rejects.toThrow(/closed before it finished/);
+  });
+
+  it('still completes when a finish event arrives, even alongside a step name', async () => {
     const promise = listenForEmbeddedSignupData({ timeoutMs: 1000 });
     postFacebookMessage({
       type: 'WA_EMBEDDED_SIGNUP',
       event: 'FINISH',
-      data: {
-        waba_id: 'waba-4',
-        phone_number_id: 'phone-4',
-        current_step: 'WHATSAPP_BUSINESS_APP_ONBOARDING',
-      },
+      data: { waba_id: 'waba-4', phone_number_id: 'phone-4', current_step: 'ANY' },
     });
 
-    await expect(promise).resolves.toMatchObject({ coexistence: true });
+    await expect(promise).resolves.toMatchObject({ wabaId: 'waba-4', coexistence: false });
   });
 
   it('rejects on a CANCEL event', async () => {

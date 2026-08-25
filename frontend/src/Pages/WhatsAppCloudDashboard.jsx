@@ -138,6 +138,7 @@ const getConnectConfigPayload = (response) => {
     coexistenceEnabled: Boolean(data?.coexistenceEnabled ?? data?.coexistence_enabled),
     featureType:        data?.featureType        || data?.feature_type        || '',
     sessionInfoVersion: data?.sessionInfoVersion || data?.session_info_version || '3',
+    esVersion:          data?.esVersion          || data?.es_version          || 'v4',
     raw: data,
   };
 };
@@ -304,9 +305,13 @@ export default function WhatsAppCloudDashboard() {
           config_id: cfg.configId,
           response_type: 'code',
           override_default_response_type: true,
+          // Shape mirrors Meta's own reference implementation
+          // (fbsamples/business-messaging-sample-tech-provider-app,
+          // computeEsConfig). Notably it sends no `setup` key — that was an
+          // older Embedded Signup pattern — and always sends `version`.
           extras: {
-            setup: {},
             sessionInfoVersion: cfg.sessionInfoVersion,
+            version: cfg.esVersion,
             // Adds Meta's WhatsApp Business app onboarding (Coexistence) path
             // to the same popup: a customer already using the WhatsApp
             // Business app can link that number by scanning a QR code instead

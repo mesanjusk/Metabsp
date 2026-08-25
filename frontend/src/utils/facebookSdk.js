@@ -84,18 +84,24 @@ export function listenForEmbeddedSignupData({ timeoutMs = 5 * 60 * 1000 } = {}) 
       if (FINISH_EVENTS.includes(data.event)) {
         settled = true;
         cleanup();
-        // Coexistence is reported either as its own finish event or, in
-        // session-info v3, as a FINISH whose last step was the WhatsApp
-        // Business app onboarding screen — accept both.
-        const step = String(data.data?.current_step || '').toUpperCase();
         resolve({
           wabaId: data.data?.waba_id || '',
           phoneNumberId: data.data?.phone_number_id || '',
           businessId: data.data?.business_id || '',
-          coexistence:
-            data.event === COEXISTENCE_FINISH_EVENT || step.includes('WHATSAPP_BUSINESS_APP'),
+          coexistence: data.event === COEXISTENCE_FINISH_EVENT,
           finishEvent: data.event,
         });
+      } else if (data.data?.current_step) {
+        // Meta's reference implementation
+        // (fbsamples/business-messaging-sample-tech-provider-app) treats a
+        // WA_EMBEDDED_SIGNUP message carrying `current_step` as the user
+        // abandoning the popup partway through — it names the step they were
+        // on, not a result. Rejecting here surfaces that immediately; the
+        // previous code read it as a coexistence hint and, for a genuine
+        // abandonment, simply waited out the five-minute timeout.
+        settled = true;
+        cleanup();
+        reject(new Error('Meta Embedded Signup was closed before it finished'));
       } else if (data.event === 'CANCEL' || data.event === 'ERROR') {
         settled = true;
         cleanup();

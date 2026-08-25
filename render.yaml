@@ -43,6 +43,10 @@ services:
       # Business app number. Flip to "true" once that passes.
       - key: META_ENABLE_COEXISTENCE
         value: "false"
+      # Embedded Signup flow version (extras.version). Meta's own reference
+      # implementation always sends this; without it Meta picks a default.
+      - key: META_ES_VERSION
+        value: v4
       # Social sign-in — optional and additive; each provider stays hidden on
       # the login page until configured. Facebook requires BOTH vars below and
       # deliberately does not inherit META_APP_ID/META_APP_SECRET: consumer
