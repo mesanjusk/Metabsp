@@ -7,13 +7,14 @@ const axios = require('axios');
 const {
   isGoogleEnabled,
   isFacebookEnabled,
+  getFacebookLoginScopes,
   verifyGoogleIdToken,
   verifyFacebookAccessToken,
   resolveUserForSocialProfile,
   generateUniqueUsername,
 } = require('../src/services/socialAuthService');
 
-const ENV = ['GOOGLE_CLIENT_ID', 'FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET', 'META_APP_ID', 'META_APP_SECRET'];
+const ENV = ['GOOGLE_CLIENT_ID', 'FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET', 'META_APP_ID', 'META_APP_SECRET', 'FACEBOOK_LOGIN_SCOPES'];
 const original = {};
 
 beforeEach(() => {
@@ -24,6 +25,7 @@ beforeEach(() => {
   process.env.META_APP_SECRET = 'app-secret';
   delete process.env.FACEBOOK_APP_ID;
   delete process.env.FACEBOOK_APP_SECRET;
+  delete process.env.FACEBOOK_LOGIN_SCOPES;
 });
 
 afterEach(() => {
@@ -100,10 +102,44 @@ describe('verifyGoogleIdToken', () => {
   });
 });
 
+describe('getFacebookLoginScopes', () => {
+  it('defaults to public_profile only', () => {
+    // `email` is not granted to a WhatsApp-Business-Messaging app by default,
+    // and requesting an unavailable scope fails the entire login dialog with
+    // "Invalid Scopes: email" — so it must never be the default.
+    expect(getFacebookLoginScopes()).toBe('public_profile');
+  });
+
+  it('honours an explicit opt-in once the app has the permission', () => {
+    process.env.FACEBOOK_LOGIN_SCOPES = 'public_profile, email';
+    expect(getFacebookLoginScopes()).toBe('public_profile,email');
+  });
+
+  it('falls back to the default rather than sending an empty scope', () => {
+    process.env.FACEBOOK_LOGIN_SCOPES = '  ,  ';
+    expect(getFacebookLoginScopes()).toBe('public_profile');
+  });
+});
+
 describe('verifyFacebookAccessToken', () => {
   const debugOk = { data: { data: { is_valid: true, app_id: '1717826239505344', user_id: '99887766' } } };
 
+  it('does not ask Graph for email unless the scope was requested', async () => {
+    // Requesting a field the token does not cover makes Graph error outright.
+    axios.get.mockResolvedValueOnce(debugOk).mockResolvedValueOnce({ data: { id: '99887766', name: 'Ravi K' } });
+    await verifyFacebookAccessToken('tok');
+    expect(axios.get.mock.calls[1][1].params.fields).toBe('id,name');
+  });
+
+  it('asks Graph for email once the scope is enabled', async () => {
+    process.env.FACEBOOK_LOGIN_SCOPES = 'public_profile,email';
+    axios.get.mockResolvedValueOnce(debugOk).mockResolvedValueOnce({ data: { id: '99887766', name: 'Ravi K', email: 'r@e.com' } });
+    await verifyFacebookAccessToken('tok');
+    expect(axios.get.mock.calls[1][1].params.fields).toBe('id,name,email');
+  });
+
   it('returns a normalised profile for a valid token', async () => {
+    process.env.FACEBOOK_LOGIN_SCOPES = 'public_profile,email';
     axios.get
       .mockResolvedValueOnce(debugOk)
       .mockResolvedValueOnce({ data: { id: '99887766', name: 'Ravi K', email: 'Ravi@Example.com' } });

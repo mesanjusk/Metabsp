@@ -17,6 +17,7 @@ const {
   isFacebookEnabled,
   getGoogleClientId,
   getFacebookAppId,
+  getFacebookLoginScopes,
   verifyGoogleIdToken,
   verifyFacebookAccessToken,
   resolveUserForSocialProfile,
@@ -142,7 +143,13 @@ router.get('/auth/providers', (_req, res) =>
     success: true,
     data: {
       google: { enabled: isGoogleEnabled(), clientId: getGoogleClientId() },
-      facebook: { enabled: isFacebookEnabled(), appId: getFacebookAppId() },
+      facebook: {
+        enabled: isFacebookEnabled(),
+        appId: getFacebookAppId(),
+        // The browser must request exactly the scopes this app actually has —
+        // an unavailable scope fails the whole login dialog.
+        scopes: getFacebookLoginScopes(),
+      },
     },
   })
 );

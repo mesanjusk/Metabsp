@@ -112,8 +112,11 @@ export default function SocialSignIn({ onSuccess, disabled = false }) {
     setError('');
     try {
       await loadFacebookSdk({ appId: providers.facebook.appId });
+      // Scopes come from the server: requesting one the Meta app does not have
+      // fails the whole dialog with "Invalid Scopes", so the browser must not
+      // hardcode them. See backend/src/services/socialAuthService.js.
       const result = await new Promise((resolve) =>
-        window.FB.login(resolve, { scope: 'public_profile,email' })
+        window.FB.login(resolve, { scope: providers.facebook.scopes || 'public_profile' })
       );
       const accessToken = result?.authResponse?.accessToken;
       if (!accessToken) {

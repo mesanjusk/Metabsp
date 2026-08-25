@@ -52,6 +52,12 @@ services:
         sync: false
       - key: FACEBOOK_APP_SECRET
         sync: false
+      # `email` is not available to a WhatsApp-Business-Messaging app until the
+      # Facebook Login use case is added in the App Dashboard; requesting it
+      # before then fails the login dialog outright. Switch to
+      # "public_profile,email" once enabled.
+      - key: FACEBOOK_LOGIN_SCOPES
+        value: public_profile
       - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
         sync: false
       - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE
