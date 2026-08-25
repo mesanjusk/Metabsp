@@ -1,5 +1,10 @@
 # Metabsp — Production & Meta Tech Provider Certification Report
 
+> **Superseded on the Baileys question.** The unofficial WhatsApp Web
+> transport described below has since been removed entirely — see
+> [`docs/BAILEYS_REMOVAL.md`](./BAILEYS_REMOVAL.md). This document is
+> retained as a point-in-time record and is not updated.
+
 **Date:** 2026-07-10 (updated)
 **Scope:** Final certification following the completion of Phases 0-6 (see `docs/AUDIT_REPORT.md` for the original pre-work audit baseline), the Meta Tech Provider Certification effort (Parts A-G: code hardening, `/docs/meta-tech-provider/`, `/docs/api/`, `/docs/deployment/`, `/docs/videos/`, `/docs/legal/`), and a follow-up round that (1) disabled Baileys/WhatsApp-Web features by default with a per-organization admin toggle, (2) implemented leader election for the in-process schedulers, and (3) fixed the outstanding `npm audit` findings.
 **Method:** Every score and status below is grounded in a specific file, test, or doc in this repo — cited inline. Nothing here is a guess. Where a genuine gap remains, it is stated plainly rather than rounded up.

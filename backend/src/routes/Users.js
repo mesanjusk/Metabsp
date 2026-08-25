@@ -71,7 +71,7 @@ const sanitizeUser = (userDoc) => {
   };
 };
 
-const WHATSAPP_PROVIDER_VALUES = ['baileys', 'meta', 'both'];
+const WHATSAPP_PROVIDER_VALUES = ['meta'];
 
 const sanitizeAccount = (accountDoc) => {
   if (!accountDoc) return null;

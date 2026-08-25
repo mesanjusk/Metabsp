@@ -25,7 +25,7 @@ After watching, a viewer can explain what Metabsp does, understand the differenc
    **On screen:** Landing page hero section.
 2. **Narration:** "The primary, officially-supported path is the WhatsApp Cloud API — Meta's own hosted API. That's what most of this series covers: connecting a number, sending templates, broadcasts, a shared team inbox."
    **On screen:** Scroll to the product-features section of the landing page.
-3. **Narration:** "There's also a legacy 'Baileys' option — an unofficial WhatsApp-Web automation client for QR-code based sending. It's useful for quick testing, but it isn't Meta's official API, so treat it differently from your main customer-facing number."
+3. **Narration:** "There's also a legacy 'WhatsApp Cloud API' option — an unofficial WhatsApp-Web automation client for QR-code based sending. It's useful for quick testing, but it isn't Meta's official API, so treat it differently from your main customer-facing number."
    **On screen:** Point out this is a separate tab in the dashboard (shown fully in later videos) — don't demo it deeply here, just name it.
 4. **Narration:** "Let's create an account." Navigate to `/cloud-signup`.
    **On screen:** Fill in the signup form (mobile number + password, per the platform's own signup flow) and submit.
@@ -33,7 +33,7 @@ After watching, a viewer can explain what Metabsp does, understand the differenc
    **On screen:** Land on the empty WhatsApp dashboard at `/whatsapp` showing "No WhatsApp account connected."
 
 ## 7. Common Mistakes / Pitfalls
-- Confusing the Baileys/legacy product with the Cloud API product — they have different reliability and compliance characteristics; don't assume a feature in one exists in the other.
+- Confusing the WhatsApp Cloud API/legacy product with the Cloud API product — they have different reliability and compliance characteristics; don't assume a feature in one exists in the other.
 - Trying to connect a WhatsApp number before finishing account signup.
 
 ## 8. Troubleshooting Callout

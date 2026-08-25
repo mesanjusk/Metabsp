@@ -22,7 +22,7 @@ The in-process schedulers (token refresh, invoicing, scheduled backups) are
 now leader-elected via a short-lived Redis lock (`schedulerLock.js`), so N
 API replicas no longer means N duplicate runs of each — see
 [HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) for the mechanism. The one
-remaining caveat: if a specific organization has Baileys (bulk-invite/
+remaining caveat: if a specific organization has WhatsApp Cloud API (bulk-invite/
 WhatsApp-Web) explicitly enabled for it (off by default for every org — see
 `docs/meta-tech-provider/APP_REVIEW.md`), that organization's in-memory
 WhatsApp-Web session still has no cross-replica coordination — read
@@ -117,6 +117,6 @@ What actually determines your ceiling, qualitatively:
 ## Next steps
 
 - [HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) — read this before
-  raising API replica count in a deployment with any Baileys-enabled
+  raising API replica count in a deployment with any WhatsApp Cloud API-enabled
   organization.
 - `backend/loadtest/README.md` for actually measuring before scaling.

@@ -25,23 +25,17 @@ const { runPreflightOnBoot } = require('./services/preflightCheckService');
 // ─────────────────────────────────────────────────────────────────────────────
 // Process error guards (merged from both servers)
 // ─────────────────────────────────────────────────────────────────────────────
+// These previously swallowed socket errors from the unofficial WhatsApp Web
+// client, which failed constantly and noisily. With only the Cloud API left,
+// a "Connection Closed" is a real HTTP failure worth seeing, so nothing is
+// suppressed any more.
 process.on('unhandledRejection', (reason) => {
-  const msg = reason?.message || String(reason);
-  if (msg.includes('Connection Closed') || msg.includes('Timed Out') || msg.includes('baileys')) {
-    logger.warn('[unhandledRejection] Baileys internal error (ignored):', msg);
-  } else {
-    logger.error('[unhandledRejection]', reason);
-  }
+  logger.error('[unhandledRejection]', reason);
 });
 
 process.on('uncaughtException', (err) => {
-  const msg = err?.message || String(err);
-  if (msg.includes('Connection Closed') || msg.includes('Timed Out')) {
-    logger.warn('[uncaughtException] Baileys socket error (ignored):', msg);
-  } else {
-    logger.error('[uncaughtException] Fatal:', err);
-    process.exit(1);
-  }
+  logger.error('[uncaughtException] Fatal:', err);
+  process.exit(1);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -120,11 +114,6 @@ async function startServer() {
         logger.error('[preflight] Boot check failed (non-fatal):', err.message)
       );
 
-      // Auto-reconnect Baileys if saved credentials exist in MongoDB
-      const { autoConnectIfCredentialsExist } = require('../bulk/services/baileysService');
-      autoConnectIfCredentialsExist().catch((err) =>
-        logger.error('[baileys] Auto-connect failed on boot:', err.message)
-      );
     });
 
     const shutdown = (signal) => {

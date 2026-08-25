@@ -9,27 +9,27 @@
 After watching, a developer can generate an API key and send a WhatsApp message programmatically from their own external system using cURL and Node.js, without a login session.
 
 ## 3. Prerequisites
-- A Metabsp account with the Baileys/QR-based number connected (the External API sends through this product, not the Cloud API — see the note in step 2).
+- A Metabsp account with the WhatsApp Cloud API/QR-based number connected (the External API sends through this product, not the Cloud API — see the note in step 2).
 - Basic comfort with cURL or Node.js.
 
 ## 4. Hook / Cold Open
 "No login session, no JWT to refresh — just a key. This is the External API, for sending WhatsApp messages straight from your own backend, script, or CI job."
 
 ## 5. On-Screen Setup
-- Logged in on `/whatsapp` → Baileys tab → QR Setup sub-tab, where the API key panel lives.
+- Logged in on `/whatsapp` → WhatsApp Cloud API tab → QR Setup sub-tab, where the API key panel lives.
 - A terminal ready for cURL, and an editor open with a small Node.js snippet.
 
 ## 6. Step-by-Step Walkthrough
-1. **Narration:** "The External API — everything under `/api/v1/baileys` — is for sending programmatically from your own system. It's important to know this sends through the Baileys/QR-based product, not the officially-supported Cloud API, so treat its reliability characteristics accordingly."
-   **On screen:** Point at the Baileys tab's QR-connection status.
-2. **Narration:** "Generate a key right here in the Baileys panel."
-   **On screen:** `BaileysPanel.jsx`'s API key section — enter a name, create the key (`POST /api/whatsapp/api-keys`), copy the generated `mbsp_...` value.
+1. **Narration:** "The External API — everything under `/api/v1/WhatsApp Cloud API` — is for sending programmatically from your own system. It's important to know this sends through the WhatsApp Cloud API/QR-based product, not the officially-supported Cloud API, so treat its reliability characteristics accordingly."
+   **On screen:** Point at the WhatsApp Cloud API tab's QR-connection status.
+2. **Narration:** "Generate a key right here in the WhatsApp Cloud API panel."
+   **On screen:** `WhatsApp Cloud APIPanel.jsx`'s API key section — enter a name, create the key (`POST /api/whatsapp/api-keys`), copy the generated `mbsp_...` value.
 3. **Narration:** "This key doesn't expire on its own — if it's ever compromised, revoke it here immediately rather than waiting."
    **On screen:** Point at the revoke button next to a listed key (`DELETE /api/whatsapp/api-keys/:id`).
 4. **Narration:** "Now let's send a message with it, from the command line."
    **On screen:** Run in a terminal:
    ```bash
-   curl -X POST "$BASE_URL/api/v1/baileys/send" \
+   curl -X POST "$BASE_URL/api/v1/send-text" \
      -H "X-Api-Key: mbsp_your_key_here" \
      -H "Content-Type: application/json" \
      -d '{"to": "919876543210", "message": "Hello from the API!"}'
@@ -37,7 +37,7 @@ After watching, a developer can generate an API key and send a WhatsApp message 
 5. **Narration:** "For multiple recipients at once, use send-bulk with a delay between sends."
    **On screen:**
    ```bash
-   curl -X POST "$BASE_URL/api/v1/baileys/send-bulk" \
+   curl -X POST "$BASE_URL/api/v1/send-template" \
      -H "X-Api-Key: mbsp_your_key_here" \
      -H "Content-Type: application/json" \
      -d '{"recipients": [{"to": "919876543210", "message": "Hi John!"}], "delay": 12000}'
@@ -47,17 +47,17 @@ After watching, a developer can generate an API key and send a WhatsApp message 
    ```js
    const client = axios.create({ baseURL: process.env.METABSP_BASE_URL, headers: { 'X-Api-Key': process.env.METABSP_API_KEY } });
    async function sendMessage(to, message) {
-     const { data } = await client.post('/api/v1/baileys/send', { to, message });
+     const { data } = await client.post('/api/v1/send-text', { to, message });
      return data;
    }
    ```
 7. **Narration:** "You can also just check connection status this way, useful for a health-check in your own monitoring."
-   **On screen:** `curl "$BASE_URL/api/v1/baileys/status" -H "X-Api-Key: mbsp_your_key_here"`.
+   **On screen:** `curl "$BASE_URL/api/v1/status" -H "X-Api-Key: mbsp_your_key_here"`.
 
 ## 7. Common Mistakes / Pitfalls
 - Sending this key to a third party or embedding it in client-side code — treat it like a password.
 - Confusing this with the JWT-based `/api/whatsapp/*` routes — those are for the platform's own frontend only, and use a completely different auth header.
-- Not handling rate limiting — most `/api/v1/baileys/*` routes are limited to 60 requests/minute.
+- Not handling rate limiting — most `/api/v1/WhatsApp Cloud API/*` routes are limited to 60 requests/minute.
 
 ## 8. Troubleshooting Callout
 A 401/403 on any `/api/v1/*` call almost always means the `X-Api-Key` header is missing, malformed, or was revoked — check the key still appears in the panel's active list. There is no third-party OAuth authorization flow on this platform; an API key generated by the customer themselves is the only delegated-access mechanism available today. See `docs/api/AUTHENTICATION.md`.

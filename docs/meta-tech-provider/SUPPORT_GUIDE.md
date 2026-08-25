@@ -16,9 +16,9 @@ escalate immediately rather than debugging the individual account.
    query `WhatsAppAccount` by the customer's connected number) —
    `'error'` means the stored token is dead; the fix is reconnecting, not
    a backend restart.
-3. Check whether this is the Cloud API product or the Bulk (Baileys)
+3. Check whether this is the Cloud API product or the Bulk (WhatsApp Cloud API)
    product — they're architecturally different (see
-   `PRODUCTION_ARCHITECTURE.md`) and fail differently. Baileys
+   `PRODUCTION_ARCHITECTURE.md`) and fail differently. WhatsApp Cloud API
    (`/api/whatsapp/campaigns`, `/api/bulk/*`) can disconnect if the
    underlying WhatsApp-Web session logs out remotely; Cloud API failures
    are almost always a token/webhook issue instead.

@@ -67,7 +67,7 @@ spec:
 liveness/readiness signal, not just "the process is alive." Before setting
 `replicas` above 1, read the caveats in
 [HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) about in-process schedulers
-and Baileys sessions running once per pod with no leader election.
+and WhatsApp Cloud API sessions running once per pod with no leader election.
 
 ## Worker Deployment (scales independently)
 

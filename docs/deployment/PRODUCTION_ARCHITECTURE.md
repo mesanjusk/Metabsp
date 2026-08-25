@@ -1,7 +1,7 @@
 # Production Architecture
 
 This describes the actual runtime topology of Metabsp (the merged Meta
-WhatsApp Cloud API BSP + legacy Baileys/WhatsApp-Web "Bulk Invite" product),
+WhatsApp Cloud API BSP + legacy WhatsApp Cloud API/WhatsApp-Web "Bulk Invite" product),
 not a generic Node.js reference architecture. See `backend/src/app.js`,
 `backend/src/index.js`, `backend/src/socket.js`, and
 `backend/src/config/redis.js` for the code this is grounded in.
@@ -77,7 +77,7 @@ in-process. Stateless with respect to HTTP: every request is independently
 authenticated via JWT, so any instance can serve any request. Horizontally
 scalable — see [SCALING.md](./SCALING.md) — but see the caveats in
 [HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) about in-process schedulers
-and Baileys sessions before running N replicas blindly.
+and WhatsApp Cloud API sessions before running N replicas blindly.
 
 **Standalone worker (optional)** — `backend/src/worker.js`, run via
 `npm run worker --workspace=backend`. Processes the same BullMQ queue
@@ -131,11 +131,11 @@ the Swagger UI at `/api-docs`.
 |---|---|---|
 | MongoDB | Yes — needs a real replica set for HA | Read replicas/sharding only at real scale (see `REDIS_AND_MONGODB_OPS.md`) |
 | Redis | Yes by default (single instance) | Yes, via `REDIS_CLUSTER_NODES` |
-| API instances | No (HTTP is stateless; JWT-based auth) | Yes, given the Socket.IO Redis adapter — but see HA caveats on schedulers/Baileys |
+| API instances | No (HTTP is stateless; JWT-based auth) | Yes, given the Socket.IO Redis adapter — but see HA caveats on schedulers/WhatsApp Cloud API |
 | Standalone worker | No — BullMQ handles concurrent consumers safely | Yes |
 | Frontend static build | N/A (static assets) | Trivially, via CDN |
 
 For the full honest picture of what isn't yet safely multi-instance today
-(in-process schedulers, Baileys sessions), see
+(in-process schedulers, WhatsApp Cloud API sessions), see
 [HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) and
 [SCALING.md](./SCALING.md).

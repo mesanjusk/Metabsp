@@ -9,7 +9,7 @@ full schema of every field shown here.
 **Send a text message via the External API (API key auth):**
 
 ```bash
-curl -X POST "$BASE_URL/api/v1/baileys/send" \
+curl -X POST "$BASE_URL/api/v1/send-text" \
   -H "X-Api-Key: mbsp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{"to": "919876543210", "message": "Hello from the API!"}'
@@ -18,7 +18,7 @@ curl -X POST "$BASE_URL/api/v1/baileys/send" \
 **Send to multiple recipients:**
 
 ```bash
-curl -X POST "$BASE_URL/api/v1/baileys/send-bulk" \
+curl -X POST "$BASE_URL/api/v1/send-template" \
   -H "X-Api-Key: mbsp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{
@@ -33,7 +33,7 @@ curl -X POST "$BASE_URL/api/v1/baileys/send-bulk" \
 **Check connection status:**
 
 ```bash
-curl "$BASE_URL/api/v1/baileys/status" -H "X-Api-Key: mbsp_your_key_here"
+curl "$BASE_URL/api/v1/status" -H "X-Api-Key: mbsp_your_key_here"
 ```
 
 **Send a WhatsApp Cloud API template message (JWT auth, first-party):**
@@ -56,12 +56,12 @@ const client = axios.create({
 });
 
 async function sendMessage(to, message) {
-  const { data } = await client.post('/api/v1/baileys/send', { to, message });
+  const { data } = await client.post('/api/v1/send-text', { to, message });
   return data; // { success: true, to: '919876543210' }
 }
 
 async function sendBulk(recipients, delayMs = 12000) {
-  const { data } = await client.post('/api/v1/baileys/send-bulk', { recipients, delay: delayMs });
+  const { data } = await client.post('/api/v1/send-template', { recipients, delay: delayMs });
   return data; // { success: true, total, delay, message: 'Bulk send started' }
   // Note: send-bulk responds immediately and processes in the background —
   // it does not wait for every recipient before returning.

@@ -6,7 +6,7 @@ import { errorResponse } from '@/lib/http/errorResponse';
 import { sanitizeUser } from '@/lib/http/sanitizeUser';
 
 // Ported from backend/src/routes/Users.js's PUT /whatsapp-provider.
-const WHATSAPP_PROVIDER_VALUES = ['baileys', 'meta', 'both'];
+const WHATSAPP_PROVIDER_VALUES = ['meta'];
 
 export async function PUT(req: NextRequest) {
   await connectDB();

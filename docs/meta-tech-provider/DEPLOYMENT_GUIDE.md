@@ -26,5 +26,5 @@ Plus, already in the repo before this documentation pass:
 Once your infrastructure is up, come back to
 [`PRODUCTION_CHECKLIST.md`](./PRODUCTION_CHECKLIST.md) for the
 Meta-Tech-Provider-specific go-live checklist (App Review, webhook setup,
-System User tokens, the known Baileys-Campaigns compliance item) that
+System User tokens, the known WhatsApp Cloud API-Campaigns compliance item) that
 sits on top of the pure infrastructure concerns those guides cover.

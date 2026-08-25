@@ -76,7 +76,7 @@ export default function CampaignsPanel() {
             <Box>
               <Typography variant="h6" fontWeight={800}>Campaigns</Typography>
               <Typography variant="body2" color="text.secondary">
-                Saved manual campaigns with per-recipient tracking and Baileys send.
+                Saved campaigns with per-recipient tracking. Sending uses an approved template via the Cloud API broadcast.
               </Typography>
             </Box>
             <Button variant="outlined" onClick={load} disabled={loading}>Refresh</Button>
@@ -129,7 +129,7 @@ export default function CampaignsPanel() {
                           onClick={() => handleSend(c._id)}
                           startIcon={<SendIcon />}
                         >
-                          {sending === c._id ? 'Starting…' : 'Send Now (Baileys)'}
+                          {sending === c._id ? 'Starting…' : 'Send Now'}
                         </Button>
                       )}
                       <Button

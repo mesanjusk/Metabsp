@@ -45,11 +45,12 @@ const userSchema = new mongoose.Schema({
   isActive:         { type: Boolean, default: true },
   magicToken:       { type: String },
   magicTokenExpire: { type: Date },
-  // Which WhatsApp sending path this user's dashboard shows: 'baileys'
-  // (QR/WhatsApp-Web), 'meta' (official Cloud API), or 'both'. Unset until
-  // they choose on first login after signup — no default on purpose, so
-  // "unset" is distinguishable from an explicit choice.
-  whatsappProviderPreference: { type: String, enum: ['baileys', 'meta', 'both'] },
+  // Retained for backward compatibility with existing documents, which may
+  // still hold 'baileys' or 'both' from before the WhatsApp Web path was
+  // removed. 'meta' is now the only valid value; no migration rewrites old
+  // rows, because nothing reads this to choose a transport any more — the
+  // Cloud API is the only one.
+  whatsappProviderPreference: { type: String },
 }, { timestamps: true });
 
 // username unique per tenant (partial: skip docs where username is null/missing)

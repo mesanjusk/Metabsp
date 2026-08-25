@@ -39,7 +39,10 @@ const userSchema = new Schema(
     isActive: { type: Boolean, default: true },
     magicToken: { type: String },
     magicTokenExpire: { type: Date },
-    whatsappProviderPreference: { type: String, enum: ['baileys', 'meta', 'both'] },
+    // Kept without an enum: existing documents may still hold values from
+    // before the unofficial WhatsApp Web transport was removed, and nothing
+    // reads this to choose a transport any more.
+    whatsappProviderPreference: { type: String },
   },
   { timestamps: true }
 );

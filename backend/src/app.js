@@ -9,7 +9,7 @@
  *   /webhook           — Meta webhook
  *   /api/whatsapp/webhook — Meta webhook (alternate)
  *
- * Bulk-invite (WhatsApp Automation / Baileys) routes are mounted under /api/bulk/:
+ * Bulk-invite routes are mounted under /api/bulk/:
  *   /api/bulk/auth              — Bulk-invite auth (login, me)
  *   /api/bulk/org               — Organisation
  *   /api/bulk/dashboard         — Dashboard stats
@@ -17,7 +17,6 @@
  *   /api/bulk/users             — Bulk-invite user management
  *   /api/bulk/notifications     — Notifications (CRUD)
  *   /api/bulk/whatsapp          — WhatsApp Cloud / templates
- *   /api/bulk/baileys           — Baileys QR/session control
  *   /api/bulk/blasts            — WhatsApp blast messages
  *   /api/bulk/campaigns         — Campaign management
  *   /api/bulk/uploads           — File uploads (Cloudinary)
@@ -159,7 +158,7 @@ app.use('/api/whatsapp/webhook-destinations', webhookDestinationsRouter);
 app.use('/api/billing',            billingRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Bulk-invite (WhatsApp Automation / Baileys) routes — mounted under /api/bulk/
+// Bulk-invite routes — mounted under /api/bulk/
 // ─────────────────────────────────────────────────────────────────────────────
 app.use('/api/bulk/auth',               require('../bulk/routes/authRoutes'));
 app.use('/api/bulk/org',                require('../bulk/routes/orgRoutes'));
@@ -168,7 +167,6 @@ app.use('/api/bulk/roles',              bulkCrudRoutes(require('../bulk/models/R
 app.use('/api/bulk/users',              require('../bulk/routes/userRoutes'));
 app.use('/api/bulk/notifications',      bulkCrudRoutes(require('../bulk/models/Notification')));
 app.use('/api/bulk/whatsapp',           require('../bulk/routes/whatsappRoutes'));
-app.use('/api/bulk/baileys',            require('../bulk/routes/baileysRoutes'));
 app.use('/api/bulk/blasts',             require('../bulk/routes/blastRoutes'));
 app.use('/api/bulk/campaigns',          require('../bulk/routes/campaignRoutes'));
 app.use('/api/bulk/uploads',            require('../bulk/routes/uploadRoutes'));

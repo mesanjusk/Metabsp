@@ -25,7 +25,7 @@ Authorization: Bearer <jwt>
 
 ## 2. API key auth (the External API, `/api/v1/*`, for third-party integrations)
 
-Used by `/api/v1/baileys/*` — sending messages programmatically from a
+Used by `/api/v1/WhatsApp Cloud API/*` — sending messages programmatically from a
 customer's own external system, without a login session.
 
 ```
@@ -33,7 +33,7 @@ X-Api-Key: mbsp_<key>
 ```
 or
 ```
-GET /api/v1/baileys/status?apiKey=mbsp_<key>
+GET /api/v1/status?apiKey=mbsp_<key>
 ```
 
 - Created from inside the platform (an authenticated user generates one
@@ -43,7 +43,7 @@ GET /api/v1/baileys/status?apiKey=mbsp_<key>
 - Not scoped to an expiry — revoke it explicitly
   (`DELETE /api/v1/api-keys/:id` or the UI's revoke action) if a key is
   compromised, rather than waiting for it to expire.
-- Rate-limited: 60 requests/minute on most `/api/v1/baileys/*` routes
+- Rate-limited: 60 requests/minute on most `/api/v1/WhatsApp Cloud API/*` routes
   (see `createRateLimiter` usage in `backend/src/routes/externalApi.js`).
 
 ## There is no third-party OAuth authorization flow

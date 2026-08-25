@@ -1,28 +1,21 @@
-const router       = require('express').Router();
-const { protect }  = require('../middleware/auth');
-const { requireBaileysEnabled } = require('../middleware/baileysGate');
-const Campaign     = require('../models/Campaign');
-const baileysService = require('../services/baileysService');
-const BaileysMessage = require('../models/BaileysMessage');
-const User = require('../models/User');
-const Organization = require('../models/Organization');
-const logger = require('../../src/utils/logger');
+/**
+ * Campaign CRUD.
+ *
+ * Sending previously ran over an unofficial WhatsApp Web session, which is how
+ * a campaign could blast free-form text to an arbitrary recipient list. The
+ * official Cloud API does not permit that: outside Meta's 24-hour customer
+ * service window only an approved template may be sent, and delivery is rate
+ * limited per number.
+ *
+ * So the records stay (they hold real customer data and history) but sending
+ * moves to POST /api/whatsapp/broadcast, which enqueues per-recipient template
+ * jobs through BullMQ. The send routes below return an explanatory 501 rather
+ * than 404 so existing clients get a reason, not a mystery.
+ */
 
-// Used by the background scheduler below, which isn't behind an HTTP
-// middleware — resolves whether the campaign owner's org still has Baileys
-// enabled, so a campaign scheduled before an org was disabled doesn't fire.
-async function ownerOrgHasBaileysEnabled(userId) {
-  if (!userId) return true; // no owner to resolve — let existing behavior stand
-  const owner = await User.findById(userId).select('tenantId').lean();
-  if (!owner?.tenantId) return true; // super-admin-owned campaigns are unaffected
-  const org = await Organization.findById(owner.tenantId).select('baileysEnabled').lean();
-  return !!org?.baileysEnabled;
-}
-
-function normalizePhone(v) {
-  const d = String(v || '').replace(/[^\d]/g, '').trim();
-  return d.length === 10 ? '91' + d : d;
-}
+const router      = require('express').Router();
+const { protect } = require('../middleware/auth');
+const Campaign    = require('../models/Campaign');
 
 // Campaign.userId is the owner (Metabsp-style ownership, not tenant-based —
 // Campaign predates/spans both former products). Super-admin (wildcard
@@ -34,21 +27,27 @@ function ownershipFilter(req) {
   return isSuperAdmin(req) ? {} : { userId: req.user._id };
 }
 
-router.get('/', protect, requireBaileysEnabled, async (req, res) => {
+const BROADCAST_MIGRATION_NOTICE = {
+  success: false,
+  message:
+    'Campaign sending has moved to the WhatsApp Cloud API broadcast endpoint, which requires an approved message template. Use POST /api/whatsapp/broadcast.',
+};
+
+router.get('/', protect, async (req, res) => {
   try {
     const campaigns = await Campaign.find(ownershipFilter(req)).sort({ createdAt: -1 }).lean();
     res.json(campaigns);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.post('/', protect, requireBaileysEnabled, async (req, res) => {
+router.post('/', protect, async (req, res) => {
   try {
     const campaign = await Campaign.create({ ...req.body, userId: req.user._id });
     res.status(201).json(campaign);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.get('/:id', protect, requireBaileysEnabled, async (req, res) => {
+router.get('/:id', protect, async (req, res) => {
   try {
     const c = await Campaign.findOne({ _id: req.params.id, ...ownershipFilter(req) }).lean();
     if (!c) return res.status(404).json({ message: 'Not found' });
@@ -56,7 +55,7 @@ router.get('/:id', protect, requireBaileysEnabled, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.patch('/:id', protect, requireBaileysEnabled, async (req, res) => {
+router.patch('/:id', protect, async (req, res) => {
   try {
     const c = await Campaign.findOneAndUpdate({ _id: req.params.id, ...ownershipFilter(req) }, req.body, { new: true });
     if (!c) return res.status(404).json({ message: 'Not found' });
@@ -64,7 +63,7 @@ router.patch('/:id', protect, requireBaileysEnabled, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.delete('/:id', protect, requireBaileysEnabled, async (req, res) => {
+router.delete('/:id', protect, async (req, res) => {
   try {
     const deleted = await Campaign.findOneAndDelete({ _id: req.params.id, ...ownershipFilter(req) });
     if (!deleted) return res.status(404).json({ message: 'Not found' });
@@ -72,89 +71,19 @@ router.delete('/:id', protect, requireBaileysEnabled, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.post('/:id/send', protect, requireBaileysEnabled, async (req, res) => {
+// Ownership is still checked before answering, so this cannot be used to probe
+// for campaign IDs belonging to another user.
+router.post('/:id/send', protect, async (req, res) => {
   try {
-    const campaign = await Campaign.findOne({ _id: req.params.id, ...ownershipFilter(req) });
-    if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
-    if (campaign.status === 'SENDING') return res.status(409).json({ message: 'Already sending' });
-    await Campaign.findByIdAndUpdate(campaign._id, { status: 'SENDING' });
-    res.json({ message: 'Campaign send started', id: campaign._id });
-    const ownerId = campaign.userId ? String(campaign.userId) : String(req.user._id);
-    runCampaign(campaign, ownerId).catch(console.error);
+    const campaign = await Campaign.findOne({ _id: req.params.id, ...ownershipFilter(req) }).lean();
+    if (!campaign) return res.status(404).json({ message: 'Not found' });
+    return res.status(501).json({ ...BROADCAST_MIGRATION_NOTICE, campaignId: String(campaign._id) });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// Shared by the manual "send now" route above and startScheduler() below.
-// Always sends through the campaign owner's own Baileys session (never the
-// shared/global session), and logs every send to BaileysMessage for audit.
-async function runCampaign(campaign, userId) {
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  const rand  = () => (Math.floor(Math.random() * 9) + 12) * 1000;
-  let sent = 0, failed = 0;
-  const updatedRecipients = campaign.recipients.map(r => ({ ...r.toObject(), status: 'PENDING' }));
-  for (let i = 0; i < updatedRecipients.length; i++) {
-    const r = updatedRecipients[i];
-    const phone = normalizePhone(r.mobile);
-    const personalMsg = (campaign.message || '').replace(/\{name\}/gi, r.name);
-    try {
-      if (campaign.imageUrl) {
-        await baileysService.sendImage(userId, { to: phone, imageUrl: campaign.imageUrl, caption: personalMsg });
-      } else {
-        await baileysService.sendText(userId, { to: phone, body: personalMsg });
-      }
-      await BaileysMessage.create({
-        to: phone, from: '', contactName: r.name,
-        conversationKey: phone,
-        direction: 'OUTGOING', source: 'CAMPAIGN',
-        messageType: campaign.imageUrl ? 'IMAGE' : 'TEXT',
-        bodyText: personalMsg, status: 'SENT',
-        meta: { campaignId: campaign._id },
-      }).catch(() => null);
-      updatedRecipients[i].status = 'SENT';
-      updatedRecipients[i].sentAt = new Date();
-      sent++;
-    } catch (err) {
-      updatedRecipients[i].status = 'FAILED';
-      updatedRecipients[i].error  = err.message;
-      failed++;
-    }
-    if (i < updatedRecipients.length - 1) await sleep(rand());
-  }
-  await Campaign.findByIdAndUpdate(campaign._id, {
-    status: 'SENT', sentCount: sent, failedCount: failed, recipients: updatedRecipients,
-  });
-}
-
-function startScheduler() {
-  // .unref() so this background poller doesn't keep the process (or a test
-  // worker that merely requires this route file) alive by itself — the real
-  // HTTP server's listening socket is what keeps a production process up.
-  setInterval(async () => {
-    try {
-      const due = await Campaign.find({
-        status: 'SCHEDULED', type: 'AUTO', scheduledAt: { $lte: new Date() },
-      });
-      for (const c of due) {
-        if (!(await ownerOrgHasBaileysEnabled(c.userId))) {
-          await Campaign.findByIdAndUpdate(c._id, { status: 'CANCELLED' });
-          logger.warn(`[campaign-scheduler] Skipped campaign ${c._id} — WhatsApp-Web features are disabled for its organization.`);
-          continue;
-        }
-        await Campaign.findByIdAndUpdate(c._id, { status: 'SENDING' });
-        runCampaign(c, c.userId ? String(c.userId) : undefined).catch((err) =>
-          logger.error('[campaign-scheduler] runCampaign failed:', err.message)
-        );
-      }
-    } catch (err) {
-      logger.error('[campaign-scheduler] poll failed:', err.message);
-    }
-  }, 60 * 1000).unref();
-}
-
-// Skip under test — requiring this route file (e.g. via supertest against
-// src/app) shouldn't start a real 60s Mongo-polling interval; nothing in the
-// test suite provisions a live Mongo connection for it to query, so it was
-// only ever failing with a buffering-timeout error in the background.
-if (process.env.NODE_ENV !== 'test') startScheduler();
+// The 60-second poller that fired SCHEDULED/AUTO campaigns is gone with the
+// sending path it drove. Scheduled campaigns are left untouched in the
+// database rather than cancelled, so no customer data is destroyed by the
+// migration; they simply do not fire until rebuilt on the broadcast queue.
 
 module.exports = router;

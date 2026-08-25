@@ -16,27 +16,11 @@ const whatsappService = {
   sendText:            (payload)    => api.post('/whatsapp/send-text', payload),
   sendInvitation:      (payload)    => api.post('/whatsapp/send-invitation', payload),
 
-  // ── Baileys (unofficial) ──────────────────────────────────────────────────
-  baileysGetStatus:    ()           => api.get('/baileys/status'),
-  baileysConnect:      ()           => api.post('/baileys/connect'),
-  baileysDisconnect:   ()           => api.post('/baileys/disconnect'),
 
-  baileysGetInbox:     ()           => api.get('/baileys/inbox'),
-  baileysGetConversation: (key)     => api.get(`/baileys/conversation/${key}`),
-  baileysMarkRead:     (key)        => api.post(`/baileys/conversation/${key}/read`),
 
-  baileysSendText:     (payload)    => api.post('/baileys/send-text', payload),
-  baileysSendInvitation:(payload)   => api.post('/baileys/send-invite', payload),
 
-  baileysGetRules:     ()           => api.get('/baileys/rules'),
-  baileysSaveRule:     (payload, id)=> id
-    ? api.put(`/baileys/rules/${id}`, payload)
-    : api.post('/baileys/rules', payload),
 
-  baileysGetLogs:      ()           => api.get('/baileys/logs'),
 
-  baileysGetGroupsWithMembers: ()          => api.get('/baileys/groups'),
-  baileysImportGroupContacts:  (payload)   => api.post('/baileys/groups/import', payload),
 
   // ── Blast campaigns ───────────────────────────────────────────────────────
   getBlasts:           ()           => api.get('/blasts'),

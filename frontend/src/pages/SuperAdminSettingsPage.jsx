@@ -15,126 +15,6 @@ import QrCode2Icon from '@mui/icons-material/QrCode2';
 import PageHeader from '../components/PageHeader';
 import api from '../api';
 
-// ── Baileys / WhatsApp-Web feature flag per organization ─────────────────────
-// Off by default for every org (see backend/bulk/models/Organization.js).
-// This section is how a super admin turns it on for a specific customer —
-// e.g. after a Meta App Review decision — without touching code or config.
-function BaileysFeatureFlagSection() {
-  const [orgs, setOrgs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState(null);
-  const [error, setError] = useState('');
-  const [toast, setToast] = useState(null);
-
-  const load = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await api.get('/org');
-      setOrgs(Array.isArray(res.data) ? res.data : []);
-    } catch {
-      setError('Failed to load organizations.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const toggle = async (org) => {
-    setSavingId(org._id);
-    try {
-      const res = await api.patch(`/org/${org._id}/baileys`, { enabled: !org.baileysEnabled });
-      setOrgs((prev) => prev.map((o) => (o._id === org._id ? res.data : o)));
-      setToast({ type: 'success', msg: `WhatsApp-Web features ${res.data.baileysEnabled ? 'enabled' : 'disabled'} for ${org.name}.` });
-    } catch (e) {
-      setToast({ type: 'error', msg: e?.response?.data?.message || 'Failed to update.' });
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  return (
-    <Stack spacing={3}>
-      <Stack direction="row" alignItems="center" spacing={1}>
-        <QrCode2Icon sx={{ color: '#b45309', fontSize: 22 }} />
-        <Typography variant="subtitle1" fontWeight={700} color="text.secondary">
-          Baileys / WhatsApp-Web Features — Per-Organization
-        </Typography>
-      </Stack>
-
-      <Card variant="outlined" sx={{ borderRadius: 3 }}>
-        <CardContent>
-          <Stack spacing={2.5}>
-            <Alert severity="info" sx={{ fontSize: 13, borderRadius: 2 }}>
-              Baileys (QR code / WhatsApp-Web) features — manual connect, campaigns, and the
-              External API's <code>/api/v1/baileys/*</code> endpoints — are hidden and disabled
-              by default for every new organization. Turn it on below only for organizations you've
-              specifically decided should have it (e.g. existing customers migrated before this
-              change, or after your own Meta App Review decision). See{' '}
-              <code>docs/meta-tech-provider/APP_REVIEW.md</code> for the underlying reasoning.
-            </Alert>
-
-            <Divider />
-
-            {loading ? (
-              <Stack alignItems="center" sx={{ py: 3 }}>
-                <CircularProgress size={24} />
-              </Stack>
-            ) : error ? (
-              <Alert severity="warning" sx={{ borderRadius: 2, fontSize: 13 }}>{error}</Alert>
-            ) : orgs.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">No organizations found.</Typography>
-            ) : (
-              <Stack spacing={1.5}>
-                {orgs.map((org) => (
-                  <Stack
-                    key={org._id}
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider' }}
-                  >
-                    <Box>
-                      <Typography fontWeight={600} fontSize={14}>{org.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{org.mobile}</Typography>
-                    </Box>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      {savingId === org._id && <CircularProgress size={16} />}
-                      <Chip
-                        label={org.baileysEnabled ? 'Enabled' : 'Disabled'}
-                        size="small"
-                        color={org.baileysEnabled ? 'warning' : 'default'}
-                        variant={org.baileysEnabled ? 'filled' : 'outlined'}
-                        sx={{ height: 22, fontSize: 11 }}
-                      />
-                      <Switch
-                        checked={!!org.baileysEnabled}
-                        disabled={savingId === org._id}
-                        onChange={() => toggle(org)}
-                      />
-                    </Stack>
-                  </Stack>
-                ))}
-              </Stack>
-            )}
-          </Stack>
-        </CardContent>
-      </Card>
-
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={3500}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity={toast?.type || 'info'} onClose={() => setToast(null)} sx={{ width: '100%' }}>
-          {toast?.msg}
-        </Alert>
-      </Snackbar>
-    </Stack>
-  );
-}
 
 // ── data hook ────────────────────────────────────────────────────────────────
 function useSystemSettings() {
@@ -183,17 +63,17 @@ function ProviderOption({ value, current, saving, onSelect, icon, label, tag, ta
         flex: 1,
         minWidth: { xs: '100%', sm: 220 },
         border: '2px solid',
-        borderColor: selected ? (value === 'baileys' ? 'warning.main' : 'success.main') : 'divider',
+        borderColor: selected ? 'success.main' : 'divider',
         borderRadius: 3,
         p: 2.5,
         cursor: saving || selected ? 'default' : 'pointer',
         bgcolor: selected
-          ? value === 'baileys' ? '#fff8e1' : '#e8f5e9'
+          ? '#e8f5e9'
           : 'background.paper',
         transition: 'all 0.2s',
         '&:hover': !selected && !saving ? {
-          borderColor: value === 'baileys' ? 'warning.light' : 'success.light',
-          bgcolor: value === 'baileys' ? '#fffde7' : '#f1f8e9',
+          borderColor: 'success.light',
+          bgcolor: '#f1f8e9',
         } : {},
       }}
     >
@@ -205,7 +85,7 @@ function ProviderOption({ value, current, saving, onSelect, icon, label, tag, ta
             <Chip
               label="ACTIVE"
               size="small"
-              color={value === 'baileys' ? 'warning' : 'success'}
+              color="success"
               sx={{ ml: 'auto', height: 20, fontSize: 10, fontWeight: 700 }}
             />
           )}
@@ -427,8 +307,8 @@ function RegistrationGroupsSection({ map, saving, save }) {
 export default function SuperAdminSettingsPage() {
   const { map, loading, saving, save, toast, setToast } = useSystemSettings();
 
-  // default to 'baileys' if not set yet
-  const provider = map['registration_whatsapp_provider'] || 'baileys';
+  // Only the official Cloud API remains as a provider.
+  const provider = map['registration_whatsapp_provider'] || 'official';
 
   const handleProviderChange = (val) => {
     save('registration_whatsapp_provider', val);
@@ -481,26 +361,13 @@ export default function SuperAdminSettingsPage() {
                 {/* Provider cards */}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                   <ProviderOption
-                    value="baileys"
-                    current={provider}
-                    saving={saving}
-                    onSelect={handleProviderChange}
-                    icon={<PhoneAndroidIcon sx={{ color: provider === 'baileys' ? 'warning.main' : 'action.disabled', fontSize: 22 }} />}
-                    label="Baileys"
-                    tag="Default"
-                    tagColor="warning"
-                    description="Sends a plain text confirmation via Baileys (WhatsApp Web). Must be connected via QR before registrations arrive."
-                    alertMsg="Baileys is active. Ensure it is connected — go to WhatsApp page and confirm status shows CONNECTED."
-                    alertSeverity="warning"
-                  />
-                  <ProviderOption
                     value="official"
                     current={provider}
                     saving={saving}
                     onSelect={handleProviderChange}
                     icon={<CheckCircleIcon sx={{ color: provider === 'official' ? 'success.main' : 'action.disabled', fontSize: 22 }} />}
                     label="Official API"
-                    tag="Meta"
+                    tag="Default"
                     tagColor="success"
                     description="Sends the bk_award approved template with personalised edit link via Meta WhatsApp Cloud API."
                     alertMsg="Official API is active. Ensure the bk_award template is approved in Meta Business Manager."
@@ -515,9 +382,7 @@ export default function SuperAdminSettingsPage() {
                   <TuneIcon fontSize="small" color="action" />
                   <Typography variant="body2" color="text.secondary">
                     Current provider:{' '}
-                    <strong style={{ color: provider === 'baileys' ? '#b45309' : '#166534' }}>
-                      {provider === 'baileys' ? 'Baileys (WhatsApp Web)' : 'Official Meta Cloud API'}
-                    </strong>
+                    <strong style={{ color: '#166534' }}>Official Meta Cloud API</strong>
                   </Typography>
                 </Stack>
               </Stack>
@@ -526,7 +391,6 @@ export default function SuperAdminSettingsPage() {
 
           <RegistrationGroupsSection map={map} saving={saving} save={save} />
 
-          <BaileysFeatureFlagSection />
 
         </Stack>
       )}

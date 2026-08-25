@@ -12,20 +12,23 @@ async function sendOtp(mobile, purpose) {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
   await OtpVerification.create({ mobile, code, purpose, expiresAt });
 
-  // Send via super admin's Baileys WhatsApp
+  // Delivered over the official Cloud API, using the same authentication-category
+  // template as src/services/otpService.js. A first-time registrant has no open
+  // 24-hour window with the business number, so a free-form text (what the
+  // WhatsApp Web session used to send) is rejected by the Graph API anyway.
   let sent = false;
   let error = null;
   try {
-    const { sendText } = require('./baileysService');
-    const label = purpose === 'SIGNUP' ? 'account signup' : 'password reset';
-    await sendText({
-      to: mobile,
-      body: `Your Bulk Invite ${label} OTP is: *${code}*\nValid for 10 minutes. Do not share this code.`,
-    });
+    // Required lazily, as the previous sender was: a top-level require pulls
+    // the Cloud API service (and its model/config graph) into this module at
+    // load time, which left an open handle in any test that merely requires a
+    // route file transitively importing this one.
+    const { sendWhatsAppOtpMessage } = require('../../src/services/otpService');
+    await sendWhatsAppOtpMessage(mobile, code);
     sent = true;
   } catch (err) {
-    error = err.message;
-    logger.error('[OTP] WhatsApp send error:', err.message);
+    error = err?.response?.data?.error?.message || err.message;
+    logger.error('[OTP] WhatsApp send error:', error);
   }
 
   return { sent, error };

@@ -11,7 +11,6 @@ const orgSchema = new Schema(
     trialEndsAt: { type: Date, default: null },
     billingEmail: { type: String, default: '', trim: true },
     createdVia: { type: String, enum: ['bulk_signup', 'whatsapp_cloud_signup'], default: 'bulk_signup' },
-    baileysEnabled: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

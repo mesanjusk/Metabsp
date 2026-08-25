@@ -9,7 +9,7 @@ const requireApiKey = async (req, res, next) => {
   if (!record) return res.status(401).json({ success: false, error: 'Invalid or revoked API key' });
 
   req.user = { id: record.userId };
-  // Resolve tenantId so downstream feature-flag gates (e.g. requireBaileysEnabled)
+  // Resolve tenantId so downstream feature-flag gates
   // can check the key owner's organization, same as the JWT auth path does.
   // Never let this fail the whole request — a lookup problem here should
   // just mean "treat as no tenant", not break API-key auth entirely.

@@ -10,7 +10,7 @@ the Express side, so the next work session can pick up without re-deriving scope
 The **stateless slice** of the Cloud API product: the Meta webhook, and (as
 they get ported) the REST endpoints + dashboard UI. It shares the same
 MongoDB Atlas cluster and the same Redis instance as `backend/`, which keeps
-running unchanged for everything that cannot be serverless — Baileys,
+running unchanged for everything that cannot be serverless —
 Socket.IO, the BullMQ `Worker`, and the four `setInterval` schedulers.
 
 ## Implemented
@@ -119,7 +119,7 @@ Socket.IO, the BullMQ `Worker`, and the four `setInterval` schedulers.
 
 ## Things deliberately NOT ported here (stay on `backend/`, unchanged)
 
-Baileys (`backend/bulk/services/baileysService.js`), Socket.IO server
+Socket.IO server
 (`backend/src/socket.js`), the BullMQ `Worker` (`backend/src/queues/whatsappSendWorker.js`
 / `backend/src/worker.js`), and the four `setInterval` schedulers
 (`tokenRefreshService`, `invoiceSchedulerService`, `backupSchedulerService`,

@@ -47,14 +47,13 @@ where a fuller doc already covers something.
       unverified and is a real launch blocker if billing is enabled
 
 ## Compliance
-- [x] The Baileys-based "Campaigns"/manual-connect Terms-of-Service exposure
-      mitigated: disabled by default for every organization, gated behind
-      `Organization.baileysEnabled` at every route, hidden from the
-      dashboard nav and the public landing page (see `APP_REVIEW.md`) — a
-      super admin must explicitly opt an organization in. Still make and
-      document your own business decision before enabling it for any
-      Tech-Provider-branded customer; the underlying Platform Terms risk is
-      unchanged for orgs you do choose to enable it for.
+- [x] The unofficial WhatsApp Web (Baileys) transport has been **removed
+      entirely**, not merely gated: the service, routes, models, UI, npm
+      dependency and per-org feature flag are gone, and the only messaging
+      path left is the official Cloud API. This closes the Platform Terms
+      exposure rather than deferring it. Two now-unusable collections
+      (`baileysauthstates`, `baileysmessages`) are left for a deliberate
+      manual drop — see `docs/BAILEYS_REMOVAL.md`.
 - [ ] Privacy Policy / Terms of Service / DPA reviewed by an actual lawyer
       and published (`docs/legal/` — templates only as shipped)
 - [ ] A real data retention policy implemented in code, not just

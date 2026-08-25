@@ -89,4 +89,4 @@ const verifyOtp = async (mobile, code, purpose) => {
   return true;
 };
 
-module.exports = { sendOtp, verifyOtp };
+module.exports = { sendOtp, verifyOtp, sendWhatsAppOtpMessage };

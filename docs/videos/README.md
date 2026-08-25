@@ -78,7 +78,7 @@ them, matching the tone of the rest of `docs/meta-tech-provider/`:
   currently displays sample data, not a live query — there is no backend
   endpoint yet serving real rows to that screen.
 - **Video 08** (broadcasts): explicitly distinguishes the official Cloud API
-  broadcast feature from the separate Baileys-based "Campaigns" feature,
+  broadcast feature from the separate WhatsApp Cloud API-based "Campaigns" feature,
   which `docs/meta-tech-provider/APP_REVIEW.md` flags as a Platform Terms
   risk — no video in this series treats Campaigns as a recommended feature
   to build a customer-facing walkthrough around.

@@ -60,7 +60,7 @@ New since the checklist was written — **runtime** (production dependencies):
 | `dompurify` | moderate | via `jspdf@4.2.1` | A **new** advisory, not a regression of the one the checklist recorded as fixed. |
 | `mongoose` | moderate | backend, direct | Prototype pollution in update casting. Non-breaking fix. |
 | `nanoid` | high | via `postcss` (devDep) | Build-time only. |
-| `protobufjs` | moderate | via `@whiskeysockets/baileys` | Only reachable for orgs with Baileys explicitly enabled. |
+| `protobufjs` | moderate | *(was via `@whiskeysockets/baileys`)* | **Resolved** — the dependency is removed. |
 | `body-parser` | low | via `express` | Non-breaking fix. |
 
 Dev/test-only, no runtime exposure: `vitest`, `vite`, `esbuild`, `vite-node`,
@@ -77,9 +77,9 @@ decision; leave the dev-only breaking upgrades for a separate pass.
 
 ## Compliance / Operational
 
-Every item here is **EXTERNAL** and unchanged: Baileys gating is already
-enforced in code (`baileysGate.test.js`), but the business decision about
-enabling it is yours; legal documents need a lawyer, not a linter; the data
+The Baileys item is now **CODE** and closed — the transport is removed
+outright (`docs/BAILEYS_REMOVAL.md`), so there is no longer a business
+decision to make about enabling it. The rest remain **EXTERNAL**: legal documents need a lawyer, not a linter; the data
 retention policy is documented but **not implemented in code**, which the
 checklist already flags; load testing, DR drills, and support training all
 require a running environment and people.

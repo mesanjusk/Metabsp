@@ -1,5 +1,10 @@
 # Metabsp → Next.js 15 / Vercel Migration — Audit & Plan (Phase 1 & 2)
 
+> **Superseded on the Baileys question.** The unofficial WhatsApp Web
+> transport described below has since been removed entirely — see
+> [`docs/BAILEYS_REMOVAL.md`](./BAILEYS_REMOVAL.md). This document is
+> retained as a point-in-time record and is not updated.
+
 **Date:** 2026-07-28
 **Status:** Pre-implementation checkpoint. **No functional code has been changed to produce this document.** Per the "zero-loss migration" mandate, this report must be reviewed and the architecture decision below confirmed before any Phase 3+ (actual code) work begins.
 
