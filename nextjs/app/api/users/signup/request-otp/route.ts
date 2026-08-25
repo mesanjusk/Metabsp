@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
+import { errorResponse } from '@/lib/http/errorResponse';
 import { User } from '@/lib/models';
 import { sendOtp } from '@/lib/services/otpService';
 import { checkAuthRateLimit } from '@/lib/http/rateLimit';
@@ -9,7 +10,13 @@ const RESERVED_USERNAME = 'admin';
 
 // Ported from backend/src/routes/Users.js's POST /signup/request-otp.
 export async function POST(req: NextRequest) {
-  await connectDB();
+  // Guarded: these routes validate and rate-limit before their try block,
+  // so an unreachable database would otherwise escape as a bare 500.
+  try {
+    await connectDB();
+  } catch (error) {
+    return errorResponse(error, 'Service temporarily unavailable');
+  }
 
   const allowed = await checkAuthRateLimit(req, { windowMs: 15 * 60 * 1000, maxRequests: 5 });
   if (!allowed) {

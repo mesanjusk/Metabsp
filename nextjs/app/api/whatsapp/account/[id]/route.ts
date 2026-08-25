@@ -10,8 +10,8 @@ import AppError from '@/lib/utils/AppError';
 // (also mounted at DELETE /accounts/:id in the original — see
 // app/api/whatsapp/accounts/[id]/route.ts for that alias).
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
     const { id } = await params;
 

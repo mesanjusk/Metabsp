@@ -14,8 +14,8 @@ import AppError from '@/lib/utils/AppError';
 // Handlers use the Web FormData API instead — same two paths (uploaded
 // file vs. a direct link/mediaUrl/imageUrl/documentUrl) as the original.
 export async function POST(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
 
     const allowed = await checkUserRateLimit(authed.id, { windowMs: 60 * 1000, maxRequests: 30 });

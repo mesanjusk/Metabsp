@@ -9,8 +9,8 @@ import { sanitizeUser } from '@/lib/http/sanitizeUser';
 const WHATSAPP_PROVIDER_VALUES = ['meta'];
 
 export async function PUT(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
     const body = await req.json().catch(() => ({}));
     const provider = String(body?.provider || '').trim().toLowerCase();

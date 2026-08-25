@@ -10,6 +10,23 @@ export function errorResponse(error: unknown, fallbackMessage = 'Request failed'
     return NextResponse.json({ success: false, message: error.message }, { status: error.statusCode });
   }
 
+  // A database or cache that is unreachable is not the caller's fault and is
+  // usually transient, so it answers 503 (retry later) rather than 500. The
+  // distinction matters to monitoring and to any client with retry logic.
+  const message = String((error as any)?.message || '');
+  const isInfrastructureError =
+    /MONGO_URI is not set|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|failed to connect|Topology|server selection/i.test(message);
+
+  if (isInfrastructureError) {
+    logger.error('[api] Infrastructure unavailable:', message);
+    return NextResponse.json(
+      { success: false, message: 'Service temporarily unavailable. Please retry.' },
+      { status: 503 }
+    );
+  }
+
+  // Never returns error.message for an unexpected throw — it can carry query
+  // fragments, connection strings or stack context. The detail goes to the log.
   logger.error('[api] Unhandled error:', error);
   return NextResponse.json({ success: false, message: fallbackMessage }, { status: 500 });
 }

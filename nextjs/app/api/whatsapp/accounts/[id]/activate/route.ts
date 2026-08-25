@@ -9,8 +9,8 @@ import AppError from '@/lib/utils/AppError';
 
 // Ported from backend/src/controllers/whatsappController.js's activateAccount.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
     const { id } = await params;
 

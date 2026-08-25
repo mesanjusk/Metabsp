@@ -22,9 +22,9 @@ const normalizeWhatsAppApiError = (error: any, fallback: string) => {
 // token server-side (client secret never touches the browser), then
 // resolves phone number details and auto-subscribes the webhook.
 export async function POST(req: NextRequest) {
-  await connectDB();
 
   try {
+    await connectDB();
     const authed = await requireAuth(req);
 
     const allowed = await checkUserRateLimit(authed.id, { windowMs: 5 * 60 * 1000, maxRequests: 10 });

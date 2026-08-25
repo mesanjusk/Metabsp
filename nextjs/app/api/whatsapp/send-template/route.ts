@@ -10,8 +10,8 @@ import AppError from '@/lib/utils/AppError';
 // Ported from backend/src/controllers/whatsappController.js's sendTemplate.
 // No 24h-window guard — templates are exempt, same as the original.
 export async function POST(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
 
     const allowed = await checkUserRateLimit(authed.id, { windowMs: 60 * 1000, maxRequests: 30 });

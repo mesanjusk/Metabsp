@@ -9,8 +9,8 @@ import { sanitizeAccount } from '@/lib/whatsapp/connect';
 
 // Ported from backend/src/controllers/whatsappController.js's getStatus.
 export async function GET(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
     const accountContext = await resolveCurrentWhatsAppAccountForUser(authed.id);
     const health = await checkWhatsAppHealth(accountContext);

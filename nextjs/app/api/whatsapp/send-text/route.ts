@@ -13,8 +13,8 @@ import AppError from '@/lib/utils/AppError';
 // (see lib/whatsapp/twentyFourHourGuard.ts). messagingLimiter from the
 // original (30/min/user) is applied here via checkUserRateLimit.
 export async function POST(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
 
     const allowed = await checkUserRateLimit(authed.id, { windowMs: 60 * 1000, maxRequests: 30 });

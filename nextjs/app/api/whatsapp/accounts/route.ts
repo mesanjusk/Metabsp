@@ -7,8 +7,8 @@ import { sanitizeAccount } from '@/lib/whatsapp/connect';
 
 // Ported from backend/src/controllers/whatsappController.js's listAccounts.
 export async function GET(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
     const accounts = await WhatsAppAccount.find({ userId: authed.id }).sort({ createdAt: -1 }).lean();
     return NextResponse.json({ success: true, data: accounts.map(sanitizeAccount) });

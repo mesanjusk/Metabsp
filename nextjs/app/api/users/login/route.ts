@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
+import { errorResponse } from '@/lib/http/errorResponse';
 import { User } from '@/lib/models';
 import { signTokenForUser } from '@/lib/auth/jwt';
 import { recordAuditEvent } from '@/lib/services/auditLogService';
@@ -12,7 +13,13 @@ import logger from '@/lib/utils/logger';
 // the existing frontend's Cloud auth context works against this endpoint
 // unchanged. Same rate limit as the original's loginLimiter (20/15min/IP).
 export async function POST(req: NextRequest) {
-  await connectDB();
+  // Guarded: these routes validate and rate-limit before their try block,
+  // so an unreachable database would otherwise escape as a bare 500.
+  try {
+    await connectDB();
+  } catch (error) {
+    return errorResponse(error, 'Service temporarily unavailable');
+  }
 
   const allowed = await checkAuthRateLimit(req, { windowMs: 15 * 60 * 1000, maxRequests: 20 });
   if (!allowed) {

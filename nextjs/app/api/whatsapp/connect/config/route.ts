@@ -15,8 +15,8 @@ const COEXISTENCE_FEATURE_TYPE = 'whatsapp_business_app_onboarding';
 
 // Ported from backend/src/controllers/whatsappController.js's getConnectConfig.
 export async function GET(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     await requireAuth(req);
     const coexistenceEnabled = isCoexistenceEnabled();
     return NextResponse.json({
