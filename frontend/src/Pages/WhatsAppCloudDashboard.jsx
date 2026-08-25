@@ -131,6 +131,13 @@ const getConnectConfigPayload = (response) => {
     configId:   data?.configId   || data?.config_id   || data?.configurationId || '',
     appId:      data?.appId      || data?.app_id      || '',
     apiVersion: data?.apiVersion || data?.api_version  || 'v20.0',
+    // Coexistence (WhatsApp Business app + Cloud API on one number). The
+    // server decides whether this deployment's Meta app is subscribed to the
+    // coexistence webhook fields; absent/false, the popup runs the ordinary
+    // Cloud API flow exactly as before.
+    coexistenceEnabled: Boolean(data?.coexistenceEnabled ?? data?.coexistence_enabled),
+    featureType:        data?.featureType        || data?.feature_type        || '',
+    sessionInfoVersion: data?.sessionInfoVersion || data?.session_info_version || '3',
     raw: data,
   };
 };
@@ -297,18 +304,34 @@ export default function WhatsAppCloudDashboard() {
           config_id: cfg.configId,
           response_type: 'code',
           override_default_response_type: true,
-          extras: { setup: {} },
+          extras: {
+            setup: {},
+            sessionInfoVersion: cfg.sessionInfoVersion,
+            // Adds Meta's WhatsApp Business app onboarding (Coexistence) path
+            // to the same popup: a customer already using the WhatsApp
+            // Business app can link that number by scanning a QR code instead
+            // of migrating it away from the app. Omitted entirely when the
+            // deployment has not enabled coexistence, which leaves the popup
+            // behaving exactly as it did before.
+            ...(cfg.coexistenceEnabled && cfg.featureType
+              ? { featureType: cfg.featureType }
+              : {}),
+          },
         })
       );
       const code = loginResult?.authResponse?.code;
       if (!code) throw new Error('Meta Embedded Signup did not return an authorization code.');
 
-      const { wabaId, phoneNumberId, businessId } = await embeddedSignupDataPromise;
+      const { wabaId, phoneNumberId, businessId, coexistence } = await embeddedSignupDataPromise;
 
-      await completeWhatsAppConnect({ code, wabaId, phoneNumberId, businessId });
+      await completeWhatsAppConnect({ code, wabaId, phoneNumberId, businessId, coexistence });
       await refreshWhatsAppAccount();
       setStatusTick(p => p + 1);
-      toast.success('WhatsApp account connected.');
+      toast.success(
+        coexistence
+          ? 'WhatsApp Business app connected. Importing your existing chats — this can take a few minutes.'
+          : 'WhatsApp account connected.'
+      );
     } catch (err) {
       toast.error(parseApiError(err, 'Could not complete WhatsApp connect. Try "Connect manually" instead.'));
     } finally { setIsAccountActionLoading(false); }

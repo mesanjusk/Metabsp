@@ -8,6 +8,7 @@ onboarding as a WhatsApp Business Solution Provider (BSP) / Tech Provider.
 |---|---|
 | [`BUSINESS_VERIFICATION.md`](./BUSINESS_VERIFICATION.md) | Verifying the Meta Business Manager account that owns the app |
 | [`EMBEDDED_SIGNUP.md`](./EMBEDDED_SIGNUP.md) | How this app's Embedded Signup flow actually works, end to end |
+| [`COEXISTENCE.md`](./COEXISTENCE.md) | Coexistence — keeping the customer's WhatsApp Business app live on the same number |
 | [`OAUTH.md`](./OAUTH.md) | The OAuth/token-exchange mechanics behind Embedded Signup and manual connect |
 | [`WEBHOOK_SETUP.md`](./WEBHOOK_SETUP.md) | Registering, verifying, and securing the Meta webhook |
 | [`SYSTEM_USER_CREATION.md`](./SYSTEM_USER_CREATION.md) | Generating and using a Business-owned System User token |

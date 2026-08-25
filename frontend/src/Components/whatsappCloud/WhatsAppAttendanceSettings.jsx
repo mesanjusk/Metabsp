@@ -51,6 +51,28 @@ export default function WhatsAppAttendanceSettings({
 
   useEffect(() => { load(); }, []);
 
+  // Coexistence accounts keep running in the customer's WhatsApp Business app,
+  // and Meta backfills their existing chats over several `history` webhook
+  // chunks after connecting — surface that instead of an inbox that just looks
+  // empty for the first few minutes.
+  const coexistence = whatsappAccount?.coexistence || null;
+  const coexistenceSummary = (() => {
+    if (!coexistence?.enabled) return '';
+    const parts = ['Coexistence: WhatsApp Business app stays active on this number'];
+    const syncStatus = String(coexistence.historySyncStatus || '');
+    if (syncStatus === 'in_progress') {
+      const progress = Number(coexistence.historySyncProgress);
+      parts.push(
+        Number.isFinite(progress) && progress > 0
+          ? `importing chat history (${Math.round(progress)}%)`
+          : 'importing chat history'
+      );
+    } else if (syncStatus === 'completed') {
+      parts.push('chat history imported');
+    }
+    return parts.join(' • ');
+  })();
+
   const save = async () => {
     setIsSaving(true);
     setError('');
@@ -89,6 +111,11 @@ export default function WhatsAppAttendanceSettings({
                   whatsappAccountStatus ? `Status: ${whatsappAccountStatus}` : null,
                   accountConnectionMode ? `Mode: ${accountConnectionMode}` : null,
                 ].filter(Boolean).join(' • ')}
+              </Typography>
+            ) : null}
+            {coexistenceSummary ? (
+              <Typography variant="caption" color="text.secondary">
+                {coexistenceSummary}
               </Typography>
             ) : null}
           </Stack>

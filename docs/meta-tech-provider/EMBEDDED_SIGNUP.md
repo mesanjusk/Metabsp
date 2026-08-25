@@ -33,10 +33,24 @@ credentials. This is fully implemented — here is the exact, real flow.
    - Encrypts the token (AES-256-GCM, `src/utils/crypto.js`) and upserts
      a `WhatsAppAccount` document, activating it for the user.
 
+## Coexistence
+
+The same popup also onboards customers who want to keep using their
+WhatsApp Business app on the number (Coexistence). It is driven by
+`extras.featureType = 'whatsapp_business_app_onboarding'`, resolves on a
+`FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING` event, and stores the account as
+`connectionMode: 'coexistence'`. It also brings three extra webhook fields
+that must be handled or the connected number goes stale — all of it is in
+[`COEXISTENCE.md`](./COEXISTENCE.md).
+
 ## What you need configured
 
 - `META_APP_ID`, `META_APP_SECRET` — from your verified Business
   Manager's app.
+- `META_ENABLE_COEXISTENCE` — optional, defaults to on. Set to `false`
+  until the coexistence webhook fields are subscribed in the Meta App
+  Dashboard (see `COEXISTENCE.md`); the popup then runs the ordinary Cloud
+  API flow only.
 - `META_EMBEDDED_SIGNUP_CONFIG_ID` — the Embedded Signup configuration
   created in Meta Business Manager (Facebook Login for Business setup,
   see `BUSINESS_VERIFICATION.md`). Without this, the flow falls back to

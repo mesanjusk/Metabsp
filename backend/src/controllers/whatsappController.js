@@ -39,6 +39,10 @@ const conversationAssignmentService = require('../services/conversationAssignmen
 const Workflow = require('../repositories/Workflow');
 const { resolveMatchingWorkflow } = require('../services/workflowService');
 const { recordAuditEvent } = require('../services/auditLogService');
+const {
+  extractCoexistenceEvents,
+  createCoexistenceProcessor,
+} = require('../services/coexistenceService');
 const { getGraphApiVersion } = require('../config/graphApi');
 
 const normalizePhone = (v) => String(v || '').replace(/\D/g, '');
@@ -321,13 +325,35 @@ const getMetaWebhookConfig = asyncHandler(async (req, res) => {
   });
 });
 
+// Coexistence onboarding is opt-in per deployment: it requires the Meta app to
+// be subscribed to the `history`, `smb_message_echoes` and `smb_app_state_sync`
+// webhook fields (App Dashboard → WhatsApp → Configuration → Webhook fields).
+// Turning the extras flag on without those subscriptions would onboard numbers
+// whose Business-app traffic then silently never reaches this platform, so it
+// stays off unless explicitly enabled. Default: on, since the field
+// subscriptions are part of the documented go-live checklist.
+const isCoexistenceEnabled = () =>
+  String(process.env.META_ENABLE_COEXISTENCE ?? 'true').toLowerCase() !== 'false';
+
+// Meta's Embedded Signup extras value that adds the WhatsApp Business app
+// onboarding path (QR-code linking) to the popup. Additive — a customer with
+// no WhatsApp Business app still gets the ordinary Cloud API flow.
+const COEXISTENCE_FEATURE_TYPE = 'whatsapp_business_app_onboarding';
+
 const getConnectConfig = asyncHandler(async (_req, res) => {
+  const coexistenceEnabled = isCoexistenceEnabled();
   return res.status(200).json({
     success: true,
     data: {
       appId: process.env.META_APP_ID || '',
       configId: process.env.META_EMBEDDED_SIGNUP_CONFIG_ID || '',
       apiVersion: RESOLVED_API_VERSION,
+      coexistenceEnabled,
+      // Passed straight into FB.login's `extras` by the frontend.
+      featureType: coexistenceEnabled ? COEXISTENCE_FEATURE_TYPE : '',
+      // Meta's session-info schema version for the WA_EMBEDDED_SIGNUP
+      // postMessage payloads; v3 is what carries the coexistence steps.
+      sessionInfoVersion: '3',
     },
   });
 });
@@ -409,8 +435,27 @@ const subscribeAppToWaba = async ({ wabaId, accessToken }) => {
 // write catches a malformed/tampered postMessage payload early.
 const isMetaNumericId = (value) => /^\d+$/.test(String(value || ''));
 
+// Best-effort read of Meta's `platform_type` for a business phone number. It
+// is fetched separately from display_phone_number/verified_name on purpose: if
+// Meta ever drops or renames the field, an unknown `fields` entry fails the
+// whole request, and losing the display number matters far more than losing
+// this hint.
+const fetchPhoneNumberPlatformType = async ({ phoneNumberId, accessToken }) => {
+  try {
+    const res = await axios.get(`https://graph.facebook.com/${RESOLVED_API_VERSION}/${phoneNumberId}`, {
+      params: { fields: 'platform_type' },
+      headers: { Authorization: `Bearer ${accessToken}` },
+      timeout: 15000,
+    });
+    return String(res.data?.platform_type || '');
+  } catch (error) {
+    logger.warn('[embedded-signup] Could not read platform_type:', error?.response?.data?.error?.message || error.message);
+    return '';
+  }
+};
+
 const completeEmbeddedSignup = asyncHandler(async (req, res) => {
-  const { code, wabaId, phoneNumberId, businessId } = req.body || {};
+  const { code, wabaId, phoneNumberId, businessId, coexistence } = req.body || {};
 
   if (!code) throw new AppError('code is required', 400);
   if (!wabaId || !isMetaNumericId(wabaId)) throw new AppError('wabaId must be a valid Meta WABA ID', 400);
@@ -468,11 +513,18 @@ const completeEmbeddedSignup = asyncHandler(async (req, res) => {
 
   const webhookSubscribed = await subscribeAppToWaba({ wabaId, accessToken });
 
+  // A coexistence number stays live in the customer's WhatsApp Business app.
+  // The browser reports which Embedded Signup path completed; Meta's own
+  // platform_type on the number is used to confirm it, so a tampered client
+  // flag alone cannot mislabel an ordinary Cloud API number (and vice versa).
+  const platformType = await fetchPhoneNumberPlatformType({ phoneNumberId, accessToken });
+  const isCoexistence = Boolean(coexistence) || platformType.toUpperCase() === 'SMB_APP';
+
   const account = await upsertAndActivateAccountForUser({
     userId: req.user?.id,
     phoneNumberId: String(phoneNumberId),
     setPayload: {
-      connectionMode: 'embedded_signup',
+      connectionMode: isCoexistence ? 'coexistence' : 'embedded_signup',
       wabaId: String(wabaId),
       businessAccountId: String(businessId || ''),
       displayPhoneNumber: String(phoneDetails.display_phone_number || phoneNumberId),
@@ -484,10 +536,16 @@ const completeEmbeddedSignup = asyncHandler(async (req, res) => {
       webhookSubscribed,
       connectedAt: new Date(),
       lastSyncAt: new Date(),
+      'coexistence.enabled': isCoexistence,
+      'coexistence.platformType': platformType,
+      // Meta starts streaming the `history` webhook shortly after a
+      // coexistence number is onboarded — mark it pending so the UI can show
+      // "importing chats" rather than an empty inbox.
+      ...(isCoexistence ? { 'coexistence.historySyncStatus': 'in_progress' } : {}),
     },
   });
 
-  recordAuditEvent({ req, action: 'whatsapp_account.connect', resource: 'whatsapp_account', resourceId: account._id, metadata: { connectionMode: 'embedded_signup', phoneNumberId } });
+  recordAuditEvent({ req, action: 'whatsapp_account.connect', resource: 'whatsapp_account', resourceId: account._id, metadata: { connectionMode: isCoexistence ? 'coexistence' : 'embedded_signup', phoneNumberId } });
   return res.status(200).json({ success: true, data: sanitizeAccount(account) });
 });
 
@@ -1775,6 +1833,17 @@ async function resolveInboundRouting(whatsappAccountId, payload) {
   return destinations.filter((dest) => dest.fanoutFallback || !dest.entryKeyword);
 }
 
+// Coexistence webhook fields (`history`, `smb_message_echoes`,
+// `smb_app_state_sync`) are handled by services/coexistenceService.js. The
+// processor is built here, after parseIncoming/saveAndEmitMessage/
+// forwardToWebhookDestinations exist, and injected rather than imported so the
+// service never has to require this controller back.
+const coexistenceProcessor = createCoexistenceProcessor({
+  parseIncoming,
+  saveAndEmitMessage,
+  forwardToWebhookDestinations,
+});
+
 const receiveWebhook = (req, res) => {
   try {
     const enforceSignature = String(process.env.WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE).toLowerCase() !== 'false';
@@ -1814,6 +1883,11 @@ const receiveWebhook = (req, res) => {
     const entries = Array.isArray(req.body?.entry) ? req.body.entry : [];
     const incoming = [];
     const statuses = [];
+
+    // Coexistence-only fields, parsed up front so they survive the response
+    // being sent below. Empty (and therefore free) for every Cloud-API-only
+    // account, which never receives these changes.
+    const coexistence = extractCoexistenceEvents(entries);
 
     for (const entry of entries) {
       const changes = Array.isArray(entry?.changes) ? entry.changes : [];
@@ -1861,6 +1935,18 @@ const receiveWebhook = (req, res) => {
 
     setImmediate(async () => {
       try {
+      // History first: backfilled messages must land before live echoes and
+      // inbound messages so a conversation reads in chronological order.
+      if (coexistence.historyChunks.length) {
+        await coexistenceProcessor.processHistoryChunks(coexistence.historyChunks);
+      }
+      if (coexistence.stateSyncs.length) {
+        await coexistenceProcessor.processStateSyncs(coexistence.stateSyncs);
+      }
+      if (coexistence.echoes.length) {
+        await coexistenceProcessor.processEchoes(coexistence.echoes);
+      }
+
       for (const statusEvent of statuses) {
         const messageId = String(statusEvent?.id || '');
         const status = String(statusEvent?.status || '').toLowerCase();

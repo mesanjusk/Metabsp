@@ -13,6 +13,11 @@ In your Meta App's WhatsApp product configuration:
   dashboard.
 - **Subscribe to**: at minimum the `messages` field. This app also parses
   message `statuses` (delivered/read/failed) from the same field.
+  If you offer Coexistence, also subscribe to `history`,
+  `smb_message_echoes` and `smb_app_state_sync` — without them a
+  coexistence number onboards successfully and then never delivers chat
+  history, WhatsApp-Business-app messages, or contacts. See
+  `COEXISTENCE.md`.
 
 ## The verification handshake (`GET /webhook`)
 
@@ -65,6 +70,16 @@ signature/object-type checks, then processes messages/status updates
 (contact upserts, auto-reply/workflow matching, CRM webhook fan-out, media
 download) via `setImmediate` in the background — a slow downstream
 integration never blocks the ack Meta is waiting for.
+
+## Coexistence fields
+
+`history`, `smb_message_echoes` and `smb_app_state_sync` arrive on this
+same endpoint, distinguished by `entry[].changes[].field`, and are handled
+by `backend/src/services/coexistenceService.js`. They are parsed up front,
+before the fast ack above, and processed history-first, so backfilled
+messages land before live traffic. Full detail — including why
+echoes never trigger Auto Reply and never reopen the 24-hour window — is
+in `COEXISTENCE.md`.
 
 ## Idempotency
 

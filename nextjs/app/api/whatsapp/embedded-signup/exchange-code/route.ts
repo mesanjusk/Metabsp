@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { code, wabaId, phoneNumberId, businessId } = body || {};
+    const { code, wabaId, phoneNumberId, businessId, coexistence } = body || {};
 
     if (!code) throw new AppError('code is required', 400);
     if (!wabaId || !isMetaNumericId(wabaId)) throw new AppError('wabaId must be a valid Meta WABA ID', 400);
@@ -85,11 +85,30 @@ export async function POST(req: NextRequest) {
 
     const webhookSubscribed = await subscribeAppToWaba({ wabaId, accessToken });
 
+    // A coexistence number stays live in the customer's WhatsApp Business app.
+    // The browser reports which Embedded Signup path completed; Meta's own
+    // platform_type is fetched separately (an unknown `fields` entry would
+    // fail the whole request, and losing display_phone_number matters more)
+    // and used to confirm it, so a tampered client flag alone cannot mislabel
+    // an ordinary Cloud API number.
+    let platformType = '';
+    try {
+      const platformRes = await axios.get(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}`, {
+        params: { fields: 'platform_type' },
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 15000,
+      });
+      platformType = String(platformRes.data?.platform_type || '');
+    } catch (error: any) {
+      logger.warn('[embedded-signup] Could not read platform_type:', error?.response?.data?.error?.message || error.message);
+    }
+    const isCoexistence = Boolean(coexistence) || platformType.toUpperCase() === 'SMB_APP';
+
     const account: any = await upsertAndActivateAccountForUser({
       userId: authed.id,
       phoneNumberId: String(phoneNumberId),
       setPayload: {
-        connectionMode: 'embedded_signup',
+        connectionMode: isCoexistence ? 'coexistence' : 'embedded_signup',
         wabaId: String(wabaId),
         businessAccountId: String(businessId || ''),
         displayPhoneNumber: String(phoneDetails.display_phone_number || phoneNumberId),
@@ -101,6 +120,12 @@ export async function POST(req: NextRequest) {
         webhookSubscribed,
         connectedAt: new Date(),
         lastSyncAt: new Date(),
+        'coexistence.enabled': isCoexistence,
+        'coexistence.platformType': platformType,
+        // Meta starts streaming `history` shortly after a coexistence number
+        // is onboarded — mark it pending so the UI can show "importing chats"
+        // rather than an empty inbox.
+        ...(isCoexistence ? { 'coexistence.historySyncStatus': 'in_progress' } : {}),
       },
     });
 
@@ -110,7 +135,7 @@ export async function POST(req: NextRequest) {
       action: 'whatsapp_account.connect',
       resource: 'whatsapp_account',
       resourceId: account._id,
-      metadata: { connectionMode: 'embedded_signup', phoneNumberId },
+      metadata: { connectionMode: isCoexistence ? 'coexistence' : 'embedded_signup', phoneNumberId },
     });
 
     return NextResponse.json({ success: true, data: sanitizeAccount(account) });

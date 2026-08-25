@@ -16,6 +16,7 @@ import { resolveAutoReplyAction, resolveReplyDelayMs } from '../services/autoRep
 import { resolveMatchingWorkflow } from '../services/workflowService';
 import { saveAndEmitMessage, normalizePhone } from './dispatch';
 import { parseIncoming, deliverToDestinations, resolveInboundRouting } from './webhookProcessing';
+import { extractCoexistenceEvents, processCoexistenceEvents } from './coexistence';
 import { enqueueDelayedReply } from '../queues/whatsappSendQueue';
 
 const RESOLVED_API_VERSION = getGraphApiVersion();
@@ -102,6 +103,12 @@ export async function handleReceiveWebhook(req: NextRequest): Promise<NextRespon
     const entries = Array.isArray(body?.entry) ? body.entry : [];
     const incoming: any[] = [];
     const statuses: any[] = [];
+
+    // Coexistence-only fields (`history`, `smb_message_echoes`,
+    // `smb_app_state_sync`). Empty for every Cloud-API-only account, which
+    // never receives these changes.
+    const coexistence = extractCoexistenceEvents(entries);
+    await processCoexistenceEvents(coexistence);
 
     for (const entry of entries) {
       const changes = Array.isArray(entry?.changes) ? entry.changes : [];

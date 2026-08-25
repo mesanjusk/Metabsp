@@ -50,6 +50,14 @@ export function loadFacebookSdk({ appId, apiVersion = 'v20.0' }) {
   return loadPromise;
 }
 
+// Meta's Embedded Signup "finish" events. FINISH is the ordinary Cloud API
+// completion; FINISH_ONLY_WABA means a WABA was created but no phone number
+// was attached; FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING is Coexistence — the
+// customer linked a number that stays live in their WhatsApp Business app
+// (they scanned the QR code in the app's Linked devices screen).
+const FINISH_EVENTS = ['FINISH', 'FINISH_ONLY_WABA', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'];
+const COEXISTENCE_FINISH_EVENT = 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING';
+
 // Meta's Embedded Signup popup posts window messages with the WABA/phone
 // number identifiers — FB.login's own callback only carries the OAuth
 // `code`, not these IDs, so they must be captured via this side channel.
@@ -73,13 +81,20 @@ export function listenForEmbeddedSignupData({ timeoutMs = 5 * 60 * 1000 } = {}) 
       }
       if (data?.type !== 'WA_EMBEDDED_SIGNUP') return;
 
-      if (data.event === 'FINISH' || data.event === 'FINISH_ONLY_WABA') {
+      if (FINISH_EVENTS.includes(data.event)) {
         settled = true;
         cleanup();
+        // Coexistence is reported either as its own finish event or, in
+        // session-info v3, as a FINISH whose last step was the WhatsApp
+        // Business app onboarding screen — accept both.
+        const step = String(data.data?.current_step || '').toUpperCase();
         resolve({
           wabaId: data.data?.waba_id || '',
           phoneNumberId: data.data?.phone_number_id || '',
           businessId: data.data?.business_id || '',
+          coexistence:
+            data.event === COEXISTENCE_FINISH_EVENT || step.includes('WHATSAPP_BUSINESS_APP'),
+          finishEvent: data.event,
         });
       } else if (data.event === 'CANCEL' || data.event === 'ERROR') {
         settled = true;

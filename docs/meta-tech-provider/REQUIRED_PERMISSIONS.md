@@ -7,6 +7,15 @@
 | `business_management` | Listing WABAs owned by a Business Manager during manual connect validation (`owned_whatsapp_business_accounts`) | `whatsappCredentialValidationService.js` |
 | `public_profile` (default FB Login scope) | Identifying the connecting Meta user (`/me`) during Embedded Signup/manual connect validation | `completeEmbeddedSignup`, `validateManualWhatsAppCredentials` |
 
+## Coexistence
+
+Coexistence (`COEXISTENCE.md`) adds no new permission — it runs on
+`whatsapp_business_management` + `whatsapp_business_messaging` like the
+rest of the integration. What it does require is the `history`,
+`smb_message_echoes` and `smb_app_state_sync` **webhook field**
+subscriptions in the App Dashboard, which are configuration rather than
+permissions and are not part of an App Review submission.
+
 ## What this app does **not** request
 
 - Any Page/Instagram permission — this app is WhatsApp-only. If your Meta

@@ -11,6 +11,12 @@ where a fuller doc already covers something.
       created and tested (`EMBEDDED_SIGNUP.md`)
 - [ ] Webhook registered, verify token set, signature enforcement on
       (`WEBHOOK_SETUP.md`)
+- [ ] If offering Coexistence: the `history`, `smb_message_echoes` and
+      `smb_app_state_sync` webhook fields subscribed in the App Dashboard,
+      and one real coexistence onboarding run end to end. Until both are
+      done, set `META_ENABLE_COEXISTENCE=false` so the Embedded Signup
+      popup does not offer a path whose traffic goes nowhere
+      (`COEXISTENCE.md`)
 - [ ] At least the primary production number using a System User token
       (`SYSTEM_USER_CREATION.md`)
 
