@@ -7,6 +7,7 @@ import { getAssignmentsForAccount } from '@/lib/services/conversationAssignmentS
 import { normalizePhone } from '@/lib/whatsapp/dispatch';
 import Message from '@/lib/models/Message';
 import Contact from '@/lib/models/Contact';
+import { buildScopedContactFilter } from '@/lib/whatsapp/contacts';
 
 // Ported from backend/src/controllers/whatsappController.js's getConversations.
 //
@@ -43,8 +44,23 @@ export async function GET(req: NextRequest) {
     ]);
 
     const phones = conversations.map((item) => normalizePhone(item._id)).filter(Boolean);
-    const contacts: any[] = await Contact.find({ phone: { $in: phones } }).lean();
-    const contactMap = new Map(contacts.map((c) => [c.phone, c]));
+
+    // Scoped, not a bare phone lookup. Contacts are keyed by phone number and
+    // two tenants routinely hold the same number, so an unscoped $in returns
+    // other tenants' rows and the name shown against a conversation becomes
+    // whichever one Mongo happened to return last. $and, never a spread — the
+    // scope is itself an $or (see buildScopedContactFilter).
+    const contacts: any[] = await Contact.find({
+      $and: [buildScopedContactFilter(authed.id, accountContext), { phone: { $in: phones } }],
+    }).lean();
+
+    // A legacy shared contact (no userId) can still collide with one this user
+    // owns. Prefer the owned row so a customer's own naming always wins.
+    const contactMap = new Map<string, any>();
+    for (const contact of contacts) {
+      const existing = contactMap.get(contact.phone);
+      if (!existing || (!existing.userId && contact.userId)) contactMap.set(contact.phone, contact);
+    }
 
     const assignments = accountContext?.account?._id
       ? await getAssignmentsForAccount(accountContext.account._id)

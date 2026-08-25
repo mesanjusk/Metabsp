@@ -28,8 +28,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const payload = normalizeContactPayload(await req.json().catch(() => ({})));
 
     const existing: any = await Contact.findOne({
-      _id: id,
-      ...buildScopedContactFilter(authed.id, accountContext),
+      $and: [buildScopedContactFilter(authed.id, accountContext), { _id: id }],
     });
     if (!existing) throw new AppError('Contact not found', 404);
 
@@ -63,8 +62,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const accountContext: any = await resolveCurrentWhatsAppAccountForUser(authed.id, { requireAccount: false });
 
     const deleted: any = await Contact.findOneAndDelete({
-      _id: id,
-      ...buildScopedContactFilter(authed.id, accountContext),
+      $and: [buildScopedContactFilter(authed.id, accountContext), { _id: id }],
     });
     if (!deleted) throw new AppError('Contact not found', 404);
 

@@ -1342,7 +1342,9 @@ const createContact = asyncHandler(async (req, res) => {
 const updateContact = asyncHandler(async (req, res) => {
   const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
   const payload  = normalizeContactPayload(req.body || {});
-  const existing = await Contact.findOne({ _id: req.params.id, ...buildScopedContactFilter(req, accountContext) });
+  const existing = await Contact.findOne({
+    $and: [buildScopedContactFilter(req, accountContext), { _id: req.params.id }],
+  });
   if (!existing) throw new AppError('Contact not found', 404);
   if (payload.phone) existing.phone = payload.phone;
   Object.assign(existing, {
@@ -1357,7 +1359,9 @@ const updateContact = asyncHandler(async (req, res) => {
 
 const deleteContact = asyncHandler(async (req, res) => {
   const accountContext = await resolveCurrentWhatsAppAccount(req, { requireAccount: false });
-  const deleted = await Contact.findOneAndDelete({ _id: req.params.id, ...buildScopedContactFilter(req, accountContext) });
+  const deleted = await Contact.findOneAndDelete({
+    $and: [buildScopedContactFilter(req, accountContext), { _id: req.params.id }],
+  });
   if (!deleted) throw new AppError('Contact not found', 404);
   notifyContactWebhooks(accountContext?.account?._id, 'contact.deleted', { _id: deleted._id, phone: deleted.phone });
   return res.status(200).json({ success: true });
@@ -1372,7 +1376,7 @@ const bulkUpdateContacts = asyncHandler(async (req, res) => {
   if (category !== undefined) update.category = String(category || '').trim();
   if (Array.isArray(tags))    update.tags = tags.map(t => String(t).trim()).filter(Boolean);
   if (!Object.keys(update).length) throw new AppError('Provide category or tags to update', 400);
-  const result = await Contact.updateMany({ _id: { $in: ids }, ...scopeFilter }, { $set: update });
+  const result = await Contact.updateMany({ $and: [scopeFilter, { _id: { $in: ids } }] }, { $set: update });
   return res.status(200).json({ success: true, modified: result.modifiedCount });
 });
 
@@ -1576,8 +1580,24 @@ const getConversations = asyncHandler(async (req, res) => {
   ]);
 
   const phones = conversations.map((item) => normalizePhone(item._id)).filter(Boolean);
-  const contacts = await Contact.find({ phone: { $in: phones } }).lean();
-  const contactMap = new Map(contacts.map((c) => [c.phone, c]));
+
+  // Scoped, not a bare phone lookup. Contacts are keyed by phone number and two
+  // tenants routinely hold the same number, so an unscoped $in returns other
+  // tenants' rows and the name shown against a conversation becomes whichever
+  // one Mongo happened to return last. $and, never a spread — the scope is
+  // itself an $or (see buildScopedContactFilter above, and the same mistake
+  // pinned in __tests__/contactSearchScoping.test.js).
+  const contacts = await Contact.find({
+    $and: [buildScopedContactFilter(req, accountContext), { phone: { $in: phones } }],
+  }).lean();
+
+  // A legacy shared contact (no userId) can still collide with one this user
+  // owns. Prefer the owned row so a customer's own naming always wins.
+  const contactMap = new Map();
+  for (const contact of contacts) {
+    const existing = contactMap.get(contact.phone);
+    if (!existing || (!existing.userId && contact.userId)) contactMap.set(contact.phone, contact);
+  }
   const assignments = accountContext?.account?._id
     ? await conversationAssignmentService.getAssignmentsForAccount(accountContext.account._id)
     : new Map();
