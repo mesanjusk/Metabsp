@@ -20,6 +20,7 @@ const { startWhatsAppSendWorker } = require('./queues/whatsappSendWorker');
 const { startInvoiceScheduler } = require('./services/invoiceSchedulerService');
 const { startBackupScheduler } = require('./services/backupSchedulerService');
 const { startRenderKeepAlive } = require('./services/renderKeepAliveService');
+const { runPreflightOnBoot } = require('./services/preflightCheckService');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Process error guards (merged from both servers)
@@ -107,6 +108,17 @@ async function startServer() {
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
       logger.info(`🚀 Unified server running on port ${PORT}`);
+
+      // Read-only audit of the Meta-side configuration whose failure mode is
+      // silence rather than an error — most importantly, coexistence being
+      // enabled while its webhook fields are unsubscribed (see
+      // services/preflightCheckService.js and
+      // docs/meta-tech-provider/COEXISTENCE.md). One Graph call, fired after
+      // the port is already open so it can never delay or block a boot; set
+      // RUN_PREFLIGHT_ON_BOOT=false to skip it.
+      runPreflightOnBoot().catch((err) =>
+        logger.error('[preflight] Boot check failed (non-fatal):', err.message)
+      );
 
       // Auto-reconnect Baileys if saved credentials exist in MongoDB
       const { autoConnectIfCredentialsExist } = require('../bulk/services/baileysService');

@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { runPreflightChecks } = require('../services/preflightCheckService');
 const { createRateLimiter } = require('../middleware/rateLimit');
 const { enforceWhatsApp24hWindow } = require('../middleware/whatsapp24hGuard');
 
@@ -69,6 +70,22 @@ const messagingLimiter = createRateLimiter({ windowMs: 60 * 1000, maxRequests: 3
 const connectLimiter = createRateLimiter({ windowMs: 5 * 60 * 1000, maxRequests: 10 });
 
 router.get('/meta-webhook-config', requireAuth, requireAdmin, getMetaWebhookConfig);
+// Read-only configuration audit: webhook field subscriptions, coexistence
+// gating, and per-account token posture. Admin-only because it reports which
+// numbers are connected and how their tokens are held. Rate-limited like the
+// other Graph-calling endpoints — `?wabas=true` costs one Graph call per
+// active WABA (see services/preflightCheckService.js).
+router.get('/preflight', requireAuth, requireAdmin, connectLimiter, async (req, res) => {
+  try {
+    const includeWabaSubscriptions = String(req.query.wabas || '').toLowerCase() === 'true';
+    const report = await runPreflightChecks({ includeWabaSubscriptions });
+    // 200 regardless of findings — this is a report, not a liveness probe, and
+    // a monitoring tool should key off `severity`, not the HTTP status.
+    return res.status(200).json({ success: true, data: report });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
 router.get('/connect/config', requireAuth, getConnectConfig);
 router.post('/connect/complete', requireAuth, connectLimiter, completeConnection);
 router.post('/connect/manual', requireAuth, connectLimiter, manualConnect);

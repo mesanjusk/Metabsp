@@ -130,8 +130,16 @@ subscribe to all of these:
 - `smb_message_echoes`
 - `smb_app_state_sync`
 
-Webhook **field** subscriptions are app-level in Meta's dashboard — there
-is no Graph API call this repo can make to set them per WABA.
+**Status: confirmed subscribed** in the App Dashboard as of 2026-08-25 —
+all four fields. `backend/src/services/preflightCheckService.js` now
+re-verifies this on every boot (and via `GET /api/whatsapp/preflight`) by
+reading `GET /{app-id}/subscriptions` with an app access token, so a later
+change in the dashboard surfaces as a startup warning rather than as
+customers with silently stale inboxes.
+
+Webhook **field** subscriptions can only be *set* app-level in Meta's
+dashboard — there is no Graph API call this repo can make to set them per
+WABA, which is why the pre-flight check reads them rather than fixing them.
 `subscribeAppToWaba` (`POST /{waba-id}/subscribed_apps`) subscribes the
 app to each customer's WABA, which is necessary but not sufficient: if
 the three fields above are not ticked, coexistence numbers onboard
