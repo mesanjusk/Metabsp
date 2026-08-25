@@ -173,6 +173,13 @@ services:
       # Flip to true only once they move, and only on one instance.
       - key: RUN_BACKGROUND_JOBS
         value: "false"
+      # Optional. GET /api/whatsapp/webhook-destinations/keep-alive-targets is
+      # unauthenticated and lists every tenant's webhook URL, so that a keep-
+      # alive pinger can discover what to ping. Setting this requires the
+      # pinger to send it as X-Keep-Alive-Token; leaving it unset keeps the
+      # original open behaviour, so configure it on the pinger first.
+      - key: KEEP_ALIVE_TOKEN
+        sync: false
 
   - type: redis
     name: metabsp-redis

@@ -75,11 +75,27 @@ actually move, and only on one instance.
 **The frontend is not migrated.** ~19,000 lines of Vite/MUI still serve
 `meta.instify.in` from Vercel. That is the bulk of the remaining work.
 
-**~4,000 lines of Express routes remain**: billing, webhookDestinations, and
-the `bulk/` set, plus the parts of `Users.js` / `WhatsAppCloud.js` not yet
-ported (templates, contacts, auto-reply, workflows, team, api-keys).
+**Four routes are deliberately still on Express**, all in `billing.js`:
 
-27 API routes are already ported: auth, the WhatsApp core, and the webhook.
+| Route | Why it stayed |
+|---|---|
+| `POST /api/billing/subscribe` | Calls the Cashfree payment gateway |
+| `POST /api/billing/webhook` | Cashfree's HMAC check needs the raw request body |
+| `GET /api/billing/invoices/:id/pdf` | Needs `invoicePdfService` (not ported) |
+| `GET /api/billing/admin/overview` | Needs `adminAnalyticsService` (not ported) |
+
+Payment code is out of scope for this migration by instruction; the read-only
+billing routes (`plans`, `subscription`, `invoices`) are ported and the
+gateway paths keep running on Express untouched.
+
+**The `bulk/` route set remains on Express** — auth, blast, campaign, crud,
+dashboard, org, role, systemSettings, upload, user and whatsapp routers under
+`backend/bulk/routes/`.
+
+62 API routes are ported: auth, the whole WhatsApp surface (accounts,
+connection, messaging, contacts, templates, automation, campaigns, team,
+api-keys, analytics, settings, preflight), webhook destinations, the webhook
+itself, and the read-only billing routes.
 
 ## Creating the service
 
