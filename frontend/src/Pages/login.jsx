@@ -20,6 +20,7 @@ import apiClient from '../apiClient';
 import { toast } from '../Components/Toast';
 import { ROUTES } from '../constants/routes';
 import { useAuth } from '../context/AuthContext';
+import SocialSignIn from '../Components/SocialSignIn';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -34,6 +35,20 @@ export default function Login() {
       navigate(ROUTES.WHATSAPP, { replace: true });
     }
   }, [isAuthenticated, navigate]);
+
+  // Social sign-in returns the same {token, user} envelope as password login,
+  // so it lands in the session through the identical code path — no second
+  // notion of "logged in" to keep consistent.
+  const handleAuthenticated = (data) => {
+    login(data.token, {
+      userName: data.user?.User_name || '',
+      userGroup: data.user?.User_group || '',
+      mobileNumber: data.user?.Mobile_number || '',
+      whatsappProvider: data.user?.Whatsapp_provider || '',
+    });
+    toast.success('Login successful.');
+    navigate(ROUTES.WHATSAPP, { replace: true });
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -154,6 +169,8 @@ export default function Login() {
             >
               {loading ? 'Please wait...' : 'Continue'}
             </Button>
+
+            <SocialSignIn onSuccess={handleAuthenticated} disabled={loading} />
 
             <Stack direction="row" justifyContent="space-between">
               <MuiLink component={Link} to={ROUTES.SIGNUP} variant="body2">

@@ -43,6 +43,15 @@ services:
       # Business app number. Flip to "true" once that passes.
       - key: META_ENABLE_COEXISTENCE
         value: "false"
+      # Social sign-in — optional and additive; each provider stays hidden on
+      # the login page until configured. Facebook falls back to META_APP_ID /
+      # META_APP_SECRET above when these are unset.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
       - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
         sync: false
       - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE
