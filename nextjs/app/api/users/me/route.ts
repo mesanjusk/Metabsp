@@ -6,8 +6,8 @@ import { sanitizeUser } from '@/lib/http/sanitizeUser';
 
 // Ported from backend/src/routes/Users.js's GET /me.
 export async function GET(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
     return NextResponse.json({ success: true, user: sanitizeUser(authed.doc) }, { status: 200 });
   } catch (error) {

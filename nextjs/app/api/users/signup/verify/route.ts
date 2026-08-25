@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
+import { errorResponse } from '@/lib/http/errorResponse';
 import { User } from '@/lib/models';
 import { verifyOtp } from '@/lib/services/otpService';
 import { signTokenForUser } from '@/lib/auth/jwt';
@@ -10,7 +11,13 @@ import logger from '@/lib/utils/logger';
 
 // Ported from backend/src/routes/Users.js's POST /signup/verify.
 export async function POST(req: NextRequest) {
-  await connectDB();
+  // Guarded: these routes validate and rate-limit before their try block,
+  // so an unreachable database would otherwise escape as a bare 500.
+  try {
+    await connectDB();
+  } catch (error) {
+    return errorResponse(error, 'Service temporarily unavailable');
+  }
 
   const allowed = await checkAuthRateLimit(req, { windowMs: 15 * 60 * 1000, maxRequests: 10 });
   if (!allowed) {

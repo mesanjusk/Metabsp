@@ -6,8 +6,8 @@ import { getWebhookVerifyToken } from '@/lib/config/graphApi';
 
 // Ported from backend/src/controllers/whatsappController.js's getMetaWebhookConfig.
 export async function GET(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
     requireAdmin(authed);
 

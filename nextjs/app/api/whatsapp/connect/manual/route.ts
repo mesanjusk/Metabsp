@@ -11,9 +11,9 @@ import AppError from '@/lib/utils/AppError';
 
 // Ported from backend/src/controllers/whatsappController.js's manualConnect.
 export async function POST(req: NextRequest) {
-  await connectDB();
 
   try {
+    await connectDB();
     const authed = await requireAuth(req);
 
     const allowed = await checkUserRateLimit(authed.id, { windowMs: 5 * 60 * 1000, maxRequests: 10 });

@@ -33,7 +33,7 @@ export const matchAutoReplyRule = (incomingText: unknown, rules: any[] = []): an
   return null;
 };
 
-const getCatalogFields = (rule: any) => {
+export const getCatalogFields = (rule: any) => {
   const fields = Array.isArray(rule?.catalogConfig?.selectionFields)
     ? rule.catalogConfig.selectionFields.map(normalizeFieldValue).filter(Boolean)
     : [];

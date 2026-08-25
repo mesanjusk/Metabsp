@@ -7,8 +7,8 @@ import { sanitizeAccount } from '@/lib/whatsapp/connect';
 
 // Ported from backend/src/controllers/whatsappController.js's getAccount.
 export async function GET(req: NextRequest) {
-  await connectDB();
   try {
+    await connectDB();
     const authed = await requireAuth(req);
     const active: any = await loadActiveWhatsAppAccountForUser(authed.id, { requireAccount: false });
     if (!active) {

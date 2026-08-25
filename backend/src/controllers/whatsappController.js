@@ -1280,11 +1280,23 @@ const getContacts = asyncHandler(async (req, res) => {
   const skip     = (page - 1) * limit;
 
   const scope = buildScopedContactFilter(req, accountContext);
+  // $and, not a spread. Both the ownership scope and the search term are
+  // expressed as `$or`, so spreading them into one object made the search
+  // clause REPLACE the ownership clause — a search returned every user's
+  // contacts, while an unfiltered list was correctly scoped. Combining them
+  // under $and keeps both conditions.
   const filter = {
-    ...scope,
-    ...(search   ? { $or: [{ name: { $regex: search, $options: 'i' } }, { phone: { $regex: normalizePhone(search), $options: 'i' } }] } : {}),
-    ...(category ? { category } : {}),
-    ...(tag      ? { tags: tag } : {}),
+    $and: [
+      scope,
+      ...(search
+        ? [{ $or: [
+            { name: { $regex: search, $options: 'i' } },
+            { phone: { $regex: normalizePhone(search), $options: 'i' } },
+          ] }]
+        : []),
+      ...(category ? [{ category }] : []),
+      ...(tag ? [{ tags: tag }] : []),
+    ],
   };
 
   const [data, total, categories] = await Promise.all([
