@@ -37,6 +37,27 @@ const getFacebookAppSecret = () =>
 const isGoogleEnabled = () => Boolean(getGoogleClientId());
 const isFacebookEnabled = () => Boolean(getFacebookAppId() && getFacebookAppSecret());
 
+// `public_profile` is granted to every Meta app by default. `email` is NOT:
+// it has to be enabled through a Facebook Login use case, which an app set up
+// for WhatsApp Business Messaging does not get automatically. Requesting it
+// anyway makes the login dialog fail outright with
+// "Invalid Scopes: email" / "This content isn't available at the moment",
+// so the default asks only for what is always available.
+//
+// Once the app has the email permission (Meta App Dashboard → Use cases →
+// Authentication and account creation), set
+// FACEBOOK_LOGIN_SCOPES=public_profile,email to turn it on. That is worth
+// doing: without an email address, Facebook sign-in can never link to an
+// existing account and will always create a new one.
+const DEFAULT_FACEBOOK_SCOPES = 'public_profile';
+
+const getFacebookLoginScopes = () =>
+  String(process.env.FACEBOOK_LOGIN_SCOPES || DEFAULT_FACEBOOK_SCOPES)
+    .split(',')
+    .map((scope) => scope.trim())
+    .filter(Boolean)
+    .join(',') || DEFAULT_FACEBOOK_SCOPES;
+
 /**
  * Verifies a Google ID token and returns a normalised profile.
  *
@@ -111,10 +132,14 @@ const verifyFacebookAccessToken = async (accessToken) => {
   }
   if (!debug.user_id) throw new AppError('Facebook did not return a user identifier', 502);
 
+  // Requesting a field the granted token does not cover makes Graph error
+  // rather than omit it, so the field list follows the configured scopes.
+  const fields = getFacebookLoginScopes().includes('email') ? 'id,name,email' : 'id,name';
+
   let profile = {};
   try {
     const res = await axios.get(`${FB_GRAPH}/me`, {
-      params: { fields: 'id,name,email' },
+      params: { fields },
       headers: { Authorization: `Bearer ${accessToken}` },
       timeout: TIMEOUT_MS,
     });
@@ -220,6 +245,7 @@ module.exports = {
   isFacebookEnabled,
   getGoogleClientId,
   getFacebookAppId,
+  getFacebookLoginScopes,
   verifyGoogleIdToken,
   verifyFacebookAccessToken,
   resolveUserForSocialProfile,
