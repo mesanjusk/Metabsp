@@ -106,6 +106,74 @@ services:
           name: metabsp-redis
           property: connectionString
 
+  # ── Next.js app (migration target) ──────────────────────────────────────────
+  # The consolidation target: one persistent Node process serving the App
+  # Router, the API route handlers, Socket.IO and (once ported) the BullMQ
+  # worker and schedulers. Started with `node server.js`, NOT `next start` —
+  # see nextjs/server.js for why that distinction decides the architecture.
+  #
+  # Runs ALONGSIDE metabsp-backend during the migration rather than replacing
+  # it: routes move over one at a time and traffic is cut across gradually, so
+  # there is never a window where the whole product rides on an unverified
+  # port. Remove metabsp-backend only once nothing routes to it.
+  #
+  # Every `sync: false` var below must be set to the SAME value as the Express
+  # service — both halves share one MongoDB, one Redis, and one Meta app while
+  # the migration is in flight.
+  - type: web
+    name: metabsp-nextjs
+    runtime: node
+    rootDir: nextjs
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: metabsp-redis
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: FRONTEND_URL
+        sync: false
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_EMBEDDED_SIGNUP_CONFIG_ID
+        sync: false
+      - key: WHATSAPP_API_VERSION
+        value: v23.0
+      - key: META_ES_VERSION
+        value: v4
+      - key: META_ENABLE_COEXISTENCE
+        value: "false"
+      - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE
+        value: "true"
+      - key: WHATSAPP_TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # Schedulers and the BullMQ worker are not ported yet, so this instance
+      # must NOT claim them while the Express host still runs them — two
+      # processes racing the same schedules is how duplicate invoices happen.
+      # Flip to true only once they move, and only on one instance.
+      - key: RUN_BACKGROUND_JOBS
+        value: "false"
+
   - type: redis
     name: metabsp-redis
     ipAllowList: []

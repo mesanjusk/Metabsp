@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
+/*
+ * outputFileTracingRoot: the repo has lockfiles at both the root and in
+ * nextjs/, so Next infers the repo root as the workspace and warns. Pinning it
+ * here keeps the standalone file trace scoped to this app — without it the
+ * Render build traces the whole monorepo, including the Express backend this
+ * is meant to replace.
+ */
 const nextConfig = {
+  outputFileTracingRoot: path.join(__dirname),
   // Node-native packages that should be required at runtime rather than
   // bundled by webpack — bundling bullmq in particular pulls in an optional
   // dynamic import (@valkey/valkey-glide, an alternative Redis client we
