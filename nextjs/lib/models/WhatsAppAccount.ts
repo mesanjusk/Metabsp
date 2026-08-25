@@ -9,9 +9,13 @@ const whatsappAccountSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     tenantId: { type: Schema.Types.ObjectId, ref: 'Organization', default: null, index: true },
     accountKey: { type: String, default: '', trim: true },
+    // 'coexistence' is Meta's WhatsApp Business app + Cloud API dual-mode —
+    // see backend/src/repositories/whatsappAccount.js and
+    // docs/meta-tech-provider/COEXISTENCE.md. Both apps write to the same
+    // collection, so the two schemas must stay in step.
     connectionMode: {
       type: String,
-      enum: ['embedded_signup', 'manual', 'legacy_env'],
+      enum: ['embedded_signup', 'coexistence', 'manual', 'legacy_env'],
       default: 'manual',
       index: true,
     },
@@ -34,6 +38,25 @@ const whatsappAccountSchema = new Schema(
     lastSyncAt: { type: Date, default: null },
     lastWebhookAt: { type: Date, default: null },
     callbackUrl: { type: String, default: '', trim: true },
+    // Coexistence runtime state — mirrors
+    // backend/src/repositories/whatsappAccount.js. Additive and defaulted, so
+    // non-coexistence accounts are unaffected.
+    coexistence: {
+      enabled: { type: Boolean, default: false },
+      platformType: { type: String, default: '', trim: true },
+      historySyncStatus: {
+        type: String,
+        enum: ['not_started', 'in_progress', 'completed', 'error'],
+        default: 'not_started',
+      },
+      historySyncProgress: { type: Number, default: 0 },
+      historyChunksReceived: { type: Number, default: 0 },
+      historyMessagesImported: { type: Number, default: 0 },
+      lastHistorySyncAt: { type: Date, default: null },
+      contactsSynced: { type: Number, default: 0 },
+      lastStateSyncAt: { type: Date, default: null },
+      lastEchoAt: { type: Date, default: null },
+    },
     metadata: { type: Schema.Types.Mixed, default: {} },
     teamMemberIds: { type: [{ type: Schema.Types.ObjectId, ref: 'User' }], default: [] },
   },

@@ -62,7 +62,50 @@ describe('listenForEmbeddedSignupData', () => {
       wabaId: 'waba-1',
       phoneNumberId: 'phone-1',
       businessId: 'biz-1',
+      coexistence: false,
+      finishEvent: 'FINISH',
     });
+  });
+
+  it('resolves on FINISH_ONLY_WABA (WABA created, no phone number attached)', async () => {
+    const promise = listenForEmbeddedSignupData({ timeoutMs: 1000 });
+    postFacebookMessage({
+      type: 'WA_EMBEDDED_SIGNUP',
+      event: 'FINISH_ONLY_WABA',
+      data: { waba_id: 'waba-2' },
+    });
+
+    await expect(promise).resolves.toMatchObject({ wabaId: 'waba-2', phoneNumberId: '', coexistence: false });
+  });
+
+  it('flags coexistence on FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', async () => {
+    const promise = listenForEmbeddedSignupData({ timeoutMs: 1000 });
+    postFacebookMessage({
+      type: 'WA_EMBEDDED_SIGNUP',
+      event: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING',
+      data: { waba_id: 'waba-3', phone_number_id: 'phone-3', business_id: 'biz-3' },
+    });
+
+    await expect(promise).resolves.toMatchObject({
+      wabaId: 'waba-3',
+      phoneNumberId: 'phone-3',
+      coexistence: true,
+    });
+  });
+
+  it('flags coexistence on a FINISH whose last step was the WhatsApp Business app screen', async () => {
+    const promise = listenForEmbeddedSignupData({ timeoutMs: 1000 });
+    postFacebookMessage({
+      type: 'WA_EMBEDDED_SIGNUP',
+      event: 'FINISH',
+      data: {
+        waba_id: 'waba-4',
+        phone_number_id: 'phone-4',
+        current_step: 'WHATSAPP_BUSINESS_APP_ONBOARDING',
+      },
+    });
+
+    await expect(promise).resolves.toMatchObject({ coexistence: true });
   });
 
   it('rejects on a CANCEL event', async () => {

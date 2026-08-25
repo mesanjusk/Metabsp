@@ -21,9 +21,17 @@ const whatsappAccountSchema = new mongoose.Schema(
       index: true,
     },
     accountKey: { type: String, default: '', trim: true },
+    // 'coexistence' is Meta's WhatsApp Business app + Cloud API dual-mode:
+    // the customer keeps using the WhatsApp Business app on their phone while
+    // this platform sends/receives on the same number via Cloud API. It is
+    // onboarded through the same Embedded Signup popup, but with
+    // extras.featureType = 'whatsapp_business_app_onboarding' (see
+    // docs/meta-tech-provider/COEXISTENCE.md), and it behaves differently at
+    // runtime: messages the customer sends from the app arrive as
+    // `smb_message_echoes` webhooks rather than as our own outbound sends.
     connectionMode: {
       type: String,
-      enum: ['embedded_signup', 'manual', 'legacy_env'],
+      enum: ['embedded_signup', 'coexistence', 'manual', 'legacy_env'],
       default: 'manual',
       index: true,
     },
@@ -70,6 +78,33 @@ const whatsappAccountSchema = new mongoose.Schema(
     lastSyncAt: { type: Date, default: null },
     lastWebhookAt: { type: Date, default: null },
     callbackUrl: { type: String, default: '', trim: true },
+    // Coexistence runtime state. Additive and defaulted, so every existing
+    // (non-coexistence) account keeps behaving exactly as before — `enabled`
+    // stays false and nothing below is ever read.
+    coexistence: {
+      enabled: { type: Boolean, default: false },
+      // Meta's `platform_type` on the business phone number, when the Graph
+      // API returns it (e.g. 'SMB_APP' for a number still live on the
+      // WhatsApp Business app). Informational only.
+      platformType: { type: String, default: '', trim: true },
+      // `history` webhook progress. Meta streams up to 6 months of the
+      // customer's existing chats in chunks after onboarding.
+      historySyncStatus: {
+        type: String,
+        enum: ['not_started', 'in_progress', 'completed', 'error'],
+        default: 'not_started',
+      },
+      historySyncProgress: { type: Number, default: 0 },
+      historyChunksReceived: { type: Number, default: 0 },
+      historyMessagesImported: { type: Number, default: 0 },
+      lastHistorySyncAt: { type: Date, default: null },
+      // `smb_app_state_sync` webhook — contacts added/updated in the app.
+      contactsSynced: { type: Number, default: 0 },
+      lastStateSyncAt: { type: Date, default: null },
+      // `smb_message_echoes` webhook — messages the customer sent from the
+      // WhatsApp Business app or a linked device.
+      lastEchoAt: { type: Date, default: null },
+    },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
     // Additive — lets other platform users view/reply to this account's
     // conversations (shared team inbox) without owning it. The owner

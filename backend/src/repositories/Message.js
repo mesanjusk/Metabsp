@@ -22,6 +22,14 @@ const messageSchema = new mongoose.Schema(
     customerUuid: String,
     customerId: String,
 
+    // Coexistence provenance (see services/coexistenceService.js). Absent on
+    // every ordinary Cloud API message, so existing documents and queries are
+    // unaffected. 'coexistence_app' = sent by the business from the WhatsApp
+    // Business app (arrived as an smb_message_echoes webhook);
+    // 'coexistence_history' = backfilled from the `history` webhook.
+    source: { type: String, default: '', index: true },
+    isHistorical: { type: Boolean, default: false },
+
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
     whatsappAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppAccount', index: true },
 

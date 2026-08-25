@@ -23,6 +23,12 @@ const messageSchema = new Schema(
     customerUuid: String,
     customerId: String,
 
+    // Coexistence provenance — mirrors backend/src/repositories/Message.js.
+    // 'coexistence_app' = sent by the business from the WhatsApp Business app
+    // (smb_message_echoes); 'coexistence_history' = backfilled from `history`.
+    source: { type: String, default: '', index: true },
+    isHistorical: { type: Boolean, default: false },
+
     userId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     whatsappAccountId: { type: Schema.Types.ObjectId, ref: 'WhatsAppAccount', index: true },
 
