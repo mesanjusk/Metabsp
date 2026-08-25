@@ -9,6 +9,15 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { motion } from 'framer-motion';
 
+// The callback URL registered in the Meta App Dashboard's Data Deletion field.
+// Previously hardcoded to a third domain — different from both the live site
+// and the API host — which meant this page advertised a URL that did not
+// resolve. Driven from the deployment's own configuration so the page, the
+// dashboard, and the running service cannot drift apart.
+const DATA_DELETION_CALLBACK_URL =
+  import.meta.env.VITE_DATA_DELETION_CALLBACK_URL ||
+  `${import.meta.env.VITE_PUBLIC_APP_URL || 'https://meta.instify.in'}/data-deletion`;
+
 const REASONS = [
   { value: 'no_longer_needed', label: 'I no longer need the service' },
   { value: 'privacy_concerns', label: 'Privacy concerns' },
@@ -174,7 +183,7 @@ export default function DataDeletionPage() {
                 ))}
               </Box>
               <Alert severity="info" sx={{ mt: 2 }} icon={<InfoOutlinedIcon />}>
-                MetaBSP's Facebook App Data Deletion Callback URL: <strong>https://metabsp.com/api/auth/facebook/data-deletion</strong>. This URL is registered with Meta and handles automated deletion callbacks triggered when users remove our app from their Facebook settings.
+                MetaBSP's Facebook App Data Deletion Callback URL: <strong>{DATA_DELETION_CALLBACK_URL}</strong>. This URL is registered with Meta and handles automated deletion callbacks triggered when users remove our app from their Facebook settings.
               </Alert>
             </Paper>
 
