@@ -130,17 +130,39 @@ subscribe to all of these:
 - `smb_message_echoes`
 - `smb_app_state_sync`
 
-Webhook **field** subscriptions are app-level in Meta's dashboard — there
-is no Graph API call this repo can make to set them per WABA.
+**Status: confirmed subscribed** in the App Dashboard as of 2026-08-25 —
+all four fields. `backend/src/services/preflightCheckService.js` now
+re-verifies this on every boot (and via `GET /api/whatsapp/preflight`) by
+reading `GET /{app-id}/subscriptions` with an app access token, so a later
+change in the dashboard surfaces as a startup warning rather than as
+customers with silently stale inboxes.
+
+Webhook **field** subscriptions can only be *set* app-level in Meta's
+dashboard — there is no Graph API call this repo can make to set them per
+WABA, which is why the pre-flight check reads them rather than fixing them.
 `subscribeAppToWaba` (`POST /{waba-id}/subscribed_apps`) subscribes the
 app to each customer's WABA, which is necessary but not sufficient: if
 the three fields above are not ticked, coexistence numbers onboard
 successfully and then never deliver history, echoes, or contacts.
 
-**This is why `META_ENABLE_COEXISTENCE` exists.** Leave it unset (on)
-once the fields are subscribed; set it to `false` if you want to ship the
-rest of this work before touching the Meta App configuration, so you
-don't onboard numbers whose Business-app traffic silently goes nowhere.
+**This is why `META_ENABLE_COEXISTENCE` exists.** The code defaults it to
+on, but `render.yaml` ships it explicitly `false` — flip that to `"true"`
+(and redeploy, since the Graph version and config are read at boot) once
+the fields above are ticked. That way the rest of this work can ship
+before the Meta App configuration is touched, without onboarding numbers
+whose Business-app traffic silently goes nowhere.
+
+### Graph API version
+
+`WHATSAPP_API_VERSION` (`render.yaml`) feeds both the server's Graph calls
+and — via `GET /api/whatsapp/connect/config` — the Facebook JS SDK version
+the browser initialises for the Embedded Signup popup. It is pinned to
+`v20.0`, which predates coexistence's availability. Confirm against Meta's
+current changelog which version first supports
+`featureType: 'whatsapp_business_app_onboarding'` and the three webhook
+fields, and bump this before enabling coexistence. Treat it as a change
+affecting every Graph call in the app, not a coexistence-only edit:
+re-test ordinary send/receive after bumping.
 
 ## Permissions
 

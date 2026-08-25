@@ -16,6 +16,7 @@ onboarding as a WhatsApp Business Solution Provider (BSP) / Tech Provider.
 | [`APP_REVIEW.md`](./APP_REVIEW.md) | Meta App Review: required permissions, what to demonstrate |
 | [`REQUIRED_PERMISSIONS.md`](./REQUIRED_PERMISSIONS.md) | The exact Graph API permissions this app needs and why |
 | [`PRODUCTION_CHECKLIST.md`](./PRODUCTION_CHECKLIST.md) | Go-live checklist specific to this repo |
+| [`READINESS_STATUS.md`](./READINESS_STATUS.md) | Which checklist items are provable in code vs. runtime vs. external |
 | [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) | Common failure modes and how to diagnose them in this codebase |
 | [`CUSTOMER_ONBOARDING.md`](./CUSTOMER_ONBOARDING.md) | The actual customer-facing connect flow, including number migration |
 | [`SUPPORT_GUIDE.md`](./SUPPORT_GUIDE.md) | Internal runbook for support staff handling customer issues |

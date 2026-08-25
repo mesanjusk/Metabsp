@@ -98,6 +98,16 @@ const startsWithKeyword = (upperText: string, keyword: unknown) => {
   return Boolean(kw) && (upperText === kw || upperText.startsWith(`${kw} `));
 };
 
+// Fan-out to every active destination for this account. Used for events that
+// cannot cause a reply loop — contact changes and coexistence message echoes —
+// unlike inbound customer messages, which go through resolveInboundRouting's
+// keyword routing instead. Mirrors forwardToWebhookDestinations in
+// backend/src/controllers/whatsappController.js.
+export async function forwardToWebhookDestinations(whatsappAccountId: unknown, payload: unknown) {
+  const destinations: any[] = await WebhookDestination.find({ whatsappAccountId, isActive: true }).lean();
+  return deliverToDestinations(destinations, payload);
+}
+
 export async function resolveInboundRouting(whatsappAccountId: unknown, payload: any) {
   const phone = normalizePhone(payload.from);
   const text = payload.type === 'text' ? String(payload.message || '').trim() : '';
