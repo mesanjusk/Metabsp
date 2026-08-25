@@ -52,6 +52,30 @@ const CHECKLIST_ITEMS = [
   'Disconnect account',
 ];
 
+// Reviewer access details. Deliberately NOT hardcoded: this repository is
+// public, and a working login committed to it is a credential leak regardless
+// of how limited the account is. Set these at build time (Vercel → Environment
+// Variables) so the real values live with the deployment, not in git.
+//
+// Meta's reviewers read the "Web reviewer instructions" field of the App Review
+// submission, not this page — keep the two in sync, and treat this page as the
+// supporting detail rather than the primary channel.
+const APP_URL = import.meta.env.VITE_PUBLIC_APP_URL || 'https://meta.instify.in';
+const REVIEWER_LOGIN = import.meta.env.VITE_REVIEWER_LOGIN || '';
+const REVIEWER_PASSWORD = import.meta.env.VITE_REVIEWER_PASSWORD || '';
+const REVIEWER_TEST_NUMBER = import.meta.env.VITE_REVIEWER_TEST_NUMBER || '';
+
+// The login form field is "Mobile / Username" — the backend looks the user up
+// by `username`, so an email address will never authenticate. Labelled here
+// exactly as it appears in the UI so a reviewer is not sent looking for an
+// email field that does not exist.
+const REVIEWER_CREDENTIALS = [
+  ['Application URL', APP_URL],
+  ['Mobile / Username', REVIEWER_LOGIN || 'Provided in the App Review submission'],
+  ['Password', REVIEWER_PASSWORD || 'Provided in the App Review submission'],
+  ...(REVIEWER_TEST_NUMBER ? [['Test WhatsApp Number', REVIEWER_TEST_NUMBER]] : []),
+];
+
 const CAPABILITIES = [
   {
     permission: 'whatsapp_business_messaging',
@@ -59,14 +83,21 @@ const CAPABILITIES = [
     status: 'Requested',
   },
   {
-    permission: 'business_management',
-    purpose: 'Access Meta Business Manager account information and settings',
+    permission: 'whatsapp_business_management',
+    purpose:
+      'Read phone number details and message templates, and subscribe this app to a customer\u2019s WABA webhooks',
     status: 'Requested',
   },
   {
-    permission: 'pages_messaging',
-    purpose: 'Manage WhatsApp message templates and view approval status',
+    permission: 'business_management',
+    purpose:
+      'Read owned_whatsapp_business_accounts to validate a manually-supplied token against the business that owns it',
     status: 'Requested',
+  },
+  {
+    permission: 'public_profile',
+    purpose: 'Identify the connecting Meta user via /me during Embedded Signup',
+    status: 'Granted by default',
   },
 ];
 
@@ -301,10 +332,10 @@ export default function MetaAppReviewPage() {
           <Paper elevation={0} sx={{ p: { xs: 3, md: 4 }, mb: 5, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
             <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>About MetaBSP</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
-              MetaBSP is a Meta-authorized <strong>WhatsApp Business Solution Provider (BSP)</strong> that
+              MetaBSP is a <strong>WhatsApp Business Platform</strong> integration that
               enables businesses of all sizes to integrate WhatsApp messaging into their customer communication
-              workflows. As a BSP, MetaBSP is registered with Meta and operates under the WhatsApp Business
-              Platform Terms of Service. The platform provides APIs, dashboards, and developer tools that
+              workflows. MetaBSP operates under the WhatsApp Business Platform Terms of Service; the app
+              is currently going through Meta App Review for the permissions listed below. The platform provides APIs, dashboards, and developer tools that
               allow businesses to send template messages, receive real-time webhook events, manage contacts,
               and analyze messaging performance — all through Meta's official Graph API and Cloud API.
             </Typography>
@@ -339,8 +370,9 @@ export default function MetaAppReviewPage() {
               Test / Demo Credentials for App Review
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Use the following credentials to access a fully-configured demo account with sample data.
-              All demo WhatsApp connections use Meta's test numbers and do not send real messages.
+              Sign in at the URL below with the mobile number (or username) and password shown.
+              The account is pre-configured with sample data, and its WhatsApp connections use
+              Meta test numbers, so no real messages are sent.
             </Typography>
             <Box
               sx={{
@@ -349,13 +381,7 @@ export default function MetaAppReviewPage() {
                 p: 2.5,
               }}
             >
-              {[
-                ['Application URL', 'https://metabsp.com'],
-                ['Email', 'demo@metabsp.com'],
-                ['Password', 'Demo123!'],
-                ['Test WhatsApp Number', '+1-555-0100'],
-                ['Business Manager ID', '123456789012345'],
-              ].map(([label, value]) => (
+              {REVIEWER_CREDENTIALS.map(([label, value]) => (
                 <Stack key={label} direction="row" alignItems="center" sx={{ mb: 1 }}>
                   <Typography variant="body2" fontWeight={700} sx={{ minWidth: 200, color: 'text.primary' }}>
                     {label}:
@@ -376,8 +402,12 @@ export default function MetaAppReviewPage() {
             <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Demo Account Access Instructions</Typography>
             <List>
               {[
-                { primary: 'Open the application', secondary: 'Navigate to https://metabsp.com in your browser.' },
-                { primary: 'Log in with demo credentials', secondary: 'Use email demo@metabsp.com and password Demo123! on the login page.' },
+                { primary: 'Open the application', secondary: `Navigate to ${APP_URL} in your browser.` },
+                {
+                  primary: 'Log in with the reviewer account',
+                  secondary:
+                    'The login form asks for "Mobile / Username" \u2014 enter the mobile number or username shown above, not an email address, then the password.',
+                },
                 { primary: 'Navigate to WhatsApp Connect', secondary: 'From the left sidebar, select "WhatsApp" or "Connect WhatsApp Business".' },
                 { primary: 'Initiate Embedded Signup', secondary: 'Click "Connect WhatsApp Business Account". The Meta Embedded Signup popup will open.' },
                 { primary: 'Complete the OAuth flow', secondary: 'Log in with a Facebook account that has access to a WhatsApp Business Account, grant the requested permissions, and select a WABA.' },
