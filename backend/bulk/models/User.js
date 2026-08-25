@@ -5,9 +5,24 @@ const { verifyPassword } = require('../../src/utils/password');
 const userSchema = new mongoose.Schema({
   name:     { type: String, required: true, trim: true },
   username: { type: String, required: true, trim: true },
-  password: { type: String, required: true },
+  // Required only for password accounts. A user who signed up with Google or
+  // Facebook has no password at all, and storing a dummy one would make
+  // matchPassword() succeed against a guessable value.
+  password: {
+    type: String,
+    required: function requirePasswordUnlessSocial() {
+      return !this.googleId && !this.facebookId;
+    },
+  },
   mobile:   { type: String, default: '', trim: true },
-  email:    { type: String, default: '' },
+  email:    { type: String, default: '', trim: true, lowercase: true },
+  // Set once the provider has asserted the address is verified (Google's
+  // `email_verified`). Linking a social login to an existing account by email
+  // is only safe when this is true — otherwise anyone able to claim an
+  // address at a provider could take over the matching account here.
+  emailVerified: { type: Boolean, default: false },
+  googleId:   { type: String, default: '', trim: true },
+  facebookId: { type: String, default: '', trim: true },
   roleId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Role', required: true },
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', default: null },
   eventDutyType: {
@@ -42,6 +57,11 @@ userSchema.index(
   { username: 1, tenantId: 1 },
   { unique: true, partialFilterExpression: { username: { $type: 'string' } } }
 );
+// One social identity maps to at most one account. Partial filters exclude the
+// empty-string default, exactly as the mobile index below does.
+userSchema.index({ googleId: 1 }, { unique: true, partialFilterExpression: { googleId: { $gt: '' } } });
+userSchema.index({ facebookId: 1 }, { unique: true, partialFilterExpression: { facebookId: { $gt: '' } } });
+
 // mobile unique globally (mobile = account login identifier, empty strings excluded)
 userSchema.index(
   { mobile: 1 },
@@ -56,6 +76,14 @@ userSchema.pre('save', async function(next) {
 
 userSchema.methods.matchPassword = async function(entered) {
   const stored = String(this.password || '');
+
+  // A social-only account has no password. Without this guard the legacy
+  // branch below reduces to `entered === ''`, so an empty candidate would
+  // authenticate. The login route already rejects an empty password, but this
+  // must not depend on a caller's validation.
+  if (!stored) return false;
+  if (!String(entered || '')) return false;
+
   if (/^\$2[aby]\$/.test(stored)) {
     return bcrypt.compare(entered, stored);
   }

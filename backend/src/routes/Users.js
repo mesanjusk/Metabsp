@@ -12,6 +12,15 @@ const { METABSP_ADMIN_ROLE_CODE, METABSP_USER_ROLE_CODE } = require('../../bulk/
 const { assertPhoneNumberAvailable } = require('../services/whatsappAccountService');
 const { createAuthRateLimiter } = require('../middleware/rateLimit');
 const { recordAuditEvent } = require('../services/auditLogService');
+const {
+  isGoogleEnabled,
+  isFacebookEnabled,
+  getGoogleClientId,
+  getFacebookAppId,
+  verifyGoogleIdToken,
+  verifyFacebookAccessToken,
+  resolveUserForSocialProfile,
+} = require('../services/socialAuthService');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -110,6 +119,79 @@ router.post('/login', loginLimiter, async (req, res) => {
   } catch (error) {
     logger.error('Login error:', error);
     return res.status(500).json({ success: false, message: 'Login failed' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Social sign-in (Google / Facebook)
+//
+// Additive: password login above is unchanged, and an existing user keeps
+// signing in exactly as before. These routes issue the SAME JWT via
+// signTokenForUser, so every downstream check (requireAuth, roles, tenancy)
+// is identical no matter how the user authenticated.
+//
+// The browser sends only an opaque provider credential; the profile behind it
+// is fetched server-side. See services/socialAuthService.js for why that and
+// the audience checks are load-bearing rather than belt-and-braces.
+// ─────────────────────────────────────────────────────────────────────────
+
+// Lets the login page render only the buttons this deployment can actually
+// service, instead of showing a Google button that 503s on click.
+router.get('/auth/providers', (_req, res) =>
+  res.status(200).json({
+    success: true,
+    data: {
+      google: { enabled: isGoogleEnabled(), clientId: getGoogleClientId() },
+      facebook: { enabled: isFacebookEnabled(), appId: getFacebookAppId() },
+    },
+  })
+);
+
+// AppError carries `status` as the string 'fail'/'error', so only a numeric
+// statusCode is trusted here — otherwise res.status() would be handed 'fail'.
+const httpStatusFor = (error) =>
+  Number.isInteger(error?.statusCode) && error.statusCode >= 400 && error.statusCode <= 599
+    ? error.statusCode
+    : 500;
+
+const completeSocialLogin = async ({ req, res, profile, provider }) => {
+  const { user, outcome } = await resolveUserForSocialProfile({ profile, User, getGlobalRoles });
+  const token = signTokenForUser(user._id);
+
+  recordAuditEvent({
+    req,
+    userId: user._id,
+    action: 'login',
+    resource: 'user',
+    resourceId: user._id,
+    outcome: 'success',
+    metadata: { provider, result: outcome },
+  });
+
+  return res.status(200).json({ success: true, token, user: sanitizeUser(user) });
+};
+
+router.post('/auth/google', loginLimiter, async (req, res) => {
+  try {
+    const profile = await verifyGoogleIdToken(String(req.body?.credential || req.body?.idToken || ''));
+    return await completeSocialLogin({ req, res, profile, provider: 'google' });
+  } catch (error) {
+    const status = httpStatusFor(error);
+    if (status >= 500) logger.error('Google sign-in error:', error.message);
+    recordAuditEvent({ req, action: 'login', resource: 'user', outcome: 'failure', metadata: { provider: 'google' } });
+    return res.status(status).json({ success: false, message: error.message || 'Google sign-in failed' });
+  }
+});
+
+router.post('/auth/facebook', loginLimiter, async (req, res) => {
+  try {
+    const profile = await verifyFacebookAccessToken(String(req.body?.accessToken || ''));
+    return await completeSocialLogin({ req, res, profile, provider: 'facebook' });
+  } catch (error) {
+    const status = httpStatusFor(error);
+    if (status >= 500) logger.error('Facebook sign-in error:', error.message);
+    recordAuditEvent({ req, action: 'login', resource: 'user', outcome: 'failure', metadata: { provider: 'facebook' } });
+    return res.status(status).json({ success: false, message: error.message || 'Facebook sign-in failed' });
   }
 });
 
