@@ -6,7 +6,7 @@ reasons, all fixed here:
 
 1. `[Your Name]` was left in two justifications — an unmistakable sign to a
    reviewer that a template was pasted unread.
-2. `public_profile`'s usage field was blank.
+2. `public_profile` was requested at all. It has zero usage; the fix is to drop it, not to write a justification.
 3. `business_management` was justified as "register and manage phone numbers",
    which is `whatsapp_business_management`'s job. Overclaiming on
    `business_management` is a common rejection trigger; the text below narrows
@@ -88,15 +88,29 @@ does not have; a reviewer who finds one overstatement distrusts the rest.
 > onboarding. If Meta would prefer this validation be done another way, we are
 > happy to adjust it.
 
-## `public_profile` → "Tell us how you're using this permission"
+## `public_profile` → **drop this permission**
 
-> We call `/me` once, during Embedded Signup and manual connect, to identify
-> the Meta user completing the connection and associate that connection with
-> the correct account in our platform.
->
-> We store only the app-scoped user ID. We do not store, display, or share the
-> user's name, profile picture, or any other profile field, and we do not use
-> this data for advertising, analytics, or profiling.
+Do not re-request it. Meta's own usage table shows **0 lifetime API calls**,
+and the code agrees:
+
+- `completeEmbeddedSignup` (`backend/src/controllers/whatsappController.js`)
+  makes exactly three Graph calls — `oauth/access_token` twice and
+  `GET /{phone-number-id}`. It never calls `/me`.
+- The only `/me` call in the WhatsApp path is in
+  `whatsappCredentialValidationService.js`, on the **manual connect** path
+  only, and it uses the customer's own WhatsApp token. A `/me` with a system
+  user or WABA token returns that token's app-scoped ID; it does not need
+  `public_profile`, which governs Facebook Login user tokens.
+
+An earlier draft of this file claimed `/me` was called "during Embedded Signup
+and manual connect". That was wrong for Embedded Signup, and requesting a
+permission the app does not exercise is precisely the kind of overclaim that
+gets a submission rejected. Remove `public_profile` from the request.
+
+(If Google/Facebook social sign-in is ever deployed,
+`backend/src/services/socialAuthService.js` does call `/me` with a Facebook
+Login token — but that is a separate feature, not deployed today, and belongs
+in its own submission.)
 
 ---
 
@@ -121,18 +135,21 @@ browser window first.
 >
 > 1. Sign in with the credentials above.
 > 2. Open "WhatsApp" from the left sidebar.
-> 3. Click "Connect with Meta" to launch Meta's Embedded Signup popup. Signing
->    in with a Facebook account that has a WhatsApp Business Account and
->    granting the requested permissions demonstrates `public_profile` and
->    `business_management`. (`whatsapp_business_management` is exercised here
->    too: on completion the app reads the phone number's details and subscribes
->    itself to the WABA's webhooks.)
-> 4. Open the "Templates" tab to see template listing and creation
+> 3. Click "Connect with Meta" to launch Meta's Embedded Signup popup. Sign in
+>    with a Facebook account that has a WhatsApp Business Account and grant the
+>    requested permissions. On completion the app exchanges the authorization
+>    code for a token, reads the phone number's details, and subscribes itself
+>    to the WABA's webhooks — all `whatsapp_business_management`.
+> 4. To see `business_management`: on the same page choose "Connect manually"
+>    and supply an existing access token. The app reads
+>    `owned_whatsapp_business_accounts` on the supplied business to confirm the
+>    WABA genuinely belongs to it before storing anything.
+> 5. Open the "Templates" tab to see template listing and creation
 >    (`whatsapp_business_management`).
-> 5. Open the "Chats" tab and send a message to a number that has messaged the
+> 6. Open the "Chats" tab and send a message to a number that has messaged the
 >    business (`whatsapp_business_messaging`). Inbound messages and delivery
 >    statuses appear in the same view as they arrive over our webhook.
-> 6. A supporting walkthrough, including this same flow, is at
+> 7. A supporting walkthrough, including this same flow, is at
 >    [YOUR APP URL]/meta-app-review.
 >
 > If the reviewer account stops working at any point, please contact

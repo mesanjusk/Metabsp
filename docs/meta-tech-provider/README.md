@@ -15,6 +15,7 @@ onboarding as a WhatsApp Business Solution Provider (BSP) / Tech Provider.
 | [`ACCESS_TOKENS.md`](./ACCESS_TOKENS.md) | Token types, storage, refresh, and rotation in this codebase |
 | [`APP_REVIEW.md`](./APP_REVIEW.md) | Meta App Review: required permissions, what to demonstrate |
 | [`APP_REVIEW_SUBMISSION_TEXT.md`](./APP_REVIEW_SUBMISSION_TEXT.md) | Ready-to-paste justification and reviewer-instruction text |
+| [`AUDIT_RESPONSE_2026-08-25.md`](./AUDIT_RESPONSE_2026-08-25.md) | Answers to the external App Review audit, and the exact dashboard values to set |
 | [`REQUIRED_PERMISSIONS.md`](./REQUIRED_PERMISSIONS.md) | The exact Graph API permissions this app needs and why |
 | [`PRODUCTION_CHECKLIST.md`](./PRODUCTION_CHECKLIST.md) | Go-live checklist specific to this repo |
 | [`READINESS_STATUS.md`](./READINESS_STATUS.md) | Which checklist items are provable in code vs. runtime vs. external |
