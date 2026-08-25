@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest) {
     if (Array.isArray(tags)) update.tags = tags.map((t: unknown) => String(t).trim()).filter(Boolean);
     if (!Object.keys(update).length) throw new AppError('Provide category or tags to update', 400);
 
-    const result = await Contact.updateMany({ _id: { $in: ids }, ...scopeFilter }, { $set: update });
+    const result = await Contact.updateMany({ $and: [scopeFilter, { _id: { $in: ids } }] }, { $set: update });
     return NextResponse.json({ success: true, modified: result.modifiedCount });
   } catch (error) {
     return errorResponse(error, 'Failed to update contacts');

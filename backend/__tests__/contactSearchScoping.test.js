@@ -64,3 +64,26 @@ describe('contact search filter scoping', () => {
     expect(filter.$and).toHaveLength(4);
   });
 });
+
+// The bug above was survivable because only one call site spread the scope
+// into a filter that also had an `$or`. Several other call sites spread it
+// next to an `_id`, which happens to be safe — until someone adds a second
+// `$or` beside it and silently re-creates the same hole. They are all `$and`
+// now; this keeps them that way.
+describe('contact scope composition across call sites', () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  const files = [
+    path.join(__dirname, '..', 'src', 'controllers', 'whatsappController.js'),
+    path.join(__dirname, '..', '..', 'nextjs', 'app', 'api', 'whatsapp', 'contacts', '[id]', 'route.ts'),
+    path.join(__dirname, '..', '..', 'nextjs', 'app', 'api', 'whatsapp', 'contacts', 'bulk', 'route.ts'),
+  ];
+
+  for (const file of files) {
+    it(`never spreads the ownership scope in ${path.basename(path.dirname(file))}/${path.basename(file)}`, () => {
+      const src = fs.readFileSync(file, 'utf8');
+      expect(src).not.toMatch(/\.\.\.\s*(buildScopedContactFilter\(|scopeFilter\b|scope\b)/);
+    });
+  }
+});

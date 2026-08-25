@@ -26,25 +26,52 @@ const sendCommandWithTimeout = (...args) => {
       setTimeout(() => reject(new Error('[rateLimit] Redis command timed out')), REDIS_COMMAND_TIMEOUT_MS)
     ),
   ]);
-  // rate-limit-redis's RedisStore eagerly loads a script for its .get()
-  // method that this app never calls anywhere, so that particular call's
-  // result is never awaited by anyone else. Attaching a no-op catch here —
-  // on this exact promise, not a derived one — marks it "handled" for
-  // Node's unhandled-rejection bookkeeping without affecting the real
-  // awaiter on the (used) increment path: multiple independent .catch/await
-  // calls on the same promise each still see its rejection normally: this
-  // one just stops it from being reported as unhandled if nothing else
-  // ever awaits this particular call.
+  // Marks this exact promise "handled" for Node's unhandled-rejection
+  // bookkeeping. Independent .catch/await calls on the same promise each
+  // still see its rejection normally, so the real awaiter on the increment
+  // path is unaffected.
+  //
+  // This covers only `raced` itself. RedisStore wraps this function in its
+  // own async lambda, so anything it chains is a *derived* promise that this
+  // catch says nothing about — see silenceEagerScriptLoads below for the two
+  // constructor-time loads that fall in that gap.
   raced.catch(() => {});
   return raced;
 };
 
+// RedisStore's constructor kicks off two SCRIPT LOAD calls and parks the
+// promises on `incrementScriptSha` / `getScriptSha` without awaiting either.
+// Nothing awaits them until the first request arrives, so when Redis is cold
+// at boot both reject with nobody listening and Node reports them as
+// unhandled rejections — six lines of alarming stack traces per start (three
+// limiters × two scripts) for what is really just "Redis isn't up yet".
+//
+// The no-op catch inside sendCommandWithTimeout can't cover these: the store
+// wraps our function in its own `async ({command}) => …`, so what rejects
+// here is a *derived* promise, and marking the original handled says nothing
+// about its descendants. Marking them handled has to happen on these exact
+// promises, after construction.
+//
+// This suppresses the report only. `retryableIncrement` still awaits the same
+// promise and still sees the rejection, so a genuine failure on the request
+// path is unchanged — it surfaces there and `passOnStoreError` below decides
+// what to do about it.
+const silenceEagerScriptLoads = (store) => {
+  for (const field of ['incrementScriptSha', 'getScriptSha']) {
+    const pending = store?.[field];
+    if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+  }
+  return store;
+};
+
 const buildStore = (prefix) => {
   try {
-    return new RedisStore({
-      sendCommand: sendCommandWithTimeout,
-      prefix: `${sharedStorePrefix}${prefix}:`,
-    });
+    return silenceEagerScriptLoads(
+      new RedisStore({
+        sendCommand: sendCommandWithTimeout,
+        prefix: `${sharedStorePrefix}${prefix}:`,
+      })
+    );
   } catch (error) {
     logger.warn('[rateLimit] Falling back to in-memory store — Redis store init failed:', error.message);
     return undefined; // express-rate-limit's own default MemoryStore

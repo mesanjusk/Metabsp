@@ -86,10 +86,25 @@ function sanitize(dest) {
 
 // Unauthenticated on purpose: a keep-alive pinger (GitHub Actions or any
 // other external cron) needs to discover which sibling services to ping
-// without needing credentials. Only label + url are exposed — never a
-// secret — so there's nothing sensitive in this response.
-router.get('/keep-alive-targets', async (_req, res) => {
+// without needing credentials. Only label + url are exposed — never a secret.
+//
+// The list does span every tenant, though, so as written it publishes each
+// customer's receiving endpoint to anyone who asks. Setting KEEP_ALIVE_TOKEN
+// closes that: when the variable is present the caller must send it as
+// `X-Keep-Alive-Token` (or `?token=`). When it is unset this behaves exactly
+// as before, so an existing pinger keeps working — configure the token on the
+// pinger first, then set it here, and there is no window where the cron is
+// broken.
+router.get('/keep-alive-targets', async (req, res) => {
   try {
+    const expectedToken = process.env.KEEP_ALIVE_TOKEN || '';
+    if (expectedToken) {
+      const provided = req.get('X-Keep-Alive-Token') || req.query.token || '';
+      if (provided !== expectedToken) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+      }
+    }
+
     const destinations = await WebhookDestination.find({ isActive: true }).select('label url').lean();
     res.json({
       success: true,
