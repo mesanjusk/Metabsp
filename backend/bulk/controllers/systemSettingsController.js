@@ -1,14 +1,14 @@
 const SystemSetting = require('../models/SystemSetting');
 const logger = require('../../src/utils/logger');
 
-// Default settings — baileys is the default provider
+// Default settings — the Cloud API is the only provider
 const DEFAULTS = [
   {
     key: 'registration_whatsapp_provider',
-    value: 'baileys',
+    value: 'official',
     label: 'Registration WhatsApp Provider',
     description:
-      'Controls which WhatsApp provider sends the auto-confirmation on student registration. "baileys" uses WhatsApp Web (QR-based); "official" uses Meta Cloud API.',
+      'Which WhatsApp provider sends the auto-confirmation on student registration. Only "official" (Meta Cloud API) is supported.',
   },
 ];
 
@@ -71,8 +71,8 @@ async function updateSettings(req, res) {
   }
 }
 
-// Helper used by studentController — falls back to 'baileys' if not set
-async function getSettingValue(key, fallback = 'baileys') {
+// Helper used by studentController — falls back to the Cloud API if not set
+async function getSettingValue(key, fallback = 'official') {
   try {
     const doc = await SystemSetting.findOne({ key }).lean();
     return doc ? doc.value : fallback;

@@ -2,7 +2,7 @@
   "name": "metabsp-nextjs",
   "version": "0.1.0",
   "private": true,
-  "description": "Metabsp WhatsApp Cloud API product — Next.js 15 App Router port (stateless slice only; see docs/NEXTJS_MIGRATION_AUDIT_AND_PLAN.md). Baileys/Socket.IO/BullMQ-worker/schedulers stay on the existing always-on backend/ Express host.",
+  "description": "Metabsp WhatsApp Cloud API product — Next.js 15 App Router port (stateless slice only; see docs/NEXTJS_MIGRATION_AUDIT_AND_PLAN.md). Socket.IO/BullMQ-worker/schedulers stay on the existing always-on backend/ Express host.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

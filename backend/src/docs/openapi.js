@@ -2,7 +2,7 @@
 // Scope: the External API (api-key auth, /api/v1) in full, plus the primary
 // WhatsApp Cloud endpoints a tenant/integrator actually needs (accounts,
 // messaging, contacts, auto-reply, workflows, team, billing). Internal/admin
-// routes and the Bulk (Baileys dashboard) CRUD routes are intentionally out
+// routes and the Bulk dashboard CRUD routes are intentionally out
 // of scope here — this documents the API a third-party integrator or
 // tenant-facing frontend calls, not every internal route in the monorepo.
 
@@ -145,18 +145,18 @@ const openapiSpec = {
     },
 
     // ── External API v1 ──────────────────────────────────────────────────
-    '/api/v1/baileys/status': {
+    '/api/v1/status': {
       get: {
         tags: ['External API'],
-        summary: 'Get the connected WhatsApp session status for this API key\'s owner',
+        summary: "Connected WhatsApp Cloud API account for this API key's owner",
         security: [{ apiKeyAuth: [] }],
-        responses: { 200: { description: 'Connection status' } },
+        responses: { 200: { description: 'Connection status' }, 409: { description: 'No active account connected' } },
       },
     },
-    '/api/v1/baileys/send': {
+    '/api/v1/send-text': {
       post: {
         tags: ['External API'],
-        summary: 'Send a text message, or an image with caption if imageUrl is provided',
+        summary: 'Send a free-form text message (recipient must be inside the 24-hour customer service window)',
         security: [{ apiKeyAuth: [] }],
         requestBody: {
           required: true,
@@ -164,19 +164,19 @@ const openapiSpec = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['to', 'message'],
-                properties: { to: { type: 'string', example: '919876543210' }, message: { type: 'string' }, imageUrl: { type: 'string' } },
+                required: ['phone', 'text'],
+                properties: { phone: { type: 'string', example: '919876543210' }, text: { type: 'string' } },
               },
             },
           },
         },
-        responses: { 200: { description: 'Sent' }, 400: { description: 'Missing to/message' } },
+        responses: { 200: { description: 'Sent' }, 400: { description: 'Missing phone/text' }, 502: { description: 'Meta rejected the send' } },
       },
     },
-    '/api/v1/baileys/send-bulk': {
+    '/api/v1/send-image': {
       post: {
         tags: ['External API'],
-        summary: 'Send to up to 500 recipients with a delay between sends (processed in background)',
+        summary: 'Send an image with an optional caption',
         security: [{ apiKeyAuth: [] }],
         requestBody: {
           required: true,
@@ -184,23 +184,38 @@ const openapiSpec = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['recipients'],
+                required: ['phone', 'imageUrl'],
+                properties: { phone: { type: 'string' }, imageUrl: { type: 'string' }, caption: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: { 200: { description: 'Sent' }, 400: { description: 'Missing phone/imageUrl' } },
+      },
+    },
+    '/api/v1/send-template': {
+      post: {
+        tags: ['External API'],
+        summary: 'Send an approved template message (the only way to reach a recipient outside the 24-hour window)',
+        security: [{ apiKeyAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['phone', 'template'],
                 properties: {
-                  recipients: {
-                    type: 'array',
-                    maxItems: 500,
-                    items: {
-                      type: 'object',
-                      properties: { to: { type: 'string' }, message: { type: 'string' }, imageUrl: { type: 'string' } },
-                    },
-                  },
-                  delay: { type: 'integer', description: 'ms between sends, 5000-60000', default: 12000 },
+                  phone: { type: 'string' },
+                  template: { type: 'string' },
+                  language: { type: 'string', default: 'en_US' },
+                  components: { type: 'array', items: { type: 'object' } },
                 },
               },
             },
           },
         },
-        responses: { 200: { description: 'Bulk send accepted and started' } },
+        responses: { 200: { description: 'Sent' }, 400: { description: 'Missing phone/template' } },
       },
     },
 

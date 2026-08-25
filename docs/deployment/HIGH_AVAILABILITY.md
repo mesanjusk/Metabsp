@@ -63,35 +63,21 @@ already accepted before leader election existed, not a new one.
 per-job locking already makes concurrent consumers across replicas safe
 (see [SCALING.md](./SCALING.md)).
 
-### Baileys (WhatsApp-Web) sessions — now opt-in per organization, off by default
+### Sticky WhatsApp Web sessions — no longer applicable
 
-`backend/bulk/services/baileysService.js` keeps live WhatsApp-Web socket
-connections in an in-memory `Map<userId, SessionState>`, and
-`backend/src/index.js` calls `autoConnectIfCredentialsExist()` on every
-boot of every process. There is still no locking, leader election, or
-session-ownership coordination in this path — that structural limitation
-is unchanged.
+This section previously described a real structural limitation: the
+unofficial WhatsApp Web transport held live socket connections in an
+in-memory `Map<userId, SessionState>` per process, with no locking, leader
+election, or session-ownership coordination. Running more than one API
+replica risked reconnect storms and session invalidation, so the deployment
+could not scale horizontally while that feature was in use.
 
-**Update:** the entire Baileys/WhatsApp-Web feature set (manual connect,
-campaigns, the `/api/v1/baileys/*` External API) is now **disabled by
-default for every organization** (`Organization.baileysEnabled`, default
-`false`) and gated at every route by `requireBaileysEnabled` middleware.
-`autoConnectIfCredentialsExist()` itself now filters its saved-session list
-down to only users whose organization has the flag on before reconnecting
-anything. This means the reconnect-storm/session-invalidation risk
-described here **only applies to organizations a super admin has
-explicitly opted in** via `PATCH /api/bulk/org/:id/baileys` — for the
-default (and now typical) case of Cloud-API-only customers, this entire
-section doesn't apply, and the API tier scales exactly as described in the
-"Multi-AZ" section above.
-
-**If you do opt an organization in:** the same caveat as before still
-holds for that organization's traffic specifically — run a single API
-replica while Baileys/bulk-invite is actively used for it, or route that
-org's traffic to a dedicated single-instance deployment, until session
-ownership gets a real distributed lock. This is now a per-organization
-business decision (see `docs/meta-tech-provider/APP_REVIEW.md`) rather
-than an all-or-nothing constraint on the whole deployment.
+**That transport has been removed entirely** (see
+[`../BAILEYS_REMOVAL.md`](../BAILEYS_REMOVAL.md)). The Cloud API is stateless
+HTTP — every replica can serve every tenant, and nothing in the messaging path
+pins a user to a process. The constraint is gone, not merely gated: the API
+tier now scales exactly as described in the "Multi-AZ" section above, with no
+per-organization caveat.
 
 ### Single points of failure that remain even with the above addressed
 
@@ -109,10 +95,10 @@ than an all-or-nothing constraint on the whole deployment.
 - Managed, multi-AZ MongoDB replica set and Redis (with
   `REDIS_CLUSTER_NODES` once you need it) — both entirely infra-level,
   no app changes.
-- Multiple API replicas behind a load balancer — safe for the Cloud-API/
-  chat surface given the Redis Socket.IO adapter and the scheduler leader
-  election above; the remaining Baileys-session caveat only applies to
-  organizations you've explicitly opted into that feature.
+- Multiple API replicas behind a load balancer — safe given the Redis
+  Socket.IO adapter and the scheduler leader election above. With the
+  WhatsApp Web transport removed there is no longer any sticky-session
+  caveat on this.
 - Multiple standalone worker replicas (`backend/src/worker.js`) — safe by
   design, BullMQ handles concurrent consumers correctly.
 - A platform-native (not in-process) scheduled backup job, per

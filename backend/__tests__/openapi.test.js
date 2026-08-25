@@ -6,7 +6,8 @@ describe('GET /api-docs.json', () => {
     const res = await request(app).get('/api-docs.json');
     expect(res.status).toBe(200);
     expect(res.body.openapi).toBe('3.0.3');
-    expect(res.body.paths['/api/v1/baileys/send']).toBeDefined();
+    expect(res.body.paths['/api/v1/send-text']).toBeDefined();
+    expect(res.body.paths['/api/v1/send-template']).toBeDefined();
     expect(res.body.paths['/api/whatsapp/workflows']).toBeDefined();
   });
 });

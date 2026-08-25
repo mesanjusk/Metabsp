@@ -22,7 +22,7 @@ After watching, a viewer can send a template broadcast to a list of recipients t
 - An approved template already visible in the Templates sub-tab.
 
 ## 6. Step-by-Step Walkthrough
-1. **Narration:** "This is the Broadcast tab under the Meta section — this is the officially-supported Cloud API path, distinct from the Baileys-based bulk sender under the Manual tab, which is a different, unofficial product."
+1. **Narration:** "This is the Broadcast tab under the Meta section — this is the officially-supported Cloud API path, distinct from the WhatsApp Cloud API-based bulk sender under the Manual tab, which is a different, unofficial product."
    **On screen:** Point at the `Meta` main tab → `Broadcast` sub-tab specifically.
 2. **Narration:** "Choose your message type — a template, since that's what lets you reach customers outside the 24-hour window — and pick the approved template."
    **On screen:** Select `messageType: template`, pick a template name and language.
@@ -36,7 +36,7 @@ After watching, a viewer can send a template broadcast to a list of recipients t
 ## 7. Common Mistakes / Pitfalls
 - Sending free-form text broadcasts to a large list of contacts you haven't messaged recently — most will fail the 24-hour window check; templates are almost always the right choice for broadcasts.
 - Duplicate phone numbers in the recipient list — the platform de-duplicates automatically, but don't rely on that to catch bad list hygiene generally.
-- Confusing this with the "Campaigns" feature under the Manual/Baileys tab — that's a different, unofficial sending path with its own risk profile; don't mix the two up when troubleshooting.
+- Confusing this with the "Campaigns" feature under the Manual/WhatsApp Cloud API tab — that's a different, unofficial sending path with its own risk profile; don't mix the two up when troubleshooting.
 
 ## 8. Troubleshooting Callout
 If a broadcast reports failures for specific recipients, check each failed result's error message individually — a common cause is an invalid or non-WhatsApp phone number in the list, not a platform-wide problem. For systemic broadcast failures, check `GET /health` first per `docs/meta-tech-provider/SUPPORT_GUIDE.md` — if the platform itself is degraded, individual broadcast troubleshooting is the wrong first step.
@@ -45,4 +45,4 @@ If a broadcast reports failures for specific recipients, check each failed resul
 "Cloud API broadcasts send templates to many recipients at once, queued individually with retry, and report back per-recipient results — the right tool for reaching a list without waiting on the 24-hour window."
 
 ## 10. Call to Action & Related Resources
-Continue to **09 — Connecting and Managing Additional WhatsApp Numbers**. Related reading: `docs/api/SDK_EXAMPLES.md`, `docs/meta-tech-provider/APP_REVIEW.md` (for why the Baileys-based Campaigns feature is treated differently).
+Continue to **09 — Connecting and Managing Additional WhatsApp Numbers**. Related reading: `docs/api/SDK_EXAMPLES.md`, `docs/meta-tech-provider/APP_REVIEW.md` (for why the WhatsApp Cloud API-based Campaigns feature is treated differently).

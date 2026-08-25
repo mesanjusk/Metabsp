@@ -1,5 +1,10 @@
 # Metabsp Enterprise Audit — Meta WhatsApp Tech Provider (BSP) Readiness
 
+> **Superseded on the Baileys question.** The unofficial WhatsApp Web
+> transport described below has since been removed entirely — see
+> [`docs/BAILEYS_REMOVAL.md`](./BAILEYS_REMOVAL.md). This document is
+> retained as a point-in-time record and is not updated.
+
 **Date:** 2026-07-08
 **Scope:** Full repository audit (`backend/src`, `backend/bulk`, `frontend`, infra/CI/CD) performed prior to any code changes, per the "audit first" mandate. No functional code has been modified as part of this report.
 

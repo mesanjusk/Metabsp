@@ -32,14 +32,14 @@ review, not something this codebase automates.
    fill in and then actually implement a matching TTL/cleanup job before
    claiming a retention period to Meta or to customers).
 3. **Platform Terms compliance — now mitigated, not eliminated.** The
-   Baileys/WhatsApp-Web features (manual connect, campaigns, and the
-   `/api/v1/baileys/*` External API) send via `bulk/services/baileysService`
+   the unofficial WhatsApp Web transport/WhatsApp-Web features (manual connect, campaigns, and the
+   `/api/v1/the unofficial WhatsApp Web transport/*` External API) send via `bulk/services/the unofficial WhatsApp Web transportService`
    — an unofficial, reverse-engineered WhatsApp-Web client, not the official
    Cloud API. As of this round, these are **disabled by default for every
    organization** — hidden from the dashboard nav, blocked at every backend
-   route (`requireBaileysEnabled` middleware, `Organization.baileysEnabled`,
+   route (`requirethe unofficial WhatsApp Web transportEnabled` middleware, `Organization.the unofficial WhatsApp Web transportEnabled`,
    default `false`) — and can only be turned on per customer by a super
-   admin via `PATCH /api/bulk/org/:id/baileys` or the toggle in
+   admin via `PATCH /api/bulk/org/:id/the unofficial WhatsApp Web transport` or the toggle in
    `SuperAdminSettingsPage`. For an App Review submission and demo
    environment where this flag is left off, reviewers testing the Cloud-API
    BSP product will never reach or see these features at all, which

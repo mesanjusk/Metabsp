@@ -44,7 +44,7 @@ production, in order of how bad it is to leave them:
    unless-stopped` is already set on every service, which is a reasonable
    default (survives host reboots and crashes, doesn't fight you during
    `docker compose down`). Add resource limits so one runaway container
-   (e.g. a Baileys session leak, a large aggregation query) can't starve
+   (e.g. a WhatsApp Cloud API session leak, a large aggregation query) can't starve
    the host:
 
 ```yaml

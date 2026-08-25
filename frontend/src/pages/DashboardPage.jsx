@@ -72,7 +72,7 @@ export default function DashboardPage() {
                 startIcon={<QrCode2Icon />}
                 href="/whatsapp-bulk"
               >
-                Setup Baileys / QR
+                Connect WhatsApp
               </Button>
               <Button
                 variant="outlined"
@@ -122,7 +122,7 @@ export default function DashboardPage() {
                     1. Go to <strong>Admin</strong> to create users and assign roles.
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    2. Open <strong>WhatsApp → Setup / QR</strong> and scan the QR code to connect Baileys.
+                    2. Open <strong>WhatsApp → Connect</strong> and complete Meta Embedded Signup.
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     3. Use <strong>WhatsApp → Invitation</strong> to send bulk messages with personalised images.

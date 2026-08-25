@@ -34,7 +34,6 @@ import { useOutletContext } from 'react-router-dom';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import CloudRoundedIcon from '@mui/icons-material/CloudRounded';
-import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
@@ -56,7 +55,6 @@ import { parseApiError } from '../utils/parseApiError';
 import { loadFacebookSdk, listenForEmbeddedSignupData } from '../utils/facebookSdk';
 import { ErrorState, LoadingSkeleton } from '../Components/ui';
 import { useAuth } from '../context/AuthContext';
-import WhatsappProviderDialog from '../Components/whatsappCloud/WhatsappProviderDialog';
 
 const MessagesPanel       = lazy(() => import('../Components/whatsappCloud/MessagesPanel'));
 const SendMessagePanel    = lazy(() => import('../Components/whatsappCloud/SendMessagePanel'));
@@ -71,12 +69,10 @@ const MetaWebhookConfigPanel     = lazy(() => import('../Components/whatsappClou
 const AdminAnalyticsPanel        = lazy(() => import('../Components/whatsappCloud/AdminAnalyticsPanel'));
 const ManualInvitePanel   = lazy(() => import('../Components/whatsappCloud/ManualInvitePanel'));
 const CampaignsPanel      = lazy(() => import('../Components/whatsappCloud/CampaignsPanel'));
-const BaileysPanel        = lazy(() => import('../Components/whatsappCloud/BaileysPanel'));
 
 // ── Main 4-tab nav ────────────────────────────────────────────────────────────
 const MAIN_TABS = [
   { key: 'meta',    label: 'Meta',    icon: <CloudRoundedIcon /> },
-  { key: 'baileys', label: 'Baileys', icon: <QrCode2RoundedIcon /> },
   { key: 'manual',  label: 'Manual',  icon: <LinkRoundedIcon /> },
   { key: 'crm',     label: 'CRM',     icon: <PeopleAltRoundedIcon /> },
 ];
@@ -84,7 +80,6 @@ const MAIN_TABS = [
 // ── Sub-tabs per main tab ─────────────────────────────────────────────────────
 const SUB_TABS = {
   meta:    ['inbox', 'templates', 'broadcast', 'autoReply', 'workflows', 'analytics', 'settings'],
-  baileys: ['setup', 'send'],
   manual:  ['wame', 'campaigns'],
   crm:     [],
 };
@@ -190,49 +185,24 @@ export default function WhatsAppCloudDashboard() {
 
   const isAdminUser = String(userGroup || '').toLowerCase() === 'admin';
 
-  // Baileys/WhatsApp-Web (QR connect, manual invite, campaigns) is off by
-  // default for every organization — a platform super admin turns it on per
-  // customer (see docs/meta-tech-provider/APP_REVIEW.md and
-  // PATCH /api/bulk/org/:id/baileys). null = not yet loaded (hide/wait,
-  // never auto-decide on a guess); true/false = confirmed from the server.
-  const [baileysFeatureEnabled, setBaileysFeatureEnabled] = useState(null);
-  useEffect(() => {
-    let active = true;
-    apiClient.get('/api/bulk/auth/me')
-      .then((res) => { if (active) setBaileysFeatureEnabled(!!res?.data?.baileysEnabled); })
-      .catch(() => { if (active) setBaileysFeatureEnabled(false); });
-    return () => { active = false; };
-  }, []);
+  // The unofficial WhatsApp Web transport and the "which provider?" prompt it
+  // required are gone: the Cloud API is the only path, so there is nothing to
+  // choose and no per-org flag to gate on. The "manual" tab (paste an existing
+  // Cloud API token) is a Meta path and stays.
+  const visibleMainTabs = useMemo(
+    () => MAIN_TABS.filter(() => true),
+    []
+  );
 
-  // Admin always sees everything within the Meta/CRM surface; a regular user
-  // who hasn't chosen yet also sees everything until they do (the forced
-  // prompt below handles that). Baileys/Manual specifically stay hidden for
-  // every role — including while the flag is still loading — until the
-  // org's flag is confirmed on, regardless of admin status.
-  const visibleMainTabs = useMemo(() => MAIN_TABS.filter((tab) => {
-    if ((tab.key === 'baileys' || tab.key === 'manual') && !baileysFeatureEnabled) return false;
-    if (isAdminUser) return true;
-    if (tab.key === 'meta') return whatsappProvider !== 'baileys';
-    if (tab.key === 'baileys') return whatsappProvider !== 'meta';
-    return true;
-  }), [isAdminUser, whatsappProvider, baileysFeatureEnabled]);
-
-  // Wait for the Baileys flag to load before deciding whether to ask at all —
-  // if it's confirmed off, there's only one real choice (Meta), so skip the
-  // prompt and select it automatically rather than asking a question with a
-  // fake second option.
-  const needsProviderChoice = !isAdminUser && !whatsappProvider && baileysFeatureEnabled !== null && baileysFeatureEnabled;
+  // Every account is a Cloud API account now; record that once for users who
+  // predate the change and still have no stored preference.
   useEffect(() => {
-    if (!isAdminUser && !whatsappProvider && baileysFeatureEnabled === false) {
-      updateWhatsappProvider('meta');
-    }
-  }, [isAdminUser, whatsappProvider, baileysFeatureEnabled, updateWhatsappProvider]);
-  const [providerDialogOpen, setProviderDialogOpen] = useState(false);
-  const handleSaveProviderChoice = useCallback((value) => updateWhatsappProvider(value), [updateWhatsappProvider]);
+    if (!whatsappProvider) updateWhatsappProvider('meta');
+  }, [whatsappProvider, updateWhatsappProvider]);
 
   // Main tab + sub-tab state
   const [mainTab, setMainTab] = useState('meta');
-  const [subTabs, setSubTabs] = useState({ meta: isAdminUser ? 'settings' : 'inbox', baileys: 'setup', manual: 'wame', crm: '' });
+  const [subTabs, setSubTabs] = useState({ meta: isAdminUser ? 'settings' : 'inbox', manual: 'wame', crm: '' });
 
   // CRM → Manual campaign handoff
   const [crmRecipients, setCrmRecipients] = useState(null);
@@ -416,9 +386,6 @@ export default function WhatsAppCloudDashboard() {
       );
     }
 
-    // Baileys (no account connection needed)
-    if (mainTab === 'baileys') return <BaileysPanel />;
-
     // Manual (no account connection needed)
     if (mainTab === 'manual') {
       if (activeSubTab === 'campaigns') return <CampaignsPanel />;
@@ -590,7 +557,7 @@ export default function WhatsAppCloudDashboard() {
               </Stack>
             </Stack>
 
-            {/* Search (hide for Baileys setup/send which don't need it) */}
+            {/* Search */}
             {!['setup', 'send'].includes(activeSubTab) && (
               <TextField
                 value={search}
@@ -762,16 +729,6 @@ export default function WhatsAppCloudDashboard() {
         </DialogActions>
       </Dialog>
 
-      {needsProviderChoice && (
-        <WhatsappProviderDialog open forced currentValue={whatsappProvider} onSubmit={handleSaveProviderChoice} allowBaileys={baileysFeatureEnabled} />
-      )}
-      <WhatsappProviderDialog
-        open={providerDialogOpen}
-        currentValue={whatsappProvider}
-        onClose={() => setProviderDialogOpen(false)}
-        onSubmit={handleSaveProviderChoice}
-        allowBaileys={baileysFeatureEnabled}
-      />
     </Box>
   );
 }

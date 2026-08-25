@@ -19,7 +19,7 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
-            "url": { "raw": "{{baseUrl}}/api/v1/baileys/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "baileys", "status"] }
+            "url": { "raw": "{{baseUrl}}/api/v1/status", "host": ["{{baseUrl}}"], "path": ["api", "v1", "WhatsApp Cloud API", "status"] }
           }
         },
         {
@@ -31,7 +31,7 @@
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": { "mode": "raw", "raw": "{\n  \"to\": \"919876543210\",\n  \"message\": \"Hello from Postman!\"\n}" },
-            "url": { "raw": "{{baseUrl}}/api/v1/baileys/send", "host": ["{{baseUrl}}"], "path": ["api", "v1", "baileys", "send"] }
+            "url": { "raw": "{{baseUrl}}/api/v1/send-text", "host": ["{{baseUrl}}"], "path": ["api", "v1", "WhatsApp Cloud API", "send"] }
           }
         },
         {
@@ -43,7 +43,7 @@
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": { "mode": "raw", "raw": "{\n  \"recipients\": [\n    {\"to\": \"919876543210\", \"message\": \"Hi John!\"},\n    {\"to\": \"919876543211\", \"message\": \"Hi Jane!\"}\n  ],\n  \"delay\": 12000\n}" },
-            "url": { "raw": "{{baseUrl}}/api/v1/baileys/send-bulk", "host": ["{{baseUrl}}"], "path": ["api", "v1", "baileys", "send-bulk"] }
+            "url": { "raw": "{{baseUrl}}/api/v1/send-template", "host": ["{{baseUrl}}"], "path": ["api", "v1", "WhatsApp Cloud API", "send-bulk"] }
           }
         }
       ]

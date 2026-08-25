@@ -1,142 +1,168 @@
 /**
- * External API — v1
+ * External API (v1) — machine-to-machine messaging for other systems.
  *
- * Allows external applications to send WhatsApp messages through a user's
- * connected Baileys session using an API key (no JWT required).
- *
- * Authentication:
- *   Header:  X-Api-Key: mbsp_<key>
- *   OR Query: ?apiKey=mbsp_<key>
- *
- * Base path (mounted in index.js): /api/v1
+ * Authenticated with an API key rather than a JWT, so a customer's own backend
+ * can send WhatsApp messages without a browser session. See
+ * docs/api/AUTHENTICATION.md.
  *
  * Endpoints:
- *   GET  /api/v1/baileys/status         — Check connection status
- *   POST /api/v1/baileys/send           — Send text or image+caption
- *   POST /api/v1/baileys/send-text      — Send text only (alias)
- *   POST /api/v1/baileys/send-image     — Send image with caption
- *   POST /api/v1/baileys/send-bulk      — Send to multiple recipients
+ *   GET  /api/v1/status            — Connected WhatsApp account + its status
+ *   POST /api/v1/send-text         — Send a text message
+ *   POST /api/v1/send-image        — Send an image with an optional caption
+ *   POST /api/v1/send-template     — Send an approved template message
+ *
+ * Everything here runs on the official WhatsApp Cloud API. These routes used
+ * to drive an unofficial WhatsApp Web session (Baileys), which meant free-form
+ * blasts to arbitrary recipients — something the Cloud API deliberately does
+ * not allow. Two consequences are visible in the contract below and are not
+ * bugs:
+ *
+ *   • Free-form text only reaches a recipient inside Meta's 24-hour customer
+ *     service window, i.e. someone who messaged the business recently.
+ *     Outside it, use /send-template.
+ *   • Bulk send is gone. Broadcasting is a template operation and goes through
+ *     POST /api/whatsapp/broadcast, which enqueues per-recipient jobs and
+ *     respects Meta's rate limits, rather than looping with a sleep().
  */
 
-const express      = require('express');
+const express = require('express');
 const { requireApiKey } = require('../middleware/apiKeyAuth');
-const { requireBaileysEnabled } = require('../../bulk/middleware/baileysGate');
 const { createRateLimiter } = require('../middleware/rateLimit');
-const baileysService = require('../../bulk/services/baileysService');
+const {
+  dispatchTextMessage,
+  dispatchTemplateMessage,
+  dispatchMediaMessage,
+} = require('../controllers/whatsappController');
+const { loadActiveWhatsAppAccountForUser } = require('../services/whatsappAccountService');
 const logger = require('../utils/logger');
 
 const router = express.Router();
 const limiter = createRateLimiter({ windowMs: 60 * 1000, maxRequests: 60 });
 
-function normalizePhone(v) {
-  const d = String(v || '').replace(/\D/g, '').trim();
-  return d.length === 10 ? '91' + d : d;
-}
+const normalizePhone = (v) => String(v || '').replace(/\D/g, '');
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+// Meta's own error text is the useful part of a failure ("template does not
+// exist", "recipient not in allowed list"), so it is surfaced rather than
+// flattened into "Something went wrong". Stack traces never are.
+const respondWithError = (res, error, operation) => {
+  const metaMessage = error?.response?.data?.error?.message;
+  const metaCode = error?.response?.data?.error?.code;
+  const status = error?.statusCode && error.statusCode >= 400 && error.statusCode <= 599 ? error.statusCode : 502;
 
-// ── GET /baileys/status ───────────────────────────────────────────────────────
-router.get('/baileys/status', requireApiKey, requireBaileysEnabled, (req, res) => {
-  const status = baileysService.getStatus(req.user.id);
-  res.json({ success: true, ...status });
-});
+  if (!metaMessage) logger.error(`[external-api] ${operation} failed:`, error.message);
 
-// ── POST /baileys/send ────────────────────────────────────────────────────────
-// Unified send: sends text or image depending on whether imageUrl is provided.
-//
-// Body:
-//   { "to": "919876543210", "message": "Hello!" }
-//   { "to": "919876543210", "message": "Caption", "imageUrl": "https://..." }
-router.post('/baileys/send', requireApiKey, requireBaileysEnabled, limiter, async (req, res) => {
-  const { to, message, imageUrl } = req.body;
-  if (!to)      return res.status(400).json({ success: false, error: '"to" is required' });
-  if (!message) return res.status(400).json({ success: false, error: '"message" is required' });
+  return res.status(status).json({
+    success: false,
+    operation,
+    message: metaMessage || error.message || `${operation} failed`,
+    ...(metaCode ? { code: metaCode } : {}),
+  });
+};
 
-  const phone = normalizePhone(to);
+// Every route resolves the account from the API key's own user, so a key can
+// only ever act on the WhatsApp number its owner connected. Recipient or
+// account IDs supplied in the body are never trusted for that decision.
+const withAccount = (handler) => async (req, res) => {
+  let accountContext;
   try {
-    if (imageUrl) {
-      await baileysService.sendImage(req.user.id, { to: phone, imageUrl, caption: message });
-    } else {
-      await baileysService.sendText(req.user.id, { to: phone, body: message });
+    accountContext = await loadActiveWhatsAppAccountForUser(req.user.id);
+  } catch (error) {
+    return res.status(409).json({
+      success: false,
+      message: 'No active WhatsApp account is connected for this API key. Connect one in the dashboard first.',
+    });
+  }
+  return handler({ req, res, accountContext });
+};
+
+router.get(
+  '/status',
+  requireApiKey,
+  withAccount(async ({ res, accountContext }) => {
+    const account = accountContext?.account;
+    return res.json({
+      success: true,
+      data: {
+        connected: true,
+        phoneNumberId: accountContext.phoneNumberId || '',
+        displayPhoneNumber: account?.displayPhoneNumber || '',
+        verifiedName: account?.verifiedName || '',
+        connectionMode: account?.connectionMode || '',
+        status: account?.status || '',
+      },
+    });
+  })
+);
+
+router.post(
+  '/send-text',
+  requireApiKey,
+  limiter,
+  withAccount(async ({ req, res, accountContext }) => {
+    const phone = normalizePhone(req.body?.phone || req.body?.to);
+    const text = String(req.body?.text || req.body?.message || '');
+    if (!phone || !text) {
+      return res.status(400).json({ success: false, message: 'phone and text are required' });
     }
-    res.json({ success: true, to: phone });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// ── POST /baileys/send-text ───────────────────────────────────────────────────
-router.post('/baileys/send-text', requireApiKey, requireBaileysEnabled, limiter, async (req, res) => {
-  const { to, message, body } = req.body;
-  const text  = message || body;
-  const phone = normalizePhone(to);
-  if (!phone) return res.status(400).json({ success: false, error: '"to" is required' });
-  if (!text)  return res.status(400).json({ success: false, error: '"message" is required' });
-  try {
-    await baileysService.sendText(req.user.id, { to: phone, body: text });
-    res.json({ success: true, to: phone });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// ── POST /baileys/send-image ──────────────────────────────────────────────────
-router.post('/baileys/send-image', requireApiKey, requireBaileysEnabled, limiter, async (req, res) => {
-  const { to, imageUrl, caption = '' } = req.body;
-  const phone = normalizePhone(to);
-  if (!phone)    return res.status(400).json({ success: false, error: '"to" is required' });
-  if (!imageUrl) return res.status(400).json({ success: false, error: '"imageUrl" is required' });
-  try {
-    await baileysService.sendImage(req.user.id, { to: phone, imageUrl, caption });
-    res.json({ success: true, to: phone });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// ── POST /baileys/send-bulk ───────────────────────────────────────────────────
-// Body:
-//   {
-//     "recipients": [
-//       { "to": "919876543210", "message": "Hi John!" },
-//       { "to": "919876543211", "message": "Hi Jane!", "imageUrl": "https://..." }
-//     ],
-//     "delay": 12000   // ms between sends (default 12000, min 5000, max 60000)
-//   }
-router.post('/baileys/send-bulk', requireApiKey, requireBaileysEnabled, async (req, res) => {
-  const { recipients, delay = 12000 } = req.body;
-  if (!Array.isArray(recipients) || !recipients.length) {
-    return res.status(400).json({ success: false, error: '"recipients" must be a non-empty array' });
-  }
-  if (recipients.length > 500) {
-    return res.status(400).json({ success: false, error: 'Maximum 500 recipients per bulk send' });
-  }
-
-  const actualDelay = Math.min(60000, Math.max(5000, Number(delay) || 12000));
-  const results = [];
-
-  // Respond immediately, process in background
-  res.json({ success: true, total: recipients.length, delay: actualDelay, message: 'Bulk send started' });
-
-  for (let i = 0; i < recipients.length; i++) {
-    const { to, message, body, imageUrl } = recipients[i];
-    const text  = message || body;
-    const phone = normalizePhone(to);
     try {
-      if (!phone || !text) { results.push({ to: phone || to, status: 'SKIPPED', error: 'Missing to or message' }); continue; }
-      if (imageUrl) {
-        await baileysService.sendImage(req.user.id, { to: phone, imageUrl, caption: text });
-      } else {
-        await baileysService.sendText(req.user.id, { to: phone, body: text });
-      }
-      results.push({ to: phone, status: 'SENT' });
-    } catch (e) {
-      results.push({ to: phone || to, status: 'FAILED', error: e.message });
+      await dispatchTextMessage({ accountContext, userId: req.user.id, to: phone, body: text });
+      return res.json({ success: true, message: 'Message sent' });
+    } catch (error) {
+      return respondWithError(res, error, 'send-text');
     }
-    if (i < recipients.length - 1) await sleep(actualDelay);
-  }
+  })
+);
 
-  logger.info(`[external-api] bulk send complete: ${results.filter(r => r.status === 'SENT').length}/${results.length} sent`);
-});
+router.post(
+  '/send-image',
+  requireApiKey,
+  limiter,
+  withAccount(async ({ req, res, accountContext }) => {
+    const phone = normalizePhone(req.body?.phone || req.body?.to);
+    const link = String(req.body?.imageUrl || req.body?.link || '');
+    if (!phone || !link) {
+      return res.status(400).json({ success: false, message: 'phone and imageUrl are required' });
+    }
+    try {
+      await dispatchMediaMessage({
+        accountContext,
+        userId: req.user.id,
+        to: phone,
+        link,
+        type: 'image',
+        caption: String(req.body?.caption || ''),
+      });
+      return res.json({ success: true, message: 'Image sent' });
+    } catch (error) {
+      return respondWithError(res, error, 'send-image');
+    }
+  })
+);
+
+router.post(
+  '/send-template',
+  requireApiKey,
+  limiter,
+  withAccount(async ({ req, res, accountContext }) => {
+    const phone = normalizePhone(req.body?.phone || req.body?.to);
+    const templateName = String(req.body?.template || req.body?.templateName || '');
+    if (!phone || !templateName) {
+      return res.status(400).json({ success: false, message: 'phone and template are required' });
+    }
+    try {
+      await dispatchTemplateMessage({
+        accountContext,
+        userId: req.user.id,
+        to: phone,
+        templateName,
+        language: String(req.body?.language || 'en_US'),
+        components: Array.isArray(req.body?.components) ? req.body.components : [],
+      });
+      return res.json({ success: true, message: 'Template sent' });
+    } catch (error) {
+      return respondWithError(res, error, 'send-template');
+    }
+  })
+);
 
 module.exports = router;

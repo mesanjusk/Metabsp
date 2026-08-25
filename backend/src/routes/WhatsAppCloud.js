@@ -58,7 +58,6 @@ const {
 } = require('../controllers/whatsappController');
 
 const Campaign = require('../../bulk/models/Campaign');
-const baileysService = require('../../bulk/services/baileysService');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -191,9 +190,18 @@ router.post('/campaigns/:id/send', requireAuth, async (req, res) => {
     const campaign = await Campaign.findOne(filter);
     if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
     if (campaign.status === 'SENDING') return res.status(409).json({ message: 'Already sending' });
-    await Campaign.findByIdAndUpdate(campaign._id, { status: 'SENDING' });
-    res.json({ message: 'Campaign send started', id: campaign._id });
-    runCampaign(campaign, req.user.id).catch(console.error);
+
+    // Campaign sending previously ran over Baileys, blasting free-form text to
+    // a recipient list. The official Cloud API cannot do that: outside the
+    // 24-hour customer service window only an approved template may be sent.
+    // The endpoint is kept so existing clients get an explanatory error rather
+    // than a 404, and are directed at the supported path.
+    return res.status(501).json({
+      success: false,
+      message:
+        'Campaign sending now goes through the WhatsApp Cloud API broadcast endpoint, which requires an approved message template. Use POST /api/whatsapp/broadcast with a template name.',
+      campaignId: String(campaign._id),
+    });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
@@ -205,68 +213,5 @@ router.post('/settings', requireAuth, saveSettings);
 router.get('/api-keys',     requireAuth, listApiKeys);
 router.post('/api-keys',    requireAuth, createApiKey);
 router.delete('/api-keys/:id', requireAuth, revokeApiKey);
-
-// ── Baileys proxy routes (per-user QR / status / send) ───────────────────────
-router.get('/baileys/status', requireAuth, (req, res) => {
-  try { res.json(baileysService.getStatus(req.user.id)); }
-  catch (e) { res.json({ status: 'DISCONNECTED', qr: null, phone: null }); }
-});
-
-router.post('/baileys/connect', requireAuth, (req, res) => {
-  try {
-    baileysService.connect(req.user.id).catch(() => {});
-    res.json({ message: 'Connection initiated' });
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-router.post('/baileys/disconnect', requireAuth, async (req, res) => {
-  try {
-    await baileysService.disconnect(req.user.id);
-    res.json({ message: 'Disconnected' });
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-router.post('/baileys/send-text', requireAuth, async (req, res) => {
-  try {
-    const { to, body } = req.body;
-    await baileysService.sendText(req.user.id, { to, body });
-    res.json({ message: 'Sent' });
-  } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-function normalizePhone(v) {
-  const d = String(v || '').replace(/[^\d]/g, '').trim();
-  return d.length === 10 ? '91' + d : d;
-}
-
-async function runCampaign(campaign, userId) {
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-  const rand  = () => (Math.floor(Math.random() * 9) + 12) * 1000;
-  let sent = 0, failed = 0;
-  const updatedRecipients = campaign.recipients.map(r => ({ ...r.toObject(), status: 'PENDING' }));
-  for (let i = 0; i < updatedRecipients.length; i++) {
-    const r = updatedRecipients[i];
-    const phone = normalizePhone(r.mobile);
-    const personalMsg = (campaign.message || '').replace(/\{name\}/gi, r.name);
-    try {
-      if (campaign.imageUrl) {
-        await baileysService.sendImage(userId, { to: phone, imageUrl: campaign.imageUrl, caption: personalMsg });
-      } else {
-        await baileysService.sendText(userId, { to: phone, body: personalMsg });
-      }
-      updatedRecipients[i].status = 'SENT';
-      updatedRecipients[i].sentAt = new Date();
-      sent++;
-    } catch (err) {
-      updatedRecipients[i].status = 'FAILED';
-      updatedRecipients[i].error  = err.message;
-      failed++;
-    }
-    if (i < updatedRecipients.length - 1) await sleep(rand());
-  }
-  await Campaign.findByIdAndUpdate(campaign._id, {
-    status: 'SENT', sentCount: sent, failedCount: failed, recipients: updatedRecipients,
-  });
-}
 
 module.exports = router;
