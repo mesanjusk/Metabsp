@@ -20,6 +20,7 @@ onboarding as a WhatsApp Business Solution Provider (BSP) / Tech Provider.
 | [`READINESS_STATUS.md`](./READINESS_STATUS.md) | Which checklist items are provable in code vs. runtime vs. external |
 | [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) | Common failure modes and how to diagnose them in this codebase |
 | [`CUSTOMER_ONBOARDING.md`](./CUSTOMER_ONBOARDING.md) | The actual customer-facing connect flow, including number migration |
+| [`SOCIAL_LOGIN.md`](./SOCIAL_LOGIN.md) | Google / Facebook sign-in — setup, and why Facebook needs a product you may not have |
 | [`SUPPORT_GUIDE.md`](./SUPPORT_GUIDE.md) | Internal runbook for support staff handling customer issues |
 | [`DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md) | Where to start — points into `docs/deployment/` for the full infra guides |
 

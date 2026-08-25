@@ -26,13 +26,21 @@ const TIMEOUT_MS = 10000;
 
 const getGoogleClientId = () => String(process.env.GOOGLE_CLIENT_ID || '').trim();
 
-// Facebook Login reuses the same Meta app as WhatsApp Embedded Signup, so the
-// existing META_APP_ID/META_APP_SECRET are the default. FACEBOOK_APP_ID /
-// FACEBOOK_APP_SECRET override them if you ever split the two apps.
-const getFacebookAppId = () =>
-  String(process.env.FACEBOOK_APP_ID || process.env.META_APP_ID || '').trim();
-const getFacebookAppSecret = () =>
-  String(process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET || '').trim();
+// Facebook sign-in requires FACEBOOK_APP_ID/FACEBOOK_APP_SECRET to be set
+// explicitly. It deliberately does NOT fall back to META_APP_ID/META_APP_SECRET.
+//
+// Those exist on every deployment of this product, but having a Meta app for
+// WhatsApp is not the same as having consumer Facebook Login configured on it.
+// Embedded Signup uses *Facebook Login for Business* (selected by config_id);
+// FB.login() for user authentication uses ordinary *Facebook Login*, a separate
+// product. Inheriting the WhatsApp credentials made the button appear on apps
+// that had never enabled it, where the dialog fails with "This app isn't
+// available / This app needs at least one supported permission".
+//
+// To use the same Meta app for both, set FACEBOOK_APP_ID to the same value as
+// META_APP_ID — but only after adding Facebook Login to that app.
+const getFacebookAppId = () => String(process.env.FACEBOOK_APP_ID || '').trim();
+const getFacebookAppSecret = () => String(process.env.FACEBOOK_APP_SECRET || '').trim();
 
 const isGoogleEnabled = () => Boolean(getGoogleClientId());
 const isFacebookEnabled = () => Boolean(getFacebookAppId() && getFacebookAppSecret());

@@ -26,6 +26,7 @@ beforeEach(() => {
   delete process.env.FACEBOOK_APP_ID;
   delete process.env.FACEBOOK_APP_SECRET;
   delete process.env.FACEBOOK_LOGIN_SCOPES;
+  delete process.env.FACEBOOK_LOGIN_SCOPES;
 });
 
 afterEach(() => {
@@ -42,10 +43,21 @@ describe('provider enablement', () => {
     expect(isGoogleEnabled()).toBe(false);
   });
 
-  it('falls back to the WhatsApp Meta app credentials for Facebook', () => {
-    expect(isFacebookEnabled()).toBe(true);
-    delete process.env.META_APP_SECRET;
+  it('does NOT enable Facebook from the WhatsApp Meta app credentials alone', () => {
+    // META_APP_ID/META_APP_SECRET are set in beforeEach and exist on every
+    // deployment. Inheriting them showed a Facebook button on apps that had
+    // never enabled Facebook Login, where the dialog fails with "This app
+    // needs at least one supported permission". Opting in must be explicit.
+    expect(process.env.META_APP_ID).toBeTruthy();
+    expect(process.env.META_APP_SECRET).toBeTruthy();
     expect(isFacebookEnabled()).toBe(false);
+  });
+
+  it('enables Facebook only when both explicit credentials are set', () => {
+    process.env.FACEBOOK_APP_ID = '1717826239505344';
+    expect(isFacebookEnabled()).toBe(false);
+    process.env.FACEBOOK_APP_SECRET = 'fb-secret';
+    expect(isFacebookEnabled()).toBe(true);
   });
 });
 
@@ -123,6 +135,17 @@ describe('getFacebookLoginScopes', () => {
 
 describe('verifyFacebookAccessToken', () => {
   const debugOk = { data: { data: { is_valid: true, app_id: '1717826239505344', user_id: '99887766' } } };
+
+  beforeEach(() => {
+    process.env.FACEBOOK_APP_ID = '1717826239505344';
+    process.env.FACEBOOK_APP_SECRET = 'fb-secret';
+  });
+
+  it('refuses to call out when Facebook sign-in is not configured', async () => {
+    delete process.env.FACEBOOK_APP_ID;
+    await expect(verifyFacebookAccessToken('tok')).rejects.toThrow(/not configured/);
+    expect(axios.get).not.toHaveBeenCalled();
+  });
 
   it('does not ask Graph for email unless the scope was requested', async () => {
     // Requesting a field the token does not cover makes Graph error outright.

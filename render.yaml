@@ -44,8 +44,11 @@ services:
       - key: META_ENABLE_COEXISTENCE
         value: "false"
       # Social sign-in — optional and additive; each provider stays hidden on
-      # the login page until configured. Facebook falls back to META_APP_ID /
-      # META_APP_SECRET above when these are unset.
+      # the login page until configured. Facebook requires BOTH vars below and
+      # deliberately does not inherit META_APP_ID/META_APP_SECRET: consumer
+      # Facebook Login is a different product from the Facebook Login for
+      # Business that Embedded Signup uses, and must be added to the app first.
+      # See docs/meta-tech-provider/SOCIAL_LOGIN.md.
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: FACEBOOK_APP_ID
