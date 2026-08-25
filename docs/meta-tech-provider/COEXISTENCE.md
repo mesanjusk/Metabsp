@@ -137,10 +137,24 @@ app to each customer's WABA, which is necessary but not sufficient: if
 the three fields above are not ticked, coexistence numbers onboard
 successfully and then never deliver history, echoes, or contacts.
 
-**This is why `META_ENABLE_COEXISTENCE` exists.** Leave it unset (on)
-once the fields are subscribed; set it to `false` if you want to ship the
-rest of this work before touching the Meta App configuration, so you
-don't onboard numbers whose Business-app traffic silently goes nowhere.
+**This is why `META_ENABLE_COEXISTENCE` exists.** The code defaults it to
+on, but `render.yaml` ships it explicitly `false` — flip that to `"true"`
+(and redeploy, since the Graph version and config are read at boot) once
+the fields above are ticked. That way the rest of this work can ship
+before the Meta App configuration is touched, without onboarding numbers
+whose Business-app traffic silently goes nowhere.
+
+### Graph API version
+
+`WHATSAPP_API_VERSION` (`render.yaml`) feeds both the server's Graph calls
+and — via `GET /api/whatsapp/connect/config` — the Facebook JS SDK version
+the browser initialises for the Embedded Signup popup. It is pinned to
+`v20.0`, which predates coexistence's availability. Confirm against Meta's
+current changelog which version first supports
+`featureType: 'whatsapp_business_app_onboarding'` and the three webhook
+fields, and bump this before enabling coexistence. Treat it as a change
+affecting every Graph call in the app, not a coexistence-only edit:
+re-test ordinary send/receive after bumping.
 
 ## Permissions
 

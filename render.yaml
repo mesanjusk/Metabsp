@@ -33,6 +33,16 @@ services:
         value: v18.0
       - key: META_EMBEDDED_SIGNUP_CONFIG_ID
         sync: false
+      # Coexistence (WhatsApp Business app + Cloud API on one number).
+      # Deliberately off here even though the code defaults to on: the flow
+      # depends on the `history`, `smb_message_echoes` and
+      # `smb_app_state_sync` webhook fields being subscribed in the Meta App
+      # Dashboard, which no deploy can do for itself. Flip to "true" once
+      # those are ticked — until then a coexistence number would onboard
+      # successfully and then never receive history, echoes, or contacts.
+      # See docs/meta-tech-provider/COEXISTENCE.md.
+      - key: META_ENABLE_COEXISTENCE
+        value: "false"
       - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
         sync: false
       - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE
