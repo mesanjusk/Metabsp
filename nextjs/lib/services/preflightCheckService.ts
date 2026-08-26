@@ -294,6 +294,45 @@ const loadActiveAccounts = async () =>
  * The boot-time / admin check. `includeWabaSubscriptions` adds one Graph call
  * per active WABA and is therefore off unless explicitly requested.
  */
+/**
+ * Whether Embedded Signup can actually launch.
+ *
+ * The connect/config route serves META_APP_ID and META_EMBEDDED_SIGNUP_CONFIG_ID
+ * to the browser, and the dashboard refuses to open the popup unless BOTH are
+ * present — it falls back to "Connect manually" with a toast. There is no
+ * server-side error and nothing in the logs, so an unset config id looks
+ * exactly like a working deployment until a customer tries to connect and is
+ * quietly told to do it by hand.
+ *
+ * The config id is not a secret (it goes to the browser on every dashboard
+ * load), so it is safe to echo here; the app secret is only ever reported as
+ * present or absent.
+ */
+export const checkEmbeddedSignupConfig = () => {
+  const appId = String(process.env.META_APP_ID || '').trim();
+  const configId = String(process.env.META_EMBEDDED_SIGNUP_CONFIG_ID || '').trim();
+  const hasAppSecret = Boolean(String(process.env.META_APP_SECRET || '').trim());
+
+  const missing: string[] = [];
+  if (!appId) missing.push('META_APP_ID');
+  if (!configId) missing.push('META_EMBEDDED_SIGNUP_CONFIG_ID');
+  // The code-for-token exchange needs the secret, so the popup would succeed
+  // and the connection would then fail at the end.
+  if (!hasAppSecret) missing.push('META_APP_SECRET');
+
+  return {
+    id: 'embedded_signup_config',
+    severity: missing.length ? 'error' : 'ok',
+    summary: missing.length
+      ? `Embedded Signup cannot launch — unset: ${missing.join(', ')}. "Connect with Meta" will fall back to manual entry.`
+      : `Embedded Signup configured (config id ${configId})`,
+    appId,
+    configId,
+    hasAppSecret,
+    missing,
+  };
+};
+
 export const runPreflightChecks = async ({ includeWabaSubscriptions = false }: any = {}) => {
   const coexistenceEnabled = isCoexistenceEnabled();
   const graphVersion = getGraphApiVersion();
@@ -313,6 +352,7 @@ export const runPreflightChecks = async ({ includeWabaSubscriptions = false }: a
   ).length;
 
   const checks = [
+    checkEmbeddedSignupConfig(),
     fieldCheck,
     checkCoexistenceGating({ coexistenceEnabled, fieldCheck, coexistenceAccountCount }),
     checkTokenSources(accounts),

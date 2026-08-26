@@ -21,7 +21,13 @@ const {
   runPreflightChecks,
 } = require('../src/services/preflightCheckService');
 
-const ENV_KEYS = ['META_ENABLE_COEXISTENCE', 'META_APP_ID', 'META_APP_SECRET', 'RUN_PREFLIGHT_ON_BOOT'];
+const ENV_KEYS = [
+  'META_ENABLE_COEXISTENCE',
+  'META_APP_ID',
+  'META_APP_SECRET',
+  'META_EMBEDDED_SIGNUP_CONFIG_ID',
+  'RUN_PREFLIGHT_ON_BOOT',
+];
 const originalEnv = {};
 
 beforeEach(() => {
@@ -29,6 +35,9 @@ beforeEach(() => {
   for (const k of ENV_KEYS) originalEnv[k] = process.env[k];
   process.env.META_APP_ID = '1717826239505344';
   process.env.META_APP_SECRET = 'test-secret';
+  // A "fully configured deployment" includes Embedded Signup being launchable;
+  // checkEmbeddedSignupConfig is part of runPreflightChecks' aggregate now.
+  process.env.META_EMBEDDED_SIGNUP_CONFIG_ID = '1003501095782121';
 });
 
 afterEach(() => {
@@ -229,7 +238,12 @@ describe('runPreflightChecks', () => {
 
     expect(report.severity).toBe('error');
     expect(report.coexistenceEnabled).toBe(true);
-    expect(report.checks.map((c) => c.id)).toEqual(['webhook_fields', 'coexistence_gating', 'token_sources']);
+    expect(report.checks.map((c) => c.id)).toEqual([
+      'embedded_signup_config',
+      'webhook_fields',
+      'coexistence_gating',
+      'token_sources',
+    ]);
   });
 
   it('reports ok for a fully configured deployment', async () => {
@@ -261,5 +275,82 @@ describe('runPreflightChecks', () => {
 
     const report = await runPreflightChecks();
     expect(report.checks.find((c) => c.id === 'token_sources').summary).toBe('No active WhatsApp accounts connected');
+  });
+});
+
+// META_EMBEDDED_SIGNUP_CONFIG_ID is the single variable that decides whether
+// the "Connect with Meta" button opens Meta's popup at all. Unset, the
+// dashboard silently falls back to "Connect manually" — no server error, no
+// log line. This check is what makes that visible at boot.
+describe('checkEmbeddedSignupConfig', () => {
+  const { checkEmbeddedSignupConfig } = require('../src/services/preflightCheckService');
+  const saved = {};
+  const keys = ['META_APP_ID', 'META_APP_SECRET', 'META_EMBEDDED_SIGNUP_CONFIG_ID'];
+
+  beforeEach(() => {
+    for (const k of keys) saved[k] = process.env[k];
+  });
+
+  afterEach(() => {
+    for (const k of keys) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
+  const setEnv = (values) => {
+    for (const k of keys) {
+      if (values[k] === undefined) delete process.env[k];
+      else process.env[k] = values[k];
+    }
+  };
+
+  it('is ok when all three are set, and echoes the config id', () => {
+    setEnv({
+      META_APP_ID: '1717826239505344',
+      META_APP_SECRET: 'secret-value',
+      META_EMBEDDED_SIGNUP_CONFIG_ID: '1003501095782121',
+    });
+
+    const result = checkEmbeddedSignupConfig();
+    expect(result.severity).toBe('ok');
+    expect(result.missing).toEqual([]);
+    expect(result.summary).toContain('1003501095782121');
+  });
+
+  it('errors and names the variable when only the config id is missing', () => {
+    setEnv({ META_APP_ID: '1717826239505344', META_APP_SECRET: 'secret-value' });
+
+    const result = checkEmbeddedSignupConfig();
+    expect(result.severity).toBe('error');
+    expect(result.missing).toEqual(['META_EMBEDDED_SIGNUP_CONFIG_ID']);
+    expect(result.summary).toContain('fall back to manual entry');
+  });
+
+  it('flags a missing app secret too — the popup would succeed and the exchange would then fail', () => {
+    setEnv({ META_APP_ID: '1717826239505344', META_EMBEDDED_SIGNUP_CONFIG_ID: '1003501095782121' });
+
+    const result = checkEmbeddedSignupConfig();
+    expect(result.severity).toBe('error');
+    expect(result.missing).toEqual(['META_APP_SECRET']);
+  });
+
+  it('never echoes the app secret, only whether it is present', () => {
+    setEnv({
+      META_APP_ID: '1717826239505344',
+      META_APP_SECRET: 'super-secret-do-not-log',
+      META_EMBEDDED_SIGNUP_CONFIG_ID: '1003501095782121',
+    });
+
+    const result = checkEmbeddedSignupConfig();
+    expect(JSON.stringify(result)).not.toContain('super-secret-do-not-log');
+    expect(result.hasAppSecret).toBe(true);
+  });
+
+  it('treats whitespace-only values as unset', () => {
+    setEnv({ META_APP_ID: '  ', META_APP_SECRET: '  ', META_EMBEDDED_SIGNUP_CONFIG_ID: '  ' });
+
+    const result = checkEmbeddedSignupConfig();
+    expect(result.missing).toEqual(['META_APP_ID', 'META_EMBEDDED_SIGNUP_CONFIG_ID', 'META_APP_SECRET']);
   });
 });
