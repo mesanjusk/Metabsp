@@ -497,8 +497,8 @@ export default function MetaAppReviewPage() {
           <Divider sx={{ mb: 4 }} />
           <Typography variant="body1" color="text.secondary" align="center">
             For questions about this App Review submission, contact us at{' '}
-            <Box component="a" href="mailto:review@metabsp.com" sx={{ color: 'primary.main', fontWeight: 600 }}>
-              review@metabsp.com
+            <Box component="a" href="mailto:review@meta.sanjusk.in" sx={{ color: 'primary.main', fontWeight: 600 }}>
+              review@meta.sanjusk.in
             </Box>
           </Typography>
         </motion.div>

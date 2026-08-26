@@ -188,7 +188,7 @@ export default function TermsOfServicePage() {
 
             <Section title="12. Termination">
               <Para>
-                Either party may terminate the Service agreement at any time. You may terminate by cancelling your subscription through the account settings or by contacting support@metabsp.com. We may terminate or suspend your access immediately, without prior notice or liability, if you:
+                Either party may terminate the Service agreement at any time. You may terminate by cancelling your subscription through the account settings or by contacting support@meta.sanjusk.in. We may terminate or suspend your access immediately, without prior notice or liability, if you:
               </Para>
               <BulletList items={[
                 'Breach any provision of these Terms',
@@ -216,7 +216,7 @@ export default function TermsOfServicePage() {
 
             <Section title="15. Contact">
               <Para>
-                For questions about these Terms, contact us at legal@metabsp.com or write to: MetaBSP Legal Team, [Address on file]. For support inquiries, contact support@metabsp.com.
+                For questions about these Terms, contact us at legal@meta.sanjusk.in or write to: MetaBSP Legal Team, [Address on file]. For support inquiries, contact support@meta.sanjusk.in.
               </Para>
             </Section>
           </Paper>

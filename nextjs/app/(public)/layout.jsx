@@ -192,7 +192,7 @@ export default function PublicLayout({ children }) {
               © {new Date().getFullYear()} MetaBSP. All rights reserved.
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              support@metabsp.com
+              support@meta.sanjusk.in
             </Typography>
           </Box>
         </Container>

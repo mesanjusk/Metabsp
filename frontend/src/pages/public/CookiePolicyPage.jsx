@@ -114,7 +114,7 @@ export default function CookiePolicyPage() {
 
             <Section title="7. Contact us">
               <Para>
-                Questions about this Cookie Policy can be directed to privacy@metabsp.com.
+                Questions about this Cookie Policy can be directed to privacy@meta.sanjusk.in.
               </Para>
             </Section>
           </Paper>
