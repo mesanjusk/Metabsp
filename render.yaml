@@ -3,8 +3,11 @@ services:
     name: metabsp-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install
+    branch: main
+    autoDeploy: true
+    buildCommand: node ../scripts/meta-deploy-check.js && npm ci
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: PORT
         value: 5000
@@ -14,85 +17,33 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
-
-      # ── WhatsApp Cloud (Metabsp) ─────────────────────────────────
-      # ACCESS_TOKEN_SECRET is a legacy alias for JWT_SECRET below, read only
-      # if JWT_SECRET is unset. Set JWT_SECRET going forward.
-      - key: ACCESS_TOKEN_SECRET
-        sync: false
       - key: META_APP_ID
         sync: false
       - key: META_APP_SECRET
         sync: false
-      # WHATSAPP_API_VERSION is the canonical name (see
-      # backend/src/config/graphApi.js); META_API_VERSION below is read only
-      # as a legacy fallback if this is unset. Both are pinned to the same
-      # version deliberately: this file said v20.0 while the hand-created
-      # service had WHATSAPP_API_VERSION unset, so the legacy fallback won and
-      # production actually ran on v18.0 (Sept 2023) without anyone noticing.
-      # The dashboard now sets v23.0 on both keys; keep this file matching it.
       - key: WHATSAPP_API_VERSION
         value: v23.0
       - key: META_API_VERSION
         value: v23.0
       - key: META_EMBEDDED_SIGNUP_CONFIG_ID
         sync: false
-      # Coexistence (WhatsApp Business app + Cloud API on one number).
-      # The `history`, `smb_message_echoes` and `smb_app_state_sync` webhook
-      # fields are subscribed in the Meta App Dashboard, and the boot-time
-      # pre-flight check re-verifies that every restart — the live boot log
-      # reads "coexistence_gating: Coexistence is enabled and its webhook
-      # fields are subscribed".
-      # Enabled in the dashboard, so recorded as enabled here. The remaining
-      # gate in COEXISTENCE.md is a real end-to-end onboarding run against a
-      # live WhatsApp Business app number, not a config change.
       - key: META_ENABLE_COEXISTENCE
         value: "true"
-      # Social sign-in — optional and additive; each provider stays hidden on
-      # the login page until configured. Facebook falls back to META_APP_ID /
-      # META_APP_SECRET above when these are unset.
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: FACEBOOK_APP_ID
-        sync: false
-      - key: FACEBOOK_APP_SECRET
-        sync: false
-      # `email` is not available to a WhatsApp-Business-Messaging app until the
-      # Facebook Login use case is added in the App Dashboard; requesting it
-      # before then fails the login dialog outright. Switch to
-      # "public_profile,email" once enabled.
-      - key: FACEBOOK_LOGIN_SCOPES
-        value: public_profile
       - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
         sync: false
       - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE
         value: "true"
       - key: WHATSAPP_TOKEN_ENCRYPTION_KEY
         sync: false
-
-      # ── Auth (shared by every login path) ────────────────────────
       - key: JWT_SECRET
         sync: false
       - key: JWT_EXPIRES_IN
         value: 7d
-      # BOOTSTRAP_USERNAME/PASSWORD are optional: an env-configured super-admin
-      # login that upserts (and keeps in sync with) a real DB user on first use.
-      - key: BOOTSTRAP_USERNAME
-        sync: false
-      - key: BOOTSTRAP_NAME
-        sync: false
-      - key: BOOTSTRAP_PASSWORD
-        sync: false
-      # SUPER_ADMIN_USERNAME/PASSWORD: set both to seed a super admin at boot.
-      # There is no default password — leaving these unset just skips seeding.
-      - key: SUPER_ADMIN_USERNAME
-        sync: false
-      - key: SUPER_ADMIN_NAME
-        sync: false
-      - key: SUPER_ADMIN_MOBILE
-        sync: false
-      - key: SUPER_ADMIN_PASSWORD
-        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: metabsp-redis
+          property: connectionString
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
@@ -105,39 +56,50 @@ services:
         sync: false
       - key: WHATSAPP_TEMPLATE_LANGUAGE
         value: en_US
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: metabsp-redis
-          property: connectionString
-      # Optional, and unset today. GET
-      # /api/whatsapp/webhook-destinations/keep-alive-targets is
-      # unauthenticated and lists every tenant's webhook URL so a keep-alive
-      # pinger can discover what to ping. While this is unset the endpoint
-      # stays open exactly as before; set it and callers must present it as
-      # X-Keep-Alive-Token (or ?token=). Configure the pinger first.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: FACEBOOK_LOGIN_SCOPES
+        value: public_profile
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+      - key: BOOTSTRAP_USERNAME
+        sync: false
+      - key: BOOTSTRAP_NAME
+        sync: false
+      - key: BOOTSTRAP_PASSWORD
+        sync: false
+      - key: SUPER_ADMIN_USERNAME
+        sync: false
+      - key: SUPER_ADMIN_NAME
+        sync: false
+      - key: SUPER_ADMIN_MOBILE
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
       - key: KEEP_ALIVE_TOKEN
         sync: false
+      # Set true only for the deployment that will be submitted to Meta.
+      # When true, the build gate requires all reviewer credential fields.
+      - key: META_REVIEW_ENFORCE_READY
+        value: "false"
+      - key: META_REVIEWER_LOGIN
+        sync: false
+      - key: META_REVIEWER_PASSWORD
+        sync: false
+      - key: META_REVIEW_CONTACT_EMAIL
+        sync: false
 
-  # ── Next.js app (migration target) ──────────────────────────────────────────
-  # The consolidation target: one persistent Node process serving the App
-  # Router, the API route handlers, Socket.IO and (once ported) the BullMQ
-  # worker and schedulers. Started with `node server.js`, NOT `next start` —
-  # see nextjs/server.js for why that distinction decides the architecture.
-  #
-  # Runs ALONGSIDE metabsp-backend during the migration rather than replacing
-  # it: routes move over one at a time and traffic is cut across gradually, so
-  # there is never a window where the whole product rides on an unverified
-  # port. Remove metabsp-backend only once nothing routes to it.
-  #
-  # Every `sync: false` var below must be set to the SAME value as the Express
-  # service — both halves share one MongoDB, one Redis, and one Meta app while
-  # the migration is in flight.
   - type: web
     name: metabsp-nextjs
     runtime: node
     rootDir: nextjs
-    buildCommand: npm install && npm run build
+    branch: main
+    autoDeploy: true
+    buildCommand: node ../scripts/meta-deploy-check.js && npm ci && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -164,9 +126,10 @@ services:
         sync: false
       - key: WHATSAPP_API_VERSION
         value: v23.0
+      - key: META_API_VERSION
+        value: v23.0
       - key: META_ES_VERSION
         value: v4
-      # Must match the Express service — both halves answer the same webhook.
       - key: META_ENABLE_COEXISTENCE
         value: "true"
       - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
@@ -181,30 +144,21 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-      # Schedulers and the BullMQ worker are not ported yet, so this instance
-      # must NOT claim them while the Express host still runs them — two
-      # processes racing the same schedules is how duplicate invoices happen.
-      # Flip to true only once they move, and only on one instance.
       - key: RUN_BACKGROUND_JOBS
         value: "false"
-      # Optional. GET /api/whatsapp/webhook-destinations/keep-alive-targets is
-      # unauthenticated and lists every tenant's webhook URL, so that a keep-
-      # alive pinger can discover what to ping. Setting this requires the
-      # pinger to send it as X-Keep-Alive-Token; leaving it unset keeps the
-      # original open behaviour, so configure it on the pinger first.
       - key: KEEP_ALIVE_TOKEN
+        sync: false
+      - key: META_REVIEW_ENFORCE_READY
+        value: "false"
+      - key: META_REVIEWER_LOGIN
+        sync: false
+      - key: META_REVIEWER_PASSWORD
+        sync: false
+      - key: META_REVIEW_CONTACT_EMAIL
         sync: false
 
   - type: redis
     name: metabsp-redis
     ipAllowList: []
     plan: starter
-    # BullMQ stores queued jobs as ordinary Redis keys, so an eviction policy
-    # that is allowed to discard keys can silently drop pending broadcasts
-    # under memory pressure — the send just never happens and nothing errors.
-    # Render's default is allkeys-lru; BullMQ itself warns about it on every
-    # connect ("IMPORTANT! Eviction policy is allkeys-lru. It should be
-    # noeviction"). The live instance was created by hand, so this line only
-    # governs a blueprint-created one — change the running instance in the
-    # dashboard.
     maxmemoryPolicy: noeviction
