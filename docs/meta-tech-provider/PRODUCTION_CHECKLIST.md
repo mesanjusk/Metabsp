@@ -33,14 +33,16 @@ where a fuller doc already covers something.
       (`docs/BACKUP_RESTORE.md`)
 
 ## Security
-- [x] `npm audit` reviewed on both `backend/` and `frontend/` — `dompurify`
-      and `ws` fixed via `npm audit fix`; `jspdf` bumped to 4.2.1 (resolves
-      10 critical/high CVEs in the real in-app PDF export feature, build
-      verified after the bump). Remaining: `xlsx` has no upstream fix as of
-      this writing (used for spreadsheet import, not Baileys-specific —
-      confirm current status before launch); a handful of dev/test-only
-      findings (`esbuild`/`vitest`, `tar`/`canvas`/`jsdom`, `uuid`/`hyperid`/
-      `autocannon`) are accepted as non-runtime risk.
+- [ ] `npm audit` reviewed on both `backend/` and `frontend/`. The earlier
+      pass (`dompurify` and `ws` fixed via `npm audit fix`; `jspdf` bumped to
+      4.2.1) is **superseded** — a re-run on 2026-08-25 found new runtime
+      advisories in `react-router-dom`, `socket.io-parser`, `mongoose`,
+      `body-parser` and a fresh `dompurify` finding via `jspdf`. The current
+      list, with the runtime/dev split and a recommended fix order, is in
+      `READINESS_STATUS.md`. `xlsx` still has **no upstream fix** and is a
+      direct production dependency of the frontend (spreadsheet import), so
+      it needs a product decision — drop the feature, parse server-side
+      behind validation, or migrate to `exceljs` — not another deferral.
 - [ ] Cashfree UPI Autopay integration verified against live docs before
       accepting real payments (`backend/src/services/paymentGatewayService.js`'s
       own "verify before production" header) — this is currently

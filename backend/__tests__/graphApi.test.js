@@ -20,7 +20,7 @@ describe('config/graphApi', () => {
 
   it('falls back to the hardcoded default when nothing is set', () => {
     const { getGraphApiVersion } = require('../src/config/graphApi');
-    expect(getGraphApiVersion()).toBe('v20.0');
+    expect(getGraphApiVersion()).toBe('v23.0');
   });
 
   it('prefers WHATSAPP_API_VERSION over the legacy META_API_VERSION alias', () => {

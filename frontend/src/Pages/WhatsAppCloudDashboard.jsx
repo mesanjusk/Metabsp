@@ -125,7 +125,7 @@ const getConnectConfigPayload = (response) => {
   return {
     configId:   data?.configId   || data?.config_id   || data?.configurationId || '',
     appId:      data?.appId      || data?.app_id      || '',
-    apiVersion: data?.apiVersion || data?.api_version  || 'v20.0',
+    apiVersion: data?.apiVersion || data?.api_version  || 'v23.0',
     // Coexistence (WhatsApp Business app + Cloud API on one number). The
     // server decides whether this deployment's Meta app is subscribed to the
     // coexistence webhook fields; absent/false, the popup runs the ordinary

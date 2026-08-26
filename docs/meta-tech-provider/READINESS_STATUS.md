@@ -39,41 +39,65 @@ The distinction matters because a green test suite says nothing about whether
 
 | Item | Bucket | Status |
 |---|---|---|
-| `npm audit` reviewed on `backend/` and `frontend/` | **CODE** | Re-run 2026-08-25 — see below. The checklist's `[x]` is now stale. |
+| `npm audit` reviewed on `backend/` and `frontend/` | **CODE** | Re-run and **fixed** 2026-08-26 — see below. Every production advisory except `xlsx` is now closed. |
 | Cashfree UPI Autopay verified against live docs | **EXTERNAL** | Untouched by design. Still a launch blocker if billing is enabled. |
 
-### npm audit, re-run 2026-08-25
+### npm audit — re-run and fixed 2026-08-26
 
-`xlsx` — **still no upstream fix** (`fixAvailable: false`). The checklist's
-note remains accurate. It is a direct **production** dependency of the
-frontend (spreadsheet import), so this is real runtime exposure, not a
-dev-only finding. Options are unchanged: drop the feature, move parsing
-server-side behind validation, or migrate to a maintained reader
-(`exceljs`).
+`npm audit --omit=dev` on the workspace root now reports **one** advisory:
 
-New since the checklist was written — **runtime** (production dependencies):
-
-| Package | Sev | Path | Note |
+| Package | Sev | Path | Status |
 |---|---|---|---|
-| `react-router` / `react-router-dom` | high | frontend, direct | Open redirect via backslash in `<Link>`/`useNavigate`. This app performs auth redirects, so it is relevant. Non-breaking fix available. |
-| `socket.io-parser` | high | via `socket.io` (backend) and `socket.io-client` (frontend) | Zero-attachment memory exhaustion. Non-breaking fix. |
-| `dompurify` | moderate | via `jspdf@4.2.1` | A **new** advisory, not a regression of the one the checklist recorded as fixed. |
-| `mongoose` | moderate | backend, direct | Prototype pollution in update casting. Non-breaking fix. |
-| `nanoid` | high | via `postcss` (devDep) | Build-time only. |
-| `protobufjs` | moderate | *(was via `@whiskeysockets/baileys`)* | **Resolved** — the dependency is removed. |
-| `body-parser` | low | via `express` | Non-breaking fix. |
+| `xlsx` | high | frontend, direct | **Open — no upstream fix** (`fixAvailable: false`) |
 
-Dev/test-only, no runtime exposure: `vitest`, `vite`, `esbuild`, `vite-node`,
-`@vitest/mocker`, `jsdom`, `canvas`, `tar` (critical, but reached only through
-`jsdom` → devDependency), `@mapbox/node-pre-gyp`, `postcss`, `js-yaml`,
-`brace-expansion`, `autocannon`/`hyperid`/`uuid`.
+Everything else from the 2026-08-25 list is closed. `npm audit fix` applied
+them all within the existing semver ranges, so **only `package-lock.json`
+changed** — no `package.json` range was widened and no major version was taken:
 
-**Deliberately not fixed in this change.** Dependency bumps do not belong in a
-PR whose stated scope is a health-check script, and the breaking upgrades
-(`vitest@4`, `jsdom@30`) need their own test run. Recommended order: apply the
-non-breaking runtime fixes (`react-router-dom`, `socket.io*`, `mongoose`,
-`body-parser`) first and re-run both suites; handle `xlsx` as a product
-decision; leave the dev-only breaking upgrades for a separate pass.
+| Package | Was | Now | Advisory |
+|---|---|---|---|
+| `react-router` / `react-router-dom` | 7.17.0 | 7.18.2 | Open redirect via backslash in `<Link>`/`useNavigate`. This app performs auth redirects, so it mattered. |
+| `socket.io-parser` (via `socket.io` **and** `socket.io-client`) | 4.2.6 | 4.2.7 | Zero-attachment memory exhaustion |
+| `mongoose` | 8.24.0 | 8.24.4 | Prototype pollution in update casting |
+| `dompurify` (via `jspdf@4.2.1`) | 3.4.12 | 3.4.14 | New advisory, not a regression of the one fixed earlier |
+| `body-parser` (via `express@4.22.2`) | <1.20.6 | 1.20.6 | Low |
+
+Verified after the bump: frontend suite 48/48 green, frontend production build
+green, backend suite green apart from the two environment-bound suites noted
+below. The remaining dev/test-only findings (`vitest`, `vite`, `esbuild`,
+`vite-node`, `@vitest/mocker`, `jsdom`, `canvas`, `tar`, `@mapbox/node-pre-gyp`,
+`postcss`/`nanoid`, `js-yaml`, `brace-expansion`, `autocannon`/`hyperid`/`uuid`)
+need breaking upgrades (`vitest@4`, `jsdom@30`) and carry no runtime exposure;
+they stay deferred to their own pass.
+
+#### `xlsx` — the one that needs a decision, not another deferral
+
+It is a **direct production dependency of the frontend** (spreadsheet import),
+so this is real runtime exposure. SheetJS publishes to its own registry rather
+than npm, so `npm audit` will keep flagging it regardless of version. Three
+options, unchanged: drop the import feature, move parsing server-side behind
+validation, or migrate to a maintained reader (`exceljs`). Pick one before
+launch and record it here.
+
+### Running the backend suite
+
+`npm test --workspace=backend` needs two things the repository cannot provide:
+
+- **Redis on `127.0.0.1:6379`.** Without it, `rateLimit.test.js` and
+  `whatsappSendQueue.test.js` fail on `ECONNREFUSED`, and jest does not exit
+  cleanly afterwards because BullMQ keeps retrying the connection. Start a
+  throwaway server first (`redis-server --daemonize yes --save '' --appendonly no`).
+- **A MongoDB binary for `mongodb-memory-server`.** `tenantService.test.js` and
+  `tokenRefreshService.test.js` call `MongoMemoryServer.create()`, which
+  downloads from `fastdl.mongodb.org` on first run. In a sandbox with restricted
+  egress that download is refused and both suites fail on the `beforeAll` hook —
+  an environment limitation, not a code defect. Pre-seed the binary cache, or
+  point `MONGOMS_SYSTEM_BINARY` at a local `mongod`, to run them.
+
+Measured on 2026-08-26 with Redis running and the Mongo binary unavailable:
+**41 of 43 suites pass**, and the only two failures are the pair above, both on
+the `MongoMemoryServer.create()` download. Run them somewhere with that binary
+before treating the suite as fully verified.
 
 ## Compliance / Operational
 
@@ -86,11 +110,23 @@ require a running environment and people.
 
 ## Graph API version
 
-`WHATSAPP_API_VERSION` is pinned to **v20.0** in `render.yaml`. Meta's own App
-Dashboard now generates token-exchange samples against **v25.0**, and the
-Embedded Signup launcher reports **ES Version v4 / Session Info Version 3**.
-Our code already sends `sessionInfoVersion: '3'`, which matches.
+**Superseded — the v20.0 pin is gone.** `render.yaml` now sets both
+`WHATSAPP_API_VERSION` and the legacy `META_API_VERSION` alias to **v23.0**, on
+both the Express service and the Next.js service, matching what the Render
+dashboard has set. v23.0 is comfortably past the version that introduced
+Coexistence, so the "v20.0 predates Coexistence" objection no longer applies.
 
-v20.0 predates Coexistence. Bumping is a change that touches every Graph call
-in the app, so it is **not** included here — do it as its own change and
-re-test ordinary send/receive afterwards.
+Meta's App Dashboard generates token-exchange samples against **v25.0** and the
+Embedded Signup launcher reports **ES Version v4 / Session Info Version 3**. We
+send `sessionInfoVersion: '3'`, which matches. Going further to v25.0 is
+optional, not a blocker.
+
+The remaining hazard was the *fallback*, not the pin: the hardcoded defaults in
+`backend/src/config/graphApi.js` and `nextjs/lib/config/graphApi.ts` still read
+`v20.0`, so any environment that failed to set the env var would silently drop
+to a pre-Coexistence version — exactly the failure mode the `render.yaml`
+comment records (production ran on v18.0 for months because the canonical key
+was unset and the legacy alias won). Those defaults, the two
+`loadFacebookSdk` client defaults, the dashboard's display fallback and both
+`.env.example` files are now **v23.0**, so an unset variable degrades to the
+version actually in production rather than to a three-year-old one.

@@ -5,7 +5,12 @@
 // handled the request) and for the webhook verify-token lookup (which had
 // two files each checking a different subset of the WHATSAPP_WEBHOOK_VERIFY_TOKEN
 // / WHATSAPP_VERIFY_TOKEN / VERIFY_TOKEN env var aliases).
-const DEFAULT_GRAPH_API_VERSION = 'v20.0';
+//
+// The default tracks what render.yaml pins, so an environment that forgets
+// the env var degrades to the version production actually runs rather than to
+// a years-old one. That is not hypothetical: this service ran on v18.0 for
+// months because the canonical key was unset and the legacy alias won.
+const DEFAULT_GRAPH_API_VERSION = 'v23.0';
 
 function getGraphApiVersion() {
   return process.env.WHATSAPP_API_VERSION || process.env.META_API_VERSION || DEFAULT_GRAPH_API_VERSION;

@@ -6,7 +6,7 @@
 // a manual paste prompt.
 let loadPromise = null;
 
-export function loadFacebookSdk({ appId, apiVersion = 'v20.0' }) {
+export function loadFacebookSdk({ appId, apiVersion = 'v23.0' }) {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('Facebook SDK can only load in a browser'));
   }

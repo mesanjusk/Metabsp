@@ -5,7 +5,29 @@
 | `whatsapp_business_management` | Reading/managing WABA assets: phone number details, template list, subscribing the app to webhooks | `whatsappCredentialValidationService.js`, `subscribeAppToWaba`, `getTemplates` |
 | `whatsapp_business_messaging` | Sending/receiving messages, statuses, media | `dispatchTextMessage`/`dispatchTemplateMessage`/`dispatchMediaMessage`, `receiveWebhook` |
 | `business_management` | Listing WABAs owned by a Business Manager during manual connect validation (`owned_whatsapp_business_accounts`) | `whatsappCredentialValidationService.js` |
-| `public_profile` (default FB Login scope) | Identifying the connecting Meta user (`/me`) during Embedded Signup/manual connect validation | `completeEmbeddedSignup`, `validateManualWhatsAppCredentials` |
+
+Request exactly these three. **Do not request `public_profile`** — see below.
+
+## `public_profile` is deliberately not requested
+
+An earlier revision of this table listed `public_profile` as "identifying the
+connecting Meta user (`/me`) during Embedded Signup/manual connect". That was
+wrong, and requesting a permission the app does not exercise is a common
+rejection trigger. Meta's own usage table shows **0 lifetime API calls**, and
+the code agrees:
+
+- `completeEmbeddedSignup` (`backend/src/controllers/whatsappController.js`)
+  makes exactly three Graph calls — `oauth/access_token` twice and
+  `GET /{phone-number-id}`. It never calls `/me`.
+- The one `/me` call in the WhatsApp path
+  (`whatsappCredentialValidationService.js`) is on the **manual connect** path
+  only and uses the customer's own WhatsApp token. `/me` with a system-user or
+  WABA token returns that token's app-scoped ID; it does not need
+  `public_profile`, which governs Facebook Login user tokens.
+
+`backend/src/services/socialAuthService.js` does call `/me` with a Facebook
+Login token, but social sign-in is a separate, undeployed feature and belongs
+in its own submission. Full reasoning in `APP_REVIEW_SUBMISSION_TEXT.md`.
 
 ## Coexistence
 
