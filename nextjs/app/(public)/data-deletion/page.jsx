@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import {
   Container, Typography, Box, Paper, Divider, TextField, MenuItem,
@@ -15,8 +17,8 @@ import { motion } from 'framer-motion';
 // resolve. Driven from the deployment's own configuration so the page, the
 // dashboard, and the running service cannot drift apart.
 const DATA_DELETION_CALLBACK_URL =
-  import.meta.env.VITE_DATA_DELETION_CALLBACK_URL ||
-  `${import.meta.env.VITE_PUBLIC_APP_URL || 'https://meta.sanjusk.in'}/data-deletion`;
+  process.env.NEXT_PUBLIC_DATA_DELETION_CALLBACK_URL ||
+  `${process.env.NEXT_PUBLIC_APP_URL || 'https://meta.sanjusk.in'}/data-deletion`;
 
 const REASONS = [
   { value: 'no_longer_needed', label: 'I no longer need the service' },

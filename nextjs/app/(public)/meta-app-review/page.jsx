@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import {
   Box, Container, Typography, Paper, Accordion, AccordionSummary, AccordionDetails,
@@ -15,7 +17,6 @@ import MessageIcon from '@mui/icons-material/Message';
 import BusinessIcon from '@mui/icons-material/Business';
 import LoginIcon from '@mui/icons-material/Login';
 import { motion } from 'framer-motion';
-import PublicLayout from './PublicLayout';
 
 const WEBHOOK_PAYLOAD = `{
   "object": "whatsapp_business_account",
@@ -60,10 +61,10 @@ const CHECKLIST_ITEMS = [
 // Meta's reviewers read the "Web reviewer instructions" field of the App Review
 // submission, not this page — keep the two in sync, and treat this page as the
 // supporting detail rather than the primary channel.
-const APP_URL = import.meta.env.VITE_PUBLIC_APP_URL || 'https://meta.sanjusk.in';
-const REVIEWER_LOGIN = import.meta.env.VITE_REVIEWER_LOGIN || '';
-const REVIEWER_PASSWORD = import.meta.env.VITE_REVIEWER_PASSWORD || '';
-const REVIEWER_TEST_NUMBER = import.meta.env.VITE_REVIEWER_TEST_NUMBER || '';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://meta.sanjusk.in';
+const REVIEWER_LOGIN = process.env.NEXT_PUBLIC_REVIEWER_LOGIN || '';
+const REVIEWER_PASSWORD = process.env.NEXT_PUBLIC_REVIEWER_PASSWORD || '';
+const REVIEWER_TEST_NUMBER = process.env.NEXT_PUBLIC_REVIEWER_TEST_NUMBER || '';
 
 // The login form field is "Mobile / Username" — the backend looks the user up
 // by `username`, so an email address will never authenticate. Labelled here
@@ -297,7 +298,7 @@ export default function MetaAppReviewPage() {
   const theme = useTheme();
 
   return (
-    <PublicLayout>
+    <>
       {/* Hero */}
       <Box
         sx={{
@@ -502,6 +503,6 @@ export default function MetaAppReviewPage() {
           </Typography>
         </motion.div>
       </Container>
-    </PublicLayout>
+    </>
   );
 }

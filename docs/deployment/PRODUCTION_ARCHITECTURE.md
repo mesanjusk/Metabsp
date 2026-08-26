@@ -115,7 +115,8 @@ target domain, since `VITE_API_SERVER`/`VITE_API_URL`/`VITE_SOCKET_URL` are
 baked in at build time (see `frontend/Dockerfile`'s `ARG`s). The CORS
 allow-list in `backend/src/app.js` (`allowedOrigins`) already reflects
 multiple such builds deployed to different domains (Vercel previews,
-`bulk.instify.in`, `meta.instify.in`, etc.) all talking to the same backend
+`bulk.instify.in`, `meta.sanjusk.in` — the live Metabsp domain — and the
+older `meta.instify.in`, etc.) all talking to the same backend
 — that's the "two frontend build outputs" pattern in practice: one codebase,
 built twice (or more) with different API origins baked in, not two separate
 frontend apps.

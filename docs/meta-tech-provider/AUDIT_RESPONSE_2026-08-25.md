@@ -103,11 +103,11 @@ deployment is `https://bulk-invite.onrender.com/webhook` (also served at
 
 | Field | Set to |
 |---|---|
-| App Domains | `meta.instify.in` |
-| Site URL | `https://meta.instify.in/` |
-| Privacy Policy URL | `https://meta.instify.in/privacy-policy` |
-| Terms of Service URL | `https://meta.instify.in/terms-of-service` |
-| Data deletion URL | `https://meta.instify.in/data-deletion` |
+| App Domains | `meta.sanjusk.in` |
+| Site URL | `https://meta.sanjusk.in/` |
+| Privacy Policy URL | `https://meta.sanjusk.in/privacy-policy` |
+| Terms of Service URL | `https://meta.sanjusk.in/terms-of-service` |
+| Data deletion URL | `https://meta.sanjusk.in/data-deletion` |
 | Webhook Callback URL | `https://bulk-invite.onrender.com/webhook` **(verify first)** |
 | Valid OAuth Redirect URI | The live callback on the real backend host **(verify first)** |
 | Testing Instructions | Replace wholesale — see `APP_REVIEW_SUBMISSION_TEXT.md` |
@@ -129,10 +129,10 @@ alone during review rather than deleting it mid-submission.
   submission is correct.
 - **Frontend is Vite, not Next.js**. The bundle observation is right. A partial
   Next.js port exists under `nextjs/` but is not what serves
-  `meta.instify.in`; consolidation is planned, not done.
+  `meta.sanjusk.in`; consolidation is planned, not done.
 - **No Baileys in the production bundle** — consistent with removal.
 - **Contact-address mismatch** (`@metabsp.com` addresses on a site served from
-  `meta.instify.in`, with a personal Gmail as the app contact). Not a blocker,
+  `meta.sanjusk.in`, with a personal Gmail as the app contact). Not a blocker,
   but it does read oddly to a reviewer.
 
 ## Not verifiable from here
