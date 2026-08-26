@@ -308,7 +308,7 @@ function Step5Webhook({ webhookTest, setWebhookTest }) {
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState('');
   const [events, setEvents] = useState({ messages: true, status: true, templates: false });
-  const url = 'https://api.metabsp.com/webhook/biz_8f3a91c2';
+  const url = 'https://meta.sanjusk.in/webhook/biz_8f3a91c2';
 
   const copy = () => {
     navigator.clipboard.writeText(url).catch(() => {});

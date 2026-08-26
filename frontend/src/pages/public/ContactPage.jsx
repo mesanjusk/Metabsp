@@ -89,26 +89,26 @@ export default function ContactPage() {
                   <ContactInfo
                     icon={<EmailIcon />}
                     label="General Support"
-                    value="support@metabsp.com"
-                    href="mailto:support@metabsp.com"
+                    value="support@meta.sanjusk.in"
+                    href="mailto:support@meta.sanjusk.in"
                   />
                   <ContactInfo
                     icon={<SupportAgentIcon />}
                     label="Sales Inquiries"
-                    value="sales@metabsp.com"
-                    href="mailto:sales@metabsp.com"
+                    value="sales@meta.sanjusk.in"
+                    href="mailto:sales@meta.sanjusk.in"
                   />
                   <ContactInfo
                     icon={<EmailIcon />}
                     label="Security Issues"
-                    value="security@metabsp.com"
-                    href="mailto:security@metabsp.com"
+                    value="security@meta.sanjusk.in"
+                    href="mailto:security@meta.sanjusk.in"
                   />
                   <ContactInfo
                     icon={<EmailIcon />}
                     label="Privacy Requests"
-                    value="privacy@metabsp.com"
-                    href="mailto:privacy@metabsp.com"
+                    value="privacy@meta.sanjusk.in"
+                    href="mailto:privacy@meta.sanjusk.in"
                   />
                 </Box>
 

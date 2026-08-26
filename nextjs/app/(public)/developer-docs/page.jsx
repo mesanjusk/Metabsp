@@ -118,7 +118,7 @@ export default function DeveloperDocsPage() {
                 </Para>
                 <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2, bgcolor: 'action.hover', mb: 2 }}>
                   <Typography variant="subtitle2" fontWeight={700}>Base URL</Typography>
-                  <CodeBlock code="https://api.metabsp.com/v1" language="Base URL" />
+                  <CodeBlock code="https://meta.sanjusk.in/api" language="Base URL" />
                 </Paper>
 
                 <SubSection title="Quick Start">
@@ -144,7 +144,7 @@ export default function DeveloperDocsPage() {
                 </Para>
                 <SubSection title="API Key Authentication">
                   <CodeBlock
-                    code={`curl -X GET https://api.metabsp.com/v1/account \\
+                    code={`curl -X GET https://meta.sanjusk.in/api/account \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json"`}
                     language="Shell"
@@ -157,7 +157,7 @@ export default function DeveloperDocsPage() {
                   </Para>
                   <CodeBlock
                     code={`// Step 1: Exchange API key for JWT
-const response = await fetch('https://api.metabsp.com/v1/auth/token', {
+const response = await fetch('https://meta.sanjusk.in/api/auth/token', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_API_KEY',
@@ -168,7 +168,7 @@ const response = await fetch('https://api.metabsp.com/v1/auth/token', {
 const { token } = await response.json();
 
 // Step 2: Use JWT for requests
-const messages = await fetch('https://api.metabsp.com/v1/messages', {
+const messages = await fetch('https://meta.sanjusk.in/api/messages', {
   headers: { 'Authorization': \`Bearer \${token}\` },
 });`}
                     language="JavaScript"
@@ -197,7 +197,7 @@ const messages = await fetch('https://api.metabsp.com/v1/messages', {
                 <SubSection title="Configure a Webhook">
                   <Para>Set up a webhook endpoint in your dashboard or via API:</Para>
                   <CodeBlock
-                    code={`curl -X POST https://api.metabsp.com/v1/webhooks \\
+                    code={`curl -X POST https://meta.sanjusk.in/api/webhooks \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -273,7 +273,7 @@ app.post('/webhooks/whatsapp', express.raw({ type: 'application/json' }), (req, 
               <Section id="send-messages" title="Sending Messages">
                 <SubSection title="Send a Text Message">
                   <CodeBlock
-                    code={`curl -X POST https://api.metabsp.com/v1/messages \\
+                    code={`curl -X POST https://meta.sanjusk.in/api/messages \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -290,7 +290,7 @@ app.post('/webhooks/whatsapp', express.raw({ type: 'application/json' }), (req, 
 
                 <SubSection title="Send a Template Message">
                   <CodeBlock
-                    code={`curl -X POST https://api.metabsp.com/v1/messages \\
+                    code={`curl -X POST https://meta.sanjusk.in/api/messages \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -318,7 +318,7 @@ app.post('/webhooks/whatsapp', express.raw({ type: 'application/json' }), (req, 
 
                 <SubSection title="Send Media (Image)">
                   <CodeBlock
-                    code={`curl -X POST https://api.metabsp.com/v1/messages \\
+                    code={`curl -X POST https://meta.sanjusk.in/api/messages \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -339,7 +339,7 @@ app.post('/webhooks/whatsapp', express.raw({ type: 'application/json' }), (req, 
                 <SubSection title="List Templates">
                   <CodeBlock
                     code={`const response = await fetch(
-  'https://api.metabsp.com/v1/templates?status=APPROVED&limit=20',
+  'https://meta.sanjusk.in/api/templates?status=APPROVED&limit=20',
   {
     headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
   }
@@ -353,7 +353,7 @@ const { templates, pagination } = await response.json();
 
                 <SubSection title="Create a Template">
                   <CodeBlock
-                    code={`const response = await fetch('https://api.metabsp.com/v1/templates', {
+                    code={`const response = await fetch('https://meta.sanjusk.in/api/templates', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_API_KEY',

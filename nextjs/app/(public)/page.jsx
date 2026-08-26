@@ -84,11 +84,10 @@ export default function LandingPage() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // react-router's <Navigate replace/> redirected during render. There is no
-  // equivalent element here, and redirecting during render would fire on the
-  // server too — where isAuthenticated is always false, because the session
-  // lives in localStorage. Doing it in an effect keeps the redirect a
-  // client-only decision and leaves the marketing page as the SSR default.
+  // react-router's <Navigate replace/> redirected during render. Redirecting
+  // during render would fire on the server too — where isAuthenticated is
+  // always false, because the session lives in localStorage. An effect keeps
+  // this a client-only decision, with the marketing page as the SSR default.
   useEffect(() => {
     if (isAuthenticated) router.replace('/whatsapp');
   }, [isAuthenticated, router]);

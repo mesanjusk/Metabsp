@@ -255,7 +255,7 @@ export default function StatusPage() {
           >
             <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>Subscribe to Status Updates</Typography>
             <Typography variant="body2" color="text.secondary">
-              Get notified via email when incidents are created, updated, or resolved. Email <strong>support@metabsp.com</strong> with "Status Updates" in the subject line.
+              Get notified via email when incidents are created, updated, or resolved. Email <strong>support@meta.sanjusk.in</strong> with "Status Updates" in the subject line.
             </Typography>
           </Paper>
         </Container>

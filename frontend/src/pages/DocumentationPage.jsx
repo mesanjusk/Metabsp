@@ -113,12 +113,12 @@ function GettingStarted() {
         <li>A verified Meta Business Account</li>
         <li>A WhatsApp Business Account (WABA) with a verified phone number</li>
         <li>An HTTPS-accessible webhook URL (required for receiving messages)</li>
-        <li>A MetaBSP account — sign up at metabsp.com/signup</li>
+        <li>A MetaBSP account — sign up at meta.sanjusk.in/cloud-signup</li>
       </Box>
 
       <SubHeading>4-Step Setup</SubHeading>
       {[
-        { step: '1', title: 'Create your MetaBSP account', desc: 'Sign up and verify your email at metabsp.com. Choose a plan that fits your messaging volume.' },
+        { step: '1', title: 'Create your MetaBSP account', desc: 'Sign up and verify your email at meta.sanjusk.in. Choose a plan that fits your messaging volume.' },
         { step: '2', title: 'Connect WhatsApp via Embedded Signup', desc: 'Navigate to "WhatsApp Connect" and click the "Connect" button. Complete Meta\'s official OAuth flow to link your WhatsApp Business Account.' },
         { step: '3', title: 'Configure your webhook', desc: 'Go to Settings → Webhooks and enter your HTTPS webhook URL and a verification token. MetaBSP will send a challenge request to verify ownership.' },
         { step: '4', title: 'Send your first message', desc: 'Use the dashboard or API to send a template message to an opted-in contact. Check the analytics page to confirm delivery.' },
@@ -145,7 +145,7 @@ function GettingStarted() {
 
 function Authentication() {
   const jwtCode = `// All API requests require a Bearer token in the Authorization header
-const response = await fetch('https://api.metabsp.com/v1/messages', {
+const response = await fetch('https://meta.sanjusk.in/api/messages', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_JWT_TOKEN',
@@ -155,7 +155,7 @@ const response = await fetch('https://api.metabsp.com/v1/messages', {
 });`;
 
   const apiKeyCode = `// Alternatively, use an API Key in the X-Api-Key header
-const response = await fetch('https://api.metabsp.com/v1/messages', {
+const response = await fetch('https://meta.sanjusk.in/api/messages', {
   method: 'POST',
   headers: {
     'X-Api-Key': 'mbsp_live_xxxxxxxxxxxxxxxxxxxx',
@@ -165,7 +165,7 @@ const response = await fetch('https://api.metabsp.com/v1/messages', {
 });`;
 
   const loginCode = `// Obtain a JWT token by logging in
-const res = await fetch('https://api.metabsp.com/v1/auth/login', {
+const res = await fetch('https://meta.sanjusk.in/api/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ email: 'you@example.com', password: 'yourpassword' }),
@@ -207,7 +207,7 @@ const { token } = await res.json();
 
 function SendingMessages() {
   const textCode = `// Send a plain text message
-const res = await fetch('https://api.metabsp.com/v1/messages', {
+const res = await fetch('https://meta.sanjusk.in/api/messages', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_TOKEN',
@@ -223,7 +223,7 @@ const data = await res.json();
 console.log(data.messageId); // wamid.XXX`;
 
   const templateCode = `// Send a pre-approved template message
-const res = await fetch('https://api.metabsp.com/v1/messages', {
+const res = await fetch('https://meta.sanjusk.in/api/messages', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_TOKEN',
@@ -249,7 +249,7 @@ const res = await fetch('https://api.metabsp.com/v1/messages', {
 });`;
 
   const mediaCode = `// Send an image message
-const res = await fetch('https://api.metabsp.com/v1/messages', {
+const res = await fetch('https://meta.sanjusk.in/api/messages', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_TOKEN',
@@ -288,14 +288,14 @@ const res = await fetch('https://api.metabsp.com/v1/messages', {
 
 function Templates() {
   const listCode = `// List all templates for your WABA
-const res = await fetch('https://api.metabsp.com/v1/templates', {
+const res = await fetch('https://meta.sanjusk.in/api/templates', {
   headers: { 'Authorization': 'Bearer YOUR_TOKEN' },
 });
 const { templates } = await res.json();
 // templates[].status: APPROVED | PENDING | REJECTED`;
 
   const createCode = `// Create a new template (submitted to Meta for approval)
-const res = await fetch('https://api.metabsp.com/v1/templates', {
+const res = await fetch('https://meta.sanjusk.in/api/templates', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_TOKEN',
@@ -457,13 +457,13 @@ app.post('/webhook', (req, res) => {
 
 function Contacts() {
   const listCode = `// List contacts
-const res = await fetch('https://api.metabsp.com/v1/contacts?page=1&limit=50', {
+const res = await fetch('https://meta.sanjusk.in/api/contacts?page=1&limit=50', {
   headers: { 'Authorization': 'Bearer YOUR_TOKEN' },
 });
 const { contacts, total } = await res.json();`;
 
   const createCode = `// Create a contact
-const res = await fetch('https://api.metabsp.com/v1/contacts', {
+const res = await fetch('https://meta.sanjusk.in/api/contacts', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_TOKEN',
@@ -478,7 +478,7 @@ const res = await fetch('https://api.metabsp.com/v1/contacts', {
 });`;
 
   const updateCode = `// Update a contact
-const res = await fetch('https://api.metabsp.com/v1/contacts/CONTACT_ID', {
+const res = await fetch('https://meta.sanjusk.in/api/contacts/CONTACT_ID', {
   method: 'PATCH',
   headers: {
     'Authorization': 'Bearer YOUR_TOKEN',
@@ -488,7 +488,7 @@ const res = await fetch('https://api.metabsp.com/v1/contacts/CONTACT_ID', {
 });
 
 // Delete a contact
-await fetch('https://api.metabsp.com/v1/contacts/CONTACT_ID', {
+await fetch('https://meta.sanjusk.in/api/contacts/CONTACT_ID', {
   method: 'DELETE',
   headers: { 'Authorization': 'Bearer YOUR_TOKEN' },
 });`;
