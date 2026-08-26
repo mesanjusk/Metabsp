@@ -1,5 +1,6 @@
 import ThemeRegistry from '@/lib/ui/ThemeRegistry';
 import { AuthProvider } from '@/lib/ui/AuthContext';
+import { ToastContainer } from '@/lib/ui/components/Toast';
 
 export const metadata = {
   title: 'MetaBSP — WhatsApp Business Solution Provider',
@@ -24,7 +25,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" style={{ height: '100%' }}>
       <body style={{ height: '100%', margin: 0 }}>
         <ThemeRegistry>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            {/* The Vite App.jsx mounted this once at the app root; same here, so
+                any component can call toast() without threading a prop. */}
+            <ToastContainer />
+          </AuthProvider>
         </ThemeRegistry>
       </body>
     </html>
