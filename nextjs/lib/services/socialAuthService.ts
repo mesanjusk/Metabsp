@@ -28,13 +28,26 @@ const TIMEOUT_MS = 10000;
 
 export const getGoogleClientId = () => String(process.env.GOOGLE_CLIENT_ID || '').trim();
 
-// Facebook Login reuses the same Meta app as WhatsApp Embedded Signup, so the
-// existing META_APP_ID/META_APP_SECRET are the default. FACEBOOK_APP_ID /
-// FACEBOOK_APP_SECRET override them if you ever split the two apps.
-export const getFacebookAppId = () =>
-  String(process.env.FACEBOOK_APP_ID || process.env.META_APP_ID || '').trim();
-const getFacebookAppSecret = () =>
-  String(process.env.FACEBOOK_APP_SECRET || process.env.META_APP_SECRET || '').trim();
+// Facebook Login must be enabled EXPLICITLY, with its own FACEBOOK_APP_ID and
+// FACEBOOK_APP_SECRET.
+//
+// These used to fall back to META_APP_ID / META_APP_SECRET, on the reasoning
+// that Facebook Login and WhatsApp Embedded Signup share one Meta app. That
+// reasoning is wrong in the case that matters: an app configured for WhatsApp
+// Business Messaging has no Facebook Login use case, so it can service
+// Embedded Signup perfectly while being unable to service a login at all. The
+// fallback therefore lit up a button that always failed with
+//
+//     "It looks like this app isn't available"
+//     "This app needs at least one supported permission."
+//
+// A login button that cannot work is worse than no button — especially on a
+// product going through App Review, where a reviewer clicking it sees a broken
+// flow. So the fallback is gone: set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET
+// once the app actually has a Facebook Login use case (App Dashboard → Use
+// cases → Authentication and account creation), and the button appears then.
+export const getFacebookAppId = () => String(process.env.FACEBOOK_APP_ID || '').trim();
+const getFacebookAppSecret = () => String(process.env.FACEBOOK_APP_SECRET || '').trim();
 
 export const isGoogleEnabled = () => Boolean(getGoogleClientId());
 export const isFacebookEnabled = () => Boolean(getFacebookAppId() && getFacebookAppSecret());

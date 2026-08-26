@@ -7,6 +7,7 @@ const axios = require('axios');
 const {
   isGoogleEnabled,
   isFacebookEnabled,
+  getFacebookAppId,
   getFacebookLoginScopes,
   verifyGoogleIdToken,
   verifyFacebookAccessToken,
@@ -23,8 +24,10 @@ beforeEach(() => {
   process.env.GOOGLE_CLIENT_ID = 'google-client-id.apps.googleusercontent.com';
   process.env.META_APP_ID = '1717826239505344';
   process.env.META_APP_SECRET = 'app-secret';
-  delete process.env.FACEBOOK_APP_ID;
-  delete process.env.FACEBOOK_APP_SECRET;
+  // Facebook Login is explicit now — it no longer inherits the WhatsApp app's
+  // credentials, so the suite has to configure it the way a deployment would.
+  process.env.FACEBOOK_APP_ID = '1717826239505344';
+  process.env.FACEBOOK_APP_SECRET = 'app-secret';
   delete process.env.FACEBOOK_LOGIN_SCOPES;
 });
 
@@ -42,10 +45,25 @@ describe('provider enablement', () => {
     expect(isGoogleEnabled()).toBe(false);
   });
 
-  it('falls back to the WhatsApp Meta app credentials for Facebook', () => {
+  it('reports facebook enabled only when its own app id and secret are set', () => {
     expect(isFacebookEnabled()).toBe(true);
-    delete process.env.META_APP_SECRET;
+    delete process.env.FACEBOOK_APP_SECRET;
     expect(isFacebookEnabled()).toBe(false);
+  });
+
+  // The regression this pins: Facebook used to inherit META_APP_ID /
+  // META_APP_SECRET. An app configured for WhatsApp Business Messaging has no
+  // Facebook Login use case, so that fallback lit up a button which always
+  // failed with "This app needs at least one supported permission" — a broken
+  // login flow in front of an App Review reviewer.
+  it('does NOT inherit the WhatsApp Meta app credentials', () => {
+    delete process.env.FACEBOOK_APP_ID;
+    delete process.env.FACEBOOK_APP_SECRET;
+    // META_APP_ID / META_APP_SECRET are still set by the beforeEach above.
+    expect(process.env.META_APP_ID).toBeTruthy();
+    expect(process.env.META_APP_SECRET).toBeTruthy();
+    expect(isFacebookEnabled()).toBe(false);
+    expect(getFacebookAppId()).toBe('');
   });
 });
 
