@@ -1,96 +1,110 @@
-# Production readiness — what is verifiable in code, and what is not
+# Meta Tech Provider / App Review readiness
 
-A line-by-line pass over `PRODUCTION_CHECKLIST.md`, splitting every item into
-one of three buckets:
+Updated 2026-08-26 after the rejected-submission audit and Render deployment hardening.
 
-- **CODE** — provable from this repository alone. Automated where possible.
-- **RUNTIME** — depends on the hosting environment (Render/Vercel env vars,
-  Mongo, Redis, Sentry). Not knowable from git; the pre-flight check
-  (`backend/src/services/preflightCheckService.js`) covers what can be checked
-  from inside a running process.
-- **EXTERNAL** — lives in Meta's dashboard, a lawyer's inbox, or a human's
-  judgement. No code can close these.
+This report deliberately separates three kinds of requirements:
 
-The distinction matters because a green test suite says nothing about whether
-`JWT_SECRET` is still `changeme` in production.
+- **CODE** — can be proven and enforced by this repository.
+- **RUNTIME** — depends on Render environment values and the running service.
+- **EXTERNAL** — exists in Meta Business/App Dashboard or requires a human end-to-end test. Code must never claim these are complete when they are not.
 
-## Meta-side
+## Current verdict
 
-| Item | Bucket | Status |
+**Code/runtime deployment path: substantially hardened.** Render Blueprint auto-deploy is enabled and both web services now run a Meta deployment gate before installing/building. The backend additionally runs its Jest suite; Next.js runs TypeScript checking before its production build.
+
+**Meta submission: not automatically certified.** Business Verification, App Review approval, exact dashboard URLs/domains and a real Embedded Signup/coexistence walkthrough remain external gates.
+
+## Automated deployment gates
+
+`render.yaml` now runs `scripts/meta-deploy-check.js` before each web-service build. It blocks deployment when required production configuration is absent or unsafe, including:
+
+- `MONGO_URI`
+- `REDIS_URL`
+- `JWT_SECRET`
+- `META_APP_ID`
+- `META_APP_SECRET`
+- `META_EMBEDDED_SIGNUP_CONFIG_ID`
+- `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
+- `WHATSAPP_TOKEN_ENCRYPTION_KEY`
+- Graph API version below the repository's validated `v23.0` baseline
+- webhook signature enforcement not set to `true`
+- invalid/non-HTTPS canonical frontend URL in production
+- obvious placeholder secret/config values
+
+For the exact deployment that will be submitted to Meta, set `META_REVIEW_ENFORCE_READY=true` in Render. The gate will then additionally require:
+
+- `META_REVIEWER_LOGIN`
+- `META_REVIEWER_PASSWORD`
+- `META_REVIEW_CONTACT_EMAIL`
+
+Real reviewer credentials must stay in Render environment variables and must never be committed to this public repository.
+
+## Render auto-deploy
+
+Both `metabsp-backend` and `metabsp-nextjs` are explicitly configured with `branch: main` and `autoDeploy: true`.
+
+Backend build gate:
+
+```text
+node ../scripts/meta-deploy-check.js && npm ci && npm test
+```
+
+Next.js build gate:
+
+```text
+node ../scripts/meta-deploy-check.js && npm ci && npm run typecheck && npm run build
+```
+
+Both services use `/api/health` as the Render health check. Redis is configured with `maxmemoryPolicy: noeviction`, which is appropriate for BullMQ-backed queues.
+
+## Meta-side readiness matrix
+
+| Requirement | Bucket | Status / action |
 |---|---|---|
-| Business Verification | EXTERNAL | Not verifiable here |
-| App Review for `whatsapp_business_management` + `whatsapp_business_messaging` | EXTERNAL | Submitted 2026-07-13; **not approved**. Blocks production. |
-| Embedded Signup config (`META_EMBEDDED_SIGNUP_CONFIG_ID`) | RUNTIME | Set → the connect endpoint returns it; unset → the UI falls back to manual connect. Covered by pre-flight only indirectly. |
-| Webhook registered, verify token, signature enforcement | CODE + RUNTIME | Signature enforcement is on by default in code (`WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE`), tested in `webhookHardening.test.js`. Whether the URL/token are correct in Meta's dashboard is RUNTIME — **now checked** by pre-flight (`webhook_fields`, which also reports the registered `callback_url`). |
-| Coexistence webhook fields subscribed | EXTERNAL → **now automated** | `history`, `smb_message_echoes`, `smb_app_state_sync`, `messages` **confirmed subscribed** in the App Dashboard (2026-08-25). Pre-flight now re-verifies this on every boot via `GET /{app-id}/subscriptions`. |
-| One real coexistence onboarding, end to end | EXTERNAL | **Still open.** The remaining launch gate. |
-| Primary number on a System User token | RUNTIME → **now automated** | Pre-flight's `token_sources` check reports `tokenSource` per active account and warns on `user_token`. |
-
-## App configuration
-
-| Item | Bucket | Why |
-|---|---|---|
-| Every var in `backend/.env.example` set to a real value | **RUNTIME** | `.env` is gitignored. Nothing in this repo can see production values, and a placeholder like `your_meta_app_secret` is indistinguishable from a real one at the type level. Partial coverage: pre-flight fails loudly if `META_APP_ID`/`META_APP_SECRET` are missing or rejected by Meta, and reports a decryption failure if `WHATSAPP_TOKEN_ENCRYPTION_KEY` is wrong. `JWT_SECRET`, `MONGO_URI`, `REDIS_URL`, `FRONTEND_URL` are **not** checkable — verify by hand in the Render dashboard. |
-| `TRUST_PROXY` correct for the proxy topology | **RUNTIME** | Correctness depends on how many proxies sit in front of the app (Cloudflare → Render = 2 hops, direct = 1). `trustProxy.test.js` proves the setting is *read and applied* correctly; it cannot prove the *number* matches your real topology. Getting it wrong silently breaks rate-limiting by making every client share one IP. |
-| `SENTRY_DSN` set | **RUNTIME** | `instrument.js` initialises Sentry only when the DSN is present and is otherwise a silent no-op — that's by design, and it's exactly why this can't be caught in code. Confirm in the Render dashboard. |
-| Scheduled backups configured | **RUNTIME** | `backupSchedulerService` is off unless `ENABLE_SCHEDULED_BACKUPS=true` **and** `BACKUP_DIR` points at a persistent, ideally off-host mount. Code can verify the flag is read; it cannot verify the mount survives a container restart — on Render's ephemeral disk, a misconfigured `BACKUP_DIR` produces backups that vanish. Verify by restoring one. |
-
-## Security
-
-| Item | Bucket | Status |
-|---|---|---|
-| `npm audit` reviewed on `backend/` and `frontend/` | **CODE** | Re-run 2026-08-25 — see below. The checklist's `[x]` is now stale. |
-| Cashfree UPI Autopay verified against live docs | **EXTERNAL** | Untouched by design. Still a launch blocker if billing is enabled. |
-
-### npm audit, re-run 2026-08-25
-
-`xlsx` — **still no upstream fix** (`fixAvailable: false`). The checklist's
-note remains accurate. It is a direct **production** dependency of the
-frontend (spreadsheet import), so this is real runtime exposure, not a
-dev-only finding. Options are unchanged: drop the feature, move parsing
-server-side behind validation, or migrate to a maintained reader
-(`exceljs`).
-
-New since the checklist was written — **runtime** (production dependencies):
-
-| Package | Sev | Path | Note |
-|---|---|---|---|
-| `react-router` / `react-router-dom` | high | frontend, direct | Open redirect via backslash in `<Link>`/`useNavigate`. This app performs auth redirects, so it is relevant. Non-breaking fix available. |
-| `socket.io-parser` | high | via `socket.io` (backend) and `socket.io-client` (frontend) | Zero-attachment memory exhaustion. Non-breaking fix. |
-| `dompurify` | moderate | via `jspdf@4.2.1` | A **new** advisory, not a regression of the one the checklist recorded as fixed. |
-| `mongoose` | moderate | backend, direct | Prototype pollution in update casting. Non-breaking fix. |
-| `nanoid` | high | via `postcss` (devDep) | Build-time only. |
-| `protobufjs` | moderate | *(was via `@whiskeysockets/baileys`)* | **Resolved** — the dependency is removed. |
-| `body-parser` | low | via `express` | Non-breaking fix. |
-
-Dev/test-only, no runtime exposure: `vitest`, `vite`, `esbuild`, `vite-node`,
-`@vitest/mocker`, `jsdom`, `canvas`, `tar` (critical, but reached only through
-`jsdom` → devDependency), `@mapbox/node-pre-gyp`, `postcss`, `js-yaml`,
-`brace-expansion`, `autocannon`/`hyperid`/`uuid`.
-
-**Deliberately not fixed in this change.** Dependency bumps do not belong in a
-PR whose stated scope is a health-check script, and the breaking upgrades
-(`vitest@4`, `jsdom@30`) need their own test run. Recommended order: apply the
-non-breaking runtime fixes (`react-router-dom`, `socket.io*`, `mongoose`,
-`body-parser`) first and re-run both suites; handle `xlsx` as a product
-decision; leave the dev-only breaking upgrades for a separate pass.
-
-## Compliance / Operational
-
-The Baileys item is now **CODE** and closed — the transport is removed
-outright (`docs/BAILEYS_REMOVAL.md`), so there is no longer a business
-decision to make about enabling it. The rest remain **EXTERNAL**: legal documents need a lawyer, not a linter; the data
-retention policy is documented but **not implemented in code**, which the
-checklist already flags; load testing, DR drills, and support training all
-require a running environment and people.
+| Business Verification | EXTERNAL | Must show Verified in Meta Business Portfolio before submission. Cannot be completed from GitHub. |
+| `whatsapp_business_messaging` | CODE + EXTERNAL | Implementation/submission text exists; approval is external. |
+| `whatsapp_business_management` | CODE + EXTERNAL | Implementation/submission text exists; approval is external. |
+| `business_management` | CODE + EXTERNAL | Keep justification narrow: manual-connect ownership validation only. Approval is external. |
+| `public_profile` for WhatsApp review | CODE | Do **not** request it for this WhatsApp review. `FACEBOOK_LOGIN_SCOPES=public_profile` in Render belongs only to the separate optional Facebook social-login feature. |
+| Embedded Signup config | RUNTIME + EXTERNAL | Config ID is required by deploy gate; actual Meta configuration and successful popup flow must be verified in production. |
+| Webhook signature enforcement | CODE + RUNTIME | Required by deploy gate and existing backend preflight/tests. |
+| Webhook callback URL | EXTERNAL + RUNTIME | Must be the live production callback in Meta Dashboard and must resolve successfully. |
+| JS SDK Allowed Domains | EXTERNAL | Must contain every host used to run Embedded Signup. |
+| Valid OAuth Redirect URI | EXTERNAL | Must exactly match the deployed production flow. |
+| Coexistence webhook fields | RUNTIME + EXTERNAL | Existing backend preflight re-verifies subscriptions; still perform one real onboarding. |
+| Real Embedded Signup / coexistence onboarding | EXTERNAL | Still mandatory before submission. No automated test can replace the real Meta popup/WABA flow. |
+| Reviewer credentials | RUNTIME | Render deploy gate can enforce presence with `META_REVIEW_ENFORCE_READY=true`; human must verify login works in incognito. |
+| Reviewer walkthrough video | EXTERNAL | Record only after the exact production deployment passes the end-to-end flow. |
 
 ## Graph API version
 
-`WHATSAPP_API_VERSION` is pinned to **v20.0** in `render.yaml`. Meta's own App
-Dashboard now generates token-exchange samples against **v25.0**, and the
-Embedded Signup launcher reports **ES Version v4 / Session Info Version 3**.
-Our code already sends `sessionInfoVersion: '3'`, which matches.
+The previous readiness report was stale: `render.yaml` is now pinned to **v23.0**, not v20.0. Both `WHATSAPP_API_VERSION` and the legacy `META_API_VERSION` fallback are kept aligned. Embedded Signup uses ES v4 where configured.
 
-v20.0 predates Coexistence. Bumping is a change that touches every Graph call
-in the app, so it is **not** included here — do it as its own change and
-re-test ordinary send/receive afterwards.
+Do not bump the Graph API merely to make the number newer immediately before App Review. Upgrade in a dedicated change and regression-test token exchange, phone-number lookup, WABA subscription, templates, send/receive, media and coexistence.
+
+## Required human pre-submission run
+
+Before clicking **Submit for Review**, use the exact deployed production URL and exact reviewer credentials in an incognito/private browser and verify:
+
+1. Reviewer login succeeds without OTP or owner intervention.
+2. WhatsApp dashboard is accessible.
+3. **Connect with Meta** opens Embedded Signup without a JS SDK domain error.
+4. A test WABA/number completes onboarding.
+5. Connected phone/WABA details appear in the product.
+6. WABA webhook subscription succeeds.
+7. Template list/create flow works.
+8. A real outbound WhatsApp message succeeds.
+9. A real inbound message reaches the application webhook and appears in Chats.
+10. Delivery/read status updates arrive.
+11. If `business_management` is requested, demonstrate the manual-connect ownership-validation flow.
+12. If Coexistence is offered, complete one real WhatsApp Business App coexistence onboarding.
+
+Only after this run should the review video be recorded. The video, testing instructions and deployed build must demonstrate the same flow.
+
+## Remaining non-code blockers
+
+The repository cannot truthfully mark the following complete: Meta Business Verification, Meta permission approval, Meta dashboard domain/redirect/callback values, real WABA onboarding, reviewer account usability, reviewer video quality, legal review, production backup/restore drill, or support readiness. These must be checked in their owning systems.
+
+## Submission recommendation
+
+Do not submit solely because Render deploys successfully. Treat a successful Render deployment as **code/runtime gate passed**. Treat Meta submission as ready only when the external checklist above has also been completed and the exact production reviewer flow has been manually verified end to end.
