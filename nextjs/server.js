@@ -25,7 +25,19 @@ const next = require('next');
 
 const dev = process.env.NODE_ENV !== 'production';
 const port = Number(process.env.PORT) || 3000;
-const hostname = process.env.HOSTNAME || '0.0.0.0';
+
+// Bind every interface. Deliberately NOT `process.env.HOSTNAME` — container
+// runtimes set that to the container's own hostname, so reading it here binds
+// the listener to that single name instead of all interfaces. On Render the
+// boot line read
+//   [server] Ready on http://srv-...-hibernate-655846fdb5-nq5qf:10000
+// and the platform's proxy could not reach the app, which surfaces to users as
+// an HTTP 502 rather than as any error in the logs — the process looks
+// perfectly healthy from the inside.
+//
+// BIND_HOST is the deliberate override, and it is a name no runtime sets for
+// us; leaving it unset is correct almost everywhere.
+const hostname = process.env.BIND_HOST || '0.0.0.0';
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
