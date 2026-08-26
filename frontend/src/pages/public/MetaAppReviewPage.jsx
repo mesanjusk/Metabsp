@@ -60,7 +60,7 @@ const CHECKLIST_ITEMS = [
 // Meta's reviewers read the "Web reviewer instructions" field of the App Review
 // submission, not this page — keep the two in sync, and treat this page as the
 // supporting detail rather than the primary channel.
-const APP_URL = import.meta.env.VITE_PUBLIC_APP_URL || 'https://meta.instify.in';
+const APP_URL = import.meta.env.VITE_PUBLIC_APP_URL || 'https://meta.sanjusk.in';
 const REVIEWER_LOGIN = import.meta.env.VITE_REVIEWER_LOGIN || '';
 const REVIEWER_PASSWORD = import.meta.env.VITE_REVIEWER_PASSWORD || '';
 const REVIEWER_TEST_NUMBER = import.meta.env.VITE_REVIEWER_TEST_NUMBER || '';

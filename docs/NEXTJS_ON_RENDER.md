@@ -73,7 +73,7 @@ how duplicate invoices get generated — the flag flips only when the jobs
 actually move, and only on one instance.
 
 **The frontend is not migrated.** ~19,000 lines of Vite/MUI still serve
-`meta.instify.in` from Vercel. That is the bulk of the remaining work.
+`meta.sanjusk.in` from Vercel. That is the bulk of the remaining work.
 
 **Four routes are deliberately still on Express**, all in `billing.js`:
 

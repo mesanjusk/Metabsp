@@ -16,7 +16,7 @@ import { motion } from 'framer-motion';
 // dashboard, and the running service cannot drift apart.
 const DATA_DELETION_CALLBACK_URL =
   import.meta.env.VITE_DATA_DELETION_CALLBACK_URL ||
-  `${import.meta.env.VITE_PUBLIC_APP_URL || 'https://meta.instify.in'}/data-deletion`;
+  `${import.meta.env.VITE_PUBLIC_APP_URL || 'https://meta.sanjusk.in'}/data-deletion`;
 
 const REASONS = [
   { value: 'no_longer_needed', label: 'I no longer need the service' },

@@ -79,6 +79,10 @@ const allowedOrigins = [
   'https://bulk.instify.in',
   'https://bkfrontend.vercel.app',
   'https://bkawards.instify.in',
+  // meta.sanjusk.in is the live Metabsp domain. meta.instify.in stays allowed
+  // deliberately: the older Vercel build is still reachable there, and pulling
+  // it out of the allow-list would break that deployment's API calls the moment
+  // this ships. Remove it once nothing is served from it.
   'https://meta.sanjusk.in',
   'https://meta.instify.in',
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
