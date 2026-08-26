@@ -5,7 +5,7 @@ services:
     rootDir: backend
     branch: main
     autoDeploy: true
-    buildCommand: node ../scripts/meta-deploy-check.js && npm ci
+    buildCommand: node ../scripts/meta-deploy-check.js && npm ci && npm test
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -62,6 +62,8 @@ services:
         sync: false
       - key: FACEBOOK_APP_SECRET
         sync: false
+      # This belongs only to optional Facebook social sign-in. Do not request
+      # public_profile as part of the WhatsApp Meta App Review submission.
       - key: FACEBOOK_LOGIN_SCOPES
         value: public_profile
       - key: ACCESS_TOKEN_SECRET
@@ -82,8 +84,9 @@ services:
         sync: false
       - key: KEEP_ALIVE_TOKEN
         sync: false
-      # Set true only for the deployment that will be submitted to Meta.
-      # When true, the build gate requires all reviewer credential fields.
+      # Keep false during normal development. Before the exact deployment used
+      # for App Review, set true in Render so missing reviewer credentials fail
+      # the build instead of reaching Meta in a broken state.
       - key: META_REVIEW_ENFORCE_READY
         value: "false"
       - key: META_REVIEWER_LOGIN
@@ -99,7 +102,7 @@ services:
     rootDir: nextjs
     branch: main
     autoDeploy: true
-    buildCommand: node ../scripts/meta-deploy-check.js && npm ci && npm run build
+    buildCommand: node ../scripts/meta-deploy-check.js && npm ci && npm run typecheck && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
