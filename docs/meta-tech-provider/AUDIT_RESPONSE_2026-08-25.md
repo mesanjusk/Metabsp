@@ -101,17 +101,34 @@ deployment is `https://bulk-invite.onrender.com/webhook` (also served at
 
 ## Exact Meta App Dashboard values
 
-| Field | Set to |
-|---|---|
-| App Domains | `meta.sanjusk.in` |
-| Site URL | `https://meta.sanjusk.in/` |
-| Privacy Policy URL | `https://meta.sanjusk.in/privacy-policy` |
-| Terms of Service URL | `https://meta.sanjusk.in/terms-of-service` |
-| Data deletion URL | `https://meta.sanjusk.in/data-deletion` |
-| Webhook Callback URL | `https://bulk-invite.onrender.com/webhook` **(verify first)** |
-| Valid OAuth Redirect URI | The live callback on the real backend host **(verify first)** |
-| Testing Instructions | Replace wholesale — see `APP_REVIEW_SUBMISSION_TEXT.md` |
-| Permissions requested | `whatsapp_business_messaging`, `whatsapp_business_management`, `business_management` — **drop `public_profile`** |
+| Where | Field | Set to |
+|---|---|---|
+| Settings → Basic | App Domains | `meta.sanjusk.in` and `metabspnext.onrender.com` |
+| Settings → Basic | Site URL | `https://meta.sanjusk.in/` |
+| Settings → Basic | Privacy Policy URL | `https://meta.sanjusk.in/privacy-policy` |
+| Settings → Basic | Terms of Service URL | `https://meta.sanjusk.in/terms-of-service` |
+| Settings → Basic | Data deletion URL | `https://meta.sanjusk.in/data-deletion` |
+| **Facebook Login for Business → Settings** | **Allowed Domains for the JavaScript SDK** | `https://meta.sanjusk.in` and `https://metabspnext.onrender.com` |
+| Facebook Login for Business → Settings | Valid OAuth Redirect URIs | `https://meta.sanjusk.in/login` |
+| WhatsApp → Configuration | Webhook Callback URL | `https://meta.sanjusk.in/webhook` once the Next.js host serves that domain |
+| App Review | Testing Instructions | Replace wholesale — see `APP_REVIEW_SUBMISSION_TEXT.md` |
+| App Review | Permissions requested | `whatsapp_business_messaging`, `whatsapp_business_management`, `business_management` — **drop `public_profile`** |
+
+### Allowed Domains for the JavaScript SDK is not optional
+
+Leaving it unset produces, at the moment a customer clicks **Connect with Meta**:
+
+> **JSSDK unknown host domain** — The domain you are hosting the Facebook
+> Javascript SDK is not in your app's Javascript SDK host domain list.
+
+This blocks **Embedded Signup**, not just Facebook login. Both call `FB.login`
+through the same SDK (`lib/client/facebookSdk.js`), so an unlisted host stops
+onboarding dead — which is precisely the flow App Review is assessing.
+
+Every host the app is *served from* needs listing, scheme included and no
+trailing slash. During the Vercel→Render cutover that means both the live
+domain and the Render URL, because the Render URL is where testing happens
+before DNS moves.
 
 **Embedded Signup config ID: `1003501095782121`.** The audit reports two
 configurations; only "ES Config" is in use. `META_EMBEDDED_SIGNUP_CONFIG_ID`
