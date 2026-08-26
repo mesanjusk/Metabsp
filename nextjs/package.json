@@ -2,7 +2,7 @@
   "name": "metabsp-nextjs",
   "version": "0.1.0",
   "private": true,
-  "description": "Metabsp WhatsApp Cloud API product — Next.js 15 App Router. Runs as a single persistent Node process (server.js) on Render, hosting the App Router, API route handlers, Socket.IO, the BullMQ worker and the schedulers together.",
+  "description": "Metabsp WhatsApp Cloud API product \u2014 Next.js 15 App Router. Runs as a single persistent Node process (server.js) on Render, hosting the App Router, API route handlers, Socket.IO, the BullMQ worker and the schedulers together.",
   "scripts": {
     "dev": "node server.js",
     "build": "next build",
@@ -15,6 +15,10 @@
     "@anthropic-ai/sdk": "^0.32.1",
     "@socket.io/redis-adapter": "^8.3.0",
     "@socket.io/redis-emitter": "^5.1.0",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
     "axios": "^1.6.8",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.28.0",
@@ -26,13 +30,7 @@
     "pino": "^9.5.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "socket.io": "^4.8.3"
-  },
-  "devDependencies": {
-    "@types/jsonwebtoken": "^9.0.6",
-    "@types/node": "^20.14.0",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
+    "socket.io": "^4.8.3",
     "typescript": "^5.5.0"
   }
 }
