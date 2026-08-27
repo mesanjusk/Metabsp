@@ -3,6 +3,7 @@
 import React from 'react';
 import { Container, Typography, Box, Paper, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { motion } from 'framer-motion';
+import { LEGAL_LAST_UPDATED, PRIVACY_EMAIL } from '@/lib/config/publicSite';
 
 const Section = ({ title, children }) => (
   <Box sx={{ mb: 4 }}>
@@ -40,7 +41,7 @@ export default function CookiePolicyPage() {
         <Container maxWidth="md">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <Typography variant="h3" fontWeight={800} sx={{ mb: 2 }}>Cookie Policy</Typography>
-            <Typography variant="body1" color="text.secondary">Last updated: July 2026</Typography>
+            <Typography variant="body1" color="text.secondary">Last updated: {LEGAL_LAST_UPDATED}</Typography>
           </Box>
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
@@ -116,7 +117,7 @@ export default function CookiePolicyPage() {
 
             <Section title="7. Contact us">
               <Para>
-                Questions about this Cookie Policy can be directed to privacy@meta.sanjusk.in.
+                Questions about this Cookie Policy can be directed to {PRIVACY_EMAIL}.
               </Para>
             </Section>
           </Paper>

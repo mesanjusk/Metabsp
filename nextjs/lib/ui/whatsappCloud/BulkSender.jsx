@@ -26,7 +26,7 @@ const splitNumbers = (rawValue) =>
     .map((item) => item.replace(/\D/g, '').trim())
     .filter(Boolean);
 
-export default function BulkSender({ standalone, search }) {
+export default function BulkSender({ standalone, search, initialRecipients, onRecipientsConsumed }) {
   const [numbersText, setNumbersText] = useState('');
   const [template, setTemplate] = useState(null);
   const [messageType, setMessageType] = useState('template');
@@ -52,6 +52,21 @@ export default function BulkSender({ standalone, search }) {
   useEffect(() => {
     loadContacts();
   }, []);
+
+  // Hand-off from the Contacts tab: a selected list arrives here as recipients
+  // rather than the caller having to copy numbers out by hand. Appended to
+  // whatever is already typed, de-duplicated by the `numbers` memo below.
+  useEffect(() => {
+    if (!initialRecipients?.length) return;
+    const phones = initialRecipients
+      .map((contact) => String(contact?.phone || '').replace(/\D/g, ''))
+      .filter(Boolean);
+    if (phones.length) {
+      setNumbersText((prev) => `${prev.trim()}\n${phones.join('\n')}`.trim());
+      toast.success(`${phones.length} recipient${phones.length === 1 ? '' : 's'} added from Contacts.`);
+    }
+    onRecipientsConsumed?.();
+  }, [initialRecipients, onRecipientsConsumed]);
 
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -213,6 +228,8 @@ export default function BulkSender({ standalone, search }) {
 
 BulkSender.propTypes = {
   standalone: PropTypes.bool,
+  initialRecipients: PropTypes.arrayOf(PropTypes.object),
+  onRecipientsConsumed: PropTypes.func,
   search: PropTypes.string,
 };
 

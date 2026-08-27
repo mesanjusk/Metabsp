@@ -3,6 +3,7 @@
 import React from 'react';
 import { Container, Typography, Box, Paper, Divider } from '@mui/material';
 import { motion } from 'framer-motion';
+import { LEGAL_EMAIL, LEGAL_LAST_UPDATED, PLATFORM_DESCRIPTION, SUPPORT_EMAIL } from '@/lib/config/publicSite';
 
 const Section = ({ title, children }) => (
   <Box sx={{ mb: 4 }}>
@@ -34,7 +35,7 @@ export default function TermsOfServicePage() {
         <Container maxWidth="md">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <Typography variant="h3" fontWeight={800} sx={{ mb: 2 }}>Terms of Service</Typography>
-            <Typography variant="body1" color="text.secondary">Last updated: June 2025</Typography>
+            <Typography variant="body1" color="text.secondary">Last updated: {LEGAL_LAST_UPDATED}</Typography>
           </Box>
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
@@ -55,7 +56,7 @@ export default function TermsOfServicePage() {
 
             <Section title="2. WhatsApp Business Platform Usage Requirements">
               <Para>
-                MetaBSP is a WhatsApp Business Solution Provider (BSP) authorized by Meta Platforms, Inc. Your use of our Service to access the WhatsApp Business API is subject to additional requirements:
+                MetaBSP is {PLATFORM_DESCRIPTION}. Your use of our Service to access the WhatsApp Business Platform is subject to additional requirements:
               </Para>
               <BulletList items={[
                 'You must comply with Meta\'s WhatsApp Business Policy (https://www.whatsapp.com/legal/business-policy)',
@@ -190,7 +191,7 @@ export default function TermsOfServicePage() {
 
             <Section title="12. Termination">
               <Para>
-                Either party may terminate the Service agreement at any time. You may terminate by cancelling your subscription through the account settings or by contacting support@meta.sanjusk.in. We may terminate or suspend your access immediately, without prior notice or liability, if you:
+                Either party may terminate the Service agreement at any time. You may terminate by cancelling your subscription through the account settings or by contacting {SUPPORT_EMAIL}. We may terminate or suspend your access immediately, without prior notice or liability, if you:
               </Para>
               <BulletList items={[
                 'Breach any provision of these Terms',
@@ -218,7 +219,7 @@ export default function TermsOfServicePage() {
 
             <Section title="15. Contact">
               <Para>
-                For questions about these Terms, contact us at legal@meta.sanjusk.in or write to: MetaBSP Legal Team, [Address on file]. For support inquiries, contact support@meta.sanjusk.in.
+                For questions about these Terms, contact us at {LEGAL_EMAIL} or write to: MetaBSP Legal Team, [Address on file]. For support inquiries, contact {SUPPORT_EMAIL}.
               </Para>
             </Section>
           </Paper>

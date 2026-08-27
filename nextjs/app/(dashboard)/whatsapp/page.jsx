@@ -36,13 +36,13 @@ import { useRouter } from 'next/navigation';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import CloudRoundedIcon from '@mui/icons-material/CloudRounded';
-import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import QueryStatsRoundedIcon from '@mui/icons-material/QueryStatsRounded';
-import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded';
 import { toast } from '@/lib/ui/components/Toast';
 import { ROUTES } from '@/lib/constants/routes';
 import apiClient from '@/lib/api/client';
@@ -68,25 +68,30 @@ const AnalyticsDashboard  = lazy(() => import('@/lib/ui/whatsappCloud/AnalyticsD
 const WhatsAppAttendanceSettings = lazy(() => import('@/lib/ui/whatsappCloud/WhatsAppAttendanceSettings'));
 const AdminUserManagementPanel   = lazy(() => import('@/lib/ui/whatsappCloud/AdminUserManagementPanel'));
 const AdminAnalyticsPanel        = lazy(() => import('@/lib/ui/whatsappCloud/AdminAnalyticsPanel'));
-const ManualInvitePanel   = lazy(() => import('@/lib/ui/whatsappCloud/ManualInvitePanel'));
-const CampaignsPanel      = lazy(() => import('@/lib/ui/whatsappCloud/CampaignsPanel'));
 
-// ── Main 4-tab nav ────────────────────────────────────────────────────────────
+// ── Primary navigation ────────────────────────────────────────────────────────
+// Named for what a customer came to do, not for how the code is organised. The
+// previous labels — "Meta", "Manual", "CRM" — were internal shorthand, and
+// "Manual" held a wa.me link generator and a Campaigns screen whose send
+// endpoint returns 501 unconditionally. Both are gone.
 const MAIN_TABS = [
-  { key: 'meta',    label: 'Meta',    icon: <CloudRoundedIcon /> },
-  { key: 'manual',  label: 'Manual',  icon: <LinkRoundedIcon /> },
-  { key: 'crm',     label: 'CRM',     icon: <PeopleAltRoundedIcon /> },
+  { key: 'messaging',  label: 'Messaging',  icon: <WhatsAppIcon /> },
+  { key: 'automation', label: 'Automation', icon: <AutoFixHighRoundedIcon /> },
+  { key: 'contacts',   label: 'Contacts',   icon: <PeopleAltRoundedIcon /> },
+  { key: 'insights',   label: 'Insights',   icon: <QueryStatsRoundedIcon /> },
+  { key: 'settings',   label: 'Settings',   icon: <SettingsRoundedIcon /> },
 ];
 
-// ── Sub-tabs per main tab ─────────────────────────────────────────────────────
+// There is no inbox. Inbound messages are received and acted on — persisted,
+// contacts upserted, auto-replies and workflows matched, the 24-hour window
+// computed — but this platform presents no conversation view for staff to
+// read and reply in. Sending is template-first.
 const SUB_TABS = {
-  // No 'inbox'. This platform receives inbound messages — the webhook persists
-  // them, auto-replies and workflows act on them, and the 24-hour window is
-  // enforced from them — but it does not present a human agent inbox. Sending
-  // is template-first, through Templates and Broadcast.
-  meta:    ['templates', 'broadcast', 'autoReply', 'workflows', 'analytics', 'settings'],
-  manual:  ['wame', 'campaigns'],
-  crm:     [],
+  messaging:  ['templates', 'broadcast'],
+  automation: ['autoReply', 'workflows'],
+  contacts:   [],
+  insights:   [],
+  settings:   [],
 };
 
 const SUB_TAB_LABELS = {
@@ -94,12 +99,6 @@ const SUB_TAB_LABELS = {
   broadcast: 'Broadcast',
   autoReply: 'Auto Reply',
   workflows: 'Workflows',
-  analytics: 'Analytics',
-  settings:  'Settings',
-  setup:     'QR Setup',
-  send:      'Quick Send',
-  wame:      'wa.me Links',
-  campaigns: 'Campaigns',
 };
 
 const SEARCH_PLACEHOLDER = {
@@ -107,12 +106,9 @@ const SEARCH_PLACEHOLDER = {
   broadcast: 'Search broadcasts',
   autoReply: 'Search auto replies',
   workflows: 'Search workflows',
-  setup:     '',
-  send:      '',
-  wame:      'Enter recipient name or number',
-  campaigns: 'Search campaigns',
-  crm:       'Search contacts',
+  contacts:  'Search contacts',
 };
+
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getFriendlyStatusError = (error) => {
@@ -182,7 +178,6 @@ export default function WhatsAppCloudDashboard() {
     whatsappAccount, whatsappAccountStatus,
     isAccountLoading, isAccountConnected, accountConnectionMode,
     refreshWhatsAppAccount,
-    whatsappProvider, updateWhatsappProvider,
     logout,
   } = useAuth();
   const router = useRouter();
@@ -197,31 +192,18 @@ export default function WhatsAppCloudDashboard() {
 
   const isAdminUser = String(userGroup || '').toLowerCase() === 'admin';
 
-  // The unofficial WhatsApp Web transport and the "which provider?" prompt it
-  // required are gone: the Cloud API is the only path, so there is nothing to
-  // choose and no per-org flag to gate on. The "manual" tab (paste an existing
-  // Cloud API token) is a Meta path and stays.
-  const visibleMainTabs = useMemo(
-    () => MAIN_TABS.filter(() => true),
-    []
-  );
-
-  // Every account is a Cloud API account now; record that once for users who
-  // predate the change and still have no stored preference.
-  useEffect(() => {
-    if (!whatsappProvider) updateWhatsappProvider('meta');
-  }, [whatsappProvider, updateWhatsappProvider]);
-
   // Main tab + sub-tab state
-  const [mainTab, setMainTab] = useState('meta');
-  const [subTabs, setSubTabs] = useState({ meta: isAdminUser ? 'settings' : 'templates', manual: 'wame', crm: '' });
+  const [mainTab, setMainTab] = useState(isAdminUser ? 'settings' : 'messaging');
+  const [subTabs, setSubTabs] = useState({ messaging: 'templates', automation: 'autoReply' });
 
-  // CRM → Manual campaign handoff
+  // Contacts → Broadcast hand-off. Selecting a list in Contacts and pressing
+  // Send drops those numbers into the broadcast composer, instead of the user
+  // copying them out by hand.
   const [crmRecipients, setCrmRecipients] = useState(null);
   const handleCrmSend = useCallback((contacts) => {
     setCrmRecipients(contacts);
-    setMainTab('manual');
-    setSubTabs(prev => ({ ...prev, manual: 'wame' }));
+    setMainTab('messaging');
+    setSubTabs(prev => ({ ...prev, messaging: 'broadcast' }));
   }, []);
 
   const activeSubTab = SUB_TABS[mainTab]?.length ? (subTabs[mainTab] || SUB_TABS[mainTab][0]) : '';
@@ -231,13 +213,12 @@ export default function WhatsAppCloudDashboard() {
   const searchPlaceholder = SEARCH_PLACEHOLDER[activeSubTab] || SEARCH_PLACEHOLDER[mainTab] || 'Search';
 
   // Active label for mobile header
-  const activeLabel = mainTab === 'crm'
-    ? 'CRM'
-    : SUB_TAB_LABELS[activeSubTab] || MAIN_TABS.find(t => t.key === mainTab)?.label || '';
+  const activeLabel =
+    SUB_TAB_LABELS[activeSubTab] || MAIN_TABS.find(t => t.key === mainTab)?.label || '';
 
   // Admin redirect
   useEffect(() => {
-    if (isAdminUser) { setMainTab('meta'); setSubTabs(prev => ({ ...prev, meta: 'settings' })); }
+    if (isAdminUser) setMainTab('settings');
   }, [isAdminUser]);
 
   // Cloud API status polling (only relevant for Meta tab)
@@ -381,11 +362,11 @@ export default function WhatsAppCloudDashboard() {
     // setting; they are neither. A BSP registers one webhook for its app and
     // subscribes each customer's WABA to it, so there is nothing here for a
     // customer to configure and a real risk in letting them try.
-    if (isAdminUser && mainTab === 'meta' && activeSubTab === 'settings') {
+    if (mainTab === 'settings') {
       return (
         <Stack spacing={2.5}>
-          <AdminAnalyticsPanel />
-          <WhatsAppAttendanceSettings
+          {isAdminUser && <AdminAnalyticsPanel />}
+      <WhatsAppAttendanceSettings
             whatsappAccount={whatsappAccount}
             isAccountConnected={isAccountConnected}
             isAccountLoading={isAccountLoading}
@@ -398,71 +379,53 @@ export default function WhatsAppCloudDashboard() {
             accountConnectionMode={accountConnectionMode}
             accountActionLoading={isAccountActionLoading}
           />
-          <AdminUserManagementPanel />
+          {isAdminUser && <AdminUserManagementPanel />}
         </Stack>
       );
     }
 
-    // Manual (no account connection needed)
-    if (mainTab === 'manual') {
-      if (activeSubTab === 'campaigns') return <CampaignsPanel />;
-      return <ManualInvitePanel initialRecipients={crmRecipients} onCrmRecipientsConsumed={() => setCrmRecipients(null)} />;
-    }
+    if (mainTab === 'contacts') return <CRMPanel search={search} onSendContacts={handleCrmSend} />;
 
-    // CRM (no account connection needed)
-    if (mainTab === 'crm') return <CRMPanel search={search} onSendContacts={handleCrmSend} />;
+    if (mainTab === 'insights') return <AnalyticsDashboard />;
 
-    // Meta — needs Cloud API connection for most sub-tabs
-    if (mainTab === 'meta') {
-      // Settings always accessible
-      if (activeSubTab === 'settings') {
-        return (
-          <WhatsAppAttendanceSettings
-            whatsappAccount={whatsappAccount}
-            isAccountConnected={isAccountConnected}
-            isAccountLoading={isAccountLoading}
-            onConnect={handleConnectFlow}
-            onDisconnect={handleDisconnect}
-            onRefreshAccount={refreshWhatsAppAccount}
-            onManualConnect={() => setManualDialogOpen(true)}
-            onReconnect={handleReconnect}
-            whatsappAccountStatus={whatsappAccountStatus}
-            accountConnectionMode={accountConnectionMode}
-            accountActionLoading={isAccountActionLoading}
-          />
-        );
-      }
-      // Analytics accessible regardless
-      if (activeSubTab === 'analytics') return <AnalyticsDashboard />;
-
-      // Other Meta tabs need account connection
-      if (!isAccountConnected) {
-        return (
-          <Stack alignItems="center" justifyContent="center" spacing={1.5} sx={{ height: '100%', minHeight: 260, textAlign: 'center', px: 3 }}>
-            <Typography variant="h6" fontWeight={700}>Connect your WhatsApp account</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Connect your Meta number to access Chats, Templates, Broadcast, and Auto Reply.
-            </Typography>
-            <Stack direction="row" spacing={1.25} flexWrap="wrap" justifyContent="center">
-              <Button variant="contained" onClick={handleConnectFlow} disabled={isAccountActionLoading}>
-                {isAccountActionLoading ? 'Connecting...' : 'Connect with Meta'}
-              </Button>
-              <Button variant="text" onClick={() => setManualDialogOpen(true)} disabled={isAccountActionLoading}>
-                Connect manually
-              </Button>
-              <Button variant="outlined" onClick={() => { refreshWhatsAppAccount(); setStatusTick(p => p + 1); }} disabled={isAccountLoading}>
-                Refresh status
-              </Button>
-            </Stack>
+    // Messaging and Automation both act on a connected number, so they share
+    // one gate rather than each failing in its own way once opened.
+    if (!isAccountConnected) {
+      return (
+        <Stack alignItems="center" justifyContent="center" spacing={1.5} sx={{ height: '100%', minHeight: 260, textAlign: 'center', px: 3 }}>
+          <Typography variant="h6" fontWeight={700}>Connect your WhatsApp Business Account</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Templates, broadcasts, and automated replies all send from your own
+            number. Connect it through Meta to get started.
+          </Typography>
+          <Stack direction="row" spacing={1.25} flexWrap="wrap" justifyContent="center">
+            <Button variant="contained" onClick={handleConnectFlow} disabled={isAccountActionLoading}>
+              {isAccountActionLoading ? 'Connecting...' : 'Connect with Meta'}
+            </Button>
+            <Button variant="text" onClick={() => setManualDialogOpen(true)} disabled={isAccountActionLoading}>
+              Connect manually
+            </Button>
+            <Button variant="outlined" onClick={() => { refreshWhatsAppAccount(); setStatusTick(p => p + 1); }} disabled={isAccountLoading}>
+              Refresh status
+            </Button>
           </Stack>
-        );
-      }
-
-      if (activeSubTab === 'templates') return <SendMessagePanel search={search} />;
-      if (activeSubTab === 'broadcast') return <BulkSender standalone search={search} />;
-      if (activeSubTab === 'autoReply') return <AutoReplyManagementPanel search={search} />;
-      if (activeSubTab === 'workflows') return <WorkflowManagementPanel search={search} />;
+        </Stack>
+      );
     }
+
+    if (activeSubTab === 'templates') return <SendMessagePanel search={search} />;
+    if (activeSubTab === 'broadcast') {
+      return (
+        <BulkSender
+          standalone
+          search={search}
+          initialRecipients={crmRecipients}
+          onRecipientsConsumed={() => setCrmRecipients(null)}
+        />
+      );
+    }
+    if (activeSubTab === 'autoReply') return <AutoReplyManagementPanel search={search} />;
+    if (activeSubTab === 'workflows') return <WorkflowManagementPanel search={search} />;
 
     return null;
   }, [
@@ -492,7 +455,7 @@ export default function WhatsAppCloudDashboard() {
           <Stack alignItems="center" sx={{ py: 2.5, height: '100%' }}>
             <Avatar sx={{ bgcolor: '#25d366', color: '#072f25', fontWeight: 700, mb: 2 }}>WA</Avatar>
             <List dense sx={{ width: '100%', px: 1 }}>
-              {visibleMainTabs.map(item => (
+              {MAIN_TABS.map(item => (
                 <ListItemButton
                   key={item.key}
                   selected={mainTab === item.key}
@@ -513,17 +476,10 @@ export default function WhatsAppCloudDashboard() {
                 <Avatar sx={{ width: 36, height: 36, mb: 1 }}>{(userName || 'U').slice(0, 1).toUpperCase()}</Avatar>
               </Tooltip>
               <Tooltip title="Settings">
-                <IconButton sx={{ color: '#cfd4d8' }} onClick={() => { setMainTab('meta'); setSubTab('settings'); }}>
+                <IconButton sx={{ color: '#cfd4d8' }} onClick={() => setMainTab('settings')}>
                   <SettingsRoundedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              {!isAdminUser && (
-                <Tooltip title="WhatsApp provider">
-                  <IconButton sx={{ color: '#cfd4d8' }} onClick={() => setProviderDialogOpen(true)}>
-                    <SwapHorizRoundedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
               <Tooltip title="Logout">
                 <IconButton sx={{ color: '#cfd4d8' }} onClick={handleLogout}>
                   <LogoutRoundedIcon fontSize="small" />
@@ -551,8 +507,8 @@ export default function WhatsAppCloudDashboard() {
                 {isMobile ? activeLabel : 'WhatsApp Business Hub'}
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
-                {/* Cloud API status chip (only relevant for Meta tab) */}
-                {mainTab === 'meta' && (
+                {/* Cloud API status chip — only where a connected number matters */}
+                {(mainTab === 'messaging' || mainTab === 'automation') && (
                   <Chip
                     color={connectionChipColor}
                     size="small"
@@ -631,13 +587,13 @@ export default function WhatsAppCloudDashboard() {
             onChange={(_, v) => setMainTab(v)}
             sx={{ height: 66, '& .MuiBottomNavigationAction-root': { minWidth: 0 }, '& .MuiBottomNavigationAction-label': { fontSize: '0.68rem' } }}
           >
-            {visibleMainTabs.map(item => (
+            {MAIN_TABS.map(item => (
               <BottomNavigationAction
                 key={item.key}
                 value={item.key}
                 label={item.label}
                 icon={
-                  item.key === 'meta'
+                  item.key === 'messaging' && isAccountConnected
                     ? <Badge color="success" variant="dot">{item.icon}</Badge>
                     : item.icon
                 }
@@ -680,12 +636,6 @@ export default function WhatsAppCloudDashboard() {
           <ListItemIcon><SettingsRoundedIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary="Connect manually" />
         </MenuItem>
-        {!isAdminUser && (
-          <MenuItem onClick={() => { setProviderDialogOpen(true); setMobileMenuAnchorEl(null); }}>
-            <ListItemIcon><SwapHorizRoundedIcon fontSize="small" /></ListItemIcon>
-            <ListItemText primary="WhatsApp provider" />
-          </MenuItem>
-        )}
         {whatsappAccount?.id && (
           <MenuItem onClick={() => { handleReconnect(); setMobileMenuAnchorEl(null); }}>
             <ListItemIcon><RefreshRoundedIcon fontSize="small" /></ListItemIcon>
@@ -699,11 +649,11 @@ export default function WhatsAppCloudDashboard() {
           </MenuItem>
         )}
         <Divider />
-        <MenuItem onClick={() => { setMainTab('meta'); setSubTab('settings'); setMobileMenuAnchorEl(null); }}>
+        <MenuItem onClick={() => { setMainTab('settings'); setMobileMenuAnchorEl(null); }}>
           <ListItemIcon><SettingsRoundedIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary="Settings" />
         </MenuItem>
-        <MenuItem onClick={() => { setMainTab('meta'); setSubTab('analytics'); setMobileMenuAnchorEl(null); }}>
+        <MenuItem onClick={() => { setMainTab('insights'); setMobileMenuAnchorEl(null); }}>
           <ListItemIcon><QueryStatsRoundedIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary="Analytics" />
         </MenuItem>

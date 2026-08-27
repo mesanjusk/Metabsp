@@ -12,6 +12,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SUPPORT_EMAIL } from '@/lib/config/publicSite';
 
 const NAV_LINKS = [
   { label: 'Home', to: '/' },
@@ -192,7 +193,7 @@ export default function PublicLayout({ children }) {
               © {new Date().getFullYear()} MetaBSP. All rights reserved.
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              support@meta.sanjusk.in
+              {SUPPORT_EMAIL}
             </Typography>
           </Box>
         </Container>

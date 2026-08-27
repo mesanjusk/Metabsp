@@ -17,6 +17,7 @@ import MessageIcon from '@mui/icons-material/Message';
 import BusinessIcon from '@mui/icons-material/Business';
 import LoginIcon from '@mui/icons-material/Login';
 import { motion } from 'framer-motion';
+import { PUBLIC_APP_URL, REVIEW_EMAIL } from '@/lib/config/publicSite';
 
 const WEBHOOK_PAYLOAD = `{
   "object": "whatsapp_business_account",
@@ -61,7 +62,7 @@ const CHECKLIST_ITEMS = [
 // Meta's reviewers read the "Web reviewer instructions" field of the App Review
 // submission, not this page — keep the two in sync, and treat this page as the
 // supporting detail rather than the primary channel.
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://meta.sanjusk.in';
+const APP_URL = PUBLIC_APP_URL;
 const REVIEWER_LOGIN = process.env.NEXT_PUBLIC_REVIEWER_LOGIN || '';
 const REVIEWER_PASSWORD = process.env.NEXT_PUBLIC_REVIEWER_PASSWORD || '';
 const REVIEWER_TEST_NUMBER = process.env.NEXT_PUBLIC_REVIEWER_TEST_NUMBER || '';
@@ -497,8 +498,8 @@ export default function MetaAppReviewPage() {
           <Divider sx={{ mb: 4 }} />
           <Typography variant="body1" color="text.secondary" align="center">
             For questions about this App Review submission, contact us at{' '}
-            <Box component="a" href="mailto:review@meta.sanjusk.in" sx={{ color: 'primary.main', fontWeight: 600 }}>
-              review@meta.sanjusk.in
+            <Box component="a" href={`mailto:${REVIEW_EMAIL}`} sx={{ color: 'primary.main', fontWeight: 600 }}>
+              {REVIEW_EMAIL}
             </Box>
           </Typography>
         </motion.div>

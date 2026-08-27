@@ -4,6 +4,7 @@ import React from 'react';
 import { Container, Typography, Box, Paper, Divider, Link } from '@mui/material';
 import { motion } from 'framer-motion';
 import NextLink from 'next/link';
+import { LEGAL_LAST_UPDATED, PLATFORM_DESCRIPTION, PRIVACY_EMAIL, SUPPORT_EMAIL } from '@/lib/config/publicSite';
 const Section = ({ title, children }) => (
   <Box sx={{ mb: 4 }}>
     <Typography variant="h5" fontWeight={700} sx={{ mb: 1.5, color: 'text.primary' }}>{title}</Typography>
@@ -34,12 +35,12 @@ export default function PrivacyPolicyPage() {
         <Container maxWidth="md">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <Typography variant="h3" fontWeight={800} sx={{ mb: 2 }}>Privacy Policy</Typography>
-            <Typography variant="body1" color="text.secondary">Last updated: June 2025</Typography>
+            <Typography variant="body1" color="text.secondary">Last updated: {LEGAL_LAST_UPDATED}</Typography>
           </Box>
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Para>
-              MetaBSP ("we," "us," or "our") is a WhatsApp Business Solution Provider authorized by Meta Platforms, Inc. This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our platform, including our website and API services.
+              MetaBSP (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) is {PLATFORM_DESCRIPTION}. This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our platform, including our website and API services.
             </Para>
 
             <Divider sx={{ my: 4 }} />
@@ -162,7 +163,7 @@ export default function PrivacyPolicyPage() {
                 'Right to opt-out of the sale of personal information (we do not sell personal information)',
                 'Right to non-discrimination for exercising your rights',
               ]} />
-              <Para>To exercise these rights, contact us at privacy@meta.sanjusk.in or submit a request through our data deletion page.</Para>
+              <Para>To exercise these rights, contact us at {PRIVACY_EMAIL} or submit a request through our data deletion page.</Para>
             </Section>
 
             <Section title="8. How to Delete Your Data">
@@ -184,7 +185,7 @@ export default function PrivacyPolicyPage() {
               <BulletList items={[
                 'Navigating to Meta Business Suite → Business Settings → Connected Apps and removing MetaBSP',
                 'Visiting Facebook Settings → Business Integrations and removing the MetaBSP integration',
-                'Contacting our support team at support@meta.sanjusk.in to initiate immediate access revocation',
+                'Contacting our support team at {SUPPORT_EMAIL} to initiate immediate access revocation',
                 'Deleting your MetaBSP account through the Account Settings page',
               ]} />
               <Para>Upon revocation, we will cease processing any new WhatsApp data within 24 hours and will retain historical data per our retention schedule unless a deletion request is submitted.</Para>
@@ -208,7 +209,7 @@ export default function PrivacyPolicyPage() {
             <Section title="13. Contact Us">
               <Para>For privacy-related inquiries, please contact our Data Protection Officer:</Para>
               <BulletList items={[
-                'Email: privacy@meta.sanjusk.in',
+                'Email: {PRIVACY_EMAIL}',
                 'Subject line: Privacy Inquiry – [Your Name/Company]',
                 'Response time: Within 72 hours for routine inquiries, 30 days for formal GDPR/CCPA requests',
               ]} />

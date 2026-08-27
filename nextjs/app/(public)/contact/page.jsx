@@ -14,6 +14,7 @@ import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import SendIcon from '@mui/icons-material/Send';
 import NextLink from 'next/link';
 import { motion } from 'framer-motion';
+import { PRIVACY_EMAIL, SALES_EMAIL, SECURITY_EMAIL, SUPPORT_EMAIL } from '@/lib/config/publicSite';
 
 const SUBJECTS = [
   { value: 'general', label: 'General Inquiry' },
@@ -91,26 +92,26 @@ export default function ContactPage() {
                   <ContactInfo
                     icon={<EmailIcon />}
                     label="General Support"
-                    value="support@meta.sanjusk.in"
-                    href="mailto:support@meta.sanjusk.in"
+                    value={SUPPORT_EMAIL}
+                    href={`mailto:${SUPPORT_EMAIL}`}
                   />
                   <ContactInfo
                     icon={<SupportAgentIcon />}
                     label="Sales Inquiries"
-                    value="sales@meta.sanjusk.in"
-                    href="mailto:sales@meta.sanjusk.in"
+                    value={SALES_EMAIL}
+                    href={`mailto:${SALES_EMAIL}`}
                   />
                   <ContactInfo
                     icon={<EmailIcon />}
                     label="Security Issues"
-                    value="security@meta.sanjusk.in"
-                    href="mailto:security@meta.sanjusk.in"
+                    value={SECURITY_EMAIL}
+                    href={`mailto:${SECURITY_EMAIL}`}
                   />
                   <ContactInfo
                     icon={<EmailIcon />}
                     label="Privacy Requests"
-                    value="privacy@meta.sanjusk.in"
-                    href="mailto:privacy@meta.sanjusk.in"
+                    value={PRIVACY_EMAIL}
+                    href={`mailto:${PRIVACY_EMAIL}`}
                   />
                 </Box>
 
