@@ -45,4 +45,4 @@ If a broadcast reports failures for specific recipients, check each failed resul
 "Cloud API broadcasts send templates to many recipients at once, queued individually with retry, and report back per-recipient results — the right tool for reaching a list without waiting on the 24-hour window."
 
 ## 10. Call to Action & Related Resources
-Continue to **09 — Connecting and Managing Additional WhatsApp Numbers**. Related reading: `docs/api/SDK_EXAMPLES.md`, `docs/meta-tech-provider/APP_REVIEW.md` (for why the WhatsApp Cloud API-based Campaigns feature is treated differently).
+Continue to **09 — Connecting and Managing Additional WhatsApp Numbers**. Related reading: `docs/api/SDK_EXAMPLES.md`, `docs/meta-tech-provider/SUBMISSION.md` (for why the legacy Campaigns endpoint now returns `501` and points here instead).

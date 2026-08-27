@@ -1,9 +1,10 @@
 # Metabsp → Next.js 15 / Vercel Migration — Audit & Plan (Phase 1 & 2)
 
-> **Superseded on the Baileys question.** The unofficial WhatsApp Web
-> transport described below has since been removed entirely — see
-> [`docs/BAILEYS_REMOVAL.md`](./BAILEYS_REMOVAL.md). This document is
-> retained as a point-in-time record and is not updated.
+> **Point-in-time record, not current status.** Kept because a dozen source
+> comments under `nextjs/` cite it by section for engineering rationale. The
+> unofficial WhatsApp Web transport it discusses has since been removed
+> entirely. For current App Review status see
+> [`meta-tech-provider/SUBMISSION.md`](./meta-tech-provider/SUBMISSION.md).
 
 **Date:** 2026-07-28
 **Status:** Pre-implementation checkpoint. **No functional code has been changed to produce this document.** Per the "zero-loss migration" mandate, this report must be reviewed and the architecture decision below confirmed before any Phase 3+ (actual code) work begins.
@@ -167,7 +168,7 @@ The full cross-referenced table (backend + frontend, every variable's purpose/co
 
 **Backend** — categorized in full in the underlying audit. Headline: `express`, `helmet`, `express-rate-limit`, `multer`, `swagger-ui-express` all need Next.js-native replacements (Route Handlers, `next.config.js` headers, a Next.js-compatible rate-limit approach, Web `Request`/`FormData` for uploads, a Next.js-compatible OpenAPI UI). `@whiskeysockets/baileys`, `bullmq` (Worker side), `socket.io`+`@socket.io/redis-adapter` all "need architectural rework" per AS-1 (stay on the always-on host, don't try to port into Vercel functions). Everything else (`@anthropic-ai/sdk`, `axios`, `bcryptjs`, `cloudinary`, `ioredis`, `jsonwebtoken`, `mongoose`, `pdfkit`, `pino`, `qrcode` (tied to Baileys' fate)) is a clean keep.
 
-**Frontend** — `react-router-dom` is the single biggest migration item (full rewrite of the routing layer onto Next.js App Router file-based routing, not a swap). `vite`/`vitest`-the-build-tool goes away entirely (Next.js's own bundler). **~15 packages have zero imports anywhere and are strong candidates to drop rather than carry forward**: `bootstrap`+`react-bootstrap`, `reactflow`+`react-flow-renderer` (both, including the deprecated one), `react-hot-toast`+`react-toastify` (both), `react-easy-crop`, `react-select`, `react-icons`, `lucide-react`, `react-pdf`, `react-loading-skeleton`, `react-floating-action-button`, `date-fns`, `file-saver`, `react-to-print`, `react-qr-code`. `prop-types` must be added as an explicit direct dependency (currently an undeclared phantom dependency riding on some other package's transitive install — see §1.1). `xlsx` (SheetJS) is separately flagged in the project's own `PRODUCTION_CHECKLIST.md` as having no upstream npm fix for known CVEs as of that writing — re-verify current status before shipping the new app, don't assume it's resolved.
+**Frontend** — `react-router-dom` is the single biggest migration item (full rewrite of the routing layer onto Next.js App Router file-based routing, not a swap). `vite`/`vitest`-the-build-tool goes away entirely (Next.js's own bundler). **~15 packages have zero imports anywhere and are strong candidates to drop rather than carry forward**: `bootstrap`+`react-bootstrap`, `reactflow`+`react-flow-renderer` (both, including the deprecated one), `react-hot-toast`+`react-toastify` (both), `react-easy-crop`, `react-select`, `react-icons`, `lucide-react`, `react-pdf`, `react-loading-skeleton`, `react-floating-action-button`, `date-fns`, `file-saver`, `react-to-print`, `react-qr-code`. `prop-types` must be added as an explicit direct dependency (currently an undeclared phantom dependency riding on some other package's transitive install — see §1.1). `xlsx` (SheetJS) has since been removed outright — it had two unfixed high advisories and no patched release on npm. Spreadsheet import runs on `exceljs`, loaded dynamically; see `docs/meta-tech-provider/SUBMISSION.md`.
 
 ### 1.11 Performance / dead code findings
 

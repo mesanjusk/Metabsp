@@ -55,7 +55,7 @@ billing period against the actual `Message` collection — this is a real,
 auditable count, not an estimate. If the dispute is about the **payment**
 itself (double charge, failed UPI mandate), escalate to engineering — the
 Cashfree integration is flagged unverified against live docs
-(`ACCESS_TOKENS.md`/`PRODUCTION_CHECKLIST.md`) and payment disputes should
+(`ACCESS_TOKENS.md`/`SUBMISSION.md`) and payment disputes should
 get engineering eyes rather than a first-line resolution.
 
 ## Escalation checklist for engineering

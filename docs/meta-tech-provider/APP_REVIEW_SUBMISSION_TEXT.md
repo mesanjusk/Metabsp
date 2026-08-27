@@ -116,32 +116,49 @@ in its own submission.)
 
 ## Web reviewer instructions
 
-**This is the field that matters most.** Fill the bracketed values in with a
-real, working account before submitting, and test it yourself in a private
-browser window first.
+**This is the field that matters most.** The 2026-07-13 submission said no
+credentials were required. They are: the WhatsApp dashboard is behind
+`CloudProtectedRoute`, `/connect/config` and `/connect/complete` are
+`requireAuth`, and signup needs a WhatsApp-delivered OTP — so a reviewer could
+not reach the Embedded Signup button at all. That is almost certainly why it
+stalled.
+
+Create the account first:
+
+```
+REVIEWER_LOGIN=meta_reviewer \
+REVIEWER_PASSWORD=<a strong password you generate> \
+REVIEWER_CONTACT_EMAIL=<your support address> \
+PUBLIC_APP_URL=https://<your app domain> \
+npm run seed-reviewer --workspace=backend
+```
+
+It prints the block below with your real values filled in. Paste that output —
+not this template — into App Review → Testing Instructions.
 
 > The WhatsApp features in this app are behind a login, so credentials are
-> required. Please use the reviewer account below — self-registration is not
-> possible, because signup requires a one-time code delivered over WhatsApp.
+> required. Self-registration is not possible: signup requires a one-time code
+> delivered over WhatsApp.
 >
-> Application URL: [YOUR APP URL]
-> Mobile / Username: [REVIEWER LOGIN]
-> Password: [REVIEWER PASSWORD]
+> Application URL: {PUBLIC_APP_URL}/login
+> User Name: {REVIEWER_LOGIN}
+> Password: {REVIEWER_PASSWORD}
 >
-> Note: the login form's first field is labelled "Mobile / Username" and
-> expects the value above — it is not an email address.
+> The login form asks for "User Name" and "Password". Enter the values above
+> exactly — the first field is not an email address or a phone number.
 >
 > Steps to review each requested permission:
 >
-> 1. Sign in with the credentials above.
-> 2. Open "WhatsApp" from the left sidebar.
+> 1. Sign in with the credentials above. You land on the WhatsApp dashboard
+>    at /whatsapp.
+> 2. The "Meta" tab is selected by default.
 > 3. Click "Connect with Meta" to launch Meta's Embedded Signup popup. Sign in
 >    with a Facebook account that has a WhatsApp Business Account and grant the
 >    requested permissions. On completion the app exchanges the authorization
 >    code for a token, reads the phone number's details, and subscribes itself
 >    to the WABA's webhooks — all `whatsapp_business_management`.
-> 4. To see `business_management`: on the same page choose "Connect manually"
->    and supply an existing access token. The app reads
+> 4. To see `business_management`: choose "Connect manually" instead and supply
+>    an existing access token. The app reads
 >    `owned_whatsapp_business_accounts` on the supplied business to confirm the
 >    WABA genuinely belongs to it before storing anything.
 > 5. Open the "Templates" tab to see template listing and creation
@@ -149,27 +166,34 @@ browser window first.
 > 6. Open the "Chats" tab and send a message to a number that has messaged the
 >    business (`whatsapp_business_messaging`). Inbound messages and delivery
 >    statuses appear in the same view as they arrive over our webhook.
-> 7. A supporting walkthrough, including this same flow, is at
->    [YOUR APP URL]/meta-app-review.
 >
 > If the reviewer account stops working at any point, please contact
-> [YOUR REVIEW CONTACT EMAIL] and we will restore access immediately.
+> {REVIEWER_CONTACT_EMAIL} and we will restore access immediately.
+
+Every label above is the one actually rendered: the login field is **"User
+Name"** (an earlier draft said "Mobile / Username", which is the *other* login
+page at `/bulk-login` — a reviewer following that instruction on `/login` would
+have been looking for a field that is not there, and login matches on
+`username` only, so a phone number would not have worked either).
 
 ### Creating the reviewer account
 
-Nothing in this repository seeds one. Because signup requires a WhatsApp OTP,
-create it directly:
+`npm run seed-reviewer --workspace=backend` creates it. The script builds
+exactly what `POST /api/users/signup/verify` builds — same global role, same
+`tenantId: null` — so the reviewer's session is indistinguishable from an
+ordinary one. There is no review-only bypass, no elevated role, and no code
+path that behaves differently for this user.
 
-- Sign up through the normal flow using a mobile number you control and can
-  receive WhatsApp on, then set a known password; **or**
-- Insert the user directly in MongoDB with a bcrypt-hashed password, matching
-  the `username` / `mobile` / `password` shape in `backend/bulk/models/User.js`.
+Re-running it resets the password and re-activates the account, so a reviewer
+locked out mid-review can be let back in with one command.
 
-Then set `VITE_REVIEWER_LOGIN`, `VITE_REVIEWER_PASSWORD` and
-`VITE_PUBLIC_APP_URL` in Vercel so `/meta-app-review` shows the same values.
-They are read from the environment rather than committed, because this
-repository is public and a working login in git is a credential leak.
+There are no default credentials, and none are committed: this repository is
+public, and a working login in git is a credential leak. Set
+`VITE_REVIEWER_LOGIN`, `VITE_REVIEWER_PASSWORD` and `VITE_PUBLIC_APP_URL` in
+Vercel if you want `/meta-app-review` to display the same values.
 
-**Verify before submitting**: open a private browser window, go to the app URL,
-sign in with exactly those credentials, and reach the "Connect with Meta"
-button. If you cannot, neither can the reviewer.
+**Verify before submitting.** `npm run submission-check --workspace=backend`
+confirms the account exists and is active. It cannot confirm the password
+works, so also open a private browser window, sign in with exactly those
+credentials, and reach the "Connect with Meta" button. If you cannot, neither
+can the reviewer.

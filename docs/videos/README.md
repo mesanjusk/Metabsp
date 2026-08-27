@@ -11,7 +11,7 @@ codebase — nothing here describes a feature that doesn't actually exist.
 
 Some of these are also referenced directly from
 [`docs/meta-tech-provider/REQUIRED_PERMISSIONS.md`](../meta-tech-provider/REQUIRED_PERMISSIONS.md)
-and [`APP_REVIEW.md`](../meta-tech-provider/APP_REVIEW.md) as the evidence
+and [`SUBMISSION.md`](../meta-tech-provider/SUBMISSION.md) as the evidence
 recordings Meta's App Review reviewers expect for each requested permission —
 see videos 02, 09, 10, and 11 in particular.
 
@@ -77,11 +77,12 @@ them, matching the tone of the rest of `docs/meta-tech-provider/`:
   fully real, but the in-product Security dashboard's Audit Logs tab
   currently displays sample data, not a live query — there is no backend
   endpoint yet serving real rows to that screen.
-- **Video 08** (broadcasts): explicitly distinguishes the official Cloud API
-  broadcast feature from the separate WhatsApp Cloud API-based "Campaigns" feature,
-  which `docs/meta-tech-provider/APP_REVIEW.md` flags as a Platform Terms
-  risk — no video in this series treats Campaigns as a recommended feature
-  to build a customer-facing walkthrough around.
+- **Video 08** (broadcasts): covers the Cloud API broadcast feature. It is the
+  only broadcast path that exists now — `POST /campaigns/:id/send` returns
+  `501` pointing at `POST /api/whatsapp/broadcast`, because free-form blasts
+  to a recipient list were only ever possible on the unofficial transport that
+  has since been removed. No video treats Campaigns as a feature to build a
+  customer-facing walkthrough around.
 
 ## Skipped topics
 

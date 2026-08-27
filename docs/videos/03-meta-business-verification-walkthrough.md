@@ -43,4 +43,4 @@ There is no in-app fix for a rejected verification — it's entirely Meta's proc
 "Business Verification unlocks higher messaging limits and is a prerequisite for App Review. It's Meta's process, not ours — get your documents aligned before you start the clock."
 
 ## 10. Call to Action & Related Resources
-Continue to **04 — Manual Connect with an Existing Token** or, if you're preparing for App Review, see `docs/meta-tech-provider/APP_REVIEW.md`. Related reading: `docs/meta-tech-provider/BUSINESS_VERIFICATION.md`.
+Continue to **04 — Manual Connect with an Existing Token** or, if you're preparing for App Review, see `docs/meta-tech-provider/SUBMISSION.md`. Related reading: `docs/meta-tech-provider/BUSINESS_VERIFICATION.md`.

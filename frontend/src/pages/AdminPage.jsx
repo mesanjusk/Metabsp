@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import * as XLSX from 'xlsx';
 import {
   Alert,
   Box,
@@ -21,6 +20,7 @@ import {
   Typography,
 } from '@mui/material';
 import ResponsiveDialog from '../components/ResponsiveDialog';
+import { parseTabularFile } from '../utils/importParsers';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -150,10 +150,7 @@ function UsersTab({ roles, users, reload, title, subtitle, fixedDutyType = null,
     setBulkError('');
     setBulkMessage('');
     try {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      const rows = await parseTabularFile(file);
       const normalized = rows.map((row) => ({
         name: row.name || row.Name || row.fullName || row['Full Name'] || '',
         username: row.username || row.Username || '',
@@ -205,7 +202,7 @@ function UsersTab({ roles, users, reload, title, subtitle, fixedDutyType = null,
                   </TextField>
                   <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
                     Bulk Excel
-                    <input hidden type="file" accept=".xlsx,.xls,.csv" onChange={handleGuestFile} />
+                    <input hidden type="file" accept=".csv,.xlsx" onChange={handleGuestFile} />
                   </Button>
                 </>
               ) : null}

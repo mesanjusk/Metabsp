@@ -176,7 +176,7 @@ export default function BulkSender({ standalone, search }) {
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} alignItems={{ md: 'center' }}>
           <Button component="label" variant="outlined" startIcon={<UploadFileRoundedIcon />} sx={{ width: 'fit-content' }}>
             Import CSV / Excel
-            <input type="file" accept=".csv,.xlsx,.xls" hidden onChange={handleFileUpload} />
+            <input type="file" accept=".csv,.xlsx" hidden onChange={handleFileUpload} />
           </Button>
           <Chip label={`Saved contacts: ${contacts.length}`} size="small" />
         </Stack>

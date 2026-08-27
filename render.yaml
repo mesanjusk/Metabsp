@@ -39,15 +39,18 @@ services:
         sync: false
       # Coexistence (WhatsApp Business app + Cloud API on one number).
       # The `history`, `smb_message_echoes` and `smb_app_state_sync` webhook
-      # fields are subscribed in the Meta App Dashboard, and the boot-time
-      # pre-flight check re-verifies that every restart — the live boot log
-      # reads "coexistence_gating: Coexistence is enabled and its webhook
-      # fields are subscribed".
-      # Enabled in the dashboard, so recorded as enabled here. The remaining
-      # gate in COEXISTENCE.md is a real end-to-end onboarding run against a
-      # live WhatsApp Business app number, not a config change.
+      # fields ARE subscribed in the Meta App Dashboard, and the boot-time
+      # pre-flight check re-verifies that on every restart.
+      #
+      # Off anyway, deliberately, until App Review is approved. Subscribed
+      # fields prove the plumbing exists; they do not prove the path works,
+      # and no coexistence onboarding has been run end to end against a live
+      # WhatsApp Business app number. Leaving it on would let a Meta reviewer
+      # walk into that unproven branch of Embedded Signup — a path we cannot
+      # demonstrate and would be judged on. Flip to "true" after one real
+      # onboarding succeeds; see COEXISTENCE.md.
       - key: META_ENABLE_COEXISTENCE
-        value: "true"
+        value: "false"
       # Social sign-in — optional and additive; each provider stays hidden on
       # the login page until configured. Facebook falls back to META_APP_ID /
       # META_APP_SECRET above when these are unset.
@@ -167,8 +170,9 @@ services:
       - key: META_ES_VERSION
         value: v4
       # Must match the Express service — both halves answer the same webhook.
+      # Off until one real coexistence onboarding has been run; see above.
       - key: META_ENABLE_COEXISTENCE
-        value: "true"
+        value: "false"
       - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
         sync: false
       - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE

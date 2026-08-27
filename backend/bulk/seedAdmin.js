@@ -62,5 +62,6 @@ async function seedAdmin() {
 }
 
 module.exports = seedAdmin;
+module.exports.seedGlobalRoles = seedGlobalRoles;
 module.exports.METABSP_ADMIN_ROLE_CODE = METABSP_ADMIN_ROLE_CODE;
 module.exports.METABSP_USER_ROLE_CODE = METABSP_USER_ROLE_CODE;

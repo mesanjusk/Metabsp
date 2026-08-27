@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
 import {
   Box, Button, Card, CardContent, Chip, Grid,
   MenuItem, Stack, Tab, Tabs, TextField, Typography,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import apiClient from '../../apiClient';
+import { parseTabularFile } from '../../utils/importParsers';
 import { uploadToCloudinary } from '../../services/whatsappCloudService';
 
 const normalizePhone = (v) => {
@@ -75,6 +75,7 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
   const [saving,         setSaving]          = useState(false);
   const [savedId,        setSavedId]         = useState(null);
   const [fileName,       setFileName]        = useState('');
+  const [fileError,      setFileError]       = useState('');
   const [imageLoaded,    setImageLoaded]     = useState(false);
   const [imageError,     setImageError]      = useState('');
   const [subTab,         setSubTab]          = useState('pending');
@@ -133,14 +134,21 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setFileName(file.name);
-    const buffer   = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    const rows     = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
-    setRecipients(parseRowsToRecipients(rows).map(r => ({ ...r, checked: true })));
-    setSentSet(new Set());
-    setSavedId(null);
-    setSubTab('pending');
+    setFileError('');
+    try {
+      const rows = await parseTabularFile(file);
+      setFileName(file.name);
+      setRecipients(parseRowsToRecipients(rows).map(r => ({ ...r, checked: true })));
+      setSentSet(new Set());
+      setSavedId(null);
+      setSubTab('pending');
+    } catch (error) {
+      setFileName('');
+      setRecipients([]);
+      setFileError(error.message);
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const buildWaUrl = (name, mobile) => {
@@ -242,9 +250,10 @@ export default function ManualInvitePanel({ initialRecipients = null, onCrmRecip
               <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>
                   Upload Excel / CSV
-                  <input type="file" hidden accept=".xlsx,.xls,.csv" onChange={handleFileUpload} />
+                  <input type="file" hidden accept=".csv,.xlsx" onChange={handleFileUpload} />
                 </Button>
                 {fileName && <Typography variant="body2" color="text.secondary">{fileName} ({recipients.length} rows)</Typography>}
+                {fileError && <Typography variant="body2" color="error">{fileError}</Typography>}
               </Stack>
             )}
           </Grid>

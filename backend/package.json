@@ -9,6 +9,8 @@
     "dev": "nodemon src/index.js",
     "worker": "node src/worker.js",
     "seed-admin": "node bulk/seedAdmin.js",
+    "seed-reviewer": "node scripts/seed-reviewer.js",
+    "submission-check": "node scripts/submission-check.js",
     "seed-billing-plans": "node scripts/seed-billing-plans.js",
     "migrate-users": "node bulk/scripts/migrateMetabspUsers.js",
     "migrate-whatsapp-uniqueness": "node scripts/migrate-whatsapp-account-uniqueness.js",

@@ -1,4 +1,17 @@
-import * as XLSX from 'xlsx';
+// Spreadsheet import used to run on `xlsx` (SheetJS), which carries two
+// unfixed advisories — prototype pollution and a ReDoS — with no patched
+// release on npm, on a direct production dependency that parses files an
+// end user uploads. That is the worst combination available, so the reader
+// is ExcelJS now.
+//
+// One capability was lost with it, deliberately: ExcelJS reads the modern
+// OOXML `.xlsx` format but not the legacy BIFF `.xls` one. Rather than
+// silently returning an empty sheet for a `.xls` upload, parseTabularFile
+// rejects it with an instruction the user can act on. Every caller surfaces
+// the message.
+//
+// ExcelJS itself is imported dynamically inside parseTabularFile, so it stays
+// out of the entry bundle.
 
 const normalizeKey = (value) =>
   String(value || '')
@@ -7,20 +20,135 @@ const normalizeKey = (value) =>
 
 const digitsOnly = (value) => String(value || '').replace(/\D/g, '');
 
-export const parseTabularFile = async (file) => {
-  const extension = String(file?.name || '').split('.').pop()?.toLowerCase();
+const extensionOf = (name) => String(name || '').split('.').pop()?.toLowerCase() || '';
 
-  if (extension === 'csv') {
-    const text = await file.text();
-    const workbook = XLSX.read(text, { type: 'string' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    return XLSX.utils.sheet_to_json(sheet, { defval: '' });
+export class UnsupportedSpreadsheetError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'UnsupportedSpreadsheetError';
+  }
+}
+
+/**
+ * RFC 4180 CSV: comma-separated, `"` quoting, `""` for a literal quote inside
+ * a quoted field, and newlines allowed inside quotes. Hand-rolled because the
+ * alternative is another parsing dependency for eleven lines of state machine.
+ */
+export const parseCsv = (text) => {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let quoted = false;
+
+  const endField = () => {
+    row.push(field);
+    field = '';
+  };
+  const endRow = () => {
+    endField();
+    // A trailing newline produces one empty final row; drop it rather than
+    // emitting a record of empty strings.
+    if (row.length > 1 || row[0] !== '') rows.push(row);
+    row = [];
+  };
+
+  const source = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  for (let i = 0; i < source.length; i += 1) {
+    const char = source[i];
+
+    if (quoted) {
+      if (char === '"') {
+        if (source[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          quoted = false;
+        }
+      } else {
+        field += char;
+      }
+      continue;
+    }
+
+    if (char === '"') quoted = true;
+    else if (char === ',') endField();
+    else if (char === '\n') endRow();
+    else field += char;
   }
 
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: 'array' });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  if (field !== '' || row.length) endRow();
+
+  return rows;
+};
+
+/**
+ * Header row → array of objects, matching what `XLSX.utils.sheet_to_json(…,
+ * { defval: '' })` produced: missing cells become '', and a row whose cells
+ * are all empty is skipped.
+ */
+const rowsToObjects = (rows) => {
+  if (!rows.length) return [];
+
+  const headers = rows[0].map((h) => String(h ?? '').trim());
+
+  return rows
+    .slice(1)
+    .filter((cells) => cells.some((cell) => String(cell ?? '').trim() !== ''))
+    .map((cells) =>
+      Object.fromEntries(
+        headers.map((header, index) => [header, cells[index] === undefined || cells[index] === null ? '' : cells[index]])
+      )
+    );
+};
+
+// ExcelJS hands back rich objects for some cell types. Flatten them to what a
+// caller expects to compare and trim: a formula cell yields its computed
+// result, a hyperlink or rich-text cell its visible text, a date its ISO form.
+const cellValue = (value) => {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value !== 'object') return value;
+  if ('result' in value) return cellValue(value.result);
+  if ('text' in value) return cellValue(value.text);
+  if (Array.isArray(value.richText)) return value.richText.map((part) => part.text).join('');
+  if ('hyperlink' in value) return value.hyperlink;
+  if ('error' in value) return '';
+  return String(value);
+};
+
+export const parseTabularFile = async (file) => {
+  const extension = extensionOf(file?.name);
+
+  if (extension === 'xls') {
+    throw new UnsupportedSpreadsheetError(
+      'Legacy .xls files are not supported. Open the file and re-save it as .xlsx (or export it as CSV), then upload again.'
+    );
+  }
+
+  if (extension === 'csv' || extension === 'txt') {
+    return rowsToObjects(parseCsv(await file.text()));
+  }
+
+  // Loaded on demand. ExcelJS is ~600 kB minified; importing it at module
+  // scope put all of it in the entry chunk, which every dashboard visitor
+  // downloads whether or not they ever import a spreadsheet.
+  const { default: ExcelJS } = await import('exceljs');
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await file.arrayBuffer());
+
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return [];
+
+  const rows = [];
+  sheet.eachRow({ includeEmpty: false }, (row) => {
+    // `row.values` is 1-indexed with a leading hole, hence the slice.
+    const cells = Array.isArray(row.values) ? row.values.slice(1) : [];
+    rows.push(cells.map(cellValue));
+  });
+
+  return rowsToObjects(rows);
 };
 
 export const parseContactsFromRows = (rows = []) =>

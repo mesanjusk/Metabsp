@@ -24,7 +24,7 @@ API replicas no longer means N duplicate runs of each — see
 [HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) for the mechanism. The one
 remaining caveat: if a specific organization has WhatsApp Cloud API (bulk-invite/
 WhatsApp-Web) explicitly enabled for it (off by default for every org — see
-`docs/meta-tech-provider/APP_REVIEW.md`), that organization's in-memory
+`docs/meta-tech-provider/SUBMISSION.md`), that organization's in-memory
 WhatsApp-Web session still has no cross-replica coordination — read
 [HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) before scaling API replicas
 above 1 in a deployment where any organization has that flag on.

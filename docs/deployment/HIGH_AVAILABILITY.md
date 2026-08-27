@@ -73,7 +73,7 @@ replica risked reconnect storms and session invalidation, so the deployment
 could not scale horizontally while that feature was in use.
 
 **That transport has been removed entirely** (see
-[`../BAILEYS_REMOVAL.md`](../BAILEYS_REMOVAL.md)). The Cloud API is stateless
+[`../meta-tech-provider/SUBMISSION.md`](../meta-tech-provider/SUBMISSION.md)). The Cloud API is stateless
 HTTP — every replica can serve every tenant, and nothing in the messaging path
 pins a user to a process. The constraint is gone, not merely gated: the API
 tier now scales exactly as described in the "Multi-AZ" section above, with no

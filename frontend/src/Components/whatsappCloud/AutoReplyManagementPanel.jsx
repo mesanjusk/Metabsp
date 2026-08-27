@@ -190,7 +190,7 @@ export default function AutoReplyManagementPanel({ search }) {
                 <TextField multiline rows={2} label="Menu Intro" value={formData.menuIntro} onChange={(event) => setFormData((prev) => ({ ...prev, menuIntro: event.target.value }))} />
                 <Button component="label" variant="outlined" sx={{ width: 'fit-content' }}>
                   Upload price list (CSV / Excel)
-                  <input type="file" accept=".csv,.xlsx,.xls" hidden onChange={handleCatalogUpload} />
+                  <input type="file" accept=".csv,.xlsx" hidden onChange={handleCatalogUpload} />
                 </Button>
                 {formData.catalogSummary ? <Typography variant="body2">{formData.catalogSummary}</Typography> : null}
               </>
