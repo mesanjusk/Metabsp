@@ -3,11 +3,11 @@ import logger from '../utils/logger';
 
 // Ported from backend/src/config/redis.js — same singleton pattern, cached
 // on `global` for the same HMR/cold-start-reuse reason as lib/db/mongo.ts.
-// This Redis instance MUST be the same one the always-on backend/ host uses
-// (same REDIS_URL) — it's how the BullMQ producer here and the unchanged
-// BullMQ Worker there share the same queue, and how any Socket.IO emits
-// from here (see lib/socket/emitter.ts) reach the always-on host's
-// Socket.IO server via its Redis adapter.
+//
+// Redis carries the BullMQ send queue (producer in route handlers, consumer in
+// the worker started from instrumentation.ts) and the per-tick leader lock the
+// schedulers take. Both halves now live in this one process, so this is the
+// only Redis client the app opens.
 declare global {
   // eslint-disable-next-line no-var
   var __metabspRedisConnection: IORedis | Cluster | undefined;

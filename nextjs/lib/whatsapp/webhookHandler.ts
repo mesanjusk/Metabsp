@@ -15,7 +15,7 @@ import { uploadWhatsAppMediaToCloudinary } from '../services/whatsappMediaServic
 import { resolveAutoReplyAction, resolveReplyDelayMs } from '../services/autoReplyService';
 import { resolveMatchingWorkflow } from '../services/workflowService';
 import { saveAndEmitMessage, normalizePhone } from './dispatch';
-import { parseIncoming, deliverToDestinations, resolveInboundRouting } from './webhookProcessing';
+import { parseIncoming } from './webhookProcessing';
 import { extractCoexistenceEvents, processCoexistenceEvents } from './coexistence';
 import { enqueueDelayedReply } from '../queues/whatsappSendQueue';
 
@@ -261,15 +261,6 @@ export async function handleReceiveWebhook(req: NextRequest): Promise<NextRespon
         }
       }
 
-      let routingTargets: any[] = [];
-      if (!isDuplicate && matchedAccount?._id) {
-        try {
-          routingTargets = await resolveInboundRouting(matchedAccount._id, payload);
-        } catch (routingErr: any) {
-          logger.error('[whatsapp] inbound routing failed:', routingErr.message);
-        }
-      }
-
       if (!isDuplicate && payload.type === 'text' && matchedAccount?._id && matchedAccount?.userId) {
         const contactDoc = phone ? await Contact.findOne({ phone }) : null;
 
@@ -323,16 +314,6 @@ export async function handleReceiveWebhook(req: NextRequest): Promise<NextRespon
             delay
           ).catch((err: any) => logger.error('[whatsapp] auto-reply enqueue failed:', err.message));
         }
-      }
-
-      if (!isDuplicate && routingTargets.length) {
-        // Awaited (unlike the original's fire-and-forget) — see the class
-        // doc comment above. Runs in parallel across destinations via
-        // Promise.allSettled inside deliverToDestinations, so worst case is
-        // bounded by one destination's retry chain (~20s), not N of them.
-        await deliverToDestinations(routingTargets, payload).catch((err: any) =>
-          logger.error('[whatsapp] webhook destination forward failed:', err.message)
-        );
       }
 
       if (matchedAccount?._id) {

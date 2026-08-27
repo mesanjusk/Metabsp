@@ -23,14 +23,12 @@ see videos 02, 09, 10, and 11 in particular.
 | 02 | [Connecting WhatsApp with Embedded Signup](./02-embedded-signup-demo.md) | New customer |
 | 03 | [Meta Business Verification Walkthrough](./03-meta-business-verification-walkthrough.md) | New customer / admin |
 | 04 | [Manual Connect with an Existing Token](./04-manual-connect-existing-token.md) | New customer / developer |
-| 05 | [Understanding Roles and the Team Inbox](./05-understanding-roles-and-team-inbox.md) | New customer |
 
 ## Core messaging features
 
 | # | Video | Audience |
 |---|---|---|
 | 06 | [The 24-Hour Customer Service Window Explained](./06-twenty-four-hour-customer-service-window.md) | New customer |
-| 07 | [Shared Team Inbox and Conversation History](./07-shared-team-inbox-and-conversation-history.md) | New customer / support agent |
 | 08 | [Sending a Broadcast with the Cloud API](./08-broadcasts-with-cloud-api.md) | New customer |
 | 09 | [Connecting and Managing Additional WhatsApp Numbers](./09-phone-number-registration.md) | New customer / developer |
 | 10 | [Sending Text and Template Messages](./10-sending-messages.md) | New customer |
@@ -42,7 +40,6 @@ see videos 02, 09, 10, and 11 in particular.
 | # | Video | Audience |
 |---|---|---|
 | 13 | [System User Tokens for Long-Lived Access](./13-system-user-tokens.md) | Admin / developer |
-| 14 | [Setting Up Outbound Webhooks for Your Own Systems](./14-outbound-webhooks-for-your-systems.md) | Developer |
 | 15 | [The External API and API Keys](./15-external-api-and-api-keys.md) | Developer |
 | 16 | [AI Assistant Auto-Reply Setup](./16-ai-assistant-auto-reply.md) | New customer |
 | 17 | [Managing Multiple WhatsApp Numbers](./17-multi-waba-multi-number-management.md) | New customer / developer |

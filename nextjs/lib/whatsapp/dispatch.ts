@@ -2,7 +2,6 @@ import axios from 'axios';
 import AppError from '../utils/AppError';
 import Message from '../models/Message';
 import CampaignMessageStatus from '../models/CampaignMessageStatus';
-import { emitNewMessage } from '../socket/emitter';
 import { validateWhatsAppConfig, classifyWhatsAppApiError } from '../services/whatsappHealthService';
 
 // Ported from backend/src/controllers/whatsappController.js (lines ~1-305):
@@ -58,7 +57,6 @@ export const saveAndEmitMessage = async (payload: any) => {
   }
 
   const savedMessage: any = await Message.create(payload);
-  emitNewMessage(savedMessage.toObject());
   return { message: savedMessage, isDuplicate: false };
 };
 

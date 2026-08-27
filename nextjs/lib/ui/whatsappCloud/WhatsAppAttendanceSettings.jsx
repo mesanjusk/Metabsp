@@ -5,10 +5,8 @@ import { Alert, Box, Button, Paper, Stack, Switch, TextField, Typography, FormCo
 import PropTypes from 'prop-types';
 import apiClient from '@/lib/api/client';
 import { parseApiError } from '@/lib/api/parseApiError';
-import WebhookDestinationsPanel from './WebhookDestinationsPanel';
 import WhatsAppNumbersPanel from './WhatsAppNumbersPanel';
 import BillingPanel from './BillingPanel';
-import TeamManagementPanel from './TeamManagementPanel';
 
 const defaultConfig = {
   analyticsEnabled: true,
@@ -158,17 +156,12 @@ export default function WhatsAppAttendanceSettings({
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <FormControlLabel control={<Switch checked={Boolean(form.analyticsEnabled)} onChange={(e) => setForm((prev) => ({ ...prev, analyticsEnabled: e.target.checked }))} />} label="Enable analytics" />
           <FormControlLabel control={<Switch checked={Boolean(form.autoReplyEnabled)} onChange={(e) => setForm((prev) => ({ ...prev, autoReplyEnabled: e.target.checked }))} />} label="Enable auto reply" />
-          <FormControlLabel control={<Switch checked={Boolean(form.webhookHealthAlerts)} onChange={(e) => setForm((prev) => ({ ...prev, webhookHealthAlerts: e.target.checked }))} />} label="Webhook alerts" />
         </Stack>
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
           <TextField label="Default country code" value={form.defaultCountryCode || ''} onChange={(e) => setForm((prev) => ({ ...prev, defaultCountryCode: e.target.value }))} />
           <TextField label="Timezone" value={form.timezone || ''} onChange={(e) => setForm((prev) => ({ ...prev, timezone: e.target.value }))} />
         </Stack>
-
-        <WebhookDestinationsPanel />
-
-        <TeamManagementPanel />
 
         <BillingPanel />
 

@@ -11,7 +11,6 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import ForumIcon from '@mui/icons-material/Forum';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import HubIcon from '@mui/icons-material/Hub';
 import ApiIcon from '@mui/icons-material/Api';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { motion } from 'framer-motion';
@@ -49,34 +48,34 @@ const Step = ({ number, title, description }) => (
 
 const FEATURES = [
   {
-    icon: <ForumIcon sx={{ fontSize: 32 }} />,
-    title: 'Unified inbox',
-    description: 'One shared inbox for every conversation, with real-time delivery, read receipts, and media support.',
+    icon: <VerifiedIcon sx={{ fontSize: 32 }} />,
+    title: 'Connect your own WhatsApp Business Account',
+    description: "Onboard through Meta's Embedded Signup in a few clicks. Your business keeps ownership of its WABA, its phone numbers, and its message templates.",
   },
   {
     icon: <WhatsAppIcon sx={{ fontSize: 32 }} />,
     title: 'Templates & broadcast',
-    description: 'Send approved WhatsApp templates and broadcast to many contacts at once, with the 24-hour customer-service window handled for you.',
+    description: 'Create and submit message templates, then send an approved template to one customer or broadcast to a whole list, with the 24-hour customer-service window handled for you.',
+  },
+  {
+    icon: <AutoFixHighIcon sx={{ fontSize: 32 }} />,
+    title: 'Automated replies & workflows',
+    description: 'Answer inbound messages automatically with keyword replies, or guide customers through multi-step, catalog-driven flows to the right answer.',
   },
   {
     icon: <ContactsIcon sx={{ fontSize: 32 }} />,
     title: 'Built-in CRM',
-    description: 'Tag, categorize, and assign contacts; import from Excel; hand any list straight into a broadcast.',
+    description: 'Tag and categorise contacts, import them from a spreadsheet, and hand any list straight into a broadcast.',
   },
   {
-    icon: <AutoFixHighIcon sx={{ fontSize: 32 }} />,
-    title: 'Auto-reply, including guided flows',
-    description: 'Keyword auto-replies or multi-step, catalog-driven conversations that guide customers to the right answer automatically.',
-  },
-  {
-    icon: <HubIcon sx={{ fontSize: 32 }} />,
-    title: 'One webhook, many projects',
-    description: 'A single Meta webhook URL per number — fan it out to as many of your own project URLs as you like, each with its own signing secret, self-service from your account settings.',
+    icon: <ForumIcon sx={{ fontSize: 32 }} />,
+    title: 'Delivery analytics',
+    description: 'Sent, delivered, read, and failed counts per number and per campaign, so you can see how a send actually performed.',
   },
   {
     icon: <ApiIcon sx={{ fontSize: 32 }} />,
-    title: 'API access',
-    description: 'A REST API secured by your own API keys, so external systems can send messages without touching the dashboard.',
+    title: 'REST API',
+    description: 'A REST API secured by your own API keys, so your existing systems can send WhatsApp messages without touching the dashboard.',
   },
 ];
 
@@ -113,8 +112,9 @@ export default function LandingPage() {
                 Run your WhatsApp business messaging from one place
               </Typography>
               <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.75)', maxWidth: 620, mx: 'auto', lineHeight: 1.8 }}>
-                Inbox, templates, broadcast, CRM, and auto-reply — over the official WhatsApp
-                Cloud API — plus a self-service webhook that fans out to every project you run.
+                Connect your own WhatsApp Business Account, send approved templates and
+                broadcasts, and answer customers automatically — all on Meta&apos;s official
+                WhatsApp Cloud API.
               </Typography>
               <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ mt: 4 }} flexWrap="wrap" useFlexGap>
                 <Button component={NextLink} href="/signup" variant="contained" size="large" sx={{ bgcolor: '#25d366', color: '#05260f', fontWeight: 700, px: 4, '&:hover': { bgcolor: '#1ebe5a' } }}>

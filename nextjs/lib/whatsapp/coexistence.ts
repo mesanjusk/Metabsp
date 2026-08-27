@@ -12,7 +12,7 @@
 import WhatsAppAccount from '../models/WhatsAppAccount';
 import Contact from '../models/Contact';
 import { loadWhatsAppAccountFromWebhookIdentifiers } from '../services/whatsappAccountService';
-import { parseIncoming, forwardToWebhookDestinations } from './webhookProcessing';
+import { parseIncoming } from './webhookProcessing';
 import { saveAndEmitMessage } from './dispatch';
 import logger from '../utils/logger';
 
@@ -237,25 +237,6 @@ export const processEchoes = async (echoes: CoexistenceEvents['echoes']) => {
           }
         );
 
-        // Lets a sibling bot see that a human already answered from the
-        // WhatsApp Business app and stand down. Awaited here rather than
-        // fire-and-forget (as the Express version does): a Vercel function
-        // offers no guarantee that work continues after the response is sent.
-        try {
-          await forwardToWebhookDestinations(account._id, {
-            event: 'message.echo',
-            source: 'coexistence_app',
-            phoneNumberId: echo.phoneNumberId,
-            from: String(echo.message?.from || ''),
-            to: String(echo.message?.to || ''),
-            messageId: String(echo.message?.id || ''),
-            type: result.parsed.type,
-            message: result.parsed.message,
-            timestamp: result.at,
-          });
-        } catch (error: any) {
-          logger.error('[coexistence] echo forward failed:', error.message);
-        }
       }
     } catch (error: any) {
       logger.error('[coexistence] echo processing failed:', error.message);

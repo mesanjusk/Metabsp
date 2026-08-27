@@ -145,12 +145,6 @@ export const revalidateWhatsAppAccount = (accountId) =>
 export const setSystemUserToken = (accountId, payload) =>
   apiClient.put(`/api/whatsapp/account/${accountId}/system-user-token`, payload, { headers: { 'Content-Type': 'application/json' } });
 
-export const fetchTeamMembers = (accountId) => apiClient.get(`/api/whatsapp/accounts/${accountId}/team-members`);
-export const addTeamMember = (accountId, mobile) =>
-  apiClient.post(`/api/whatsapp/accounts/${accountId}/team-members`, { mobile }, { headers: { 'Content-Type': 'application/json' } });
-export const removeTeamMember = (accountId, memberId) =>
-  apiClient.delete(`/api/whatsapp/accounts/${accountId}/team-members/${memberId}`);
-
 export const fetchWhatsAppMessages = () => apiClient.get('/api/whatsapp/messages');
 
 

@@ -98,17 +98,13 @@ Every message the customer subsequently sends **from the WhatsApp
 Business app or a linked device** is echoed to `value.message_echoes[]`.
 
 - Stored as an ordinary outgoing message (`direction: 'outgoing'`,
-  `source: 'coexistence_app'`), so the shared team inbox shows what the
-  owner already said instead of drifting out of sync.
+  `source: 'coexistence_app'`), so the message history and the 24-hour
+  window calculation stay in step with what the owner already said.
 - Auto Reply and Workflows are **not** run: the message came from the
   business, not from a customer.
 - The 24-hour customer service window is **not** reopened — only a
   customer message does that.
-- Forwarded to this account's webhook destinations as
-  `event: 'message.echo'`, which is what lets a sibling bot detect that a
-  human already answered and stand down.
-- De-duplicated by `messageId`, so an echo of a message this platform
-  itself sent through Cloud API (same `wamid`) is a no-op.
+
 
 ### `smb_app_state_sync`
 Contacts added/changed/removed in the WhatsApp Business app arrive in

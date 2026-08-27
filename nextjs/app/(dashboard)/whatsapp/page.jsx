@@ -59,7 +59,6 @@ import { loadFacebookSdk, listenForEmbeddedSignupData } from '@/lib/client/faceb
 import { ErrorState, LoadingSkeleton } from '@/lib/ui/components/ui';
 import { useAuth } from '@/lib/ui/AuthContext';
 
-const MessagesPanel       = lazy(() => import('@/lib/ui/whatsappCloud/MessagesPanel'));
 const SendMessagePanel    = lazy(() => import('@/lib/ui/whatsappCloud/SendMessagePanel'));
 const BulkSender          = lazy(() => import('@/lib/ui/whatsappCloud/BulkSender'));
 const AutoReplyManagementPanel = lazy(() => import('@/lib/ui/whatsappCloud/AutoReplyManagementPanel'));
@@ -81,13 +80,16 @@ const MAIN_TABS = [
 
 // ── Sub-tabs per main tab ─────────────────────────────────────────────────────
 const SUB_TABS = {
-  meta:    ['inbox', 'templates', 'broadcast', 'autoReply', 'workflows', 'analytics', 'settings'],
+  // No 'inbox'. This platform receives inbound messages — the webhook persists
+  // them, auto-replies and workflows act on them, and the 24-hour window is
+  // enforced from them — but it does not present a human agent inbox. Sending
+  // is template-first, through Templates and Broadcast.
+  meta:    ['templates', 'broadcast', 'autoReply', 'workflows', 'analytics', 'settings'],
   manual:  ['wame', 'campaigns'],
   crm:     [],
 };
 
 const SUB_TAB_LABELS = {
-  inbox:     'Chats',
   templates: 'Templates',
   broadcast: 'Broadcast',
   autoReply: 'Auto Reply',
@@ -101,7 +103,6 @@ const SUB_TAB_LABELS = {
 };
 
 const SEARCH_PLACEHOLDER = {
-  inbox:     'Search or start new chat',
   templates: 'Search templates',
   broadcast: 'Search broadcasts',
   autoReply: 'Search auto replies',
@@ -213,7 +214,7 @@ export default function WhatsAppCloudDashboard() {
 
   // Main tab + sub-tab state
   const [mainTab, setMainTab] = useState('meta');
-  const [subTabs, setSubTabs] = useState({ meta: isAdminUser ? 'settings' : 'inbox', manual: 'wame', crm: '' });
+  const [subTabs, setSubTabs] = useState({ meta: isAdminUser ? 'settings' : 'templates', manual: 'wame', crm: '' });
 
   // CRM → Manual campaign handoff
   const [crmRecipients, setCrmRecipients] = useState(null);
@@ -457,7 +458,6 @@ export default function WhatsAppCloudDashboard() {
         );
       }
 
-      if (activeSubTab === 'inbox')     return <MessagesPanel search={search} />;
       if (activeSubTab === 'templates') return <SendMessagePanel search={search} />;
       if (activeSubTab === 'broadcast') return <BulkSender standalone search={search} />;
       if (activeSubTab === 'autoReply') return <AutoReplyManagementPanel search={search} />;

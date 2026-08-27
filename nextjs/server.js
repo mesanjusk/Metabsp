@@ -7,15 +7,18 @@
  * to. Three things this product needs are impossible on top of it, and
  * impossible on serverless generally:
  *
- *   • Socket.IO — long-lived websocket connections for the live inbox.
  *   • The BullMQ broadcast worker — a process that stays up consuming jobs.
- *   • The token-refresh / invoice / backup schedulers — real timers.
+ *   • The token-refresh scheduler — a real timer.
  *
- * Creating the HTTP server here and handing requests to Next's request
- * handler lets all three share one process, one port, and one deploy. That is
- * what running on Render (a persistent Node process) buys over Vercel
- * (functions), and why the deployment target decides the architecture rather
- * than the other way round.
+ * Creating the HTTP server here and handing requests to Next's request handler
+ * lets both share one process, one port, and one deploy. That is what running
+ * on Render (a persistent Node process) buys over Vercel (functions), and why
+ * the deployment target decides the architecture rather than the other way
+ * round.
+ *
+ * Socket.IO used to be attached here too, for the live agent inbox. That inbox
+ * is gone, so nothing in the browser opened a socket any more and the server
+ * was emitting to nobody.
  *
  * Start with `node server.js`, not `next start`.
  */
@@ -69,11 +72,6 @@ async function start() {
       }
     });
   });
-
-  // Attached before listen so no client can connect during the window between
-  // the port opening and the websocket handler existing.
-  const { initSocket } = require('./lib/socket/server.js');
-  initSocket(server);
 
   server.listen(port, hostname, () => {
     console.log(`[server] Ready on http://${hostname}:${port} (dev=${dev})`);

@@ -14,7 +14,7 @@ const nextConfig = {
   // bundled by webpack — bundling bullmq in particular pulls in an optional
   // dynamic import (@valkey/valkey-glide, an alternative Redis client we
   // don't use) that webpack otherwise warns about at build time.
-  serverExternalPackages: ['bullmq', 'mongoose', 'ioredis', '@socket.io/redis-emitter'],
+  serverExternalPackages: ['bullmq', 'mongoose', 'ioredis'],
   // Same rationale as the pre-existing vercel.json fix for the Vite SPA
   // (see git history: "Prevent stale cached index.html/service-worker from
   // masking new deploys") — the HTML/document shell must never be

@@ -126,7 +126,7 @@ export default function SecurityPage() {
                 <BulletList items={[
                   'All API calls logged with timestamp, IP address, user agent, and response code',
                   'Authentication events (login, logout, failed attempts, MFA) logged',
-                  'Account changes (settings, team members, permissions) logged',
+                  'Account changes (settings, users, permissions) logged',
                   'API key creation, rotation, and deletion logged',
                   'Webhook configuration changes logged',
                   'Audit logs retained for 2 years',

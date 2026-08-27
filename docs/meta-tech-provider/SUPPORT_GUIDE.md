@@ -43,10 +43,15 @@ migration mode to walk them through.
 
 ## "Can multiple people on my team reply to the same number?"
 
-Yes — Team inbox (`TeamManagementPanel.jsx`). The account owner adds a
-team member by that person's platform login mobile number; they then get
-full view/reply access to that number's conversations on next login. Only
-the account owner can add/remove team members.
+No. This platform has no agent inbox and no per-number team membership.
+Inbound messages are received and acted on automatically — auto-replies,
+workflows, contact records, and the 24-hour window — but there is no
+conversation view for staff to read and reply in, and no way to grant one
+colleague access to another's number.
+
+A business that needs human agents answering WhatsApp conversations is not
+a fit for this product today. Say so plainly rather than pointing them at
+a workaround.
 
 ## "I got charged for messages I didn't send" (billing dispute)
 

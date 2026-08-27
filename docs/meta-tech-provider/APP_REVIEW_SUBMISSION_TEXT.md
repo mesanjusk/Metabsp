@@ -25,17 +25,22 @@ does not have; a reviewer who finds one overstatement distrusts the rest.
 ## `whatsapp_business_messaging` → "Tell us how you're using this permission"
 
 > MetaBSP is a multi-tenant WhatsApp Business Platform that lets a business
-> connect its own WhatsApp Business Account and manage customer conversations
-> from a shared team inbox.
+> connect its own WhatsApp Business Account and send template-based customer
+> notifications, with automated replies to inbound messages.
 >
 > We use `whatsapp_business_messaging` to send and receive messages on behalf
 > of the business that has connected its own WABA through Meta's Embedded
 > Signup flow. Specifically:
 >
-> - Sending text, media, and pre-approved template messages that the connected
->   business composes or schedules in our dashboard.
+> - Sending pre-approved template messages that the connected business composes
+>   in our dashboard, either to one recipient or as a broadcast to a recipient
+>   list it supplies.
+> - Sending text and media replies inside Meta's 24-hour customer service
+>   window, via automated replies and multi-step workflows the business
+>   configures.
 > - Receiving inbound customer messages and delivery/read statuses through our
->   webhook endpoint, so the business can reply from the shared inbox.
+>   webhook endpoint. These drive the automated replies, keep the business's
+>   contact records current, and determine whether the 24-hour window is open.
 > - Uploading and retrieving media attached to those messages.
 >
 > All messaging is initiated either by the business's own staff or by a
@@ -45,7 +50,7 @@ does not have; a reviewer who finds one overstatement distrusts the rest.
 > business or opted in through it.
 >
 > We do not use this permission for any purpose beyond operating the connected
-> business's own conversations, and we do not share message content between
+> business's own messaging, and we do not share message content between
 > tenants.
 
 ## `whatsapp_business_management` → "Tell us how you're using this permission"
@@ -162,13 +167,25 @@ not this template — into App Review → Testing Instructions.
 >    `owned_whatsapp_business_accounts` on the supplied business to confirm the
 >    WABA genuinely belongs to it before storing anything.
 > 5. Open the "Templates" tab to see template listing and creation
->    (`whatsapp_business_management`).
-> 6. Open the "Chats" tab and send a message to a number that has messaged the
->    business (`whatsapp_business_messaging`). Inbound messages and delivery
->    statuses appear in the same view as they arrive over our webhook.
+>    (`whatsapp_business_management`), and send an approved template to a
+>    recipient from the same tab (`whatsapp_business_messaging`).
+> 6. Open the "Broadcast" tab to send an approved template to several
+>    recipients at once (`whatsapp_business_messaging`). Delivery and read
+>    statuses arrive over our webhook and are reflected against each recipient.
+> 7. Open the "Auto Reply" tab to see how inbound customer messages are handled:
+>    a matching keyword triggers a reply sent inside Meta's 24-hour window
+>    (`whatsapp_business_messaging`). Message a connected number from a phone to
+>    see the reply arrive.
 >
 > If the reviewer account stops working at any point, please contact
 > {REVIEWER_CONTACT_EMAIL} and we will restore access immediately.
+
+This platform does not present a human agent inbox: inbound messages are
+received and acted on (automated replies, workflows, contact records, the
+24-hour window), but there is no conversation view for staff to read and reply
+in. The steps above are written to demonstrate `whatsapp_business_messaging`
+through the surfaces that do exist — template send, broadcast, and automated
+reply — rather than claiming an inbox a reviewer would then go looking for.
 
 Every label above is the one actually rendered: the login field is **"User
 Name"** (an earlier draft said "Mobile / Username", which is the *other* login

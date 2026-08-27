@@ -3,22 +3,10 @@ import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import { resolveCurrentWhatsAppAccountForUser } from '@/lib/whatsapp/currentAccount';
-import { forwardToWebhookDestinations } from '@/lib/whatsapp/webhookProcessing';
 import { normalizeContactPayload, buildScopedContactFilter, buildContactListFilter } from '@/lib/whatsapp/contacts';
 import AppError from '@/lib/utils/AppError';
 import Contact from '@/lib/models/Contact';
 import logger from '@/lib/utils/logger';
-
-// Contact lifecycle events fan out to this account's active webhook
-// destinations — the same HMAC-signed mechanism inbound messages use. It is
-// the "CRM connector": any external system can subscribe to
-// contact.upserted / contact.deleted rather than needing a bespoke integration.
-const notifyContactWebhooks = (accountId: unknown, event: string, contact: unknown) => {
-  if (!accountId) return;
-  forwardToWebhookDestinations(accountId, { event, contact }).catch((err: any) =>
-    logger.error('[crm-webhook] contact event fan-out failed:', err.message)
-  );
-};
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,7 +60,6 @@ export async function POST(req: NextRequest) {
       { upsert: true, new: true }
     );
 
-    notifyContactWebhooks(accountContext?.account?._id, 'contact.upserted', data);
     return NextResponse.json({ success: true, data }, { status: 201 });
   } catch (error) {
     return errorResponse(error, 'Failed to create contact');
