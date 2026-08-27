@@ -6,6 +6,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ErrorIcon from '@mui/icons-material/Error';
 import { motion } from 'framer-motion';
+import { SUPPORT_EMAIL } from '../../config/publicSite';
 
 const STATUS = {
   operational: { label: 'Operational', color: 'success', icon: <CheckCircleIcon fontSize="small" /> },
@@ -255,7 +256,7 @@ export default function StatusPage() {
           >
             <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>Subscribe to Status Updates</Typography>
             <Typography variant="body2" color="text.secondary">
-              Get notified via email when incidents are created, updated, or resolved. Email <strong>support@meta.sanjusk.in</strong> with "Status Updates" in the subject line.
+              Get notified via email when incidents are created, updated, or resolved. Email <strong>{SUPPORT_EMAIL}</strong> with "Status Updates" in the subject line.
             </Typography>
           </Paper>
         </Container>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Container, Typography, Box, Paper, Divider, Link } from '@mui/material';
 import { motion } from 'framer-motion';
 import { Link as RouterLink } from 'react-router-dom';
+import { PRIVACY_EMAIL, SUPPORT_EMAIL } from '../../config/publicSite';
 
 const Section = ({ title, children }) => (
   <Box sx={{ mb: 4 }}>
@@ -161,7 +162,7 @@ export default function PrivacyPolicyPage() {
                 'Right to opt-out of the sale of personal information (we do not sell personal information)',
                 'Right to non-discrimination for exercising your rights',
               ]} />
-              <Para>To exercise these rights, contact us at privacy@meta.sanjusk.in or submit a request through our data deletion page.</Para>
+              <Para>To exercise these rights, contact us at {PRIVACY_EMAIL} or submit a request through our data deletion page.</Para>
             </Section>
 
             <Section title="8. How to Delete Your Data">
@@ -183,7 +184,7 @@ export default function PrivacyPolicyPage() {
               <BulletList items={[
                 'Navigating to Meta Business Suite → Business Settings → Connected Apps and removing MetaBSP',
                 'Visiting Facebook Settings → Business Integrations and removing the MetaBSP integration',
-                'Contacting our support team at support@meta.sanjusk.in to initiate immediate access revocation',
+                `Contacting our support team at ${SUPPORT_EMAIL} to initiate immediate access revocation`,
                 'Deleting your MetaBSP account through the Account Settings page',
               ]} />
               <Para>Upon revocation, we will cease processing any new WhatsApp data within 24 hours and will retain historical data per our retention schedule unless a deletion request is submitted.</Para>
@@ -207,7 +208,7 @@ export default function PrivacyPolicyPage() {
             <Section title="13. Contact Us">
               <Para>For privacy-related inquiries, please contact our Data Protection Officer:</Para>
               <BulletList items={[
-                'Email: privacy@meta.sanjusk.in',
+                `Email: ${PRIVACY_EMAIL}`,
                 'Subject line: Privacy Inquiry – [Your Name/Company]',
                 'Response time: Within 72 hours for routine inquiries, 30 days for formal GDPR/CCPA requests',
               ]} />

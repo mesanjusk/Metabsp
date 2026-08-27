@@ -11,6 +11,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import { motion } from 'framer-motion';
+import { SECURITY_EMAIL } from '../../config/publicSite';
 
 const SecurityCard = ({ icon, title, children }) => (
   <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
@@ -209,7 +210,7 @@ export default function SecurityPage() {
             <Divider sx={{ mb: 2 }} />
             <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>Security Contact</Typography>
             <Typography variant="body1">
-              Email: <strong>security@meta.sanjusk.in</strong>
+              Email: <strong>{SECURITY_EMAIL}</strong>
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               Please encrypt sensitive reports using our PGP key (available on request). Include a detailed description of the vulnerability, steps to reproduce, and potential impact.

@@ -8,6 +8,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import { Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { SUPPORT_EMAIL, PUBLIC_APP_URL } from '../../config/publicSite';
 
 const FAQ_DATA = [
   {
@@ -58,7 +59,7 @@ const FAQ_DATA = [
       },
       {
         q: 'My WhatsApp number was rejected. What can I do?',
-        a: 'If your number was rejected, the most common reasons are: the number is already registered on WhatsApp (personal or Business app), the number is on a platform\'s blocklist, or there was a verification code delivery failure. Try using a different number or contact our support team at support@meta.sanjusk.in for help.',
+        a: `If your number was rejected, the most common reasons are: the number is already registered on WhatsApp (personal or Business app), the number is on a platform\'s blocklist, or there was a verification code delivery failure. Try using a different number or contact our support team at ${SUPPORT_EMAIL} for help.`,
       },
       {
         q: 'Can I use the same number on the WhatsApp app and the API?',
@@ -132,7 +133,7 @@ const FAQ_DATA = [
       },
       {
         q: 'What is the base URL for the MetaBSP API?',
-        a: 'The base URL is https://meta.sanjusk.in/v1. All API requests must include your API key in the Authorization header as a Bearer token: "Authorization: Bearer YOUR_API_KEY". The API returns JSON responses and accepts JSON request bodies.',
+        a: `The base URL is ${PUBLIC_APP_URL}/v1. All API requests must include your API key in the Authorization header as a Bearer token: "Authorization: Bearer YOUR_API_KEY". The API returns JSON responses and accepts JSON request bodies.`,
       },
       {
         q: 'What are the API rate limits?',
@@ -174,7 +175,7 @@ const FAQ_DATA = [
       },
       {
         q: 'How do I migrate from another WhatsApp BSP?',
-        a: 'You can migrate your existing WABA to MetaBSP by connecting it through our Embedded Signup flow and selecting "Connect Existing WABA." You will need access to the Facebook Business Manager that owns the WABA. Phone numbers, templates, and business profile settings will carry over. Message history is not migrated. Contact support@meta.sanjusk.in for migration assistance.',
+        a: `You can migrate your existing WABA to MetaBSP by connecting it through our Embedded Signup flow and selecting "Connect Existing WABA." You will need access to the Facebook Business Manager that owns the WABA. Phone numbers, templates, and business profile settings will carry over. Message history is not migrated. Contact ${SUPPORT_EMAIL} for migration assistance.`,
       },
     ],
   },

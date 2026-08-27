@@ -1,6 +1,7 @@
 import React from 'react';
 import { Container, Typography, Box, Paper, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { motion } from 'framer-motion';
+import { PRIVACY_EMAIL } from '../../config/publicSite';
 
 const Section = ({ title, children }) => (
   <Box sx={{ mb: 4 }}>
@@ -114,7 +115,7 @@ export default function CookiePolicyPage() {
 
             <Section title="7. Contact us">
               <Para>
-                Questions about this Cookie Policy can be directed to privacy@meta.sanjusk.in.
+                Questions about this Cookie Policy can be directed to {PRIVACY_EMAIL}.
               </Para>
             </Section>
           </Paper>

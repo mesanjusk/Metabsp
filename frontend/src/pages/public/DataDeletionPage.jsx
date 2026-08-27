@@ -8,6 +8,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { motion } from 'framer-motion';
+import { DATA_DELETION_URL } from '../../config/publicSite';
 
 // The callback URL registered in the Meta App Dashboard's Data Deletion field.
 // Previously hardcoded to a third domain — different from both the live site
@@ -16,7 +17,7 @@ import { motion } from 'framer-motion';
 // dashboard, and the running service cannot drift apart.
 const DATA_DELETION_CALLBACK_URL =
   import.meta.env.VITE_DATA_DELETION_CALLBACK_URL ||
-  `${import.meta.env.VITE_PUBLIC_APP_URL || 'https://meta.sanjusk.in'}/data-deletion`;
+  DATA_DELETION_URL;
 
 const REASONS = [
   { value: 'no_longer_needed', label: 'I no longer need the service' },

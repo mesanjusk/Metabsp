@@ -22,6 +22,7 @@ import {
   Webhook as WebhookIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PUBLIC_APP_URL } from '../config/publicSite';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -308,7 +309,7 @@ function Step5Webhook({ webhookTest, setWebhookTest }) {
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState('');
   const [events, setEvents] = useState({ messages: true, status: true, templates: false });
-  const url = 'https://meta.sanjusk.in/webhook/biz_8f3a91c2';
+  const url = `${PUBLIC_APP_URL}/webhook/biz_8f3a91c2`;
 
   const copy = () => {
     navigator.clipboard.writeText(url).catch(() => {});

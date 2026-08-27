@@ -1,6 +1,7 @@
 import React from 'react';
 import { Container, Typography, Box, Paper, Divider } from '@mui/material';
 import { motion } from 'framer-motion';
+import { LEGAL_EMAIL, SUPPORT_EMAIL } from '../../config/publicSite';
 
 const Section = ({ title, children }) => (
   <Box sx={{ mb: 4 }}>
@@ -188,7 +189,7 @@ export default function TermsOfServicePage() {
 
             <Section title="12. Termination">
               <Para>
-                Either party may terminate the Service agreement at any time. You may terminate by cancelling your subscription through the account settings or by contacting support@meta.sanjusk.in. We may terminate or suspend your access immediately, without prior notice or liability, if you:
+                Either party may terminate the Service agreement at any time. You may terminate by cancelling your subscription through the account settings or by contacting {SUPPORT_EMAIL}. We may terminate or suspend your access immediately, without prior notice or liability, if you:
               </Para>
               <BulletList items={[
                 'Breach any provision of these Terms',
@@ -216,7 +217,7 @@ export default function TermsOfServicePage() {
 
             <Section title="15. Contact">
               <Para>
-                For questions about these Terms, contact us at legal@meta.sanjusk.in or write to: MetaBSP Legal Team, [Address on file]. For support inquiries, contact support@meta.sanjusk.in.
+                For questions about these Terms, contact us at {LEGAL_EMAIL} or write to: MetaBSP Legal Team, [Address on file]. For support inquiries, contact {SUPPORT_EMAIL}.
               </Para>
             </Section>
           </Paper>

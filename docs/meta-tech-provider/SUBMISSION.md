@@ -22,6 +22,50 @@ explains what it checks and what it cannot.
 
 ---
 
+## The deployment, as verified against Render and Vercel (2026-08-27)
+
+| | |
+|---|---|
+| Public domain | `https://meta.sanjusk.in` — the single source of truth is `frontend/src/config/publicSite.js`, overridable with `VITE_PUBLIC_APP_URL` |
+| Frontend | Vercel project `metabsp-frontend`, building `frontend/` (Vite) |
+| Backend | Render `MetaBSP` (`srv-d8hok2rtqb8s73aba29g`) → `bulk-invite.onrender.com`, `rootDir: backend`, branch `main` |
+| Next.js host | Render `Metabspnext` (`srv-da7578h5efls73c4ssh0`) → `metabspnext.onrender.com`, `rootDir: nextjs` |
+
+Two findings from that pass are worth keeping in view.
+
+**`mis-both.onrender.com` is not a service in this Render account.** The Meta
+dashboard's webhook callback URL and Valid OAuth Redirect URI were pointing at
+it. The `MIS-Both-` repository deploys as `misbackend-e078.onrender.com` — a
+different host, and a different product. Nothing this project runs answers at
+`mis-both.onrender.com`, so inbound customer messages, delivery statuses and
+the OAuth redirect all went nowhere. Fix both fields in the dashboard before
+submitting; the submission check compares the registered callback against
+`PUBLIC_APP_URL` and fails if they disagree.
+
+**Both Render services are on the free plan.** The backend's pods carry
+`hibernate` in their names and restart every 30–60 minutes. A reviewer who
+hits a cold instance waits roughly 50 seconds, or times out. That reads as a
+broken app. Upgrade the backend to Starter for the duration of the review.
+
+### Live pre-flight, read from the backend's boot log
+
+Latest boot (2026-08-27 03:29 UTC), after setting `META_ENABLE_COEXISTENCE=false`:
+
+```
+[preflight] WhatsApp configuration check — WARN (Graph v23.0, coexistence OFF)
+[preflight] embedded_signup_config: Embedded Signup configured (config id 1003501095782121)
+[preflight] webhook_fields: All required webhook fields subscribed (messages)
+[preflight] coexistence_gating: Coexistence is disabled; the Embedded Signup
+            popup will not offer the WhatsApp Business app path
+[preflight] token_sources: 0/2 active account(s) using a System User token
+```
+
+Graph version and the Embedded Signup config id are confirmed correct against
+production. The one open warning is real: **both active accounts run on user
+tokens**, which expire and are tied to one person's Meta login. Meta's BSP
+guidance wants a Business-owned System User token — see
+`SYSTEM_USER_CREATION.md`.
+
 ## What the check verifies for you
 
 | Gate | Why it is a gate |
@@ -134,6 +178,22 @@ Two explanatory comments in `backend/src/routes/externalApi.js` and
 `backend/src/routes/WhatsAppCloud.js` record why an endpoint's contract
 changed — `POST /campaigns/:id/send` returns `501` pointing at the
 template-based `POST /api/whatsapp/broadcast`. They are history, not features.
+
+## One domain, one constant
+
+`frontend/src/config/publicSite.js` holds the public domain and every public
+contact address. It used to be hardcoded in thirteen files — the legal pages,
+the developer docs, the help centre, the footer, the App Review page. That is
+precisely how a site ends up advertising one domain in its Privacy Policy while
+being served from another, and Meta fetches those URLs during review.
+
+The built bundle now contains the domain exactly once. To move domains, set
+`VITE_PUBLIC_APP_URL` at build time and change no source at all.
+
+Addresses default to `<role>@<domain>` and are individually overridable
+(`VITE_SUPPORT_EMAIL` and friends). Defaulting is not the same as existing:
+**confirm each mailbox actually receives mail.** A reviewer emailing an address
+that bounces is worse than no address.
 
 ## Still outside this repository
 
