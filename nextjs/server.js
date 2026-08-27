@@ -43,9 +43,16 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 // Background work is opt-in per replica. Render can run several instances of
-// a service; the schedulers already coordinate through a Redis leader lock,
-// but keeping this behind a flag means a deployment can also run a dedicated
-// worker instance with RUN_BACKGROUND_JOBS=true and web instances without it.
+// a service; the schedulers coordinate through a Redis leader lock, but keeping
+// this behind a flag means a deployment can also run a dedicated worker
+// instance with RUN_BACKGROUND_JOBS=true and web instances without it.
+//
+// The jobs themselves are started from instrumentation.ts, not here. They
+// depend on the TypeScript side (the queue's dispatchers, the account service,
+// the models), and this file is required by Node before Next compiles
+// anything — the same constraint that makes lib/socket/server.js plain
+// CommonJS. Next's instrumentation hook runs once per server process, inside
+// the compiled runtime, which is exactly where a long-lived worker belongs.
 const runBackgroundJobs = String(process.env.RUN_BACKGROUND_JOBS ?? 'true').toLowerCase() !== 'false';
 
 async function start() {
@@ -70,13 +77,8 @@ async function start() {
 
   server.listen(port, hostname, () => {
     console.log(`[server] Ready on http://${hostname}:${port} (dev=${dev})`);
-    // NOTE: the schedulers and the BullMQ worker still run on the Express
-    // host — they have not been ported yet. This flag and its plumbing exist
-    // so they can be attached here without a second deployment, but nothing
-    // reads it today. Deliberately not logging "background jobs enabled",
-    // which would be untrue.
     if (!runBackgroundJobs) {
-      console.log('[server] Background jobs opted out for this instance');
+      console.log('[server] Background jobs opted out for this instance (RUN_BACKGROUND_JOBS=false)');
     }
   });
 

@@ -68,7 +68,6 @@ const CRMPanel            = lazy(() => import('@/lib/ui/whatsappCloud/CRMPanel')
 const AnalyticsDashboard  = lazy(() => import('@/lib/ui/whatsappCloud/AnalyticsDashboard'));
 const WhatsAppAttendanceSettings = lazy(() => import('@/lib/ui/whatsappCloud/WhatsAppAttendanceSettings'));
 const AdminUserManagementPanel   = lazy(() => import('@/lib/ui/whatsappCloud/AdminUserManagementPanel'));
-const MetaWebhookConfigPanel     = lazy(() => import('@/lib/ui/whatsappCloud/MetaWebhookConfigPanel'));
 const AdminAnalyticsPanel        = lazy(() => import('@/lib/ui/whatsappCloud/AdminAnalyticsPanel'));
 const ManualInvitePanel   = lazy(() => import('@/lib/ui/whatsappCloud/ManualInvitePanel'));
 const CampaignsPanel      = lazy(() => import('@/lib/ui/whatsappCloud/CampaignsPanel'));
@@ -373,13 +372,18 @@ export default function WhatsAppCloudDashboard() {
 
   // ── Section renderer ────────────────────────────────────────────────────────
   const sectionNode = useMemo(() => {
-    // Admin override — admin's own account/webhook destinations, the shared
-    // Meta webhook config, and the "manage other users" panel, all in one place.
+    // Admin override — the admin's own account settings and the "manage other
+    // users" panel in one place.
+    //
+    // The Meta webhook configuration panel used to sit here. It exposed this
+    // platform's own callback URL and verify token as if they were a per-tenant
+    // setting; they are neither. A BSP registers one webhook for its app and
+    // subscribes each customer's WABA to it, so there is nothing here for a
+    // customer to configure and a real risk in letting them try.
     if (isAdminUser && mainTab === 'meta' && activeSubTab === 'settings') {
       return (
         <Stack spacing={2.5}>
           <AdminAnalyticsPanel />
-          <MetaWebhookConfigPanel />
           <WhatsAppAttendanceSettings
             whatsappAccount={whatsappAccount}
             isAccountConnected={isAccountConnected}
