@@ -1,0 +1,20 @@
+{
+  "//": [
+    "Typechecking for the test suite.",
+    "",
+    "The application's tsconfig.json excludes tests/, because `next build`",
+    "typechecks whatever that file includes and the production install has no",
+    "devDependencies — a test importing vitest would fail the deploy.",
+    "",
+    "Tests are still typechecked, just by this config and only where a dev",
+    "install exists: `npm run typecheck:tests`, which CI runs. Anything the",
+    "tests import is pulled in by module resolution, so listing tests/ alone",
+    "is enough."
+  ],
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["tests/**/*.ts"],
+  "exclude": ["node_modules"]
+}

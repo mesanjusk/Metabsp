@@ -45,8 +45,14 @@ jobs:
 
       - run: npm ci
 
-      - name: Typecheck
+      - name: Typecheck (application)
         run: npm run typecheck
+
+      # Separate config: the application's tsconfig excludes tests/, because
+      # `next build` typechecks whatever it includes and a production install
+      # has no devDependencies. CI has them, so it checks both.
+      - name: Typecheck (tests)
+        run: npm run typecheck:tests
 
       - name: Test
         run: npm test

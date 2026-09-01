@@ -2,7 +2,7 @@
   "name": "metabsp-nextjs",
   "version": "0.1.0",
   "private": true,
-  "description": "Metabsp WhatsApp Cloud API product — Next.js 15 App Router. Runs as a single persistent Node process (server.js) on Render, hosting the App Router, API route handlers, Socket.IO, the BullMQ worker and the schedulers together.",
+  "description": "Metabsp WhatsApp Cloud API product \u2014 Next.js 15 App Router. Runs as a single persistent Node process (server.js) on Render, hosting the App Router, API route handlers, Socket.IO, the BullMQ worker and the schedulers together.",
   "scripts": {
     "dev": "node server.js",
     "build": "next build",
@@ -18,7 +18,8 @@
     "backup:mongo": "bash scripts/backup-mongo.sh",
     "restore:mongo": "bash scripts/restore-mongo.sh",
     "loadtest:health": "node loadtest/autocannon-health.js",
-    "loadtest:webhook": "node loadtest/autocannon-webhook.js"
+    "loadtest:webhook": "node loadtest/autocannon-webhook.js",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
