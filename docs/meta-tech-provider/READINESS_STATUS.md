@@ -141,22 +141,48 @@ usability; the review video; legal review of the published policies; a
 production backup/restore drill; and support readiness. Each must be checked
 in the system that owns it.
 
+## Second pass — what was closed after the first report
+
+| Gap | Now |
+|---|---|
+| Data retention documented but not implemented | Implemented (`nextjs/lib/services/dataRetentionService.ts`): a daily, leader-locked sweep over messages, inactive contacts and audit entries, deleting each message's Cloudinary media before its row, recording every run in the audit log. Windows default to 0 (keep forever) — set them to enforce a period. |
+| CSP allowed `'unsafe-inline'` for scripts | Replaced by a per-request nonce with `'strict-dynamic'`, issued in middleware and picked up by Next for its own bootstrap. Verified in a browser: pages hydrate with zero violations and the nonce differs per request. |
+| `xlsx` advisories with no registry fix | Dependency removed. CSV is parsed in-repo (RFC 4180 quoting, embedded commas and newlines, CRLF, BOM); `.xlsx` uses `read-excel-file`, which is clean, lazily imported. |
+| `sharp` advisory via `next` | The image optimiser is off in `next.config.js` — nothing uses `next/image`, so that code is now unreachable rather than merely unused. |
+| Operational docs citing pre-consolidation paths | 34 documents rewritten. Historical audit records are stamped and left as history. |
+| A wrong encryption key failing silently | A boot self-check samples stored tokens and logs a CRITICAL naming `WHATSAPP_TOKEN_ENCRYPTION_KEY_PREVIOUS` as the remedy. |
+| Redis evicting queued messages silently | A boot self-check reads `maxmemory-policy` and logs an error when it is not `noeviction`. |
+
 ## Known gaps, stated plainly
 
 - **The Cashfree billing integration is unverified** against live Cashfree
   documentation. It is off unless credentials are set, and self-service
   subscription returns a clear `503` until then. Verify against a sandbox call
   before accepting real payments.
-- **Data retention is documented but not implemented in code.** There is no
-  job that deletes messages or contacts after a retention period.
-- **CSP allows `'unsafe-inline'` for scripts.** Next inlines its hydration
-  bootstrap; removing it requires a per-request nonce, which forces every
-  static page to render dynamically. Script origins are still restricted.
-- **`xlsx` has open advisories with no registry fix.** It parses
-  spreadsheets the signed-in user chooses, in their own browser.
-- **Some documents under `docs/api/` and `docs/deployment/` still cite
-  pre-consolidation file paths** in their examples. The behaviour they
-  describe is unchanged; `docs/CONSOLIDATION.md` maps old paths to new.
+- **The Redis instance backing the queues is misconfigured for this use.**
+  It runs `maxmemory-policy=allkeys_lru` with persistence off, on the free
+  plan. Queued inbound webhooks and outbound sends can be evicted under
+  memory pressure, and are lost outright on a restart — silent customer
+  message loss. This cannot be changed through the API; set it to
+  `noeviction` in the Render dashboard, and move off the free plan for
+  anything carrying real traffic.
+- **The deployed service's build command does not run the deploy gate.**
+  `render.yaml` describes the gated build, but the live service predates the
+  blueprint and is configured by hand as `npm install && npm run build`. Set
+  it to `node ../scripts/meta-deploy-check.js && npm ci && npm run typecheck
+  && npm test && npm run build` so a misconfigured or failing release cannot
+  reach Meta's webhook.
+- **Next.js still pins vulnerable `postcss` and `sharp`.** `postcss` runs at
+  build time over this repository's own CSS; `sharp` is unreachable with the
+  image optimiser off. The real fix is a Next major upgrade, which pulls
+  React 19 and MUI 7 with it — that deserves its own change and its own
+  regression pass, not a cutover.
+- **The Cashfree billing integration is unverified** against live Cashfree
+  documentation. It is off unless credentials are set, and self-service
+  subscription returns a clear `503` until then.
+- **Retention windows are configured but set to 0**, meaning nothing is
+  deleted. The mechanism is in place; choosing the periods is a legal and
+  commercial decision.
 
 ## Submission recommendation
 
