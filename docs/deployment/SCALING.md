@@ -8,7 +8,7 @@ availability side of the same questions.
 ## What's safe to run at N replicas today
 
 **API servers**, mostly. `backend/src/app.js` is stateless per-request
-(JWT auth, no server-side session), and `backend/src/socket.js` wires the
+(JWT auth, no server-side session), and `nextjs/lib/socket/server.js` wires the
 `@socket.io/redis-adapter` specifically so that `emit()` on one instance
 reaches sockets connected to any other instance — without that adapter,
 running more than one API instance would silently drop real-time
@@ -32,7 +32,7 @@ above 1 in a deployment where any organization has that flag on.
 **The standalone worker** (`backend/src/worker.js`) is the one piece of
 this app built from the ground up to run at N replicas safely. BullMQ
 handles concurrent consumers on the same queue correctly (per-job locking,
-no double-processing) — see `backend/src/queues/whatsappSendWorker.js`.
+no double-processing) — see `nextjs/lib/queues/whatsappSendWorker.ts`.
 Scale this independently of the API's replica count: it has its own
 resource profile (mostly outbound HTTP to the Meta Graph API and Mongo
 writes, not inbound request handling), and scaling it doesn't touch
@@ -48,13 +48,13 @@ Deployment for how to actually run this.
 
 ## Redis: single instance vs. Cluster
 
-`backend/src/config/redis.js` defaults to a single Redis instance
+`nextjs/lib/db/redis.ts` defaults to a single Redis instance
 (`REDIS_URL`), shared by the BullMQ queue, the rate limiter, and the
 Socket.IO pub/sub adapter (see
 [REDIS_AND_MONGODB_OPS.md](./REDIS_AND_MONGODB_OPS.md) for the full
 breakdown of what draws on it). A single instance has a real, if
 unmeasured, throughput ceiling — this repo has no load-test numbers
-against Redis specifically to cite (see `backend/loadtest/README.md`,
+against Redis specifically to cite (see `nextjs/loadtest/README.md`,
 which benchmarks `/health` and `/webhook` HTTP throughput, not Redis
 directly). When you outgrow a single instance — symptoms would be BullMQ
 job-processing latency climbing, rate-limiter checks adding noticeable
@@ -89,7 +89,7 @@ management as you add more collections/models.
 ## Honest capacity notes
 
 This repo has no load-test numbers to cite for real production throughput.
-`backend/loadtest/README.md` documents autocannon/k6 scripts against
+`nextjs/loadtest/README.md` documents autocannon/k6 scripts against
 `GET /health` and `POST /webhook`, but its own conclusion is explicit:
 "Neither script claims a specific number this repo can guarantee in your
 environment — CPU, network, and database placement all matter more than
@@ -119,4 +119,4 @@ What actually determines your ceiling, qualitatively:
 - [HIGH_AVAILABILITY.md](./HIGH_AVAILABILITY.md) — read this before
   raising API replica count in a deployment with any WhatsApp Cloud API-enabled
   organization.
-- `backend/loadtest/README.md` for actually measuring before scaling.
+- `nextjs/loadtest/README.md` for actually measuring before scaling.

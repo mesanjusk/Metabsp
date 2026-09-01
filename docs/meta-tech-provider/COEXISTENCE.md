@@ -72,7 +72,7 @@ integration never sees them, and — this is the part that silently breaks
 coexistence deployments — an integration that doesn't handle them will
 happily onboard a number and then show an empty, permanently stale inbox.
 
-Handled by `backend/src/services/coexistenceService.js` (and its port,
+Handled by `nextjs/lib/services/coexistenceService.ts` (and its port,
 `nextjs/lib/whatsapp/coexistence.ts`):
 
 ### `history`
@@ -131,7 +131,7 @@ subscribe to all of these:
 - `smb_app_state_sync`
 
 **Status: confirmed subscribed** in the App Dashboard as of 2026-08-25 —
-all four fields. `backend/src/services/preflightCheckService.js` now
+all four fields. `nextjs/lib/services/preflightCheckService.ts` now
 re-verifies this on every boot (and via `GET /api/whatsapp/preflight`) by
 reading `GET /{app-id}/subscriptions` with an app access token, so a later
 change in the dashboard surfaces as a startup warning rather than as

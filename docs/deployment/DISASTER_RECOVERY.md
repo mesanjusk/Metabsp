@@ -43,9 +43,9 @@ number for your environment instead of guessing.
 - `GET /health` returning `503`/timing out, or your uptime monitor firing
   (see [MONITORING.md](./MONITORING.md)).
 - Sentry error-rate spike pointing at Mongo/Redis connection failures.
-- `backend/src/config/mongo.js`'s `logger.error("❌ MongoDB connection
+- `nextjs/lib/db/mongo.ts`'s `logger.error("❌ MongoDB connection
   error:", ...)` (which also calls `process.exit(1)`, so a crash-looping
-  process is itself a symptom) or `backend/src/config/redis.js`'s
+  process is itself a symptom) or `nextjs/lib/db/redis.ts`'s
   connection-error logs, in your shipped log stream.
 
 Before declaring a full disaster: confirm it's actually data loss/
@@ -104,7 +104,7 @@ your environment ([Docker](./DOCKER_DEPLOYMENT.md),
 [AWS](./AWS_DEPLOYMENT.md)/[Azure](./AZURE_DEPLOYMENT.md)/
 [GCP](./GCP_DEPLOYMENT.md)). If this is a fresh database (not an in-place
 restore), remember `autoIndex` is disabled in production
-(`backend/src/config/mongo.js`) — run index creation explicitly per
+(`nextjs/lib/db/mongo.ts`) — run index creation explicitly per
 [REDIS_AND_MONGODB_OPS.md](./REDIS_AND_MONGODB_OPS.md) before real traffic
 hits it, or queries will run unindexed until you do.
 
@@ -118,7 +118,7 @@ hits it, or queries will run unindexed until you do.
   `WHATSAPP_TOKEN_ENCRYPTION_KEY` recovery holds up for a live Graph API
   call, not just the decrypt-a-sample-token check `verify-restore.js`
   already did.
-- Check the `AuditLog` collection (`backend/src/models/AuditLog.js`) is
+- Check the `AuditLog` collection (`nextjs/lib/models/AuditLog.ts`) is
   receiving new entries, confirming writes are actually landing
   post-recovery.
 

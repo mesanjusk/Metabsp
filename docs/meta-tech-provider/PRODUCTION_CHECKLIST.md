@@ -21,7 +21,7 @@ where a fuller doc already covers something.
       (`SYSTEM_USER_CREATION.md`)
 
 ## App configuration
-- [ ] Every var in `backend/.env.example` set to a real value (not a
+- [ ] Every var in `nextjs/.env.example` set to a real value (not a
       placeholder) — `JWT_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY`,
       `META_APP_SECRET`, `MONGO_URI`, `REDIS_URL`, `FRONTEND_URL`, Cashfree
       vars if billing is enabled
@@ -33,16 +33,19 @@ where a fuller doc already covers something.
       (`docs/BACKUP_RESTORE.md`)
 
 ## Security
-- [x] `npm audit` reviewed on both `backend/` and `frontend/` — `dompurify`
-      and `ws` fixed via `npm audit fix`; `jspdf` bumped to 4.2.1 (resolves
-      10 critical/high CVEs in the real in-app PDF export feature, build
-      verified after the bump). Remaining: `xlsx` has no upstream fix as of
-      this writing (used for spreadsheet import, not Baileys-specific —
-      confirm current status before launch); a handful of dev/test-only
-      findings (`esbuild`/`vitest`, `tar`/`canvas`/`jsdom`, `uuid`/`hyperid`/
-      `autocannon`) are accepted as non-runtime risk.
+- [x] `npm audit` reviewed. `xlsx`, which had unfixed advisories and no
+      registry fix, has been removed entirely: CSV is parsed by
+      `nextjs/lib/client/importParsers.js` and .xlsx by `read-excel-file`,
+      which is clean. Remaining findings are `postcss` and `sharp`, both
+      pinned transitively by `next` and only fixable by a major-version bump:
+      `postcss` runs at build time on this repository's own CSS, and `sharp`
+      is reachable only through the image optimiser, which is switched off in
+      `next.config.js` because nothing uses `next/image`.
+- [ ] Upgrade Next.js to a release that ships patched `postcss`/`sharp`. This
+      pulls React 19 and therefore MUI 7 with it, so it wants its own change
+      and its own regression pass — not a cutover.
 - [ ] Cashfree UPI Autopay integration verified against live docs before
-      accepting real payments (`backend/src/services/paymentGatewayService.js`'s
+      accepting real payments (`nextjs/lib/services/paymentGatewayService.ts`'s
       own "verify before production" header) — this is currently
       unverified and is a real launch blocker if billing is enabled
 
@@ -56,15 +59,23 @@ where a fuller doc already covers something.
       manual drop — see `docs/BAILEYS_REMOVAL.md`.
 - [ ] Privacy Policy / Terms of Service / DPA reviewed by an actual lawyer
       and published (`docs/legal/` — templates only as shipped)
-- [ ] A real data retention policy implemented in code, not just
-      documented (`docs/legal/DATA_RETENTION_POLICY.md`)
+- [x] Data retention is implemented in code
+      (`nextjs/lib/services/dataRetentionService.ts`): a daily, leader-locked
+      sweep that prunes messages, inactive contacts and audit entries past a
+      configured window, deletes the associated Cloudinary media before the
+      row, and records each run in the audit log.
+- [ ] **Choose the actual windows.** They default to 0 — keep forever — so
+      the policy is enforced only once `RETENTION_MESSAGES_DAYS`,
+      `RETENTION_CONTACTS_INACTIVE_DAYS` and `RETENTION_AUDIT_LOG_DAYS` are
+      set. Deleting message history is irreversible; this is a decision for
+      the operator and their counsel, not a default.
 
 ## Operational
 - [ ] Load test run against your actual target infrastructure
-      (`backend/loadtest/README.md`) — no numbers from this repo's own
+      (`nextjs/loadtest/README.md`) — no numbers from this repo's own
       testing should be quoted as your production capacity
 - [ ] A disaster-recovery drill actually run once
       (`docs/deployment/DISASTER_RECOVERY.md`,
-      `backend/scripts/verify-restore.js`)
+      `nextjs/scripts/verify-restore.mjs`)
 - [ ] Support staff have read `SUPPORT_GUIDE.md` and know the
       troubleshooting flows in `TROUBLESHOOTING.md`

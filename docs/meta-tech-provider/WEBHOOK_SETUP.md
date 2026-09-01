@@ -9,7 +9,7 @@ In your Meta App's WhatsApp product configuration:
   `backend/src/app.js`).
 - **Verify token**: any string you choose — set it as
   `WHATSAPP_WEBHOOK_VERIFY_TOKEN` in the backend's environment
-  (`backend/.env.example`) and enter the exact same value in the Meta App
+  (`nextjs/.env.example`) and enter the exact same value in the Meta App
   dashboard.
 - **Subscribe to**: at minimum the `messages` field. This app also parses
   message `statuses` (delivered/read/failed) from the same field.
@@ -25,7 +25,7 @@ Meta sends `GET /webhook?hub.mode=subscribe&hub.verify_token=...&hub.challenge=.
 once when you save the callback URL. `verifyWebhook` in
 `backend/src/controllers/whatsappController.js` checks the verify token
 against `WHATSAPP_WEBHOOK_VERIFY_TOKEN` (via
-`backend/src/config/graphApi.js`'s `getWebhookVerifyToken()`, which also
+`nextjs/lib/config/graphApi.ts`'s `getWebhookVerifyToken()`, which also
 accepts the legacy `WHATSAPP_VERIFY_TOKEN`/`VERIFY_TOKEN` names) and
 echoes back `hub.challenge` on success.
 
@@ -75,7 +75,7 @@ integration never blocks the ack Meta is waiting for.
 
 `history`, `smb_message_echoes` and `smb_app_state_sync` arrive on this
 same endpoint, distinguished by `entry[].changes[].field`, and are handled
-by `backend/src/services/coexistenceService.js`. They are parsed up front,
+by `nextjs/lib/services/coexistenceService.ts`. They are parsed up front,
 before the fast ack above, and processed history-first, so backfilled
 messages land before live traffic. Full detail — including why
 echoes never trigger Auto Reply and never reopen the 24-hour window — is

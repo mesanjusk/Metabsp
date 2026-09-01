@@ -48,7 +48,7 @@ startBackupScheduler();         // optional, off unless ENABLE_SCHEDULED_BACKUPS
 
 **Update:** all three (token refresh, invoice generation, scheduled backup)
 now wrap their scheduled work in `withLeaderLock()`
-(`backend/src/services/schedulerLock.js`) — a short-lived Redis `SET …
+(`nextjs/lib/services/schedulerLock.ts`) — a short-lived Redis `SET …
 NX PX` lock per tick, so only one API replica actually executes the task on
 any given cycle; every other replica's timer fires, fails to acquire the
 lock, and skips silently. This closes the duplicate-billing risk on invoice

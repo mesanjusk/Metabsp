@@ -40,7 +40,7 @@ one.
 
 ## Why `tokenSource` matters operationally
 
-`backend/src/services/tokenRefreshService.js`'s daily scheduler explicitly
+`nextjs/lib/services/tokenRefreshService.ts`'s daily scheduler explicitly
 excludes `tokenSource: 'system_user'` accounts from its re-exchange cycle
 — `fb_exchange_token` isn't the documented refresh path for System User
 tokens, and running it against one risks invalidating a working token

@@ -10,7 +10,7 @@
 
 ## Storage
 
-Every token is AES-256-GCM encrypted (`backend/src/utils/crypto.js`)
+Every token is AES-256-GCM encrypted (`nextjs/lib/utils/crypto.ts`)
 before it touches `WhatsAppAccount.accessTokenEncrypted`. Plaintext tokens
 are never logged — check any new logging you add near an `accessToken`
 variable stays that way.
@@ -43,7 +43,7 @@ Mongo dump.
 
 ## Refresh
 
-`backend/src/services/tokenRefreshService.js` runs daily
+`nextjs/lib/services/tokenRefreshService.ts` runs daily
 (`startTokenRefreshScheduler`), finds `user_token`-sourced accounts within
 7 days of `tokenExpiresAt`, and re-exchanges via `fb_exchange_token`. A
 token that fails to refresh (already invalid) marks the account
@@ -52,7 +52,7 @@ rather than silently failing sends.
 
 ## Verifying a restored database's tokens still decrypt
 
-`backend/scripts/verify-restore.js` (see `docs/BACKUP_RESTORE.md`) samples
+`nextjs/scripts/verify-restore.mjs` (see `docs/BACKUP_RESTORE.md`) samples
 one `WhatsAppAccount` and confirms its token decrypts with the currently
 configured key — this is the single check that catches "restored the
 data but not the key it needs," the most common way a restore silently

@@ -48,7 +48,13 @@ export async function POST(req: NextRequest) {
         userId: authed.id,
       });
       if (!windowCheck.allowed) {
-        return NextResponse.json({ success: false, message: 'Outside 24h window. केवल template messages allowed हैं.' }, { status: 403 });
+        return NextResponse.json({
+          success: false,
+          code: 'OUTSIDE_24H_WINDOW',
+          message:
+            'This contact is outside the 24-hour customer service window. Send an approved template instead.',
+        },
+        { status: 403 });
       }
 
       if (!(file instanceof File)) throw new AppError('file or media link is required', 400);
@@ -82,7 +88,13 @@ export async function POST(req: NextRequest) {
       userId: authed.id,
     });
     if (!windowCheck.allowed) {
-      return NextResponse.json({ success: false, message: 'Outside 24h window. केवल template messages allowed हैं.' }, { status: 403 });
+      return NextResponse.json({
+          success: false,
+          code: 'OUTSIDE_24H_WINDOW',
+          message:
+            'This contact is outside the 24-hour customer service window. Send an approved template instead.',
+        },
+        { status: 403 });
     }
 
     const link = body?.link || body?.mediaUrl || body?.imageUrl || body?.documentUrl || '';

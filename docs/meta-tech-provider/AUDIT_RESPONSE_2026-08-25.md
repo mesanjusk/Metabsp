@@ -1,3 +1,8 @@
+> **Historical record.** This document describes the repository before the
+> three-codebase consolidation. Paths and architecture it names have moved;
+> see `docs/CONSOLIDATION.md` for the mapping. Kept unedited as a record of
+> what was decided and when.
+
 # Response to the Meta App Review audit (2026-08-25)
 
 Answers to the audit's open questions, verified against the codebase and the

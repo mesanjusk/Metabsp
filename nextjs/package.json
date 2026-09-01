@@ -9,7 +9,16 @@
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "start:next": "next start"
+    "start:next": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "seed:billing-plans": "node scripts/seed-billing-plans.mjs",
+    "verify-restore": "node scripts/verify-restore.mjs",
+    "backup:mongo": "bash scripts/backup-mongo.sh",
+    "restore:mongo": "bash scripts/restore-mongo.sh",
+    "loadtest:health": "node loadtest/autocannon-health.js",
+    "loadtest:webhook": "node loadtest/autocannon-webhook.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -33,15 +42,20 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.3",
     "next": "^15.0.0",
+    "pdfkit": "^0.15.2",
     "pino": "^9.5.0",
     "prop-types": "^15.8.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
+    "read-excel-file": "^9.3.10",
     "recharts": "^2.15.4",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
-    "typescript": "^5.5.0",
-    "xlsx": "^0.18.5"
+    "typescript": "^5.5.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.7",
+    "vitest": "^3.2.7"
   }
 }

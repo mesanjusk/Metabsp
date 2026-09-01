@@ -1,6 +1,21 @@
 'use client';
 
+import { alpha } from '@mui/material/styles';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import MessageRenderer from './MessageRenderer';
+
+/**
+ * Rewritten off Tailwind.
+ *
+ * This component was written for the Vite app, which had Tailwind. The Next.js
+ * app never did, so every class here — the bubble shape, its colour, the
+ * alignment, the timestamp row — resolved to nothing, and the chat thread
+ * rendered as a column of unstyled text. That is the screen a Meta reviewer
+ * spends most of their walkthrough looking at.
+ *
+ * It now uses the theme, so bubbles follow the design tokens and work in dark
+ * mode, which the hardcoded `bg-white text-gray-900` never could.
+ */
 
 const getStatusLabel = (status) => {
   if (!status) return 'sent';
@@ -46,34 +61,94 @@ export default function MessageBubble({ message, isOutgoing, timestamp, onRetry 
   const canRetry = isOutgoing && ['failed', 'error', 'undelivered'].includes(status);
   const messageType = getMessageType(message);
   const isUploading = Boolean(message?.isUploading);
+  const isFailed = ['failed', 'error', 'undelivered'].includes(status);
 
   return (
-    <div className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-      <article
-        className={`max-w-[85%] rounded-2xl px-3 py-2 shadow-sm sm:max-w-[72%] ${
-          isOutgoing ? 'rounded-br-md bg-green-600 text-white' : 'rounded-bl-md bg-white text-gray-900'
-        }`}
+    <Box sx={{ display: 'flex', justifyContent: isOutgoing ? 'flex-end' : 'flex-start', mb: 1 }}>
+      <Box
+        component="article"
+        sx={(theme) => ({
+          maxWidth: { xs: '85%', sm: '72%' },
+          px: 1.5,
+          py: 1,
+          borderRadius: 3,
+          // The squared-off corner on the sender's side is what makes a thread
+          // scannable without reading it.
+          borderBottomRightRadius: isOutgoing ? 6 : undefined,
+          borderBottomLeftRadius: isOutgoing ? undefined : 6,
+          boxShadow: theme.shadows[1],
+          bgcolor: isOutgoing ? 'primary.main' : 'background.paper',
+          color: isOutgoing ? 'primary.contrastText' : 'text.primary',
+          border: isOutgoing ? 'none' : `1px solid ${theme.palette.divider}`,
+          wordBreak: 'break-word',
+        })}
       >
-        {isUploading ? <p className="mb-2 text-xs font-medium opacity-85">Uploading media...</p> : null}
+        {isUploading ? (
+          <Typography variant="caption" sx={{ display: 'block', mb: 0.75, opacity: 0.85, fontWeight: 600 }}>
+            Uploading media…
+          </Typography>
+        ) : null}
 
         <MessageRenderer message={message} type={messageType} />
 
-        <div className={`mt-2 flex items-center justify-end gap-2 text-[11px] ${isOutgoing ? 'text-green-100' : 'text-gray-500'}`}>
-          <span>{formatMessageTime(timestamp)}</span>
-          <span className="capitalize">{status}</span>
-          {isMediaType(messageType) ? <span className="uppercase">{messageType}</span> : null}
-        </div>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          justifyContent="flex-end"
+          sx={{
+            mt: 0.75,
+            fontSize: 11,
+            opacity: isOutgoing ? 0.85 : 1,
+            color: isOutgoing ? 'inherit' : 'text.secondary',
+          }}
+        >
+          <Typography variant="caption" component="span" sx={{ fontSize: 'inherit', color: 'inherit' }}>
+            {formatMessageTime(timestamp)}
+          </Typography>
+          <Typography
+            variant="caption"
+            component="span"
+            sx={{
+              fontSize: 'inherit',
+              color: 'inherit',
+              textTransform: 'capitalize',
+              // Failure is the one status worth reading at a glance; the rest
+              // are ambient detail and should not compete with the message.
+              fontWeight: isFailed ? 700 : 400,
+            }}
+          >
+            {status}
+          </Typography>
+          {isMediaType(messageType) ? (
+            <Typography
+              variant="caption"
+              component="span"
+              sx={{ fontSize: 'inherit', color: 'inherit', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+            >
+              {messageType}
+            </Typography>
+          ) : null}
+        </Stack>
 
         {canRetry ? (
-          <button
-            type="button"
+          <Button
+            size="small"
             onClick={() => onRetry?.(message)}
-            className="mt-2 rounded-md bg-white/95 px-2 py-1 text-xs font-semibold text-red-600"
+            sx={(theme) => ({
+              mt: 1,
+              py: 0.25,
+              minHeight: 0,
+              fontSize: '0.75rem',
+              color: theme.palette.error.main,
+              bgcolor: alpha(theme.palette.common.white, 0.95),
+              '&:hover': { bgcolor: theme.palette.common.white },
+            })}
           >
             Retry
-          </button>
+          </Button>
         ) : null}
-      </article>
-    </div>
+      </Box>
+    </Box>
   );
 }

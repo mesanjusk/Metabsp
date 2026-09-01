@@ -1,110 +1,165 @@
 # Meta Tech Provider / App Review readiness
 
-Updated 2026-08-26 after the rejected-submission audit and Render deployment hardening.
+Updated after the three-codebase consolidation (see `docs/CONSOLIDATION.md`).
 
-This report deliberately separates three kinds of requirements:
+This report separates three kinds of requirement, because conflating them is
+how a submission goes out believing it is ready when it is not:
 
-- **CODE** — can be proven and enforced by this repository.
-- **RUNTIME** — depends on Render environment values and the running service.
-- **EXTERNAL** — exists in Meta Business/App Dashboard or requires a human end-to-end test. Code must never claim these are complete when they are not.
+- **CODE** — provable from this repository.
+- **RUNTIME** — depends on deployment environment values and the running service.
+- **EXTERNAL** — lives in Meta's Business/App Dashboard, or needs a person to
+  perform a real end-to-end run. Code must never claim these are complete.
 
-## Current verdict
+---
 
-**Code/runtime deployment path: substantially hardened.** Render Blueprint auto-deploy is enabled and both web services now run a Meta deployment gate before installing/building. The backend additionally runs its Jest suite; Next.js runs TypeScript checking before its production build.
+## Verdict
 
-**Meta submission: not automatically certified.** Business Verification, App Review approval, exact dashboard URLs/domains and a real Embedded Signup/coexistence walkthrough remain external gates.
+**Code and runtime: materially stronger than before.** The product is one
+deployment instead of three, the platform-level defects that would have failed
+an authenticated review walkthrough are fixed, and the deploy gate refuses a
+misconfigured release.
 
-## Automated deployment gates
+**Meta submission: still not certified, and cannot be from here.** Business
+Verification, App Review approval, App Dashboard URLs and domains, and one
+real Embedded Signup / coexistence onboarding remain external gates.
 
-`render.yaml` now runs `scripts/meta-deploy-check.js` before each web-service build. It blocks deployment when required production configuration is absent or unsafe, including:
+---
 
-- `MONGO_URI`
-- `REDIS_URL`
-- `JWT_SECRET`
-- `META_APP_ID`
-- `META_APP_SECRET`
-- `META_EMBEDDED_SIGNUP_CONFIG_ID`
-- `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
-- `WHATSAPP_TOKEN_ENCRYPTION_KEY`
-- Graph API version below the repository's validated `v23.0` baseline
-- webhook signature enforcement not set to `true`
-- invalid/non-HTTPS canonical frontend URL in production
-- obvious placeholder secret/config values
+## Defects fixed in this pass
 
-For the exact deployment that will be submitted to Meta, set `META_REVIEW_ENFORCE_READY=true` in Render. The gate will then additionally require:
+These were platform-level, not cosmetic. Each would have been visible to a
+reviewer or, worse, to customers.
 
-- `META_REVIEWER_LOGIN`
-- `META_REVIEWER_PASSWORD`
-- `META_REVIEW_CONTACT_EMAIL`
+| Area | What was wrong | Severity |
+|---|---|---|
+| Multi-tenant isolation | Socket.IO accepted anonymous connections and broadcast every saved message to every connected client. Any visitor could receive all tenants' WhatsApp traffic. | Critical |
+| Live inbox | The Chats panel read `import.meta.env` — Vite syntax that webpack compiles to `(void 0).VITE_SOCKET_URL`, throwing on load. The screen a review walkthrough spends most of its time on crashed. | Critical |
+| Webhook durability | Inbound events were processed synchronously before acknowledging Meta — media download, Cloudinary re-upload and customer fan-out inside the request. Meta retries a slow webhook and eventually disables it. | High |
+| Background workers | The queue producers had no consumer in this app. Broadcasts blocked for five minutes then timed out; delayed auto-replies and workflow steps were never delivered. | High |
+| Token refresh | The scheduler that re-exchanges Meta long-lived tokens did not run here. Every connected number would stop sending ~60 days after onboarding, with no signal. | High |
+| Consent | `ConsentDialog` — the disclosure of what the platform can do with a customer's WABA — existed but was never rendered. Access was granted with no disclosure. | High |
+| API keys | Stored in plaintext and returned in full on every list call. | High |
+| Key rotation | A rotated `WHATSAPP_TOKEN_ENCRYPTION_KEY` silently failed to decrypt every existing token, with no recovery short of re-onboarding every customer. | High |
+| Security headers | No CSP, HSTS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` or `Permissions-Policy`. `helmet()` was lost in the port. | High |
+| CORS | No allow-list. Socket.IO reflected any origin with credentials enabled. | High |
+| Broken links | `/signup`, `/privacy`, `/terms`, `/help`, `/docs` all 404'd — including the Privacy Policy and Terms links inside the consent dialog, which Meta checks. | High |
+| Session lifetime | Tokens were hardcoded to 99 days while the deployment set `JWT_EXPIRES_IN=7d`; the variable had no effect. | Medium |
+| Usage metering | Queried `direction:'OUTGOING'` while every write path stores `'outgoing'`, so metered overage was always zero. | Medium |
+| Billing endpoints | The billing panel called `/api/billing/subscribe` and the invoice PDF route; neither existed in this app. | Medium |
+| Unsigned uploads | A hardcoded Cloudinary cloud and unsigned browser upload preset — anyone could upload to the account. | Medium |
+| Error disclosure | The public API returned raw internal errors (`connect ECONNREFUSED 10.0.0.5:27017`) to unauthenticated callers. | Medium |
+| Dark mode | Server-rendered light styles outranked client dark ones, giving dark-OS visitors dark text on a light background. | Medium |
+| Orphaned styles | Chat bubbles, the shared modal and the marketing footer were styled with Tailwind classes this app has no Tailwind to interpret. | Medium |
+| Test coverage | The Express side had 43 test files; this app had none. | Medium |
+| CI | No workflow built, typechecked or tested anything. | Medium |
 
-Real reviewer credentials must stay in Render environment variables and must never be committed to this public repository.
+## What can be proven from this repository
 
-## Render auto-deploy
+- Webhook signature verification is enforced and rejects unsigned, wrongly
+  signed and unconfigured requests (`nextjs/tests/webhook.test.ts`).
+- The webhook acknowledges Meta in ~15 ms and persists the payload to Redis
+  before responding; a queue outage falls back to inline processing rather
+  than a 5xx.
+- Socket connections without a valid JWT are refused, and a message reaches
+  only its owning user's room (verified against a running server).
+- API keys are stored as SHA-256 hashes; the secret is returned once.
+- Access tokens are AES-256-GCM encrypted, and rotation works in both
+  directions.
+- `/api/v1` authenticates before touching the database, rate limits per key,
+  and never surfaces an internal error message.
+- Security headers are present on every response; CORS is open on `/api/v1`
+  without credentials and allow-listed everywhere else.
+- 66 tests, a typecheck and a production build run in CI and again in the
+  Render build.
 
-Both `metabsp-backend` and `metabsp-nextjs` are explicitly configured with `branch: main` and `autoDeploy: true`.
+## Deploy gate
 
-Backend build gate:
+`scripts/meta-deploy-check.js` runs before install and build. It blocks a
+deployment when required configuration is absent or unsafe:
 
-```text
-node ../scripts/meta-deploy-check.js && npm ci && npm test
-```
+`MONGO_URI`, `REDIS_URL`, `JWT_SECRET`, `META_APP_ID`, `META_APP_SECRET`,
+`META_EMBEDDED_SIGNUP_CONFIG_ID`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`,
+`WHATSAPP_TOKEN_ENCRYPTION_KEY`; a Graph API version below the validated
+`v23.0` baseline; webhook signature enforcement not set to `true`; a
+non-HTTPS canonical URL in production; obvious placeholder values.
 
-Next.js build gate:
+For the exact deployment submitted to Meta, set `META_REVIEW_ENFORCE_READY=true`
+so the gate additionally requires `META_REVIEWER_LOGIN`,
+`META_REVIEWER_PASSWORD` and `META_REVIEW_CONTACT_EMAIL`.
 
-```text
-node ../scripts/meta-deploy-check.js && npm ci && npm run typecheck && npm run build
-```
-
-Both services use `/api/health` as the Render health check. Redis is configured with `maxmemoryPolicy: noeviction`, which is appropriate for BullMQ-backed queues.
+---
 
 ## Meta-side readiness matrix
 
-| Requirement | Bucket | Status / action |
+| Requirement | Bucket | Status |
 |---|---|---|
-| Business Verification | EXTERNAL | Must show Verified in Meta Business Portfolio before submission. Cannot be completed from GitHub. |
-| `whatsapp_business_messaging` | CODE + EXTERNAL | Implementation/submission text exists; approval is external. |
-| `whatsapp_business_management` | CODE + EXTERNAL | Implementation/submission text exists; approval is external. |
-| `business_management` | CODE + EXTERNAL | Keep justification narrow: manual-connect ownership validation only. Approval is external. |
-| `public_profile` for WhatsApp review | CODE | Do **not** request it for this WhatsApp review. `FACEBOOK_LOGIN_SCOPES=public_profile` in Render belongs only to the separate optional Facebook social-login feature. |
-| Embedded Signup config | RUNTIME + EXTERNAL | Config ID is required by deploy gate; actual Meta configuration and successful popup flow must be verified in production. |
-| Webhook signature enforcement | CODE + RUNTIME | Required by deploy gate and existing backend preflight/tests. |
-| Webhook callback URL | EXTERNAL + RUNTIME | Must be the live production callback in Meta Dashboard and must resolve successfully. |
-| JS SDK Allowed Domains | EXTERNAL | Must contain every host used to run Embedded Signup. |
-| Valid OAuth Redirect URI | EXTERNAL | Must exactly match the deployed production flow. |
-| Coexistence webhook fields | RUNTIME + EXTERNAL | Existing backend preflight re-verifies subscriptions; still perform one real onboarding. |
-| Real Embedded Signup / coexistence onboarding | EXTERNAL | Still mandatory before submission. No automated test can replace the real Meta popup/WABA flow. |
-| Reviewer credentials | RUNTIME | Render deploy gate can enforce presence with `META_REVIEW_ENFORCE_READY=true`; human must verify login works in incognito. |
-| Reviewer walkthrough video | EXTERNAL | Record only after the exact production deployment passes the end-to-end flow. |
+| Business Verification | EXTERNAL | Must show Verified before submission. Not assertable here. |
+| `whatsapp_business_messaging` | CODE + EXTERNAL | Implemented; approval is external. |
+| `whatsapp_business_management` | CODE + EXTERNAL | Implemented; approval is external. |
+| `business_management` | CODE + EXTERNAL | Keep the justification narrow: manual-connect ownership validation only. |
+| `public_profile` | CODE | Do **not** request it for this review. It belongs only to the optional Facebook social sign-in. |
+| Embedded Signup config | RUNTIME + EXTERNAL | Config ID required by the deploy gate; the popup flow must be verified in production. |
+| Informed consent before signup | CODE | **Now enforced** — `ConsentDialog` gates every path to `FB.login`. |
+| Webhook signature enforcement | CODE + RUNTIME | Enforced and tested. |
+| Webhook callback URL | EXTERNAL + RUNTIME | Must point at the consolidated service's `/webhook` and resolve. |
+| JS SDK Allowed Domains | EXTERNAL | Must list every host Embedded Signup runs from, scheme included. Unset means onboarding fails outright. |
+| Valid OAuth Redirect URI | EXTERNAL | Must match the deployed flow. |
+| Coexistence webhook fields | RUNTIME + EXTERNAL | Keep `META_ENABLE_COEXISTENCE=false` until the three fields are subscribed and one real onboarding is done. |
+| Privacy / Terms / Data Deletion URLs | CODE + EXTERNAL | Pages exist and resolve; the dashboard values must be set to match. |
+| Reviewer credentials | RUNTIME | The gate can enforce their presence; a human must confirm the login works in a private window. |
+| Reviewer walkthrough video | EXTERNAL | Record only after the exact production deployment passes end to end. |
 
-## Graph API version
-
-The previous readiness report was stale: `render.yaml` is now pinned to **v23.0**, not v20.0. Both `WHATSAPP_API_VERSION` and the legacy `META_API_VERSION` fallback are kept aligned. Embedded Signup uses ES v4 where configured.
-
-Do not bump the Graph API merely to make the number newer immediately before App Review. Upgrade in a dedicated change and regression-test token exchange, phone-number lookup, WABA subscription, templates, send/receive, media and coexistence.
+---
 
 ## Required human pre-submission run
 
-Before clicking **Submit for Review**, use the exact deployed production URL and exact reviewer credentials in an incognito/private browser and verify:
+On the exact deployed URL, with the exact reviewer credentials, in a private
+window:
 
-1. Reviewer login succeeds without OTP or owner intervention.
-2. WhatsApp dashboard is accessible.
-3. **Connect with Meta** opens Embedded Signup without a JS SDK domain error.
+1. Reviewer login succeeds with no OTP and no owner intervention.
+2. The dashboard loads and the Inbox renders.
+3. **Connect with Meta** shows the consent dialog, then opens Embedded Signup
+   with no JS SDK domain error.
 4. A test WABA/number completes onboarding.
-5. Connected phone/WABA details appear in the product.
+5. Connected phone/WABA details appear under Numbers.
 6. WABA webhook subscription succeeds.
-7. Template list/create flow works.
-8. A real outbound WhatsApp message succeeds.
-9. A real inbound message reaches the application webhook and appears in Chats.
-10. Delivery/read status updates arrive.
-11. If `business_management` is requested, demonstrate the manual-connect ownership-validation flow.
-12. If Coexistence is offered, complete one real WhatsApp Business App coexistence onboarding.
+7. Templates list and template creation work.
+8. A real outbound message is delivered.
+9. A real inbound message reaches the webhook and appears in the Inbox.
+10. Delivery and read receipts arrive.
+11. If `business_management` is requested, demonstrate manual-connect
+    ownership validation.
+12. If Coexistence is offered, complete one real coexistence onboarding.
 
-Only after this run should the review video be recorded. The video, testing instructions and deployed build must demonstrate the same flow.
+---
 
 ## Remaining non-code blockers
 
-The repository cannot truthfully mark the following complete: Meta Business Verification, Meta permission approval, Meta dashboard domain/redirect/callback values, real WABA onboarding, reviewer account usability, reviewer video quality, legal review, production backup/restore drill, or support readiness. These must be checked in their owning systems.
+Meta Business Verification; permission approval; App Dashboard domain,
+redirect and callback values; real WABA onboarding; reviewer account
+usability; the review video; legal review of the published policies; a
+production backup/restore drill; and support readiness. Each must be checked
+in the system that owns it.
+
+## Known gaps, stated plainly
+
+- **The Cashfree billing integration is unverified** against live Cashfree
+  documentation. It is off unless credentials are set, and self-service
+  subscription returns a clear `503` until then. Verify against a sandbox call
+  before accepting real payments.
+- **Data retention is documented but not implemented in code.** There is no
+  job that deletes messages or contacts after a retention period.
+- **CSP allows `'unsafe-inline'` for scripts.** Next inlines its hydration
+  bootstrap; removing it requires a per-request nonce, which forces every
+  static page to render dynamically. Script origins are still restricted.
+- **`xlsx` has open advisories with no registry fix.** It parses
+  spreadsheets the signed-in user chooses, in their own browser.
+- **Some documents under `docs/api/` and `docs/deployment/` still cite
+  pre-consolidation file paths** in their examples. The behaviour they
+  describe is unchanged; `docs/CONSOLIDATION.md` maps old paths to new.
 
 ## Submission recommendation
 
-Do not submit solely because Render deploys successfully. Treat a successful Render deployment as **code/runtime gate passed**. Treat Meta submission as ready only when the external checklist above has also been completed and the exact production reviewer flow has been manually verified end to end.
+A successful deployment means the code and runtime gate passed. Treat the
+Meta submission as ready only when the external checklist above is also
+complete and the reviewer flow has been walked end to end by a person.

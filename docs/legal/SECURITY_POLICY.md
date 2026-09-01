@@ -8,7 +8,7 @@ This document describes the technical security measures implemented in the Metab
 
 ## 1. Encryption of sensitive data at rest
 
-WhatsApp access tokens are encrypted at rest using **AES-256-GCM** authenticated encryption (`backend/src/utils/crypto.js`):
+WhatsApp access tokens are encrypted at rest using **AES-256-GCM** authenticated encryption (`nextjs/lib/utils/crypto.ts`):
 
 - Each value is encrypted with a random 96-bit IV and the resulting authentication tag is stored alongside the ciphertext, so tampering is detectable at decryption time.
 - The encryption key is supplied via the `WHATSAPP_TOKEN_ENCRYPTION_KEY` environment variable (a base64-encoded 32-byte key) and is never stored alongside the encrypted data or in the database backup.
@@ -17,10 +17,10 @@ WhatsApp access tokens are encrypted at rest using **AES-256-GCM** authenticated
 
 ## 2. Authentication and authorization
 
-- User sessions are authenticated via **JWTs**, which are re-verified against the live user record in the database on every request (not trusted on claims alone), ensuring that a revoked or altered user immediately loses access rather than continuing to act on a stale token (`backend/src/middleware/auth.js`, delegating to the unified auth path).
+- User sessions are authenticated via **JWTs**, which are re-verified against the live user record in the database on every request (not trusted on claims alone), ensuring that a revoked or altered user immediately loses access rather than continuing to act on a stale token (`nextjs/lib/auth/session.ts`, delegating to the unified auth path).
 - Administrative actions are gated behind role/permission checks (`requireAdmin`, permission-based `permit()` checks), derived from the authenticated user's assigned role.
-- Programmatic/API access can alternatively use an **API key** (`X-Api-Key` header), validated against active, non-revoked keys stored per user (`backend/src/middleware/apiKeyAuth.js`), with last-used timestamps tracked for visibility into key activity.
-- Passwords are hashed, not stored in plaintext (`backend/src/utils/password.js`).
+- Programmatic/API access can alternatively use an **API key** (`X-Api-Key` header), validated against active, non-revoked keys stored per user (`nextjs/lib/auth/apiKey.ts`), with last-used timestamps tracked for visibility into key activity.
+- Passwords are hashed, not stored in plaintext (`nextjs/lib/utils/password.ts`).
 
 ## 3. Webhook authenticity
 
@@ -30,7 +30,7 @@ WhatsApp access tokens are encrypted at rest using **AES-256-GCM** authenticated
 
 ## 4. Rate limiting
 
-- Rate limiting is backed by **Redis** (via `rate-limit-redis` on top of `express-rate-limit`), so limits are enforced consistently across horizontally scaled instances and survive process restarts, rather than resetting per-instance as an in-memory limiter would (`backend/src/middleware/rateLimit.js`).
+- Rate limiting is backed by **Redis** (via `rate-limit-redis` on top of `express-rate-limit`), so limits are enforced consistently across horizontally scaled instances and survive process restarts, rather than resetting per-instance as an in-memory limiter would (`nextjs/lib/http/rateLimit.ts`).
 - Authenticated routes are rate-limited per user (or per IP if unauthenticated); a stricter, IP-keyed limiter is applied to unauthenticated auth/OTP endpoints (login, signup OTP request, password reset) — the highest-value targets for brute-force or enumeration attacks.
 - By design, a Redis outage degrades rate limiting to "not enforced" rather than blocking the underlying messaging/API routes (`passOnStoreError: true`) — an explicit availability-over-strictness tradeoff during transient infrastructure failure. [OPERATOR SHOULD CONFIRM THIS TRADEOFF MATCHES THEIR RISK TOLERANCE]
 
@@ -43,7 +43,7 @@ WhatsApp access tokens are encrypted at rest using **AES-256-GCM** authenticated
 
 ## 6. Audit logging
 
-Security- and administration-relevant actions are recorded in an append-only audit log (`backend/src/models/AuditLog.js`, `backend/src/services/auditLogService.js`), capturing:
+Security- and administration-relevant actions are recorded in an append-only audit log (`nextjs/lib/models/AuditLog.ts`, `nextjs/lib/services/auditLogService.ts`), capturing:
 
 - the acting user (`userId`) and tenant (`tenantId`),
 - the `action` taken and the `resource`/`resourceId` affected,

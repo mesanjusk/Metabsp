@@ -56,7 +56,7 @@ Private Service Connect rather than a public connection string.
 
 Set `MONGO_URI` via Secret Manager (below), and read
 [REDIS_AND_MONGODB_OPS.md](./REDIS_AND_MONGODB_OPS.md) for why
-`backend/src/config/mongo.js` sets `autoIndex: !isProduction` — production
+`nextjs/lib/db/mongo.ts` sets `autoIndex: !isProduction` — production
 deliberately skips Mongoose's lazy index/collection creation (to avoid
 tripping Atlas's cluster-wide collection cap across ~30 models), so you
 need to run index creation explicitly, e.g. via a migration script, as part
@@ -65,7 +65,7 @@ of your deploy process.
 ## Redis: Memorystore
 
 **Memorystore for Redis** (Basic tier) is the default: point `REDIS_URL` at
-its endpoint, matching `backend/src/config/redis.js`'s single-instance
+its endpoint, matching `nextjs/lib/db/redis.ts`'s single-instance
 path. Once you need cluster-level throughput or want to shard past a
 single node, use **Memorystore for Redis Cluster** and set
 `REDIS_CLUSTER_NODES` (comma-separated `host:port` shard endpoints) instead
@@ -80,7 +80,7 @@ Run, you'll need a Serverless VPC Access connector to reach it.
 ## Backup storage: Cloud Storage
 
 `docs/BACKUP_RESTORE.md` covers the mechanics
-(`backend/scripts/backup-mongo.sh`, `mongodump`/`mongorestore`,
+(`nextjs/scripts/backup-mongo.sh`, `mongodump`/`mongorestore`,
 `ENABLE_SCHEDULED_BACKUPS`/`BACKUP_DIR`). On GCP: run the backup as a Cloud
 Run Job (or a Cloud Scheduler-triggered Cloud Function/Run job) on a
 schedule, writing to a mounted path and then `gsutil cp`/`gcloud storage
@@ -108,7 +108,7 @@ reuse.
 If you're on Cloud Run, Google terminates TLS and fronts the service with
 its own infrastructure automatically — Cloud Run sets `X-Forwarded-*`
 headers itself, so treat that as the one hop and set `TRUST_PROXY=1`
-(matching the default in `backend/.env.example`), unless you additionally
+(matching the default in `nextjs/.env.example`), unless you additionally
 put a global external HTTPS load balancer or Cloud CDN in front of Cloud
 Run, in which case that's an additional hop and `TRUST_PROXY` should
 reflect the real count. This matters beyond correct IP logging: the
@@ -122,7 +122,7 @@ instead of GCE's native load balancer.
 
 ## Secrets: Secret Manager
 
-Store every non-default var from `backend/.env.example`
+Store every non-default var from `nextjs/.env.example`
 (`JWT_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY`, `META_APP_SECRET`,
 `META_API_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `CLOUDINARY_API_SECRET`,
 `CASHFREE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`, `SENTRY_DSN`, `MONGO_URI`,
@@ -133,7 +133,7 @@ environment variables in the service spec. Per `docs/BACKUP_RESTORE.md`,
 version `WHATSAPP_TOKEN_ENCRYPTION_KEY` and `JWT_SECRET` in Secret
 Manager independently of any Mongo snapshot — a restore is only as good as
 those keys. Use `WHATSAPP_TOKEN_ENCRYPTION_KEY_PREVIOUS` (see
-`backend/src/utils/crypto.js`) during rotation to avoid a downtime window.
+`nextjs/lib/utils/crypto.ts`) during rotation to avoid a downtime window.
 
 ## Next steps
 

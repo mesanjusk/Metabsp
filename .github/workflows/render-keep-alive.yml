@@ -22,8 +22,10 @@ on:
     - cron: '6,18,30 17 * * *'
   workflow_dispatch: {}
 
+# Set this to the deployed service URL. The old value here was a legacy
+# Render slug from a service that no longer exists after consolidation.
 env:
-  METABSP_URL: https://bulk-invite.onrender.com
+  METABSP_URL: ${{ vars.METABSP_URL }}
 
 jobs:
   ping:
@@ -32,7 +34,7 @@ jobs:
       - name: Ping Metabsp itself
         run: |
           curl -sS -o /dev/null -w "metabsp-backend (self): HTTP %{http_code} in %{time_total}s\n" \
-            --max-time 25 "${METABSP_URL}/health" || true
+            --max-time 25 "${METABSP_URL}/api/health" || true
 
       - name: Ping every registered webhook destination
         run: |

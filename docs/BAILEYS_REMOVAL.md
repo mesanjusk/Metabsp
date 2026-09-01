@@ -1,3 +1,8 @@
+> **Historical record.** This document describes the repository before the
+> three-codebase consolidation. Paths and architecture it names have moved;
+> see `docs/CONSOLIDATION.md` for the mapping. Kept unedited as a record of
+> what was decided and when.
+
 # Removal of the unofficial WhatsApp Web transport (Baileys)
 
 The product now sends and receives **only** through Meta's official WhatsApp

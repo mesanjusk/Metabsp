@@ -5,7 +5,8 @@ import createCache from '@emotion/cache';
 import { CacheProvider } from '@emotion/react';
 import { useServerInsertedHTML } from 'next/navigation';
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import theme from './theme';
+import { lightTheme, darkTheme } from './theme';
+import { ColorSchemeProvider, useColorScheme } from './ColorSchemeContext';
 
 /**
  * Emotion + MUI for the App Router.
@@ -60,10 +61,30 @@ export default function ThemeRegistry({ children }: { children: React.ReactNode 
 
   return (
     <CacheProvider value={cache}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        {children}
-      </ThemeProvider>
+      <ColorSchemeProvider>
+        <ThemedChildren>{children}</ThemedChildren>
+      </ColorSchemeProvider>
     </CacheProvider>
+  );
+}
+
+/**
+ * Split out so it can call useColorScheme — a component cannot consume a
+ * context its own render provides. CssBaseline lives here rather than in the
+ * registry above so that switching scheme repaints the document background
+ * too, not just the components.
+ */
+function ThemedChildren({ children }: { children: React.ReactNode }) {
+  const { resolved } = useColorScheme();
+  const theme = resolved === 'dark' ? darkTheme : lightTheme;
+
+  return (
+    <ThemeProvider theme={theme}>
+      {/* Component-level resets only. The page background and foreground come
+          from the CSS custom properties in app/layout.tsx — see the note there
+          for why they cannot come from the theme. */}
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
   );
 }

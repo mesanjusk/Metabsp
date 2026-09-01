@@ -308,7 +308,7 @@ export default function HelpCenterPage() {
               <Button variant="contained" component={NextLink} href="/contact">
                 Contact Support
               </Button>
-              <Button variant="outlined" component={NextLink} href="/docs">
+              <Button variant="outlined" component={NextLink} href="/developer-docs">
                 Developer Docs
               </Button>
             </Stack>

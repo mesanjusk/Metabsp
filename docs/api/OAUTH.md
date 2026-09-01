@@ -14,7 +14,7 @@ short developer-reference version of
 | 2. Extend to long-lived token | Same URL, `grant_type=fb_exchange_token` | `completeEmbeddedSignup`, `refreshExpiringTokens` |
 | 3. Periodic refresh | Same as step 2, run daily for tokens expiring within 7 days | `tokenRefreshService.js` |
 
-`RESOLVED_API_VERSION` (from `backend/src/config/graphApi.js`) controls
+`RESOLVED_API_VERSION` (from `nextjs/lib/config/graphApi.ts`) controls
 `{version}` — set via `WHATSAPP_API_VERSION`.
 
 ## Building your own integration against this pattern

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
+import { parseTabularFile } from '@/lib/client/importParsers';
 import {
   Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress,
   Dialog, DialogActions, DialogContent, DialogTitle,
@@ -207,9 +207,7 @@ export default function CRMPanel({ search: externalSearch = '', onSendContacts }
     if (!file) return;
     setImportFile(file);
     setImportResult(null);
-    const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: 'array' });
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+    const rows = await parseTabularFile(file);
     const cols = rows.length ? Object.keys(rows[0]) : [];
     setImportColumns(cols);
     setImportPreview(rows.slice(0, 5));
@@ -223,9 +221,7 @@ export default function CRMPanel({ search: externalSearch = '', onSendContacts }
     setImporting(true);
     setImportResult(null);
     try {
-      const buffer = await importFile.arrayBuffer();
-      const wb = XLSX.read(buffer, { type: 'array' });
-      const allRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+      const allRows = await parseTabularFile(importFile);
 
       const contacts = allRows.map(row => {
         const contact = { customFields: {} };

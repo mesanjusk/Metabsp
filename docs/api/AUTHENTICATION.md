@@ -17,7 +17,7 @@ Authorization: Bearer <jwt>
   `protect`) — not just a claims-only check, so deactivating a user
   (`isActive: false`) immediately invalidates all their sessions on their
   next request, without needing a token blocklist.
-- Expires after 30 days (`JWT_EXPIRES_IN` in `backend/.env.example`) — no
+- Expires after 30 days (`JWT_EXPIRES_IN` in `nextjs/.env.example`) — no
   refresh-token endpoint exists; the client re-authenticates (logs in
   again) once expired.
 - Never send this token to a third party. It's for this platform's own
@@ -44,7 +44,7 @@ GET /api/v1/status?apiKey=mbsp_<key>
   (`DELETE /api/v1/api-keys/:id` or the UI's revoke action) if a key is
   compromised, rather than waiting for it to expire.
 - Rate-limited: 60 requests/minute on most `/api/v1/WhatsApp Cloud API/*` routes
-  (see `createRateLimiter` usage in `backend/src/routes/externalApi.js`).
+  (see `createRateLimiter` usage in `nextjs/app/api/v1/`).
 
 ## There is no third-party OAuth authorization flow
 

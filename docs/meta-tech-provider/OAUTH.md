@@ -13,7 +13,7 @@ connect. All of this lives in
    with `grant_type=fb_exchange_token`, exchanging the short-lived token
    for one valid ~60 days. Non-fatal if this fails; falls back to the
    short-lived token rather than aborting the connect.
-3. **Long-lived token refresh**: `backend/src/services/tokenRefreshService.js`
+3. **Long-lived token refresh**: `nextjs/lib/services/tokenRefreshService.ts`
    runs daily (`startTokenRefreshScheduler`, started from `src/index.js`),
    finds accounts with `tokenExpiresAt` within 7 days, and re-runs step 2
    against the still-valid token. A token that's already expired/invalid
@@ -42,7 +42,7 @@ input validation hardening for the actual reasoning at the time).
 for customers who already have a token from Meta Business Manager, or
 platforms not using the Embedded Signup UI. Validates the token actually
 works against the Graph API
-(`backend/src/services/whatsappCredentialValidationService.js`) before
+(`nextjs/lib/services/whatsappCredentialValidationService.ts`) before
 storing it, and calls the same `subscribeAppToWaba` webhook-subscription
 step Embedded Signup does.
 

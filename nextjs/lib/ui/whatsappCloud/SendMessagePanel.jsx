@@ -28,7 +28,7 @@ export default function SendMessagePanel({ search }) {
             placeholder="+14155552671"
           />
 
-          <TemplateMessageComposer recipient={form.to} className="space-y-3" buttonLabel="Send Template Message" />
+          <TemplateMessageComposer recipient={form.to} buttonLabel="Send Template Message" />
         </Stack>
       </Paper>
 

@@ -20,7 +20,7 @@ Plus, already in the repo before this documentation pass:
 
 - [`docs/BACKUP_RESTORE.md`](../BACKUP_RESTORE.md) — backup/restore
   strategy and the `verify-restore.js` drill script
-- [`backend/loadtest/README.md`](../../backend/loadtest/README.md) — k6
+- [`nextjs/loadtest/README.md`](../../nextjs/loadtest/README.md) — k6
   and autocannon load testing
 
 Once your infrastructure is up, come back to

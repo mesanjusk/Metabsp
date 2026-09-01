@@ -18,7 +18,7 @@
 
 ## How
 
-`backend/scripts/backup-mongo.sh` wraps `mongodump` into a single timestamped,
+`nextjs/scripts/backup-mongo.sh` wraps `mongodump` into a single timestamped,
 gzipped archive:
 
 ```bash
@@ -72,7 +72,7 @@ environment and run:
 MONGO_URI="$SCRATCH_MONGO_URI" WHATSAPP_TOKEN_ENCRYPTION_KEY="$KEY" npm run verify-restore --prefix backend
 ```
 
-`backend/scripts/verify-restore.js` automates the three checks that used to
+`nextjs/scripts/verify-restore.mjs` automates the three checks that used to
 be a manual checklist:
 
 1. The app can connect to the restored database at all.

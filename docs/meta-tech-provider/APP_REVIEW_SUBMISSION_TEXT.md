@@ -108,7 +108,7 @@ permission the app does not exercise is precisely the kind of overclaim that
 gets a submission rejected. Remove `public_profile` from the request.
 
 (If Google/Facebook social sign-in is ever deployed,
-`backend/src/services/socialAuthService.js` does call `/me` with a Facebook
+`nextjs/lib/services/socialAuthService.ts` does call `/me` with a Facebook
 Login token — but that is a separate feature, not deployed today, and belongs
 in its own submission.)
 

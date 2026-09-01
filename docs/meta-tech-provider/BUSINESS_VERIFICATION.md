@@ -14,7 +14,7 @@ Without a verified business, Meta caps your WhatsApp messaging tier low
 production App Review. A BSP serving multiple customer businesses needs
 verification on **its own** Business Manager — the one whose System User
 and app own the Embedded Signup configuration this app uses
-(`META_EMBEDDED_SIGNUP_CONFIG_ID` in `backend/.env.example`).
+(`META_EMBEDDED_SIGNUP_CONFIG_ID` in `nextjs/.env.example`).
 
 ## What Meta checks
 
@@ -34,7 +34,7 @@ no code path that touches it.
 
 ## What depends on it in this app
 
-- `META_APP_ID` / `META_APP_SECRET` (`backend/.env.example`) belong to an
+- `META_APP_ID` / `META_APP_SECRET` (`nextjs/.env.example`) belong to an
   app under this verified Business Manager.
 - The Embedded Signup configuration
   (`META_EMBEDDED_SIGNUP_CONFIG_ID`) is created under the same verified
