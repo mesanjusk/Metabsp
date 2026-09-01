@@ -4,9 +4,9 @@ import { useState } from 'react';
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  CardHeader,
   Chip,
   Divider,
   IconButton,
@@ -16,7 +16,9 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { toast } from '@/lib/ui/components/Toast';
 
 /**
@@ -28,6 +30,12 @@ import { toast } from '@/lib/ui/components/Toast';
  *
  * Both directions are here, and the receive side covers both shapes: a push to
  * an endpoint you own, and a poll for the many callers that cannot host one.
+ *
+ * The "Start here" tab exists because the endpoint list answered the wrong
+ * question first. Someone opening this screen does not yet know whether the
+ * API is something their account can use or something an administrator has to
+ * switch on, nor which of the two ways to receive messages applies to them.
+ * A reference that opens on `POST /api/v1/send-template` leaves both unanswered.
  */
 const origin = () => (typeof window === 'undefined' ? 'https://your-domain.example' : window.location.origin);
 
@@ -88,34 +96,170 @@ const Endpoint = ({ method, path, summary, children }) => (
   </Stack>
 );
 
-export default function ApiReferencePanel() {
-  const [tab, setTab] = useState('send');
+
+const Step = ({ index, title, children, action }) => (
+  <Stack direction="row" spacing={2} alignItems="flex-start">
+    <Box
+      sx={(theme) => ({
+        width: 28,
+        height: 28,
+        borderRadius: '50%',
+        flexShrink: 0,
+        display: 'grid',
+        placeItems: 'center',
+        bgcolor: alpha(theme.palette.primary.main, 0.12),
+        color: 'primary.main',
+        fontWeight: 700,
+        fontSize: '0.8125rem',
+        mt: 0.25,
+      })}
+    >
+      {index}
+    </Box>
+    <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+        {title}
+      </Typography>
+      {children}
+      {action}
+    </Stack>
+  </Stack>
+);
+
+export default function ApiReferencePanel({ onOpenTab }) {
+  const [tab, setTab] = useState('start');
   const base = origin();
 
   return (
     <Card>
-      <CardHeader
-        title="API reference"
-        subheader="Send messages from your own systems, and receive every inbound message into them."
-        titleTypographyProps={{ variant: 'h6' }}
-        subheaderTypographyProps={{ variant: 'body2' }}
-      />
-      <CardContent sx={{ pt: 0 }}>
-        <Alert severity="info" sx={{ mb: 2.5 }}>
-          Every request authenticates with an API key from the tab beside this one, sent as{' '}
-          <code>Authorization: Bearer &lt;key&gt;</code>. A key can only ever act on the WhatsApp
-          number its owner connected — an account or phone number in a request body is never trusted
-          to widen that.
-        </Alert>
-
+      <CardContent sx={{ pt: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs value={tab} onChange={(_event, next) => setTab(next)} aria-label="API direction">
+          <Tabs
+            value={tab}
+            onChange={(_event, next) => setTab(next)}
+            aria-label="API direction"
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+          >
+            <Tab value="start" label="Start here" />
             <Tab value="send" label="Sending" />
             <Tab value="receive" label="Receiving" />
           </Tabs>
         </Box>
 
-        {tab === 'send' ? (
+        {tab === 'start' ? (
+          <Stack spacing={4}>
+            <Alert severity="success">
+              <strong>This is yours to use — no administrator has to enable it.</strong> Every
+              account gets the same API. A key you create here acts as your own account, on the
+              WhatsApp number you connected, and can never see or send from anyone else&apos;s.
+            </Alert>
+
+            <Step
+              index={1}
+              title="Create an API key"
+              action={
+                <Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    endIcon={<ArrowForwardRoundedIcon fontSize="small" />}
+                    onClick={() => onOpenTab?.('keys')}
+                  >
+                    Go to API keys
+                  </Button>
+                </Box>
+              }
+            >
+              <Typography variant="body2" color="text.secondary">
+                The key is shown once, at the moment you create it. Store it where your code reads
+                its secrets — never in a repository or a front-end bundle, because anyone holding it
+                can send messages as you. Lost one? Revoke it and make another; a revoked key stops
+                working immediately.
+              </Typography>
+            </Step>
+
+            <Divider />
+
+            <Step index={2} title="Send your first message">
+              <Typography variant="body2" color="text.secondary">
+                Check the key works, and see which number it sends from:
+              </Typography>
+              <CodeBlock>{`curl ${base}/api/v1/status \\
+  -H "Authorization: Bearer mbsp_your_key_here"`}</CodeBlock>
+              <Typography variant="body2" color="text.secondary">
+                Then send. Which endpoint you need depends on one rule, not on preference: you may
+                send free-form text only within 24 hours of that person&apos;s last message to you.
+                Outside that window it must be an approved template. If you are starting the
+                conversation, it is always a template.
+              </Typography>
+              <Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  endIcon={<ArrowForwardRoundedIcon fontSize="small" />}
+                  onClick={() => setTab('send')}
+                >
+                  See the sending endpoints
+                </Button>
+              </Box>
+            </Step>
+
+            <Divider />
+
+            <Step index={3} title="Choose how you receive replies">
+              <Typography variant="body2" color="text.secondary">
+                Both options deliver the same messages. Pick the one that matches where your code
+                runs — you do not need both.
+              </Typography>
+
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ '& > *': { flex: 1, minWidth: 0 } }}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Your server has a public URL
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Register it as a webhook destination and we POST each message to it the moment
+                      it arrives. Nothing to poll, nothing to schedule.
+                    </Typography>
+                    <Button
+                      size="small"
+                      sx={{ mt: 1.5 }}
+                      variant="outlined"
+                      endIcon={<ArrowForwardRoundedIcon fontSize="small" />}
+                      onClick={() => onOpenTab?.('webhooks')}
+                    >
+                      Add a destination
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" gutterBottom>
+                      It does not
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      A desktop tool, a script behind NAT, a scheduled job on someone else&apos;s
+                      host: ask us for new messages on your own schedule instead.
+                    </Typography>
+                    <Button
+                      size="small"
+                      sx={{ mt: 1.5 }}
+                      variant="outlined"
+                      endIcon={<ArrowForwardRoundedIcon fontSize="small" />}
+                      onClick={() => setTab('receive')}
+                    >
+                      See how to poll
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Stack>
+            </Step>
+          </Stack>
+        ) : tab === 'send' ? (
           <Stack spacing={4}>
             <Endpoint
               method="POST"

@@ -37,6 +37,10 @@ const TABS = [
   { value: 'webhooks', label: 'Webhook destinations' },
 ];
 
+// Scrollable rather than fixed: "Webhook destinations" is wider than a phone
+// can fit beside two other tabs, and a fixed Tabs row silently clips the last
+// one instead of letting it be reached.
+
 export default function DevelopersPage() {
   const [tab, setTab] = useState('reference');
 
@@ -59,14 +63,24 @@ export default function DevelopersPage() {
     >
       <Stack spacing={3}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={tab} onChange={(_event, next) => setTab(next)} aria-label="Developer settings">
+          <Tabs
+            value={tab}
+            onChange={(_event, next) => setTab(next)}
+            aria-label="Developer settings"
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+          >
             {TABS.map((entry) => (
               <Tab key={entry.value} value={entry.value} label={entry.label} />
             ))}
           </Tabs>
         </Box>
 
-        {tab === 'reference' ? <ApiReferencePanel /> : null}
+        {/* The reference's own "Start here" steps end in "go to API keys" /
+            "add a destination" — they switch the tab here rather than telling
+            the reader to go and find it. */}
+        {tab === 'reference' ? <ApiReferencePanel onOpenTab={setTab} /> : null}
         {tab === 'keys' ? <ApiKeysPanel /> : null}
         {tab === 'webhooks' ? <WebhookDestinationsPanel /> : null}
       </Stack>

@@ -6,12 +6,21 @@ import { signTokenForUser } from '@/lib/auth/jwt';
 import { recordAuditEvent } from '@/lib/services/auditLogService';
 import { checkAuthRateLimit } from '@/lib/http/rateLimit';
 import { sanitizeUser } from '@/lib/http/sanitizeUser';
+import { normalizeAccountMobile, mobileLookupCandidates } from '@/lib/utils/accountMobile';
 import logger from '@/lib/utils/logger';
 
 // Ported from backend/src/routes/Users.js's POST /login. Same request/
 // response contract (User_name/Password in, {success,token,user} out) so
 // the existing frontend's Cloud auth context works against this endpoint
 // unchanged. Same rate limit as the original's loginLimiter (20/15min/IP).
+//
+// What changed is what the identifier means. New accounts are created under
+// their mobile number, so that is what the form asks for and what is matched
+// first — in every form the number might be stored under, since accounts
+// predating this were saved with whatever punctuation and country code the
+// person happened to type. The username match is kept as a fallback purely so
+// accounts created before the change, including the seeded `admin`, can still
+// sign in; nothing creates a username-only account any more.
 export async function POST(req: NextRequest) {
   // Guarded: these routes validate and rate-limit before their try block,
   // so an unreachable database would otherwise escape as a bare 500.
@@ -27,18 +36,30 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const { User_name, Password } = body || {};
-  const normalizedUserName = String(User_name || '').trim();
+  const { User_name, Mobile_number, Password } = body || {};
+  const identifier = String(Mobile_number || User_name || '').trim();
 
-  if (!normalizedUserName || !Password) {
-    return NextResponse.json({ success: false, message: 'User_name and Password are required' }, { status: 400 });
+  if (!identifier || !Password) {
+    return NextResponse.json({ success: false, message: 'Mobile number and password are required' }, { status: 400 });
   }
 
+  const normalizedUserName = identifier;
+  const mobileCandidates = mobileLookupCandidates(identifier);
+  const canonicalMobile = normalizeAccountMobile(identifier);
+
   try {
-    const user: any = await User.findOne({ username: normalizedUserName, tenantId: null }).populate('roleId');
+    // Two lookups rather than one $or, so the result is deterministic when a
+    // legacy account's username happens to equal another account's number:
+    // the number always wins, because that is what the form asks for.
+    const user: any =
+      (await User.findOne({ tenantId: null, mobile: { $in: mobileCandidates } }).populate('roleId')) ||
+      (await User.findOne({
+        tenantId: null,
+        username: { $in: [...new Set([identifier, canonicalMobile].filter(Boolean))] },
+      }).populate('roleId'));
     if (!user || !(await user.matchPassword(Password))) {
       recordAuditEvent({ req: req as any, action: 'login', resource: 'user', outcome: 'failure', metadata: { username: normalizedUserName } });
-      return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ success: false, message: 'Invalid mobile number or password' }, { status: 401 });
     }
     if (!user.isActive) {
       recordAuditEvent({

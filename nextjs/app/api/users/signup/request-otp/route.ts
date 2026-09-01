@@ -4,11 +4,12 @@ import { errorResponse } from '@/lib/http/errorResponse';
 import { User } from '@/lib/models';
 import { sendOtp } from '@/lib/services/otpService';
 import { checkAuthRateLimit } from '@/lib/http/rateLimit';
+import { normalizeAccountMobile, isPlausibleMobile, mobileLookupCandidates } from '@/lib/utils/accountMobile';
 import logger from '@/lib/utils/logger';
 
-const RESERVED_USERNAME = 'admin';
-
-// Ported from backend/src/routes/Users.js's POST /signup/request-otp.
+// Ported from backend/src/routes/Users.js's POST /signup/request-otp, with
+// the username dropped: the mobile number is the account identity now, so
+// there is nothing else to collect before sending the code.
 export async function POST(req: NextRequest) {
   // Guarded: these routes validate and rate-limit before their try block,
   // so an unreachable database would otherwise escape as a bare 500.
@@ -24,20 +25,31 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const userName = String(body?.User_name || '').trim();
-  const mobile = String(body?.Mobile_number || '').trim();
+  const mobile = normalizeAccountMobile(body?.Mobile_number);
 
-  if (!userName || !mobile) {
-    return NextResponse.json({ success: false, message: 'User name and mobile number are required.' }, { status: 400 });
+  if (!mobile) {
+    return NextResponse.json({ success: false, message: 'Mobile number is required.' }, { status: 400 });
   }
-  if (userName.toLowerCase() === RESERVED_USERNAME) {
-    return NextResponse.json({ success: false, message: 'This username is reserved.' }, { status: 400 });
+  if (!isPlausibleMobile(mobile)) {
+    return NextResponse.json(
+      { success: false, message: 'Enter a valid mobile number, including the country code.' },
+      { status: 400 }
+    );
   }
 
   try {
-    const existingUser = await User.findOne({ tenantId: null, $or: [{ username: userName }, { mobile }] });
+    // Checked against every form the number might already be stored under, so
+    // a customer who registered as 9876543210 is not invited to register
+    // again as 919876543210.
+    const existingUser = await User.findOne({
+      tenantId: null,
+      $or: [{ mobile: { $in: mobileLookupCandidates(mobile) } }, { username: mobile }],
+    });
     if (existingUser) {
-      return NextResponse.json({ success: false, message: 'An account with this username or mobile number already exists.' }, { status: 409 });
+      return NextResponse.json(
+        { success: false, message: 'An account already exists for this mobile number. Sign in instead.' },
+        { status: 409 }
+      );
     }
 
     const result = await sendOtp(mobile, 'SIGNUP');

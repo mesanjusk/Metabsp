@@ -66,13 +66,13 @@ const REVIEWER_LOGIN = process.env.NEXT_PUBLIC_REVIEWER_LOGIN || '';
 const REVIEWER_PASSWORD = process.env.NEXT_PUBLIC_REVIEWER_PASSWORD || '';
 const REVIEWER_TEST_NUMBER = process.env.NEXT_PUBLIC_REVIEWER_TEST_NUMBER || '';
 
-// The login form field is "Mobile / Username" — the backend looks the user up
-// by `username`, so an email address will never authenticate. Labelled here
-// exactly as it appears in the UI so a reviewer is not sent looking for an
-// email field that does not exist.
+// The login form asks for a mobile number — that is the account identity, and
+// an email address will never authenticate. Labelled here exactly as it
+// appears in the UI so a reviewer is not sent looking for a field that does
+// not exist.
 const REVIEWER_CREDENTIALS = [
   ['Application URL', APP_URL],
-  ['Mobile / Username', REVIEWER_LOGIN || 'Provided in the App Review submission'],
+  ['Mobile number', REVIEWER_LOGIN || 'Provided in the App Review submission'],
   ['Password', REVIEWER_PASSWORD || 'Provided in the App Review submission'],
   ...(REVIEWER_TEST_NUMBER ? [['Test WhatsApp Number', REVIEWER_TEST_NUMBER]] : []),
 ];
@@ -371,7 +371,7 @@ export default function MetaAppReviewPage() {
               Test / Demo Credentials for App Review
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Sign in at the URL below with the mobile number (or username) and password shown.
+              Sign in at the URL below with the mobile number and password shown.
               The account is pre-configured with sample data, and its WhatsApp connections use
               Meta test numbers, so no real messages are sent.
             </Typography>
@@ -407,13 +407,21 @@ export default function MetaAppReviewPage() {
                 {
                   primary: 'Log in with the reviewer account',
                   secondary:
-                    'The login form asks for "Mobile / Username" \u2014 enter the mobile number or username shown above, not an email address, then the password.',
+                    'The login form asks for a mobile number \u2014 enter the number shown above, not an email address, then the password.',
                 },
-                { primary: 'Navigate to WhatsApp Connect', secondary: 'From the left sidebar, select "WhatsApp" or "Connect WhatsApp Business".' },
-                { primary: 'Initiate Embedded Signup', secondary: 'Click "Connect WhatsApp Business Account". The Meta Embedded Signup popup will open.' },
+                {
+                  primary: 'Open Numbers',
+                  secondary:
+                    'Select "Numbers" under Platform in the left sidebar. On a phone, tap "More" in the bottom bar and choose "Numbers".',
+                },
+                {
+                  primary: 'Initiate Embedded Signup',
+                  secondary:
+                    'Click "Connect with Meta" on the first card. A consent dialog lists exactly what access is requested; accepting it opens the Meta Embedded Signup popup.',
+                },
                 { primary: 'Complete the OAuth flow', secondary: 'Log in with a Facebook account that has access to a WhatsApp Business Account, grant the requested permissions, and select a WABA.' },
-                { primary: 'Explore features', secondary: 'After connection, explore template management, message sending, webhook logs, and the analytics dashboard.' },
-                { primary: 'Disconnect (optional)', secondary: 'Use the "Disconnect" button on the WhatsApp settings page to remove the account connection.' },
+                { primary: 'Explore features', secondary: 'After connecting, explore Inbox, Templates, Broadcasts, Automations, Analytics and the Developers section.' },
+                { primary: 'Disconnect (optional)', secondary: 'Use the "Disconnect" button against the number on the Numbers page to remove the connection.' },
               ].map((step, i) => (
                 <ListItem key={i} alignItems="flex-start" sx={{ pl: 0 }}>
                   <Box

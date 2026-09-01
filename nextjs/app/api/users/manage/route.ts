@@ -8,6 +8,7 @@ import { User } from '@/lib/models';
 import WhatsAppAccount from '@/lib/models/WhatsAppAccount';
 import { getGlobalRoles } from '@/lib/auth/globalRoles';
 import { assertPhoneNumberAvailable, sanitizeAccount } from '@/lib/services/whatsappAccountService';
+import { normalizeAccountMobile, isPlausibleMobile, mobileLookupCandidates } from '@/lib/utils/accountMobile';
 import { encryptSensitiveValue } from '@/lib/utils/crypto';
 import logger from '@/lib/utils/logger';
 
@@ -16,6 +17,10 @@ import logger from '@/lib/utils/logger';
 // This was the last unported route, and its absence was visible: the
 // dashboard's admin Settings tab calls it, got Next.js's HTML 404 page back,
 // and rendered the whole document into the panel as an error message.
+
+// The seeded platform administrator signs in under this username. Nothing
+// creates username accounts any more, but an admin must not be able to mint a
+// second account that shadows it.
 const RESERVED_USERNAME = 'admin';
 
 export async function GET(req: NextRequest) {
@@ -62,26 +67,36 @@ export async function POST(req: NextRequest) {
     requireAdmin(authed);
 
     const body = await req.json().catch(() => ({}));
-    const { User_name, Password, Mobile_number = '', User_group = 'user', whatsapp = {} } = body || {};
+    const { Password, Mobile_number = '', Display_name = '', User_group = 'user', whatsapp = {} } = body || {};
 
-    const normalizedUserName = String(User_name || '').trim();
+    const mobile = normalizeAccountMobile(Mobile_number);
+    const displayName = String(Display_name || '').trim();
     const normalizedPassword = String(Password || '').trim();
 
-    if (!normalizedUserName || !normalizedPassword) {
-      return NextResponse.json({ success: false, message: 'User name and password are required.' }, { status: 400 });
+    if (!mobile || !normalizedPassword) {
+      return NextResponse.json({ success: false, message: 'Mobile number and password are required.' }, { status: 400 });
     }
-    if (normalizedUserName.toLowerCase() === RESERVED_USERNAME) {
-      return NextResponse.json({ success: false, message: 'This username is reserved.' }, { status: 400 });
+    if (!isPlausibleMobile(mobile)) {
+      return NextResponse.json(
+        { success: false, message: 'Enter a valid mobile number, including the country code.' },
+        { status: 400 }
+      );
+    }
+    if (mobile.toLowerCase() === RESERVED_USERNAME) {
+      return NextResponse.json({ success: false, message: 'This identifier is reserved.' }, { status: 400 });
     }
 
     session = await mongoose.startSession();
     session.startTransaction();
 
-    const existingUser = await User.findOne({ username: normalizedUserName, tenantId: null }).session(session);
+    const existingUser = await User.findOne({
+      tenantId: null,
+      $or: [{ mobile: { $in: mobileLookupCandidates(mobile) } }, { username: mobile }],
+    }).session(session);
     if (existingUser) {
       await session.abortTransaction();
       session.endSession();
-      return NextResponse.json({ success: false, message: 'User name already exists.' }, { status: 409 });
+      return NextResponse.json({ success: false, message: 'An account already exists for this mobile number.' }, { status: 409 });
     }
 
     const { adminRole, userRole } = await getGlobalRoles();
@@ -89,10 +104,10 @@ export async function POST(req: NextRequest) {
 
     const createdUsers: any[] = await User.create(
       [{
-        name: normalizedUserName,
-        username: normalizedUserName,
+        name: displayName || mobile,
+        username: mobile,
         password: normalizedPassword,
-        mobile: String(Mobile_number || '').trim(),
+        mobile,
         roleId,
         tenantId: null,
         isActive: true,

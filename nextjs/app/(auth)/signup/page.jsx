@@ -30,7 +30,7 @@ export default function Signup() {
   const { login } = useAuth();
 
   const [step, setStep] = useState(0);
-  const [userName, setUserName] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -43,15 +43,14 @@ export default function Signup() {
     setErrorText('');
     setInfoText('');
 
-    if (!userName.trim() || !mobile.trim() || !password.trim()) {
-      setErrorText('All fields are required.');
+    if (!mobile.trim() || !password.trim()) {
+      setErrorText('Enter your mobile number and a password.');
       return;
     }
 
     setLoading(true);
     try {
       const { data } = await apiClient.post('/api/users/signup/request-otp', {
-        User_name: userName,
         Mobile_number: mobile,
       });
 
@@ -81,14 +80,14 @@ export default function Signup() {
     setLoading(true);
     try {
       const { data } = await apiClient.post('/api/users/signup/verify', {
-        User_name: userName,
         Mobile_number: mobile,
+        Display_name: displayName,
         Password: password,
         code,
       });
 
       login(data.token, {
-        userName: data.user?.User_name || userName,
+        userName: data.user?.Display_name || data.user?.User_name || mobile,
         userGroup: data.user?.User_group || '',
         mobileNumber: data.user?.Mobile_number || mobile,
         whatsappProvider: data.user?.Whatsapp_provider || '',
@@ -144,8 +143,8 @@ export default function Signup() {
               </Typography>
               <Typography color="text.secondary">
                 {step === 0
-                  ? 'Enter your details to receive an OTP on WhatsApp.'
-                  : `Enter the OTP sent to ${mobile}.`}
+                  ? 'Your mobile number is your sign-in ID. We will send a code to it on WhatsApp.'
+                  : `Enter the code sent to ${mobile} on WhatsApp.`}
               </Typography>
             </Box>
 
@@ -155,30 +154,33 @@ export default function Signup() {
             {step === 0 ? (
               <>
                 <TextField
-                  label="User Name"
-                  autoComplete="username"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
+                  label="WhatsApp mobile number"
+                  autoComplete="username tel"
+                  type="tel"
+                  inputProps={{ inputMode: 'tel' }}
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
                   required
+                  helperText="This is your sign-in ID. We send the code here, so use a number you can read WhatsApp on."
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <PersonRoundedIcon fontSize="small" />
+                        <PhoneRoundedIcon fontSize="small" />
                       </InputAdornment>
                     ),
                   }}
                 />
 
                 <TextField
-                  label="Mobile Number"
-                  autoComplete="tel"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  required
+                  label="Your name (optional)"
+                  autoComplete="name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  helperText="Shown in the app. Not used to sign in."
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <PhoneRoundedIcon fontSize="small" />
+                        <PersonRoundedIcon fontSize="small" />
                       </InputAdornment>
                     ),
                   }}

@@ -195,7 +195,10 @@ export function AuthProvider({ children }) {
         setUser((prev) => {
           const next = {
             ...prev,
-            userName: serverUser.User_name || prev.userName,
+            // Display_name when the person set one, otherwise their number —
+            // User_name now carries the mobile number, since that is the
+            // account's identity.
+            userName: serverUser.Display_name || serverUser.User_name || prev.userName,
             userGroup: String(serverUser.User_group || '').toLowerCase(),
             mobileNumber: serverUser.Mobile_number || prev.mobileNumber,
             whatsappProvider: serverUser.Whatsapp_provider || prev.whatsappProvider,

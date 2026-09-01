@@ -7,11 +7,18 @@ import { User } from '@/lib/models';
 import WhatsAppAccount from '@/lib/models/WhatsAppAccount';
 import { getGlobalRoles } from '@/lib/auth/globalRoles';
 import { assertPhoneNumberAvailable, sanitizeAccount } from '@/lib/services/whatsappAccountService';
+import { normalizeAccountMobile, isPlausibleMobile, mobileLookupCandidates } from '@/lib/utils/accountMobile';
 import { encryptSensitiveValue } from '@/lib/utils/crypto';
 import logger from '@/lib/utils/logger';
 
 // Ported from backend/src/routes/Users.js's PUT /manage/:id.
-const RESERVED_USERNAME = 'admin';
+//
+// The mobile number is the account's identity, so it is what this validates
+// and what uniqueness is checked against. It is also why an omitted
+// Mobile_number now leaves the stored one alone rather than blanking it: the
+// previous version assigned `String(Mobile_number || '')` unconditionally,
+// which would erase the identifier of any account saved from a form that did
+// not happen to include the field.
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -21,35 +28,44 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
-    const { User_name, Password, Mobile_number = '', User_group = 'user', whatsapp = {} } = body || {};
+    const { Password, Mobile_number, Display_name, User_group = 'user', whatsapp = {} } = body || {};
 
     const user: any = await User.findById(id).populate('roleId');
     if (!user) {
       return NextResponse.json({ success: false, message: 'User not found.' }, { status: 404 });
     }
 
-    const normalizedUserName = String(User_name || user.username).trim();
-    if (!normalizedUserName) {
-      return NextResponse.json({ success: false, message: 'User name is required.' }, { status: 400 });
+    const mobileProvided = Mobile_number !== undefined && String(Mobile_number).trim() !== '';
+    const mobile = mobileProvided ? normalizeAccountMobile(Mobile_number) : String(user.mobile || '').trim();
+
+    if (!mobile) {
+      return NextResponse.json({ success: false, message: 'Mobile number is required.' }, { status: 400 });
     }
-    if (normalizedUserName.toLowerCase() === RESERVED_USERNAME) {
-      return NextResponse.json({ success: false, message: 'This username is reserved.' }, { status: 400 });
+    if (mobileProvided && !isPlausibleMobile(mobile)) {
+      return NextResponse.json(
+        { success: false, message: 'Enter a valid mobile number, including the country code.' },
+        { status: 400 }
+      );
     }
 
     const conflictUser = await User.findOne({
-      username: normalizedUserName,
       tenantId: null,
       _id: { $ne: user._id },
+      $or: [{ mobile: { $in: mobileLookupCandidates(mobile) } }, { username: mobile }],
     }).lean();
     if (conflictUser) {
-      return NextResponse.json({ success: false, message: 'User name already exists.' }, { status: 409 });
+      return NextResponse.json({ success: false, message: 'Another account already uses this mobile number.' }, { status: 409 });
     }
 
     const { adminRole, userRole } = await getGlobalRoles();
 
-    user.username = normalizedUserName;
-    user.name = normalizedUserName;
-    user.mobile = String(Mobile_number || '').trim();
+    const displayName = Display_name === undefined ? String(user.name || '') : String(Display_name).trim();
+
+    user.mobile = mobile;
+    // The seeded `admin` account keeps its username so it can still sign in
+    // that way; every other account is identified by its number.
+    if (String(user.username || '').toLowerCase() !== 'admin') user.username = mobile;
+    user.name = displayName || mobile;
     user.roleId = String(User_group || 'user').toLowerCase() === 'admin' ? adminRole._id : userRole._id;
     if (String(Password || '').trim()) user.password = String(Password).trim();
     await user.save();

@@ -30,7 +30,7 @@ import { parseApiError } from '@/lib/api/parseApiError';
 
 const emptyForm = {
   id: '',
-  User_name: '',
+  Display_name: '',
   Password: '',
   Mobile_number: '',
   User_group: 'user',
@@ -46,9 +46,9 @@ const emptyForm = {
 
 const mapUserToForm = (item) => ({
   id: item?.id || '',
-  User_name: item?.User_name || '',
+  Display_name: item?.Display_name || '',
   Password: '',
-  Mobile_number: item?.Mobile_number || '',
+  Mobile_number: item?.Mobile_number || item?.User_name || '',
   User_group: item?.User_group || 'user',
   accessToken: '',
   phoneNumberId: item?.whatsappAccount?.phoneNumberId || '',
@@ -87,7 +87,7 @@ export default function AdminUserManagementPanel() {
 
   const submitLabel = form.id ? 'Update user' : 'Create user';
   const canSubmit = useMemo(() => {
-    if (!form.User_name.trim()) return false;
+    if (!form.Mobile_number.trim()) return false;
     if (!form.id && !form.Password.trim()) return false;
     if ((form.accessToken || form.phoneNumberId || form.businessAccountId || form.wabaId) && !form.accessToken.trim()) return false;
     return true;
@@ -114,7 +114,7 @@ export default function AdminUserManagementPanel() {
     setError('');
 
     const payload = {
-      User_name: form.User_name.trim(),
+      Display_name: form.Display_name.trim(),
       Password: form.Password,
       Mobile_number: form.Mobile_number.trim(),
       User_group: form.User_group.trim() || 'user',
@@ -158,7 +158,7 @@ export default function AdminUserManagementPanel() {
           <Box>
             <Typography variant="h5" fontWeight={800}>Admin user management</Typography>
             <Typography variant="body2" color="text.secondary">
-              Create login users and save their WhatsApp token, phone number ID, business account ID, and WABA ID directly in the database.
+              Create sign-in accounts and save their WhatsApp token, phone number ID, business account ID and WABA ID directly in the database. People sign in with their mobile number — there is no separate username.
             </Typography>
           </Box>
           <Button startIcon={<RefreshRoundedIcon />} variant="outlined" onClick={loadUsers} disabled={isLoading || isSaving}>
@@ -176,9 +176,9 @@ export default function AdminUserManagementPanel() {
             </Stack>
 
             <Grid container spacing={2}>
-              <Grid item xs={12} md={4}><TextField label="User name" value={form.User_name} onChange={handleChange('User_name')} fullWidth required /></Grid>
+              <Grid item xs={12} md={4}><TextField label="Mobile number" value={form.Mobile_number} onChange={handleChange('Mobile_number')} fullWidth required type="tel" inputProps={{ inputMode: 'tel' }} helperText="This is how they sign in" /></Grid>
               <Grid item xs={12} md={4}><TextField label={form.id ? 'New password (optional)' : 'Password'} type="password" value={form.Password} onChange={handleChange('Password')} fullWidth required={!form.id} /></Grid>
-              <Grid item xs={12} md={4}><TextField label="Mobile number" value={form.Mobile_number} onChange={handleChange('Mobile_number')} fullWidth /></Grid>
+              <Grid item xs={12} md={4}><TextField label="Display name (optional)" value={form.Display_name} onChange={handleChange('Display_name')} fullWidth helperText="Shown in the app only" /></Grid>
               <Grid item xs={12} md={3}><TextField label="User group" value={form.User_group} onChange={handleChange('User_group')} fullWidth helperText="Use user or admin" /></Grid>
               <Grid item xs={12} md={9}><TextField label="WhatsApp access token" value={form.accessToken} onChange={handleChange('accessToken')} fullWidth multiline minRows={2} /></Grid>
               <Grid item xs={12} md={3}><TextField label="Phone number ID" value={form.phoneNumberId} onChange={handleChange('phoneNumberId')} fullWidth /></Grid>
@@ -216,9 +216,8 @@ export default function AdminUserManagementPanel() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>User</TableCell>
+                  <TableCell>Sign-in number</TableCell>
                   <TableCell>Group</TableCell>
-                  <TableCell>Mobile</TableCell>
                   <TableCell>Phone Number ID</TableCell>
                   <TableCell>Business/WABA</TableCell>
                   <TableCell>Status</TableCell>
@@ -227,9 +226,9 @@ export default function AdminUserManagementPanel() {
               </TableHead>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={7}><Stack alignItems="center" py={3}><CircularProgress size={24} /></Stack></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6}><Stack alignItems="center" py={3}><CircularProgress size={24} /></Stack></TableCell></TableRow>
                 ) : items.length === 0 ? (
-                  <TableRow><TableCell colSpan={7}><Typography sx={{ py: 3, textAlign: 'center' }} color="text.secondary">No users created yet.</Typography></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6}><Typography sx={{ py: 3, textAlign: 'center' }} color="text.secondary">No users created yet.</Typography></TableCell></TableRow>
                 ) : (
                   items.map((item) => {
                     const account = item?.whatsappAccount;
@@ -237,12 +236,11 @@ export default function AdminUserManagementPanel() {
                       <TableRow key={item.id} hover>
                         <TableCell>
                           <Stack spacing={0.25}>
-                            <Typography fontWeight={700}>{item.User_name}</Typography>
-                            <Typography variant="caption" color="text.secondary">{account?.verifiedName || 'No verified name'}</Typography>
+                            <Typography fontWeight={700}>{item.Mobile_number || item.User_name}</Typography>
+                            <Typography variant="caption" color="text.secondary">{item.Display_name || account?.verifiedName || 'No display name'}</Typography>
                           </Stack>
                         </TableCell>
                         <TableCell><Chip size="small" label={item.User_group || 'user'} color={String(item.User_group).toLowerCase() === 'admin' ? 'warning' : 'default'} /></TableCell>
-                        <TableCell>{item.Mobile_number || '-'}</TableCell>
                         <TableCell>{account?.phoneNumberId || '-'}</TableCell>
                         <TableCell>
                           <Stack spacing={0.25}>

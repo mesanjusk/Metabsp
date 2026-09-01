@@ -10,6 +10,7 @@ import {
   Drawer,
   useMediaQuery,
 } from '@mui/material';
+import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
 import { useAuth } from '@/lib/ui/AuthContext';
 import { useWhatsAppConnection } from '@/lib/ui/hooks/useWhatsAppConnection';
 import { ROUTES } from '@/lib/constants/routes';
@@ -109,7 +110,11 @@ export default function DashboardShell({ children }) {
   const mobileItems = MOBILE_NAV_HREFS.map((href) => ALL_NAV_ITEMS.find((item) => item.href === href)).filter(
     Boolean
   );
-  const mobileValue = mobileItems.some((item) => item.href === navItem?.href) ? navItem?.href : false;
+  // Anything not in the bar — Numbers, Developers, Settings, Administration,
+  // Automations, Analytics — lights up "More" instead of leaving the bar with
+  // nothing selected, so the current screen always has a visible home.
+  const isOnMobileItem = mobileItems.some((item) => item.href === navItem?.href);
+  const mobileValue = isOnMobileItem ? navItem?.href : navItem ? 'more' : false;
 
   return (
     <DashboardContext.Provider value={contextValue}>
@@ -203,6 +208,12 @@ export default function DashboardShell({ children }) {
                   />
                 );
               })}
+              <BottomNavigationAction
+                value="more"
+                label="More"
+                icon={<MoreHorizRoundedIcon fontSize="small" />}
+                onClick={() => setDrawerOpen(true)}
+              />
             </BottomNavigation>
           ) : null}
         </Box>

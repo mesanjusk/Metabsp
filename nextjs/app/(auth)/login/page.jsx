@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import LoginRoundedIcon from '@mui/icons-material/LoginRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
-import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
 import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
 import {
   Alert,
@@ -28,7 +28,7 @@ import SocialSignIn from '@/lib/ui/components/SocialSignIn';
 export default function Login() {
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
-  const [userName, setUserName] = useState('');
+  const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState('');
@@ -44,7 +44,7 @@ export default function Login() {
   // notion of "logged in" to keep consistent.
   const handleAuthenticated = (data) => {
     login(data.token, {
-      userName: data.user?.User_name || '',
+      userName: data.user?.Display_name || data.user?.User_name || '',
       userGroup: data.user?.User_group || '',
       mobileNumber: data.user?.Mobile_number || '',
       whatsappProvider: data.user?.Whatsapp_provider || '',
@@ -60,19 +60,19 @@ export default function Login() {
 
     try {
       const response = await apiClient.post('/api/users/login', {
-        User_name: userName,
+        Mobile_number: mobile,
         Password: password,
       });
 
       const data = response?.data || {};
 
       if (!data.success || !data.token) {
-        setErrorText(data.message || 'Login failed Correct  username and password.');
+        setErrorText(data.message || 'That mobile number and password did not match an account.');
         return;
       }
 
       login(data.token, {
-        userName: data.user?.User_name || userName,
+        userName: data.user?.Display_name || data.user?.User_name || mobile,
         userGroup: data.user?.User_group || '',
         mobileNumber: data.user?.Mobile_number || '',
         whatsappProvider: data.user?.Whatsapp_provider || '',
@@ -125,22 +125,24 @@ export default function Login() {
                 Sign in
               </Typography>
               <Typography color="text.secondary">
-                Access your WhatsApp Business workspace.
+                Sign in with the mobile number your account was created with.
               </Typography>
             </Box>
 
             {errorText ? <Alert severity="error">{errorText}</Alert> : null}
 
             <TextField
-              label="User Name"
-              autoComplete="username"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
+              label="Mobile number"
+              autoComplete="username tel"
+              type="tel"
+              inputProps={{ inputMode: 'tel' }}
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value)}
               required
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <PersonRoundedIcon fontSize="small" />
+                    <PhoneRoundedIcon fontSize="small" />
                   </InputAdornment>
                 ),
               }}

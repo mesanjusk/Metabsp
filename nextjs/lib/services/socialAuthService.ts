@@ -237,8 +237,10 @@ export const resolveUserForSocialProfile = async ({ profile, User, getGlobalRole
   return { user: await user.populate('roleId'), outcome: 'created' };
 };
 
-// Usernames are unique per tenant and surfaced in the UI, so derive something
-// readable from the email local part or display name, then disambiguate.
+// A social account has no mobile number to be identified by, and never signs
+// in with a password, so it still needs an internal unique handle. Derived
+// from the email local part or display name so it reads sensibly if it ever
+// surfaces, then disambiguated. Password sign-in is by mobile number.
 export const generateUniqueUsername = async ({ profile, User }) => {
   const base =
     String(profile.email || '').split('@')[0].replace(/[^a-zA-Z0-9._-]/g, '') ||

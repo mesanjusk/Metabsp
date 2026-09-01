@@ -51,9 +51,16 @@ export const NAV_SECTIONS = [
   },
 ];
 
-// Mobile gets the five most-used destinations in a bottom bar; the rest stay
-// one tap away in the drawer. A bottom bar with ten items is a menu.
-export const MOBILE_NAV_HREFS = ['/inbox', '/contacts', '/templates', '/broadcasts', '/analytics'];
+// Mobile gets the four most-used destinations in a bottom bar, plus an
+// explicit "More" that opens the drawer.
+//
+// The bar previously held five Workspace destinations and nothing else, which
+// made every Platform section — Numbers among them — invisible on a phone.
+// The drawer was the only route to them and nothing on screen said so, so a
+// customer on their phone could not find where to connect a WhatsApp number
+// at all unless they happened to try the hamburger. A bottom bar with ten
+// items is a menu; a bottom bar that hides the setup screen is a dead end.
+export const MOBILE_NAV_HREFS = ['/inbox', '/contacts', '/templates', '/broadcasts'];
 
 export const ALL_NAV_ITEMS = NAV_SECTIONS.flatMap((section) => section.items);
 
