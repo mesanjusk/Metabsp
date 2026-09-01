@@ -4,6 +4,7 @@ import { Alert, AlertTitle, Button, Stack } from '@mui/material';
 import dynamic from 'next/dynamic';
 import PageBody from '@/lib/ui/app/PageBody';
 import { useDashboard } from '@/lib/ui/app/DashboardContext';
+import ConnectChoiceCards from '@/lib/ui/app/ConnectChoiceCards';
 import LoadingSkeleton from '@/lib/ui/whatsappCloud/LoadingSkeleton';
 
 const WhatsAppNumbersPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WhatsAppNumbersPanel'), {
@@ -30,19 +31,11 @@ export default function NumbersPage() {
   return (
     <PageBody
       title="WhatsApp numbers"
-      description="Connect a business number through Meta, or attach one you already manage. Each connected number can send, receive and run automations independently."
-      actions={
-        <>
-          <Button variant="outlined" onClick={openManualConnect} disabled={isBusy}>
-            Use an existing token
-          </Button>
-          <Button variant="contained" onClick={startConnect} disabled={isBusy}>
-            {isBusy ? 'Connecting…' : 'Connect with Meta'}
-          </Button>
-        </>
-      }
+      description="Both ways in are open to every account. Connect as many numbers as you need — each one sends, receives and runs its own automations."
     >
-      <Stack spacing={2.5}>
+      <Stack spacing={3}>
+        <ConnectChoiceCards onEmbedded={startConnect} onManual={openManualConnect} isBusy={isBusy} />
+
         {coexistence?.enabled ? (
           <Alert severity={historySyncStatus === 'completed' ? 'success' : 'info'}>
             <AlertTitle>Coexistence is on for this number</AlertTitle>

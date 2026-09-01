@@ -51,8 +51,10 @@ export default function ConnectGate({ sectionLabel, onConnect, onConnectManually
             </Button>
           </Stack>
 
-          <Typography variant="caption" color="text.disabled">
-            Already have a WhatsApp Business Account with Meta? Either route works.
+          <Typography variant="caption" color="text.disabled" sx={{ maxWidth: 420 }}>
+            No WhatsApp Business Account yet? Connect with Meta and it will set one up. Already have
+            one? Use an existing token. Both routes are open to every account — see Numbers for the
+            full comparison.
           </Typography>
         </Stack>
       </Paper>

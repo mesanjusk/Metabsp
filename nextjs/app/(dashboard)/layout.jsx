@@ -25,14 +25,18 @@ import DashboardShell from '@/lib/ui/app/DashboardShell';
  * bearer token server-side regardless of what the browser chooses to render.
  */
 export default function DashboardLayout({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isSessionLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isAuthenticated) router.replace(ROUTES.LOGIN);
-  }, [isAuthenticated, router]);
+    // Waiting for isSessionLoading matters: the session is restored from
+    // storage in an effect, so on the very first frame nobody is signed in
+    // yet. Redirecting then would bounce every signed-in user to the login
+    // page and back on every page load.
+    if (!isSessionLoading && !isAuthenticated) router.replace(ROUTES.LOGIN);
+  }, [isAuthenticated, isSessionLoading, router]);
 
-  if (!isAuthenticated) {
+  if (isSessionLoading || !isAuthenticated) {
     return (
       <Box
         sx={{

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import NextLink from 'next/link';
-import { Box, Button, Card, CardContent, CardHeader, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Box, Button, Stack, Tab, Tabs } from '@mui/material';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import PageBody from '@/lib/ui/app/PageBody';
 import LoadingSkeleton from '@/lib/ui/whatsappCloud/LoadingSkeleton';
@@ -16,39 +16,34 @@ const WebhookDestinationsPanel = dynamic(() => import('@/lib/ui/whatsappCloud/We
   ssr: false,
   loading: () => <LoadingSkeleton />,
 });
-
-const CURL_EXAMPLE = `curl https://your-domain.example/api/v1/send-template \\
-  -H "Authorization: Bearer mbsp_your_key_here" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "phone": "919876543210",
-    "template": "order_shipped",
-    "language": "en_US",
-    "components": []
-  }'`;
+const ApiReferencePanel = dynamic(() => import('@/lib/ui/whatsappCloud/ApiReferencePanel'), {
+  ssr: false,
+  loading: () => <LoadingSkeleton />,
+});
 
 /**
- * Everything an integrator needs, in one place: a key to authenticate with, a
- * working request to copy, and the webhook destinations that push events back
- * into their own systems.
+ * Everything an integrator needs, in one place: how to send, how to receive, a
+ * key to authenticate with, and the destinations that push events into their
+ * own systems.
  *
- * Previously the two halves were unreachable and buried respectively — API
- * keys had no screen at all, and webhook destinations sat three sections deep
- * inside a settings panel — even though both are headline features on the
- * marketing site.
+ * Both halves were previously missing or buried — API keys had no screen at
+ * all, webhook destinations sat three sections deep inside a settings panel,
+ * and receiving messages was documented nowhere a developer would look, even
+ * though it is the question integrators ask first.
  */
 const TABS = [
+  { value: 'reference', label: 'API reference' },
   { value: 'keys', label: 'API keys' },
   { value: 'webhooks', label: 'Webhook destinations' },
 ];
 
 export default function DevelopersPage() {
-  const [tab, setTab] = useState('keys');
+  const [tab, setTab] = useState('reference');
 
   return (
     <PageBody
       title="Developers"
-      description="Send messages from your own systems and receive every inbound event as a signed webhook."
+      description="Send messages from your own systems, and receive every inbound message into them — by signed webhook, or by polling if you cannot host an endpoint."
       actions={
         <Button
           component={NextLink}
@@ -58,41 +53,11 @@ export default function DevelopersPage() {
           variant="outlined"
           endIcon={<OpenInNewRoundedIcon fontSize="small" />}
         >
-          API reference
+          Public docs
         </Button>
       }
     >
       <Stack spacing={3}>
-        <Card>
-          <CardHeader
-            title="Quick start"
-            subheader="Create a key below, then send your first template message."
-            titleTypographyProps={{ variant: 'h6' }}
-            subheaderTypographyProps={{ variant: 'body2' }}
-          />
-          <CardContent sx={{ pt: 0 }}>
-            <Box
-              component="pre"
-              sx={{
-                m: 0,
-                p: 2,
-                borderRadius: 2,
-                bgcolor: 'action.hover',
-                overflowX: 'auto',
-                fontFamily: 'monospace',
-                fontSize: '0.8125rem',
-                lineHeight: 1.7,
-              }}
-            >
-              <code>{CURL_EXAMPLE}</code>
-            </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-              Free-form text (<code>/api/v1/send-text</code>) only reaches someone who messaged you in the
-              last 24 hours. Outside that window, send an approved template.
-            </Typography>
-          </CardContent>
-        </Card>
-
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tab} onChange={(_event, next) => setTab(next)} aria-label="Developer settings">
             {TABS.map((entry) => (
@@ -101,7 +66,9 @@ export default function DevelopersPage() {
           </Tabs>
         </Box>
 
-        {tab === 'keys' ? <ApiKeysPanel /> : <WebhookDestinationsPanel />}
+        {tab === 'reference' ? <ApiReferencePanel /> : null}
+        {tab === 'keys' ? <ApiKeysPanel /> : null}
+        {tab === 'webhooks' ? <WebhookDestinationsPanel /> : null}
       </Stack>
     </PageBody>
   );

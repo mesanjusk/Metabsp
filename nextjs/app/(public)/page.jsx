@@ -113,7 +113,7 @@ function FeatureCard({ icon: Icon, title, description }) {
 }
 
 export default function LandingPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isSessionLoading } = useAuth();
   const router = useRouter();
 
   // Redirecting during render would fire on the server too, where
@@ -121,8 +121,8 @@ export default function LandingPage() {
   // An effect keeps this a client-only decision, with the marketing page as
   // the server-rendered default.
   useEffect(() => {
-    if (isAuthenticated) router.replace('/inbox');
-  }, [isAuthenticated, router]);
+    if (!isSessionLoading && isAuthenticated) router.replace('/inbox');
+  }, [isAuthenticated, isSessionLoading, router]);
 
   return (
     <Box>

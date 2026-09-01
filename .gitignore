@@ -5,6 +5,8 @@ build/
 dist/
 coverage/
 *.tsbuildinfo
+# Redis snapshot, written into the working directory by a local redis-server
+dump.rdb
 
 .env
 .env.local
