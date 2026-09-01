@@ -148,14 +148,14 @@ export default function DataDeletionPage() {
             <Paper elevation={0} sx={{ p: { xs: 3, md: 5 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>WhatsApp Data Disconnection</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                To revoke MetaBSP's access to your WhatsApp Business Account before requesting data deletion:
+                To revoke SanjuSK's access to your WhatsApp Business Account before requesting data deletion:
               </Typography>
               <Box component="ol" sx={{ pl: 3 }}>
                 {[
                   'Log in to Meta Business Suite (business.facebook.com)',
                   'Go to Business Settings → Accounts → WhatsApp Accounts',
                   'Select your WhatsApp Business Account',
-                  'Under "Solution Providers," find MetaBSP and click "Remove"',
+                  'Under "Solution Providers," find SanjuSK and click "Remove"',
                   'Confirm the removal when prompted',
                 ].map((step, i) => (
                   <Box component="li" key={i} sx={{ mb: 1 }}>
@@ -168,15 +168,15 @@ export default function DataDeletionPage() {
             <Paper elevation={0} sx={{ p: { xs: 3, md: 5 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>Facebook Login Data Deletion</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                If you used "Login with Facebook" to connect your account, you can remove MetaBSP's Facebook app permissions:
+                If you used "Login with Facebook" to connect your account, you can remove SanjuSK's Facebook app permissions:
               </Typography>
               <Box component="ol" sx={{ pl: 3 }}>
                 {[
                   'Go to your Facebook account Settings',
                   'Click on "Apps and Websites" in the left sidebar',
-                  'Find "MetaBSP" in the list of connected apps',
-                  'Click "Remove" next to the MetaBSP app',
-                  'Confirm removal — this revokes all Facebook permissions granted to MetaBSP',
+                  'Find "SanjuSK" in the list of connected apps',
+                  'Click "Remove" next to the SanjuSK app',
+                  'Confirm removal — this revokes all Facebook permissions granted to SanjuSK',
                   'Submit a data deletion request below to remove all stored data',
                 ].map((step, i) => (
                   <Box component="li" key={i} sx={{ mb: 1 }}>
@@ -185,7 +185,7 @@ export default function DataDeletionPage() {
                 ))}
               </Box>
               <Alert severity="info" sx={{ mt: 2 }} icon={<InfoOutlinedIcon />}>
-                MetaBSP's Facebook App Data Deletion Callback URL: <strong>{DATA_DELETION_CALLBACK_URL}</strong>. This URL is registered with Meta and handles automated deletion callbacks triggered when users remove our app from their Facebook settings.
+                SanjuSK's Facebook App Data Deletion Callback URL: <strong>{DATA_DELETION_CALLBACK_URL}</strong>. This URL is registered with Meta and handles automated deletion callbacks triggered when users remove our app from their Facebook settings.
               </Alert>
             </Paper>
 
@@ -236,7 +236,7 @@ export default function DataDeletionPage() {
                       value={form.email}
                       onChange={handleChange}
                       error={!!errors.email}
-                      helperText={errors.email || 'The email associated with your MetaBSP account'}
+                      helperText={errors.email || 'The email associated with your SanjuSK account'}
                       fullWidth
                       required
                     />

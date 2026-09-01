@@ -47,7 +47,7 @@ export default function SecurityPage() {
         <Container maxWidth="lg">
           <Box sx={{ mb: 8, textAlign: 'center' }}>
             <ShieldIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h3" fontWeight={800} sx={{ mb: 2 }}>Security at MetaBSP</Typography>
+            <Typography variant="h3" fontWeight={800} sx={{ mb: 2 }}>Security at SanjuSK</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto' }}>
               We take the security of your data and your customers' data seriously. Here's a detailed overview of our security posture and practices.
             </Typography>
@@ -67,7 +67,7 @@ export default function SecurityPage() {
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <SecurityCard icon={<LockIcon />} title="Encryption at Rest">
-                <Para>All data stored on MetaBSP infrastructure is encrypted using AES-256, the industry standard for data encryption at rest.</Para>
+                <Para>All data stored on SanjuSK infrastructure is encrypted using AES-256, the industry standard for data encryption at rest.</Para>
                 <BulletList items={[
                   'Database encryption: AES-256 at the disk level (dm-crypt / LUKS)',
                   'Object storage (S3-compatible): SSE-AES256 server-side encryption',
@@ -81,7 +81,7 @@ export default function SecurityPage() {
 
             <Grid item xs={12} md={6}>
               <SecurityCard icon={<HttpsIcon />} title="Encryption in Transit">
-                <Para>All communications between clients and MetaBSP servers, and between our services, use TLS encryption.</Para>
+                <Para>All communications between clients and SanjuSK servers, and between our services, use TLS encryption.</Para>
                 <BulletList items={[
                   'TLS 1.3 enforced for all public API endpoints',
                   'TLS 1.2 minimum (TLS 1.0 and 1.1 are disabled)',
@@ -109,9 +109,9 @@ export default function SecurityPage() {
 
             <Grid item xs={12} md={6}>
               <SecurityCard icon={<ShieldIcon />} title="Webhook Signature Verification">
-                <Para>All webhooks delivered by MetaBSP include cryptographic signatures so you can verify they originate from our servers.</Para>
+                <Para>All webhooks delivered by SanjuSK include cryptographic signatures so you can verify they originate from our servers.</Para>
                 <BulletList items={[
-                  'HMAC-SHA256 signature included in the X-MetaBSP-Signature-256 header',
+                  'HMAC-SHA256 signature included in the X-Metabsp-Signature-256 header',
                   'Signatures computed using your per-endpoint webhook secret',
                   'Timestamp included to prevent replay attacks (5-minute tolerance window)',
                   'Detailed signature verification guide provided in our developer docs',
@@ -166,7 +166,7 @@ export default function SecurityPage() {
 
             <Grid item xs={12} md={6}>
               <SecurityCard icon={<VerifiedUserIcon />} title="SOC 2 Compliance">
-                <Para>MetaBSP is actively pursuing SOC 2 Type II certification, demonstrating our commitment to enterprise-grade security controls.</Para>
+                <Para>SanjuSK is actively pursuing SOC 2 Type II certification, demonstrating our commitment to enterprise-grade security controls.</Para>
                 <BulletList items={[
                   'SOC 2 Type I audit: Completed Q1 2025',
                   'SOC 2 Type II audit: In progress (expected completion Q4 2025)',

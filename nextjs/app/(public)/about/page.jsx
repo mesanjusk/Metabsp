@@ -55,13 +55,13 @@ export default function AboutPage() {
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mb: 3 }}>
                 <WhatsAppIcon sx={{ color: '#25d366', fontSize: 40 }} />
-                <Typography variant="h3" fontWeight={900} sx={{ color: 'white' }}>MetaBSP</Typography>
+                <Typography variant="h3" fontWeight={900} sx={{ color: 'white' }}>SanjuSK</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700} sx={{ mb: 2, color: 'rgba(255,255,255,0.95)' }}>
                 Empowering Businesses Through WhatsApp
               </Typography>
               <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.75)', maxWidth: 560, mx: 'auto', lineHeight: 1.8 }}>
-                MetaBSP is a Meta-authorized WhatsApp Business Solution Provider, helping businesses of all sizes communicate with their customers at scale through the world's most popular messaging platform.
+                SanjuSK is a Meta-authorized WhatsApp Business Solution Provider, helping businesses of all sizes communicate with their customers at scale through the world's most popular messaging platform.
               </Typography>
               <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ mt: 3 }} flexWrap="wrap" useFlexGap>
                 <Chip label="Meta Technology Partner" icon={<VerifiedIcon />} sx={{ bgcolor: '#25d366', color: '#05260f', fontWeight: 700 }} />
@@ -84,7 +84,7 @@ export default function AboutPage() {
           <Box sx={{ mb: 8 }}>
             <Typography variant="h4" fontWeight={800} sx={{ mb: 1, textAlign: 'center' }}>What We Do</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', mb: 5 }}>
-              MetaBSP is your complete WhatsApp Business Platform solution
+              SanjuSK is your complete WhatsApp Business Platform solution
             </Typography>
             <Grid container spacing={3}>
               {[
@@ -141,13 +141,13 @@ export default function AboutPage() {
           <Box sx={{ mb: 8 }}>
             <Typography variant="h4" fontWeight={800} sx={{ mb: 1, textAlign: 'center' }}>Meta Technology Partner</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', mb: 5, maxWidth: 600, mx: 'auto' }}>
-              MetaBSP is an authorized WhatsApp Business Solution Provider, recognized by Meta for our adherence to their platform policies and technical standards.
+              SanjuSK is an authorized WhatsApp Business Solution Provider, recognized by Meta for our adherence to their platform policies and technical standards.
             </Typography>
             <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '2px solid', borderColor: 'primary.main', textAlign: 'center', maxWidth: 600, mx: 'auto' }}>
               <VerifiedIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1.5 }} />
               <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>Authorized WhatsApp Business Solution Provider</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                As an authorized BSP, MetaBSP has direct access to Meta's WhatsApp Business API infrastructure and is bound by Meta's Business Solution Provider Agreement to maintain the highest standards of platform usage.
+                As an authorized BSP, SanjuSK has direct access to Meta's WhatsApp Business API infrastructure and is bound by Meta's Business Solution Provider Agreement to maintain the highest standards of platform usage.
               </Typography>
               <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap>
                 <Chip label="Official BSP" color="primary" size="small" />
@@ -194,7 +194,7 @@ export default function AboutPage() {
               Ready to Get Started?
             </Typography>
             <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.85)', mb: 3 }}>
-              Join hundreds of businesses already messaging their customers through MetaBSP.
+              Join hundreds of businesses already messaging their customers through SanjuSK.
             </Typography>
             <Chip
               label="Start Free Trial"

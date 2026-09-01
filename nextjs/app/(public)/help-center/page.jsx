@@ -17,8 +17,8 @@ const FAQ_DATA = [
     color: 'primary',
     items: [
       {
-        q: 'What is MetaBSP and how does it work?',
-        a: 'MetaBSP is a WhatsApp Business Solution Provider (BSP) authorized by Meta. We provide API access to the WhatsApp Business Platform, allowing your business to send and receive WhatsApp messages at scale. You connect your WhatsApp Business Account to our platform, and we handle the API infrastructure, authentication, and message delivery.',
+        q: 'What is SanjuSK and how does it work?',
+        a: 'SanjuSK is a WhatsApp Business Solution Provider (BSP) authorized by Meta. We provide API access to the WhatsApp Business Platform, allowing your business to send and receive WhatsApp messages at scale. You connect your WhatsApp Business Account to our platform, and we handle the API infrastructure, authentication, and message delivery.',
       },
       {
         q: 'How do I create an account?',
@@ -26,14 +26,14 @@ const FAQ_DATA = [
       },
       {
         q: 'Do I need an existing WhatsApp Business Account?',
-        a: 'No. You can create a new WhatsApp Business Account directly through MetaBSP\'s Embedded Signup flow using your Facebook Business Manager account. If you already have a WABA, you can connect it during onboarding.',
+        a: 'No. You can create a new WhatsApp Business Account directly through SanjuSK\'s Embedded Signup flow using your Facebook Business Manager account. If you already have a WABA, you can connect it during onboarding.',
       },
       {
         q: 'What phone number can I use for WhatsApp Business?',
         a: 'You can use any phone number that can receive a verification code (SMS or voice call) and is not already registered with WhatsApp personal or WhatsApp Business app. This can be a mobile, landline, or VoIP number. Once used for the API, the number cannot simultaneously be used on the WhatsApp app.',
       },
       {
-        q: 'What is the difference between MetaBSP plans?',
+        q: 'What is the difference between SanjuSK plans?',
         a: 'Our Starter plan includes 1 phone number and 1,000 conversations/month. The Business plan supports up to 5 phone numbers and unlimited conversations. Enterprise plans offer dedicated infrastructure, SLA guarantees, and custom pricing. All plans include API access, template management, and webhook support.',
       },
       {
@@ -48,7 +48,7 @@ const FAQ_DATA = [
     items: [
       {
         q: 'What is the Embedded Signup process?',
-        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a BSP like MetaBSP. During this process, you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize MetaBSP to send messages on your behalf. The entire process takes about 5-10 minutes.',
+        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a BSP like SanjuSK. During this process, you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize SanjuSK to send messages on your behalf. The entire process takes about 5-10 minutes.',
       },
       {
         q: 'How long does business verification take?',
@@ -82,7 +82,7 @@ const FAQ_DATA = [
       },
       {
         q: 'Why was my template rejected?',
-        a: 'Common rejection reasons include: content that violates WhatsApp Business Policy (gambling, adult content, alcohol promotions to minors), misleading content, poor grammar, templates that try to collect sensitive information, or templates that look like phishing. MetaBSP provides rejection feedback to help you revise and resubmit.',
+        a: 'Common rejection reasons include: content that violates WhatsApp Business Policy (gambling, adult content, alcohol promotions to minors), misleading content, poor grammar, templates that try to collect sensitive information, or templates that look like phishing. SanjuSK provides rejection feedback to help you revise and resubmit.',
       },
       {
         q: 'How do I use variables in templates?',
@@ -90,7 +90,7 @@ const FAQ_DATA = [
       },
       {
         q: 'What is the difference between template categories?',
-        a: 'WhatsApp has three template categories: UTILITY (transactional messages like order confirmations, shipping updates, appointment reminders — lowest cost), AUTHENTICATION (OTP messages), and MARKETING (promotional content, offers — higher cost per conversation). MetaBSP displays the pricing difference when you create templates.',
+        a: 'WhatsApp has three template categories: UTILITY (transactional messages like order confirmations, shipping updates, appointment reminders — lowest cost), AUTHENTICATION (OTP messages), and MARKETING (promotional content, offers — higher cost per conversation). SanjuSK displays the pricing difference when you create templates.',
       },
       {
         q: 'Can I edit an approved template?',
@@ -104,11 +104,11 @@ const FAQ_DATA = [
     items: [
       {
         q: 'How does WhatsApp conversation-based pricing work?',
-        a: 'WhatsApp charges per 24-hour conversation session, not per message. There are two types: business-initiated (you start the conversation, higher cost) and user-initiated (customer sends first message within 24 hours, lower cost). MetaBSP passes through Meta\'s conversation costs plus a platform fee based on your plan.',
+        a: 'WhatsApp charges per 24-hour conversation session, not per message. There are two types: business-initiated (you start the conversation, higher cost) and user-initiated (customer sends first message within 24 hours, lower cost). SanjuSK passes through Meta\'s conversation costs plus a platform fee based on your plan.',
       },
       {
         q: 'When am I charged?',
-        a: 'Platform subscription fees are charged monthly at the beginning of each billing cycle. Meta\'s conversation charges are billed by MetaBSP at the end of each month based on actual usage. You can view real-time usage estimates in your dashboard.',
+        a: 'Platform subscription fees are charged monthly at the beginning of each billing cycle. Meta\'s conversation charges are billed by SanjuSK at the end of each month based on actual usage. You can view real-time usage estimates in your dashboard.',
       },
       {
         q: 'What payment methods do you accept?',
@@ -120,7 +120,7 @@ const FAQ_DATA = [
       },
       {
         q: 'Are there free conversations included each month?',
-        a: 'Meta provides 1,000 free user-initiated conversations per WhatsApp Business Account per month. These free conversations are automatically applied before your paid conversation usage. MetaBSP surfaces these free conversation credits in your billing dashboard.',
+        a: 'Meta provides 1,000 free user-initiated conversations per WhatsApp Business Account per month. These free conversations are automatically applied before your paid conversation usage. SanjuSK surfaces these free conversation credits in your billing dashboard.',
       },
     ],
   },
@@ -130,27 +130,39 @@ const FAQ_DATA = [
     items: [
       {
         q: 'How do I get my API key?',
-        a: 'After signing in, navigate to Settings → API Keys → Generate New Key. Give the key a descriptive name and select the appropriate permission scope (read-only or full access). Copy the key immediately — it is only shown once for security. You can rotate or revoke keys at any time.',
+        a: 'Sign in and go to Developers → API keys → Create key. Give it a name so you can tell your integrations apart. The key is shown once, at that moment — copy it straight into wherever your code reads its secrets. If you lose it, revoke it and create another; revocation takes effect immediately.',
       },
       {
-        q: 'What is the base URL for the MetaBSP API?',
-        a: 'The base URL is https://meta.sanjusk.in/v1. All API requests must include your API key in the Authorization header as a Bearer token: "Authorization: Bearer YOUR_API_KEY". The API returns JSON responses and accepts JSON request bodies.',
+        q: 'Is the API available on my account, or does an administrator enable it?',
+        a: 'It is available to every account with no extra step. A key acts as its owner, on the WhatsApp number that owner connected, and can never see or send from anyone else\'s — an account or phone number in a request body is never trusted to widen that.',
+      },
+      {
+        q: 'What is the base URL for the SanjuSK API?',
+        a: 'https://meta.sanjusk.in/api/v1. Every request carries your API key as a bearer token: "Authorization: Bearer mbsp_your_key_here". Requests and responses are JSON. Start with GET /api/v1/status — it confirms the key works and names the number it sends from.',
       },
       {
         q: 'What are the API rate limits?',
-        a: 'Rate limits vary by plan: Starter: 60 requests/minute, Business: 300 requests/minute, Enterprise: Custom. Rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) are included in every response. When rate limited, the API returns HTTP 429 with a Retry-After header.',
+        a: '60 requests per minute per key for the sending endpoints, and 120 per minute for GET /api/v1/messages. Going over returns HTTP 429 with a Retry-After header giving the seconds to wait. The limit is counted per key rather than per account, so one runaway integration cannot exhaust another one\'s budget.',
       },
       {
-        q: 'How do webhooks work?',
-        a: 'Webhooks are HTTP POST requests sent to your server when events occur (message received, delivery receipt, template status change). Configure your webhook URL in Settings → Webhooks. Each webhook includes an HMAC-SHA256 signature in the X-MetaBSP-Signature-256 header for verification. See our developer docs for verification code examples.',
+        q: 'How do I receive incoming messages?',
+        a: 'Two ways, delivering the same messages — pick whichever matches where your code runs. If your server has a public URL, add it under Developers → Webhook destinations and we POST each message to it as it arrives. If it does not — a desktop tool, a script behind NAT, a scheduled job — poll GET /api/v1/messages instead, passing the nextSince value from the previous response so you cannot miss a message or receive one twice.',
       },
       {
-        q: 'Does MetaBSP have an official SDK?',
-        a: 'Yes, we offer official SDKs for Node.js (npm install @metabsp/sdk) and Python (pip install metabsp). Community SDKs for PHP and Ruby are maintained by the community. All SDKs are open source and available on our GitHub. See our Developer Docs for usage examples.',
+        q: 'How do I verify a webhook came from you?',
+        a: 'Every delivery carries an HMAC-SHA256 of the raw request body in the X-Metabsp-Signature-256 header, computed with that destination\'s own secret. Compute the same HMAC over the raw body, compare in constant time, and only parse the JSON once it matches. Your URL is reachable by anyone who guesses it, so this check is what makes the request trustworthy. The Developers → API reference tab has working code.',
       },
       {
-        q: 'How do I handle webhook delivery failures?',
-        a: 'MetaBSP retries failed webhook deliveries up to 5 times with exponential backoff (1min, 5min, 15min, 1hr, 4hr). You can view delivery attempts and manually retry failed webhooks from the Webhooks dashboard. Events are retained for 72 hours.',
+        q: 'I registered several webhook destinations and one is not getting messages.',
+        a: 'That is keyword routing. Give each destination an entry keyword: a message starting with that keyword goes to that destination, and the rest of the conversation stays with it until the person goes quiet or sends STOP. A message matching no keyword goes to every destination that has no keyword of its own, plus any marked as a fan-out fallback. With a single destination and no keyword you simply receive everything.',
+      },
+      {
+        q: 'What happens if my endpoint is down when a message arrives?',
+        a: 'The delivery is retried twice more, after 5 seconds and again after 15. If all three attempts fail, the destination is marked failing and the last error is shown against it in Developers → Webhook destinations. Answer within a few seconds and do your real work afterwards — a slow endpoint is treated the same as a broken one.',
+      },
+      {
+        q: 'Does SanjuSK have an official SDK?',
+        a: 'Not yet. The API is plain HTTPS with JSON, so any HTTP client works — the Developers → API reference tab has copy-paste curl for every endpoint, and the developer docs include a Node.js webhook handler you can lift directly.',
       },
     ],
   },
@@ -164,11 +176,11 @@ const FAQ_DATA = [
       },
       {
         q: 'I\'m getting a "Message Failed" error. What does the error code mean?',
-        a: 'Error codes from Meta are documented at developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes. Common codes: 130429 (rate limit hit), 131030 (recipient number not WhatsApp), 131047 (message expired), 131051 (unsupported message type). MetaBSP also shows human-readable descriptions alongside error codes in the dashboard.',
+        a: 'Error codes from Meta are documented at developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes. Common codes: 130429 (rate limit hit), 131030 (recipient number not WhatsApp), 131047 (message expired), 131051 (unsupported message type). SanjuSK also shows human-readable descriptions alongside error codes in the dashboard.',
       },
       {
         q: 'My webhook is not receiving events.',
-        a: 'Troubleshooting steps: (1) Verify the webhook URL is publicly accessible (not localhost). (2) Confirm your server returns HTTP 200 within 10 seconds. (3) Check the webhook logs in MetaBSP dashboard for delivery attempts. (4) Verify your server is validating the HMAC signature correctly (signature mismatch causes delivery to stop). (5) Check that your server is not blocking our IP ranges.',
+        a: 'Troubleshooting steps: (1) Verify the webhook URL is publicly accessible (not localhost). (2) Confirm your server returns HTTP 200 within 10 seconds. (3) Check the webhook logs in SanjuSK dashboard for delivery attempts. (4) Verify your server is validating the HMAC signature correctly (signature mismatch causes delivery to stop). (5) Check that your server is not blocking our IP ranges.',
       },
       {
         q: 'My phone number quality rating dropped. What does this mean?',
@@ -176,7 +188,7 @@ const FAQ_DATA = [
       },
       {
         q: 'How do I migrate from another WhatsApp BSP?',
-        a: 'You can migrate your existing WABA to MetaBSP by connecting it through our Embedded Signup flow and selecting "Connect Existing WABA." You will need access to the Facebook Business Manager that owns the WABA. Phone numbers, templates, and business profile settings will carry over. Message history is not migrated. Contact support@meta.sanjusk.in for migration assistance.',
+        a: 'You can migrate your existing WABA to SanjuSK by connecting it through our Embedded Signup flow and selecting "Connect Existing WABA." You will need access to the Facebook Business Manager that owns the WABA. Phone numbers, templates, and business profile settings will carry over. Message history is not migrated. Contact support@meta.sanjusk.in for migration assistance.',
       },
     ],
   },
@@ -207,7 +219,7 @@ export default function HelpCenterPage() {
           <Container maxWidth="md">
             <Typography variant="h3" fontWeight={800} sx={{ mb: 1.5, color: 'white' }}>Help Center</Typography>
             <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)', mb: 4 }}>
-              Find answers to common questions about MetaBSP and the WhatsApp Business Platform
+              Find answers to common questions about SanjuSK and the WhatsApp Business Platform
             </Typography>
             <TextField
               value={search}

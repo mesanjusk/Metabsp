@@ -63,7 +63,7 @@ const DATA_ACCESS_ITEMS = [
 
 const DATA_USAGE_ITEMS = [
   { icon: <CheckCircleOutlineIcon fontSize="small" color="success" />, text: 'Route and deliver messages on your behalf via the WhatsApp Cloud API' },
-  { icon: <CheckCircleOutlineIcon fontSize="small" color="success" />, text: 'Display analytics and delivery statistics in your MetaBSP dashboard' },
+  { icon: <CheckCircleOutlineIcon fontSize="small" color="success" />, text: 'Display analytics and delivery statistics in your SanjuSK dashboard' },
   { icon: <CheckCircleOutlineIcon fontSize="small" color="success" />, text: 'Synchronize contact lists and conversation histories' },
   { icon: <VisibilityOffIcon fontSize="small" color="error" />,        text: 'We do NOT sell your data or message content to third parties' },
   { icon: <DeleteForeverIcon fontSize="small" color="error" />,        text: 'You may request deletion of your data at any time from account settings' },
@@ -154,7 +154,7 @@ export default function ConsentDialog({ open, onAccept, onDecline }) {
             Connect WhatsApp Business Account
           </Typography>
           <Typography variant="body2" sx={{ color: alpha('#fff', 0.8) }}>
-            MetaBSP requires the following permissions
+            SanjuSK requires the following permissions
           </Typography>
         </Box>
       </Box>
@@ -271,7 +271,7 @@ export default function ConsentDialog({ open, onAccept, onDecline }) {
           <Link href="/terms-of-service" target="_blank" rel="noopener" underline="always">Terms of Service</Link>
           {' '}and{' '}
           <Link href="/privacy-policy" target="_blank" rel="noopener" underline="always">Privacy Policy</Link>.
-          MetaBSP is an independent service provider and is not affiliated with Meta Platforms, Inc.
+          SanjuSK is an independent service provider and is not affiliated with Meta Platforms, Inc.
         </Typography>
 
         <Divider sx={{ mb: 2 }} />

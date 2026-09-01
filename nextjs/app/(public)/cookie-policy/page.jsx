@@ -45,14 +45,14 @@ export default function CookiePolicyPage() {
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Para>
-              This Cookie Policy explains what cookies and similar browser storage technologies the MetaBSP web application actually uses. It is written to match this application's real behavior, not a generic template — if a section below says a technology isn't used, that has been verified against the running code.
+              This Cookie Policy explains what cookies and similar browser storage technologies the SanjuSK web application actually uses. It is written to match this application's real behavior, not a generic template — if a section below says a technology isn't used, that has been verified against the running code.
             </Para>
 
             <Divider sx={{ my: 4 }} />
 
             <Section title="1. We don't use cookies for login or tracking">
               <Para>
-                MetaBSP does not set a traditional session cookie. Authentication and session state (your sign-in token, name, role, and selected WhatsApp provider) are stored in your browser's <code>localStorage</code> instead of a cookie. Clearing your browser's site data for this application will sign you out, the same way clearing a session cookie would on another site.
+                SanjuSK does not set a traditional session cookie. Authentication and session state (your sign-in token, name, role, and selected WhatsApp provider) are stored in your browser's <code>localStorage</code> instead of a cookie. Clearing your browser's site data for this application will sign you out, the same way clearing a session cookie would on another site.
               </Para>
               <Para>
                 We do not currently load Google Analytics, Meta Pixel, or any other third-party analytics or advertising tracking script on this site. If that changes in a future release, this page will be updated first, and your consent will be requested where required by law before any such technology goes live.

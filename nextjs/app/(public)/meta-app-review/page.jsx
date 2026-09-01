@@ -43,7 +43,7 @@ const WEBHOOK_PAYLOAD = `{
 }`;
 
 const CHECKLIST_ITEMS = [
-  'Login to MetaBSP platform',
+  'Login to SanjuSK platform',
   'Navigate to WhatsApp Connect',
   'Complete Embedded Signup flow',
   'Show template creation',
@@ -127,20 +127,20 @@ function AccordionItems({ theme }) {
       content: (
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Business owners connect their WhatsApp Business Account to MetaBSP through Meta's official
+            Business owners connect their WhatsApp Business Account to SanjuSK through Meta's official
             OAuth-based Embedded Signup flow. This is the Meta-approved method for WhatsApp Business
             Solution Providers to onboard customers without requiring manual credential sharing.
           </Typography>
           <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Steps performed during Embedded Signup:</Typography>
           <List dense disablePadding>
             {[
-              "User clicks \"Connect WhatsApp\" on the MetaBSP dashboard",
+              "User clicks \"Connect WhatsApp\" on the SanjuSK dashboard",
               "Meta's Embedded Signup popup opens (official Facebook login dialog)",
               'User authenticates with their Facebook/Meta account',
               'User selects or creates a WhatsApp Business Account (WABA)',
               'User grants permissions: whatsapp_business_messaging, business_management',
-              'Meta returns an authorization code to MetaBSP',
-              'MetaBSP exchanges the code for a System User Access Token via the Graph API',
+              'Meta returns an authorization code to SanjuSK',
+              'SanjuSK exchanges the code for a System User Access Token via the Graph API',
               'WhatsApp phone number is registered and webhook subscriptions are created',
               'Dashboard confirms successful connection',
             ].map((step, i) => (
@@ -165,7 +165,7 @@ function AccordionItems({ theme }) {
       content: (
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            MetaBSP provides a complete interface for creating, submitting, and managing WhatsApp
+            SanjuSK provides a complete interface for creating, submitting, and managing WhatsApp
             message templates. All templates are submitted to Meta for approval before use.
           </Typography>
           <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Template Categories:</Typography>
@@ -188,7 +188,7 @@ function AccordionItems({ theme }) {
       content: (
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            MetaBSP configures webhooks on the connected WhatsApp Business Account to receive real-time
+            SanjuSK configures webhooks on the connected WhatsApp Business Account to receive real-time
             message delivery notifications, read receipts, and incoming messages. The webhook endpoint
             is registered through the Graph API using the System User token obtained during Embedded Signup.
           </Typography>
@@ -205,7 +205,7 @@ function AccordionItems({ theme }) {
       content: (
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            MetaBSP provides a comprehensive analytics dashboard that tracks key messaging performance
+            SanjuSK provides a comprehensive analytics dashboard that tracks key messaging performance
             indicators in real time using data from webhook events and the WhatsApp Business Management API.
           </Typography>
           <List dense disablePadding>
@@ -231,7 +231,7 @@ function AccordionItems({ theme }) {
       content: (
         <Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            MetaBSP guides businesses through Meta's Business Verification process, which is required
+            SanjuSK guides businesses through Meta's Business Verification process, which is required
             to access production-level messaging volumes and advanced WhatsApp API features.
           </Typography>
           <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Verification Steps:</Typography>
@@ -244,7 +244,7 @@ function AccordionItems({ theme }) {
               'Upload business registration document or utility bill',
               'Verify the business phone number via automated call or SMS',
               'Await Meta review (typically 2–5 business days)',
-              'MetaBSP dashboard reflects verified status automatically',
+              'SanjuSK dashboard reflects verified status automatically',
             ].map((step, i) => (
               <ListItem key={i} sx={{ py: 0.25, pl: 0 }}>
                 <ListItemText
@@ -316,10 +316,10 @@ export default function MetaAppReviewPage() {
               <Chip label="Meta App Review" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff', fontWeight: 700 }} />
             </Stack>
             <Typography variant="h3" fontWeight={800} sx={{ mb: 2, fontSize: { xs: '1.8rem', md: '2.6rem' } }}>
-              Meta App Review — MetaBSP WhatsApp Business Solution Provider
+              Meta App Review — SanjuSK WhatsApp Business Solution Provider
             </Typography>
             <Typography variant="h6" sx={{ opacity: 0.88, maxWidth: 720, fontWeight: 400, lineHeight: 1.6 }}>
-              This page provides Meta reviewers and evaluators with full documentation of MetaBSP's
+              This page provides Meta reviewers and evaluators with full documentation of SanjuSK's
               WhatsApp Business Platform capabilities, demo credentials, and a step-by-step walkthrough
               of all features submitted for App Review.
             </Typography>
@@ -331,19 +331,19 @@ export default function MetaAppReviewPage() {
         {/* Introduction */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
           <Paper elevation={0} sx={{ p: { xs: 3, md: 4 }, mb: 5, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
-            <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>About MetaBSP</Typography>
+            <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>About SanjuSK</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 2, lineHeight: 1.8 }}>
-              MetaBSP is a <strong>WhatsApp Business Platform</strong> integration that
+              SanjuSK is a <strong>WhatsApp Business Platform</strong> integration that
               enables businesses of all sizes to integrate WhatsApp messaging into their customer communication
-              workflows. MetaBSP operates under the WhatsApp Business Platform Terms of Service; the app
+              workflows. SanjuSK operates under the WhatsApp Business Platform Terms of Service; the app
               is currently going through Meta App Review for the permissions listed below. The platform provides APIs, dashboards, and developer tools that
               allow businesses to send template messages, receive real-time webhook events, manage contacts,
               and analyze messaging performance — all through Meta's official Graph API and Cloud API.
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
-              MetaBSP uses Meta's <strong>Embedded Signup flow</strong> so that business owners can securely
+              SanjuSK uses Meta's <strong>Embedded Signup flow</strong> so that business owners can securely
               connect their WhatsApp Business Accounts using Meta's official OAuth process. No credentials are
-              shared with MetaBSP directly — authentication is handled entirely by Meta's identity platform.
+              shared with SanjuSK directly — authentication is handled entirely by Meta's identity platform.
             </Typography>
           </Paper>
         </motion.div>

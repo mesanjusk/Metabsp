@@ -236,10 +236,10 @@ export default function PublicLayout({ children }) {
             spacing={1}
           >
             <Typography variant="body2" color="text.secondary">
-              © {new Date().getFullYear()} MetaBSP. All rights reserved.
+              © {new Date().getFullYear()} SanjuSK. All rights reserved.
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              WhatsApp is a trademark of Meta Platforms, Inc. MetaBSP is an independent solution provider.
+              WhatsApp is a trademark of Meta Platforms, Inc. SanjuSK is an independent solution provider.
             </Typography>
           </Stack>
         </Container>

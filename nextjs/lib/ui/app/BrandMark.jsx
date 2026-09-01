@@ -22,7 +22,7 @@ export default function BrandMark({ size = 32, showWordmark = true, wordmarkVari
         component="svg"
         viewBox="0 0 32 32"
         role="img"
-        aria-label="MetaBSP"
+        aria-label="SanjuSK"
         sx={{ width: size, height: size, flexShrink: 0, display: 'block' }}
       >
         <rect width="32" height="32" rx="9" fill="currentColor" opacity="0.12" />
@@ -43,7 +43,7 @@ export default function BrandMark({ size = 32, showWordmark = true, wordmarkVari
           variant={wordmarkVariant}
           sx={{ fontWeight: 750, letterSpacing: '-0.02em', lineHeight: 1, whiteSpace: 'nowrap' }}
         >
-          MetaBSP
+          SanjuSK
         </Typography>
       ) : null}
     </Stack>

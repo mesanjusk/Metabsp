@@ -4,7 +4,7 @@ import { AuthProvider } from '@/lib/ui/AuthContext';
 import { ToastContainer } from '@/lib/ui/components/Toast';
 
 export const metadata = {
-  title: 'MetaBSP — WhatsApp Business Solution Provider',
+  title: 'SanjuSK — WhatsApp Business Solution Provider',
   description:
     'A WhatsApp Business Solution Provider on Meta’s official Cloud API: shared inbox, message templates, broadcasts, automations and a REST API.',
 };

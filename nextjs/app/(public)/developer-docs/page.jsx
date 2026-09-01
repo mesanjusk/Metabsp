@@ -186,12 +186,17 @@ export default function DeveloperDocsPage() {
                   another. Revocation takes effect immediately. Never put a key in a repository, a
                   mobile app or a front-end bundle: anyone holding it can send messages as you.
                 </Para>
-                <SubSection title="Scopes">
-                  <Para>Each key carries the scopes you granted it when you created it.</Para>
+                <SubSection title="What a key can do">
+                  <Para>
+                    A key reaches every endpoint on this page, for the one WhatsApp number its
+                    owner connected — there are no per-endpoint scopes to choose between. Create a
+                    separate key per integration so you can revoke one without disturbing the
+                    others, and name it after the system that holds it.
+                  </Para>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Chip label="messages:send" size="small" variant="outlined" />
-                    <Chip label="messages:read" size="small" variant="outlined" />
-                    <Chip label="templates:read" size="small" variant="outlined" />
+                    <Chip label="Send messages" size="small" variant="outlined" />
+                    <Chip label="Read messages" size="small" variant="outlined" />
+                    <Chip label="Read templates" size="small" variant="outlined" />
                   </Stack>
                 </SubSection>
               </Section>

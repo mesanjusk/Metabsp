@@ -39,7 +39,7 @@ export default function PrivacyPolicyPage() {
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Para>
-              MetaBSP ("we," "us," or "our") is a WhatsApp Business Solution Provider authorized by Meta Platforms, Inc. This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our platform, including our website and API services.
+              SanjuSK ("we," "us," or "our") is a WhatsApp Business Solution Provider authorized by Meta Platforms, Inc. This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our platform, including our website and API services.
             </Para>
 
             <Divider sx={{ my: 4 }} />
@@ -95,7 +95,7 @@ export default function PrivacyPolicyPage() {
 
             <Section title="3. How User Consent is Collected">
               <Para>As a WhatsApp Business Solution Provider, we require all businesses using our platform to comply with WhatsApp's Business Policy and Messaging Policy, which mandate that businesses obtain explicit opt-in consent from end users before messaging them.</Para>
-              <Para>Businesses using MetaBSP are responsible for:</Para>
+              <Para>Businesses using SanjuSK are responsible for:</Para>
               <BulletList items={[
                 'Obtaining clear, affirmative consent from contacts before sending them WhatsApp messages',
                 'Clearly disclosing the nature and frequency of messages at the point of opt-in',
@@ -103,7 +103,7 @@ export default function PrivacyPolicyPage() {
                 'Maintaining records of consent for audit purposes',
                 'Honoring opt-out requests promptly (within 24 hours)',
               ]} />
-              <Para>MetaBSP provides tools to help businesses manage opt-in/opt-out records, but ultimate responsibility for consent compliance lies with the business using our platform.</Para>
+              <Para>SanjuSK provides tools to help businesses manage opt-in/opt-out records, but ultimate responsibility for consent compliance lies with the business using our platform.</Para>
             </Section>
 
             <Section title="4. Data Retention">
@@ -180,12 +180,12 @@ export default function PrivacyPolicyPage() {
             </Section>
 
             <Section title="9. How Businesses Revoke Access">
-              <Para>Businesses can revoke MetaBSP's access to their WhatsApp Business Account at any time by:</Para>
+              <Para>Businesses can revoke SanjuSK's access to their WhatsApp Business Account at any time by:</Para>
               <BulletList items={[
-                'Navigating to Meta Business Suite → Business Settings → Connected Apps and removing MetaBSP',
-                'Visiting Facebook Settings → Business Integrations and removing the MetaBSP integration',
+                'Navigating to Meta Business Suite → Business Settings → Connected Apps and removing SanjuSK',
+                'Visiting Facebook Settings → Business Integrations and removing the SanjuSK integration',
                 'Contacting our support team at support@meta.sanjusk.in to initiate immediate access revocation',
-                'Deleting your MetaBSP account through the Account Settings page',
+                'Deleting your SanjuSK account through the Account Settings page',
               ]} />
               <Para>Upon revocation, we will cease processing any new WhatsApp data within 24 hours and will retain historical data per our retention schedule unless a deletion request is submitted.</Para>
             </Section>

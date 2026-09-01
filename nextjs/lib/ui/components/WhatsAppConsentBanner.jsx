@@ -33,13 +33,13 @@ const USER_RIGHTS = [
   'Request a copy of your data at any time via Account Settings → Export Data',
   'Request deletion of your data within 30 days by contacting support',
   'Opt out of non-essential communications at any time',
-  'Revoke MetaBSP\'s access to your WhatsApp account from Settings → Connected Accounts',
+  'Revoke SanjuSK\'s access to your WhatsApp account from Platform → Numbers at any time',
 ];
 
 /**
  * WhatsAppConsentBanner
  *
- * Shows a dismissible banner explaining what data is shared with MetaBSP.
+ * Shows a dismissible banner explaining what data is shared with SanjuSK.
  * Dismissed state is persisted in localStorage.
  *
  * Props:
@@ -124,7 +124,7 @@ export default function WhatsAppConsentBanner({ storageKey = STORAGE_KEY, onLear
                       />
                     </Stack>
                     <Typography variant="caption" color="text.secondary">
-                      By connecting your WhatsApp Business account, you agree to share certain data with MetaBSP.
+                      By connecting your WhatsApp Business account, you agree to share certain data with SanjuSK.
                     </Typography>
                   </Box>
                 </Stack>
@@ -138,7 +138,7 @@ export default function WhatsAppConsentBanner({ storageKey = STORAGE_KEY, onLear
               <Stack direction="row" alignItems="center" gap={0.5} mt={1.5} mb={1}>
                 <InfoOutlinedIcon fontSize="small" color="action" />
                 <Typography variant="body2" color="text.secondary">
-                  MetaBSP processes message data to provide bulk messaging, analytics, and automation services on your behalf.
+                  SanjuSK processes message data to provide bulk messaging, analytics, and automation services on your behalf.
                   We do <strong>not</strong> sell your data.
                 </Typography>
               </Stack>
@@ -147,7 +147,7 @@ export default function WhatsAppConsentBanner({ storageKey = STORAGE_KEY, onLear
               <Collapse in={expanded}>
                 <Box sx={{ mt: 1.5, pl: 1 }}>
                   <Typography variant="body2" fontWeight={700} mb={1}>
-                    What data is shared with MetaBSP
+                    What data is shared with SanjuSK
                   </Typography>
                   <List disablePadding dense>
                     {DATA_POINTS.map((item, i) => (
