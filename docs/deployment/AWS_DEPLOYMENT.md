@@ -60,7 +60,7 @@ DocumentDB. This repo hasn't been verified against DocumentDB.
 
 Either way: set `MONGO_URI` in Secrets Manager (below), and read
 [REDIS_AND_MONGODB_OPS.md](./REDIS_AND_MONGODB_OPS.md) for the
-`autoIndex: !isProduction` behavior in `backend/src/config/mongo.js` —
+`autoIndex: !isProduction` behavior in `nextjs/lib/db/mongo.ts` —
 you'll need to run index creation explicitly against whichever Mongo you
 pick, since production intentionally skips auto-index/collection creation.
 
@@ -68,7 +68,7 @@ pick, since production intentionally skips auto-index/collection creation.
 
 Use ElastiCache for Redis (or Valkey). For a v1, a single-node/primary-replica
 setup mapped to `REDIS_URL` is enough — that's what
-`backend/src/config/redis.js` uses by default. Once you outgrow a single
+`nextjs/lib/db/redis.ts` uses by default. Once you outgrow a single
 node's throughput or want multi-AZ write availability, switch to
 **ElastiCache in cluster mode** and set `REDIS_CLUSTER_NODES` to the cluster's
 shard endpoints (comma-separated `host:port`) instead of `REDIS_URL` — the
@@ -81,7 +81,7 @@ for sizing.
 ## Backup storage: S3
 
 `docs/BACKUP_RESTORE.md` already describes the backup mechanics
-(`backend/scripts/backup-mongo.sh`, `mongodump`/`mongorestore`,
+(`nextjs/scripts/backup-mongo.sh`, `mongodump`/`mongorestore`,
 `ENABLE_SCHEDULED_BACKUPS`). On AWS: point `BACKUP_DIR` at an EBS/EFS mount
 that a scheduled task then syncs to S3 (`aws s3 sync`), or run the backup
 itself from an ECS scheduled task (EventBridge Scheduler + ECS RunTask)
@@ -106,7 +106,7 @@ from a git push instead of your own S3/CloudFront pipeline.
 Put an Application Load Balancer in front of the API service with an ACM
 certificate for TLS termination. The ALB is **one hop** in front of the
 Node process, so set `TRUST_PROXY=1` in the API's environment — that
-matches the default in `backend/.env.example` and is what
+matches the default in `nextjs/.env.example` and is what
 `backend/src/app.js` expects (a hop count, or `true`/`false`). Getting this
 wrong doesn't just mis-log IPs: the Redis-backed rate limiter
 (`rate-limit-redis`) keys unauthenticated routes by `req.ip`, so an
@@ -120,7 +120,7 @@ instead.
 
 ## Secrets: AWS Secrets Manager
 
-Put every var from `backend/.env.example` that isn't a public default
+Put every var from `nextjs/.env.example` that isn't a public default
 (`JWT_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY`, `META_APP_SECRET`,
 `META_API_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `CLOUDINARY_API_SECRET`,
 `CASHFREE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`, `SENTRY_DSN`, `MONGO_URI`,
@@ -131,7 +131,7 @@ definition as `secrets` (not plain `environment` vars). Per
 Mongo snapshot — a restored database is useless without them. Rotate
 `WHATSAPP_TOKEN_ENCRYPTION_KEY` using the
 `WHATSAPP_TOKEN_ENCRYPTION_KEY_PREVIOUS` fallback described in
-`backend/src/utils/crypto.js` and `.env.example`, so a key rotation doesn't
+`nextjs/lib/utils/crypto.ts` and `.env.example`, so a key rotation doesn't
 require a maintenance window.
 
 ## Next steps

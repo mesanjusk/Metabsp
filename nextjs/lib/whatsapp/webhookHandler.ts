@@ -297,7 +297,14 @@ export async function processWebhookEnvelope(body: any): Promise<void> {
               accessToken: accountContext.accessToken,
               graphVersion: RESOLVED_API_VERSION,
             });
-            await Message.findByIdAndUpdate((message as any)._id, { $set: { mediaUrl: uploaded.mediaUrl, mimeType: uploaded.mimeType } });
+            await Message.findByIdAndUpdate((message as any)._id, {
+              $set: {
+                mediaUrl: uploaded.mediaUrl,
+                mimeType: uploaded.mimeType,
+                mediaPublicId: uploaded.mediaPublicId,
+                mediaResourceType: uploaded.mediaResourceType,
+              },
+            });
           }
         } catch (error: any) {
           logger.error('[whatsapp] media processing failed', error.message);

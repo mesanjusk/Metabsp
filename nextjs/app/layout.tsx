@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import ThemeRegistry from '@/lib/ui/ThemeRegistry';
 import { AuthProvider } from '@/lib/ui/AuthContext';
 import { ToastContainer } from '@/lib/ui/components/Toast';
@@ -65,12 +66,32 @@ const COLOR_SCHEME_SCRIPT = `
  * public marketing pages, since the landing page redirects a signed-in visitor
  * to the dashboard. Without it those pages fail to prerender outright.
  */
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/**
+ * Every route renders per request.
+ *
+ * The Content-Security-Policy carries a per-request nonce (see middleware.ts),
+ * and a page prerendered at build time would embed whichever nonce happened to
+ * be current then — which matches nothing at request time, so the browser
+ * blocks its own hydration script and the page arrives dead. Rendering
+ * dynamically is what makes a nonce-based policy possible at all.
+ *
+ * The cost is small here specifically: this app runs as a persistent Node
+ * process, not as functions, so there is no cold start to pay per request.
+ */
+export const dynamic = 'force-dynamic';
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Middleware puts the nonce here. Absent only if something bypassed
+  // middleware entirely, in which case the inline script below is dropped
+  // rather than emitted unnonced — the page still works, it just starts in
+  // light mode until hydration corrects it.
+  const nonce = (await headers()).get('x-nonce') || undefined;
+
   return (
     <html lang="en" style={{ height: '100%' }} suppressHydrationWarning>
       <head>
         <style dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_CSS }} />
-        <script dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_SCRIPT }} />
+        {nonce ? <script nonce={nonce} dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_SCRIPT }} /> : null}
       </head>
       <body style={{ height: '100%', margin: 0 }}>
         <ThemeRegistry>

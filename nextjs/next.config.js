@@ -17,6 +17,17 @@ const nextConfig = {
   // no reason to advertise it.
   poweredByHeader: false,
 
+  images: {
+    /*
+     * Nothing in this app uses next/image, so the image optimiser never runs.
+     * Saying so explicitly keeps it that way: the optimiser is the only thing
+     * that pulls in `sharp`, which carries open libvips advisories that Next
+     * cannot patch without a major-version bump. Turned off, that code is
+     * unreachable rather than merely unused by accident.
+     */
+    unoptimized: true,
+  },
+
   // Meta's reviewers and customers both hit this over the public internet;
   // a trailing-slash redirect on a webhook URL is a needless failure mode.
   trailingSlash: false,
@@ -24,9 +35,10 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Security headers belong on every response, not just documents:
-        // an API response rendered directly in a browser tab is still a
-        // sniffing and framing target.
+        // Security headers belong on every response, not just documents: an
+        // API response rendered directly in a browser tab is still a sniffing
+        // and framing target. The Content-Security-Policy is NOT here — it
+        // carries a per-request nonce and is set in middleware.ts.
         source: '/:path*',
         headers: securityHeaders,
       },

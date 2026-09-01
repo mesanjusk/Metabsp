@@ -16,6 +16,10 @@ const messageSchema = new Schema(
     text: String,
     mediaUrl: String,
     mediaId: String,
+    // Cloudinary handles, so retention can delete the stored file and not
+    // just the row that points at it. Absent on rows written before this.
+    mediaPublicId: String,
+    mediaResourceType: String,
     caption: String,
     filename: String,
     mimeType: String,

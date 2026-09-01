@@ -3,8 +3,8 @@
 This describes the actual runtime topology of Metabsp (the merged Meta
 WhatsApp Cloud API BSP + legacy WhatsApp Cloud API/WhatsApp-Web "Bulk Invite" product),
 not a generic Node.js reference architecture. See `backend/src/app.js`,
-`backend/src/index.js`, `backend/src/socket.js`, and
-`backend/src/config/redis.js` for the code this is grounded in.
+`backend/src/index.js`, `nextjs/lib/socket/server.js`, and
+`nextjs/lib/db/redis.ts` for the code this is grounded in.
 
 ## Diagram
 
@@ -72,7 +72,7 @@ not a generic Node.js reference architecture. See `backend/src/app.js`,
 
 **API server(s)** — `backend/src/index.js` boots one process that serves
 the Express app (`backend/src/app.js`), a Socket.IO server
-(`backend/src/socket.js`), and (by default) the BullMQ broadcast-send worker
+(`nextjs/lib/socket/server.js`), and (by default) the BullMQ broadcast-send worker
 in-process. Stateless with respect to HTTP: every request is independently
 authenticated via JWT, so any instance can serve any request. Horizontally
 scalable — see [SCALING.md](./SCALING.md) — but see the caveats in
@@ -81,7 +81,7 @@ and WhatsApp Cloud API sessions before running N replicas blindly.
 
 **Standalone worker (optional)** — `backend/src/worker.js`, run via
 `npm run worker --workspace=backend`. Processes the same BullMQ queue
-(`backend/src/queues/whatsappSendWorker.js`) against the same Mongo/Redis as
+(`nextjs/lib/queues/whatsappSendWorker.ts`) against the same Mongo/Redis as
 the API. This is a deployment-topology choice, not a code fork: you either
 let the API do it in-process (default, fine at low-to-moderate scale) or
 extract it as its own process/replica set once broadcast-send volume needs
@@ -95,7 +95,7 @@ sense that it needs a real replica set / managed HA tier to not be a single
 point of failure; the app itself does not shard or fan out writes.
 
 **Redis** — shared by three subsystems that all read `getRedisConnection()`
-from `backend/src/config/redis.js`: the BullMQ send queue, the
+from `nextjs/lib/db/redis.ts`: the BullMQ send queue, the
 `express-rate-limit` + `rate-limit-redis` store, and the Socket.IO
 `@socket.io/redis-adapter` pub/sub. Single instance by default
 (`REDIS_URL`); set `REDIS_CLUSTER_NODES` (comma-separated `host:port`) to

@@ -37,7 +37,7 @@ After watching, a viewer understands why free-form messages sometimes get blocke
 - Not having any approved templates ready when a customer's window has already closed.
 
 ## 8. Troubleshooting Callout
-"Outside 24h window" on `send-text`, `send-media`, or `send-message` is expected behavior enforced by `enforceWhatsApp24hWindow` (`backend/src/middleware/whatsapp24hGuard.js`) — direct the user to send a template instead of retrying the same call. See `docs/meta-tech-provider/TROUBLESHOOTING.md` under "Messages fail to send with 'outside 24h window.'"
+"Outside 24h window" on `send-text`, `send-media`, or `send-message` is expected behavior enforced by `enforceWhatsApp24hWindow` (`nextjs/lib/whatsapp/twentyFourHourGuard.ts`) — direct the user to send a template instead of retrying the same call. See `docs/meta-tech-provider/TROUBLESHOOTING.md` under "Messages fail to send with 'outside 24h window.'"
 
 ## 9. Summary / Recap
 "Free-form messages only work within 24 hours of the customer's last message. Outside that, templates are the answer — always keep a few approved templates ready for exactly this situation."

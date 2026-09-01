@@ -97,7 +97,7 @@ spec:
 ```
 
 No `Service`/ingress for the worker — it doesn't serve HTTP, it only
-consumes the BullMQ queue (`backend/src/queues/whatsappSendWorker.js`)
+consumes the BullMQ queue (`nextjs/lib/queues/whatsappSendWorker.ts`)
 against the same Mongo/Redis the API uses. This is exactly the API/worker
 split `backend/src/worker.js`'s own comment describes: run it in-process
 (don't deploy this Deployment, let the API's `startWhatsAppSendWorker()`
@@ -153,7 +153,7 @@ cloud load balancer in front of it.
 
 ## ConfigMap / Secret split
 
-Match `backend/.env.example`: non-sensitive defaults go in a ConfigMap,
+Match `nextjs/.env.example`: non-sensitive defaults go in a ConfigMap,
 credentials/keys go in a Secret (ideally synced from a real secret manager
 via External Secrets Operator rather than committed as a Kubernetes Secret
 manifest).
@@ -199,7 +199,7 @@ stringData:
 ```
 
 Leave `ENABLE_SCHEDULED_BACKUPS=false` and instead run
-`backend/scripts/backup-mongo.sh` as a Kubernetes `CronJob` (from the same
+`nextjs/scripts/backup-mongo.sh` as a Kubernetes `CronJob` (from the same
 image, command overridden) writing to a bucket-backed volume — see
 `docs/BACKUP_RESTORE.md` for why platform-native scheduling (its "option
 1") is preferred over the in-process scheduler for anything with

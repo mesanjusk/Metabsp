@@ -25,7 +25,7 @@ production, in order of how bad it is to leave them:
    **`WHATSAPP_TOKEN_ENCRYPTION_KEY: ZGV2LW9ubHktMzItYnl0ZS1rZXktY2hhbmdlLW1lITE=`**
    — these are checked into the compose file in plaintext. Generate real
    values (`openssl rand -base64 32` for the encryption key — it must
-   decode to exactly 32 bytes per `backend/src/utils/crypto.js`) and inject
+   decode to exactly 32 bytes per `nextjs/lib/utils/crypto.ts`) and inject
    them via a `.env` file (compose reads `.env` next to the compose file
    automatically) or `docker compose --env-file`, never committed to git.
 2. **`mongo`/`redis` ports exposed to the host** (`27017:27017`,
@@ -35,10 +35,10 @@ production, in order of how bad it is to leave them:
    the compose-internal network by service name (`mongo`, `redis`) without
    needing the host port published at all.
 3. **`NODE_ENV: development`** on `backend` and `worker` — set this to
-   `production`. This isn't cosmetic: `backend/src/config/mongo.js` checks
+   `production`. This isn't cosmetic: `nextjs/lib/db/mongo.ts` checks
    `NODE_ENV === 'production'` to decide whether to run Mongoose's
    `autoIndex` (see [REDIS_AND_MONGODB_OPS.md](./REDIS_AND_MONGODB_OPS.md)
-   for why that matters), and `backend/src/utils/logger.js` defaults
+   for why that matters), and `nextjs/lib/utils/logger.ts` defaults
    `LOG_LEVEL` to `info` instead of `debug` in production.
 4. **No restart-policy tuning or resource limits** — `restart:
    unless-stopped` is already set on every service, which is a reasonable
@@ -130,7 +130,7 @@ standalone `worker` service instead once send volume needs to scale
 independently of API request capacity, and scale it with `docker compose
 --profile scale-workers up -d --scale worker=3 worker` — BullMQ's job
 locking makes multiple concurrent worker containers safe (see
-`backend/src/queues/whatsappSendWorker.js`). If you do run the standalone
+`nextjs/lib/queues/whatsappSendWorker.ts`). If you do run the standalone
 worker service, there's no code switch to stop the API's in-process worker
 from also running — both would then be consuming the same queue, which is
 harmless (BullMQ dedupes job delivery), just extra idle capacity on the API
@@ -146,7 +146,7 @@ including the `TRUST_PROXY` value nginx-in-front requires.
 
 ## Backups on a single host
 
-Run `backend/scripts/backup-mongo.sh` from the host's cron (not from
+Run `nextjs/scripts/backup-mongo.sh` from the host's cron (not from
 inside the `mongo` container, which has no durable place to write
 archives) pointed at the same `MONGO_URI` the `backend` service uses, and
 copy the resulting archive off-host per `docs/BACKUP_RESTORE.md`'s

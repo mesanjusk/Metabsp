@@ -54,14 +54,14 @@ than a public connection string.
 
 Whichever you choose, read
 [REDIS_AND_MONGODB_OPS.md](./REDIS_AND_MONGODB_OPS.md) for why
-`backend/src/config/mongo.js` disables `autoIndex` in production
+`nextjs/lib/db/mongo.ts` disables `autoIndex` in production
 (`autoIndex: !isProduction`) and what that means you need to do explicitly
 (run index creation yourself, e.g. via a migration script) rather than
 relying on Mongoose to create indexes/collections lazily at request time.
 
 ## Redis: Azure Cache for Redis
 
-A **Basic/Standard** tier tracks `REDIS_URL` in `backend/src/config/redis.js`
+A **Basic/Standard** tier tracks `REDIS_URL` in `nextjs/lib/db/redis.ts`
 directly — good enough for a v1. Once you need multi-shard throughput or
 want to avoid a single Redis node's write ceiling, move to the **Premium
 tier's clustering** support and set `REDIS_CLUSTER_NODES` (comma-separated
@@ -75,7 +75,7 @@ Socket.IO `@socket.io/redis-adapter` pub/sub) and why that affects sizing.
 ## Backup storage: Azure Blob Storage
 
 `docs/BACKUP_RESTORE.md` covers the actual backup mechanics
-(`backend/scripts/backup-mongo.sh`, `mongodump`/`mongorestore`,
+(`nextjs/scripts/backup-mongo.sh`, `mongodump`/`mongorestore`,
 `ENABLE_SCHEDULED_BACKUPS`/`BACKUP_DIR`). On Azure: run the backup from an
 Azure Container Apps Job (or an Automation Account runbook) on a schedule,
 writing to a mounted path that then uploads to Blob Storage (`az storage
@@ -102,7 +102,7 @@ Terminate TLS at Azure Front Door (recommended — it's also your CDN/WAF
 layer) or Application Gateway, then route to the Container Apps ingress.
 That's **one hop** in front of the Node process in the common single-proxy
 case, so set `TRUST_PROXY=1` — matching the default in
-`backend/.env.example` and what `backend/src/app.js` expects. Note Container
+`nextjs/.env.example` and what `backend/src/app.js` expects. Note Container
 Apps' own ingress layer may itself add a hop before your traffic reaches the
 container; check whether `X-Forwarded-For` already has your edge's IP
 appended once by the platform, and adjust the hop count accordingly rather
@@ -114,7 +114,7 @@ Cloudflare) in front of Azure.
 
 ## Secrets: Azure Key Vault
 
-Store every non-default var from `backend/.env.example`
+Store every non-default var from `nextjs/.env.example`
 (`JWT_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY`, `META_APP_SECRET`,
 `META_API_TOKEN`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `CLOUDINARY_API_SECRET`,
 `CASHFREE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`, `SENTRY_DSN`, `MONGO_URI`,
@@ -124,7 +124,7 @@ directly via managed identity — no plaintext env vars in the revision
 spec). Per `docs/BACKUP_RESTORE.md`, back up `WHATSAPP_TOKEN_ENCRYPTION_KEY`
 and `JWT_SECRET` in Key Vault's own versioning/soft-delete, separate from
 any Mongo snapshot — a restored database is useless without them. Use
-`WHATSAPP_TOKEN_ENCRYPTION_KEY_PREVIOUS` (see `backend/src/utils/crypto.js`)
+`WHATSAPP_TOKEN_ENCRYPTION_KEY_PREVIOUS` (see `nextjs/lib/utils/crypto.ts`)
 during rotation so it's a no-downtime operation.
 
 ## Next steps

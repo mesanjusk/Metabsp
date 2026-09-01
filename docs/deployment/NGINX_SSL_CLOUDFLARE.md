@@ -28,7 +28,7 @@ identity.
 
 - **nginx directly in front of one app instance** (no Cloudflare, no
   additional LB) — that's **one hop**, so `TRUST_PROXY=1` (the default in
-  `backend/.env.example`).
+  `nextjs/.env.example`).
 - **nginx behind Cloudflare** — Cloudflare's edge adds its own hop before
   your origin nginx, and if your nginx config appends to
   `X-Forwarded-For` rather than replacing it (the default nginx behavior),
@@ -71,7 +71,7 @@ server {
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Required for Socket.IO's websocket upgrade (backend/src/socket.js)
+        # Required for Socket.IO's websocket upgrade (nextjs/lib/socket/server.js)
         proxy_set_header Upgrade    $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_read_timeout 86400s;   # keep long-lived websocket connections open
@@ -98,7 +98,7 @@ own client IP gets appended to, not overwritten by, this directive.
 If you're running multiple backend instances on the same host or pointing
 at a container, replace `proxy_pass http://127.0.0.1:5000` with an
 `upstream` block load-balancing across them — the Socket.IO Redis adapter
-(`backend/src/socket.js`) is exactly what makes that safe for real-time
+(`nextjs/lib/socket/server.js`) is exactly what makes that safe for real-time
 features, not just REST.
 
 ## Let's Encrypt / certbot

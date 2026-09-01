@@ -75,7 +75,7 @@ We use the following categories of subprocessors to operate the Service. Each su
 
 We apply technical and organizational measures appropriate to the sensitivity of the data we process, including:
 
-- **Encryption of WhatsApp access tokens at rest**, using AES-256-GCM authenticated encryption (`backend/src/utils/crypto.js`), with support for zero-downtime key rotation (a current and previous encryption key can both be active during rotation).
+- **Encryption of WhatsApp access tokens at rest**, using AES-256-GCM authenticated encryption (`nextjs/lib/utils/crypto.ts`), with support for zero-downtime key rotation (a current and previous encryption key can both be active during rotation).
 - **Password hashing** — user passwords are never stored in plaintext.
 - **JWT-based authentication**, verified against the current user record on every request rather than trusting claims alone.
 - **HMAC-SHA256 signature verification** (timing-safe comparison) on inbound Meta webhooks, and HMAC-signed forwarding of webhook events to Business Customer–configured destinations.

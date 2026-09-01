@@ -5,7 +5,9 @@ import { startTokenRefreshScheduler } from '../services/tokenRefreshService';
 import { startInvoiceScheduler } from '../services/invoiceSchedulerService';
 import { startBackupScheduler } from '../services/backupSchedulerService';
 import { startKeepAliveScheduler } from '../services/keepAliveService';
+import { startRetentionScheduler } from '../services/dataRetentionService';
 import { runPreflightOnBoot } from '../services/preflightCheckService';
+import { runBootSelfCheck } from '../services/bootSelfCheck';
 
 /**
  * Everything that must keep running between requests, started once per process.
@@ -55,6 +57,10 @@ export function startBackgroundJobs(): void {
   // Keeps customers' registered webhook destinations warm.
   startKeepAliveScheduler();
 
+  // Enforces the published data-retention policy. No-ops loudly when no
+  // retention window is configured, which is the default.
+  startRetentionScheduler();
+
   logger.info('[runtime] Background workers and schedulers started');
 
   // Read-only audit of the Meta-side configuration whose failure mode is
@@ -63,5 +69,13 @@ export function startBackgroundJobs(): void {
   // can never delay boot; set RUN_PREFLIGHT_ON_BOOT=false to skip.
   runPreflightOnBoot().catch((error: any) =>
     logger.error('[preflight] Boot check failed (non-fatal):', error.message)
+  );
+
+  // Two conditions that otherwise stay silent until customers notice: an
+  // encryption key that cannot read the tokens already in the database, and a
+  // Redis eviction policy that discards queued messages. Non-blocking and
+  // never fatal — see lib/services/bootSelfCheck.ts.
+  runBootSelfCheck().catch((error: any) =>
+    logger.error('[self-check] Boot self-check failed (non-fatal):', error.message)
   );
 }

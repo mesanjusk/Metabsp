@@ -9,16 +9,16 @@ duplicated here).
 
 ### One Redis, three consumers
 
-`backend/src/config/redis.js` exposes a single `getRedisConnection()`
+`nextjs/lib/db/redis.ts` exposes a single `getRedisConnection()`
 singleton that three subsystems all share:
 
-1. **BullMQ send queue** (`backend/src/queues/whatsappSendQueue.js` /
+1. **BullMQ send queue** (`nextjs/lib/queues/whatsappSendQueue.ts` /
    `whatsappSendWorker.js`) — the broadcast-message job queue.
 2. **Rate limiter** (`rate-limit-redis`, wired in `backend/src/app.js`'s
    middleware chain) — sliding-window counters keyed by `req.ip` or user
    ID.
 3. **Socket.IO Redis adapter** (`@socket.io/redis-adapter`, in
-   `backend/src/socket.js`) — pub/sub so `emit()` on one API instance
+   `nextjs/lib/socket/server.js`) — pub/sub so `emit()` on one API instance
    reaches sockets connected to any instance. Note this opens a **second**
    connection specifically: `pubClient = getRedisConnection()` and
    `subClient = pubClient.duplicate()`, because pub/sub subscriber
@@ -64,7 +64,7 @@ concern, not a backup one.)
 ### Connection pooling
 
 The app connects via `mongoose.connect(mongoURI, { autoIndex:
-!isProduction })` in `backend/src/config/mongo.js` and otherwise relies on
+!isProduction })` in `nextjs/lib/db/mongo.ts` and otherwise relies on
 Mongoose/the MongoDB Node driver's defaults (`maxPoolSize: 100` as of
 driver 4+, no explicit override in this codebase). At real concurrency,
 size `maxPoolSize` deliberately rather than leaving it implicit — a pool
@@ -134,8 +134,8 @@ we need this."
 ## Backup/restore
 
 Covered in full in [`docs/BACKUP_RESTORE.md`](../BACKUP_RESTORE.md) —
-`backend/scripts/backup-mongo.sh`/`restore-mongo.sh`,
-`ENABLE_SCHEDULED_BACKUPS`, and `backend/scripts/verify-restore.js`'s
+`nextjs/scripts/backup-mongo.sh`/`restore-mongo.sh`,
+`ENABLE_SCHEDULED_BACKUPS`, and `nextjs/scripts/verify-restore.mjs`'s
 restore-drill checks. Not duplicated here; see
 [DISASTER_RECOVERY.md](./DISASTER_RECOVERY.md) for how that fits into an
 RTO/RPO runbook.

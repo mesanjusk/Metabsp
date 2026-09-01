@@ -48,7 +48,7 @@ which this service surfaces rather than swallowing.
 ## Messages fail to send with "outside 24h window"
 
 This is Meta's own customer-service-window policy, correctly enforced by
-`enforceWhatsApp24hWindow` (`backend/src/middleware/whatsapp24hGuard.js`)
+`enforceWhatsApp24hWindow` (`nextjs/lib/whatsapp/twentyFourHourGuard.ts`)
 — free-form text/media can only be sent within 24h of the customer's last
 message; **template** messages work outside that window. This is not a
 bug — direct the user to send a template instead.

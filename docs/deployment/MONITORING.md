@@ -43,7 +43,7 @@ at the top of `worker.js`.
 
 ## Structured logs: pino
 
-`backend/src/utils/logger.js` wraps `pino`, writing structured JSON to
+`nextjs/lib/utils/logger.ts` wraps `pino`, writing structured JSON to
 stdout — `LOG_LEVEL` (default `info` in production, `debug` otherwise)
 controls verbosity, and sensitive fields (`req.headers.authorization`,
 `*.accessToken`, `*.accessTokenEncrypted`, `*.password`, `*.token`,
@@ -83,14 +83,14 @@ checker (a cloud load balancer's health check, Pingdom/UptimeRobot/a
 synthetic monitor, Kubernetes probes per
 [KUBERNETES_DEPLOYMENT.md](./KUBERNETES_DEPLOYMENT.md)) at this endpoint
 rather than `/` (which always returns `200` unconditionally and tells you
-nothing about DB health). `backend/loadtest/README.md` already has a
+nothing about DB health). `nextjs/loadtest/README.md` already has a
 ready-made `npm run loadtest:health` / `loadtest:health:k6` pair if you
 want to establish a latency baseline for this endpoint before setting
 alert thresholds against it.
 
 ## Security/audit history: the `AuditLog` model
 
-`backend/src/models/AuditLog.js` (see `backend/src/services/
+`nextjs/lib/models/AuditLog.ts` (see `backend/src/services/
 auditLogService.js` for where it's written) records security-relevant
 actions: `userId`, `tenantId`, `action`, `resource`/`resourceId`,
 `outcome` (`success`/`failure`), `ipAddress`, `userAgent`, and a free-form
@@ -116,16 +116,16 @@ Sentry's own alert rules, Grafana):
   (e.g. "N events in M minutes") once `SENTRY_DSN` is set; this catches
   application-level exceptions the health check can't see.
 - **BullMQ failed-job count growth** — query the queue directly
-  (`Queue#getFailedCount()` from `backend/src/queues/whatsappSendQueue.js`'s
+  (`Queue#getFailedCount()` from `nextjs/lib/queues/whatsappSendQueue.ts`'s
   queue instance, or BullMQ's own dashboard/Arena/Bull Board if you add
   one) on a schedule; a growing failed-job count usually means Meta API
   errors or a WhatsApp token expiring, not a code bug, so route this
   alert to whoever owns WhatsApp account health, not just on-call
   engineering.
 - **Mongo/Redis connection errors in the app's own logs** — both
-  `backend/src/config/mongo.js` (via `logger.error("❌ MongoDB connection
+  `nextjs/lib/db/mongo.ts` (via `logger.error("❌ MongoDB connection
   error:", ...)`, which also `process.exit(1)`s) and
-  `backend/src/config/redis.js` (`connection.on('error', ...)`, logged but
+  `nextjs/lib/db/redis.ts` (`connection.on('error', ...)`, logged but
   non-fatal) emit structured error logs on connection trouble — alert on
   these log patterns in whatever log platform you ship pino output to,
   since a Redis connection error degrades rate limiting/real-time chat/the

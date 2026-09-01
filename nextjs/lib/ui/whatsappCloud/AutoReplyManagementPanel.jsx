@@ -21,7 +21,7 @@ import {
 import PropTypes from 'prop-types';
 import Modal from '@/lib/ui/components/common/Modal';
 import { parseApiError } from '@/lib/api/parseApiError';
-import { parsePriceCatalogRows, parseTabularFile } from '@/lib/client/importParsers';
+import { parseCatalogRows, parseTabularFile } from '@/lib/client/importParsers';
 import { toast } from '@/lib/ui/components/Toast';
 import { useAutoReplyManagement } from './hooks/useAutoReplyManagement';
 
@@ -65,7 +65,7 @@ export default function AutoReplyManagementPanel({ search }) {
     if (!file) return;
     try {
       const rows = await parseTabularFile(file);
-      const catalogRows = parsePriceCatalogRows(rows);
+      const catalogRows = parseCatalogRows(rows);
       if (!catalogRows.length) return toast.error('No valid price rows found in the uploaded file.');
       setFormData((prev) => ({ ...prev, catalogRows, catalogSummary: `${catalogRows.length} products loaded` }));
       toast.success(`${catalogRows.length} price rows loaded.`);

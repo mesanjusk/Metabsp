@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { buildCsp } = require('./lib/http/securityHeaders');
 
 /**
  * Cross-origin policy.
@@ -71,15 +73,49 @@ function applyCors(req: NextRequest, res: NextResponse): NextResponse {
   return res;
 }
 
+/**
+ * Per-request Content-Security-Policy nonce.
+ *
+ * Next reads the nonce out of the `Content-Security-Policy` header on the
+ * REQUEST and stamps it onto the script tags it renders — which is what lets
+ * the policy drop `'unsafe-inline'` for scripts. Setting it only on the
+ * response would leave Next's own bootstrap unnonced and therefore blocked.
+ *
+ * crypto.randomUUID is available in the edge runtime middleware runs in; a
+ * per-request value is the whole point, so this must never be hoisted out.
+ */
+function withCsp(req: NextRequest, response: NextResponse, nonce: string, csp: string): NextResponse {
+  response.headers.set('Content-Security-Policy', csp);
+  response.headers.set('x-nonce', nonce);
+  return response;
+}
+
 export function middleware(req: NextRequest) {
   // A preflight must be answered here: it never reaches a route handler, and
   // an unanswered OPTIONS is indistinguishable from a blocked API.
   if (req.method === 'OPTIONS') {
     return applyCors(req, new NextResponse(null, { status: 204 }));
   }
-  return applyCors(req, NextResponse.next());
+
+  const nonce = crypto.randomUUID();
+  const csp = buildCsp(nonce);
+
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  return withCsp(req, applyCors(req, response), nonce, csp);
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/webhook'],
+  matcher: [
+    /*
+     * Everything except Next's own build output and the favicon. Pages are
+     * included deliberately — the nonce has to reach the HTML document, not
+     * just the API — while _next/static assets carry no inline script and
+     * would only add work per request.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|icon.svg|robots.txt).*)',
+  ],
 };

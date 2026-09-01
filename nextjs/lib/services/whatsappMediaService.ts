@@ -86,6 +86,14 @@ export const uploadWhatsAppMediaToCloudinary = async ({
 
   return {
     mediaUrl: upload.secure_url,
+    // Cloudinary's own identifier for the asset. Persisted on the message
+    // because a URL is not a handle: deleting the asset later needs the
+    // public_id and the resource type, and deriving them back out of a URL is
+    // guesswork the moment a folder or transformation is involved. Without
+    // this, pruning a message under the retention policy would leave its
+    // media file behind indefinitely — deletion that is not really deletion.
+    mediaPublicId: upload.public_id || '',
+    mediaResourceType: upload.resource_type || '',
     mimeType: metadata.mimeType || downloaded.mimeType || '',
     provider: 'cloudinary',
     bytes: downloaded.buffer.length,

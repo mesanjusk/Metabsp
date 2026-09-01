@@ -43,7 +43,7 @@ Metabsp will provide Customer with [NOTICE PERIOD, e.g., 30 days'] advance notic
 
 Metabsp implements the following technical and organizational measures with respect to End Customer Data:
 
-- **Encryption at rest of WhatsApp access tokens** using AES-256-GCM authenticated encryption, with a key-rotation mechanism supporting a current and previous encryption key so tokens can be re-encrypted without downtime (`backend/src/utils/crypto.js`).
+- **Encryption at rest of WhatsApp access tokens** using AES-256-GCM authenticated encryption, with a key-rotation mechanism supporting a current and previous encryption key so tokens can be re-encrypted without downtime (`nextjs/lib/utils/crypto.ts`).
 - **Access control** via JWT-based authentication re-verified against the live user record on each request, and role/permission-scoped authorization.
 - **Webhook authenticity** — inbound Meta webhooks are verified using an HMAC-SHA256 signature check with a timing-safe comparison, rejecting unverifiable payloads; outbound webhook forwarding to Customer-configured destinations is itself HMAC-signed so Customer can verify authenticity.
 - **Rate limiting** backed by Redis to reduce brute-force and abuse risk across both authenticated and unauthenticated endpoints.
