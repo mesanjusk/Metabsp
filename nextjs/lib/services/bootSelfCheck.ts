@@ -79,6 +79,7 @@ export async function checkRedisEvictionPolicy(): Promise<{
   ok: boolean;
   policy?: string;
   reason?: string;
+  unverified?: boolean;
 }> {
   try {
     const redis: any = getRedisConnection();
@@ -86,15 +87,17 @@ export async function checkRedisEvictionPolicy(): Promise<{
     // ioredis returns a flat [name, value] array.
     const policy = Array.isArray(config) ? String(config[1] || '') : '';
 
-    if (!policy) return { ok: true, reason: 'Policy not reported by this Redis' };
+    if (!policy) return { ok: true, unverified: true, reason: 'Policy not reported by this Redis' };
     if (policy === 'noeviction') return { ok: true, policy };
 
     return { ok: false, policy };
   } catch (error: any) {
-    // Managed Redis often blocks CONFIG GET. Not being able to check is not a
-    // failure — it just means this has to be confirmed in the provider's
-    // dashboard instead.
-    return { ok: true, reason: `Could not read the policy: ${error.message}` };
+    // Managed Redis commonly blocks CONFIG GET — Render does. That is not a
+    // failure, but it must not be reported as a pass either: it means the
+    // single property protecting queued customer messages from being thrown
+    // away is unverified. Callers surface this as a warning naming the
+    // dashboard, rather than silence.
+    return { ok: true, unverified: true, reason: `Could not read the policy: ${error.message}` };
   }
 }
 
@@ -134,5 +137,14 @@ export async function runBootSelfCheck(): Promise<void> {
         'Queued inbound webhooks and outbound sends can be evicted under memory pressure — ' +
         'that is silent customer message loss. Change it in your Redis provider.'
     );
+  } else if (redis.unverified) {
+    logger.warn(
+      '[self-check] Could not verify the Redis eviction policy — this provider blocks the check. ' +
+        'Confirm in the provider dashboard that maxmemory-policy is "noeviction": any other value ' +
+        'lets queued inbound webhooks and outbound sends be discarded under memory pressure. ' +
+        `(${redis.reason})`
+    );
+  } else {
+    logger.info('[self-check] Redis eviction policy is noeviction');
   }
 }
