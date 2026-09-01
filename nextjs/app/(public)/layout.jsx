@@ -1,44 +1,88 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import NextLink from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  AppBar, Toolbar, Box, Button, Typography, Container, Divider,
-  IconButton, Drawer, List, ListItem, ListItemButton, ListItemText,
-  useTheme, useMediaQuery, Stack
+  AppBar,
+  Box,
+  Button,
+  Container,
+  Divider,
+  Drawer,
+  Grid,
+  IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Stack,
+  Toolbar,
+  Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import CloseIcon from '@mui/icons-material/Close';
-import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-import { motion, AnimatePresence } from 'framer-motion';
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import BrandMark from '@/lib/ui/app/BrandMark';
 
 const NAV_LINKS = [
-  { label: 'Home', to: '/' },
+  { label: 'Product', to: '/' },
   { label: 'About', to: '/about' },
-  { label: 'Docs', to: '/developer-docs' },
+  { label: 'Developers', to: '/developer-docs' },
   { label: 'Status', to: '/status' },
   { label: 'Contact', to: '/contact' },
 ];
 
-const FOOTER_LINKS = [
-  { label: 'Privacy Policy', to: '/privacy-policy' },
-  { label: 'Terms of Service', to: '/terms-of-service' },
-  { label: 'Cookie Policy', to: '/cookie-policy' },
-  { label: 'Data Deletion', to: '/data-deletion' },
-  { label: 'Security', to: '/security-info' },
-  { label: 'Help Center', to: '/help-center' },
+const FOOTER_SECTIONS = [
+  {
+    title: 'Platform',
+    links: [
+      { label: 'Product', to: '/' },
+      { label: 'About', to: '/about' },
+      { label: 'Status', to: '/status' },
+      { label: 'Help Center', to: '/help-center' },
+    ],
+  },
+  {
+    title: 'Developers',
+    links: [
+      { label: 'API reference', to: '/developer-docs' },
+      { label: 'Security', to: '/security-info' },
+      { label: 'Contact support', to: '/contact' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { label: 'Privacy Policy', to: '/privacy-policy' },
+      { label: 'Terms of Service', to: '/terms-of-service' },
+      { label: 'Cookie Policy', to: '/cookie-policy' },
+      { label: 'Data Deletion', to: '/data-deletion' },
+    ],
+  },
 ];
 
+/**
+ * The public shell around the marketing and legal pages.
+ *
+ * Two things changed beyond appearance, and both matter to App Review.
+ *
+ * The header used WhatsApp's own glyph as this product's logo. A Business
+ * Solution Provider is a distinct company operating on top of WhatsApp, and
+ * presenting Meta's mark as its own is a brand-guideline problem a reviewer
+ * looks for. It is the product's own mark now.
+ *
+ * The footer laid its columns out with Tailwind classes (`grid grid-cols-3`)
+ * that this app has no Tailwind to interpret, so the whole footer — including
+ * the Privacy Policy and Terms links Meta checks — rendered as one unstyled
+ * stack. It uses the layout system the rest of the app uses.
+ */
 export default function PublicLayout({ children }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
-
-  const isDark = theme.palette.mode === 'dark';
-  const navBg = isDark ? '#111b21' : '#ffffff';
-  const navBorder = isDark ? '#2a3942' : '#e0e0e0';
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -46,18 +90,20 @@ export default function PublicLayout({ children }) {
         position="sticky"
         elevation={0}
         sx={{
-          bgcolor: navBg,
-          borderBottom: `1px solid ${navBorder}`,
+          bgcolor: 'background.paper',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
           color: 'text.primary',
         }}
       >
         <Toolbar sx={{ maxWidth: 1200, width: '100%', mx: 'auto', px: { xs: 2, md: 4 } }}>
-          <NextLink href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <WhatsAppIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-            <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 800, letterSpacing: '-0.5px' }}>
-              MetaBSP
-            </Typography>
-          </NextLink>
+          <Box
+            component={NextLink}
+            href="/"
+            sx={{ textDecoration: 'none', color: 'primary.main', display: 'flex', alignItems: 'center' }}
+          >
+            <BrandMark size={30} />
+          </Box>
 
           <Box sx={{ flexGrow: 1 }} />
 
@@ -70,8 +116,7 @@ export default function PublicLayout({ children }) {
                   href={link.to}
                   sx={{
                     color: pathname === link.to ? 'primary.main' : 'text.secondary',
-                    fontWeight: pathname === link.to ? 700 : 500,
-                    '&:hover': { color: 'primary.main', bgcolor: 'transparent' },
+                    fontWeight: pathname === link.to ? 650 : 500,
                   }}
                 >
                   {link.label}
@@ -82,119 +127,121 @@ export default function PublicLayout({ children }) {
 
           {!isMobile && (
             <Stack direction="row" spacing={1}>
-              <Button component={NextLink} href="/login" variant="outlined" color="primary" size="small">
-                Login
+              <Button component={NextLink} href="/login" variant="text">
+                Sign in
               </Button>
-              <Button component={NextLink} href="/signup" variant="contained" color="primary" size="small">
-                Sign Up
+              <Button component={NextLink} href="/signup" variant="contained">
+                Get started
               </Button>
             </Stack>
           )}
 
           {isMobile && (
-            <IconButton onClick={() => setDrawerOpen(true)} sx={{ color: 'text.primary' }}>
-              <MenuIcon />
+            <IconButton onClick={() => setDrawerOpen(true)} aria-label="Open menu" sx={{ color: 'text.primary' }}>
+              <MenuRoundedIcon />
             </IconButton>
           )}
         </Toolbar>
       </AppBar>
 
       <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        <Box sx={{ width: 260, pt: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, pb: 2 }}>
-            <Typography variant="h6" fontWeight={800}>MetaBSP</Typography>
-            <IconButton onClick={() => setDrawerOpen(false)}><CloseIcon /></IconButton>
-          </Box>
+        <Box sx={{ width: 272, pt: 2 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, pb: 2 }}>
+            <Box sx={{ color: 'primary.main' }}>
+              <BrandMark size={26} />
+            </Box>
+            <IconButton onClick={() => setDrawerOpen(false)} aria-label="Close menu">
+              <CloseRoundedIcon />
+            </IconButton>
+          </Stack>
           <Divider />
           <List>
             {NAV_LINKS.map((link) => (
               <ListItem key={link.to} disablePadding>
-                <ListItemButton component={NextLink} href={link.to} onClick={() => setDrawerOpen(false)}>
+                <ListItemButton
+                  component={NextLink}
+                  href={link.to}
+                  selected={pathname === link.to}
+                  onClick={() => setDrawerOpen(false)}
+                >
                   <ListItemText primary={link.label} />
                 </ListItemButton>
               </ListItem>
             ))}
           </List>
           <Divider />
-          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Button component={NextLink} href="/login" variant="outlined" color="primary" fullWidth onClick={() => setDrawerOpen(false)}>
-              Login
+          <Stack spacing={1} sx={{ p: 2 }}>
+            <Button component={NextLink} href="/login" variant="outlined" fullWidth onClick={() => setDrawerOpen(false)}>
+              Sign in
             </Button>
-            <Button component={NextLink} href="/signup" variant="contained" color="primary" fullWidth onClick={() => setDrawerOpen(false)}>
-              Sign Up
+            <Button component={NextLink} href="/signup" variant="contained" fullWidth onClick={() => setDrawerOpen(false)}>
+              Get started
             </Button>
-          </Box>
+          </Stack>
         </Box>
       </Drawer>
 
       <Box component="main" sx={{ flexGrow: 1 }}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
+        {children}
       </Box>
 
       <Box
         component="footer"
-        sx={{
-          bgcolor: isDark ? '#111b21' : '#f8f9fa',
-          borderTop: `1px solid ${navBorder}`,
-          mt: 'auto',
-          py: 6,
-        }}
+        sx={{ bgcolor: 'background.paper', borderTop: '1px solid', borderColor: 'divider', mt: 'auto', py: 7 }}
       >
         <Container maxWidth="lg">
-          <Box className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <WhatsAppIcon sx={{ color: 'primary.main' }} />
-                <Typography variant="h6" fontWeight={800}>MetaBSP</Typography>
+          <Grid container spacing={5} sx={{ mb: 5 }}>
+            <Grid item xs={12} md={4}>
+              <Box sx={{ color: 'primary.main', mb: 1.5 }}>
+                <BrandMark size={30} />
               </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 240 }}>
-                A Meta-authorized WhatsApp Business Solution Provider helping businesses communicate at scale.
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 300 }}>
+                A WhatsApp Business Solution Provider on Meta&apos;s official Cloud API. Every message in
+                and out runs on the WhatsApp Business Platform.
               </Typography>
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>Platform</Typography>
-              <Stack spacing={0.5}>
-                {NAV_LINKS.map((link) => (
-                  <NextLink key={link.to} href={link.to} style={{ textDecoration: 'none' }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ '&:hover': { color: 'primary.main' } }}>
+            </Grid>
+
+            {FOOTER_SECTIONS.map((section) => (
+              <Grid item xs={12} sm={4} md={2.6} key={section.title}>
+                <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                  {section.title}
+                </Typography>
+                <Stack spacing={1}>
+                  {section.links.map((link) => (
+                    <Typography
+                      key={link.to}
+                      component={NextLink}
+                      href={link.to}
+                      variant="body2"
+                      sx={{
+                        color: 'text.secondary',
+                        textDecoration: 'none',
+                        '&:hover': { color: 'primary.main' },
+                      }}
+                    >
                       {link.label}
                     </Typography>
-                  </NextLink>
-                ))}
-              </Stack>
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>Legal</Typography>
-              <Stack spacing={0.5}>
-                {FOOTER_LINKS.map((link) => (
-                  <NextLink key={link.to} href={link.to} style={{ textDecoration: 'none' }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ '&:hover': { color: 'primary.main' } }}>
-                      {link.label}
-                    </Typography>
-                  </NextLink>
-                ))}
-              </Stack>
-            </Box>
-          </Box>
+                  ))}
+                </Stack>
+              </Grid>
+            ))}
+          </Grid>
+
           <Divider sx={{ mb: 3 }} />
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            justifyContent="space-between"
+            alignItems={{ sm: 'center' }}
+            spacing={1}
+          >
             <Typography variant="body2" color="text.secondary">
               © {new Date().getFullYear()} MetaBSP. All rights reserved.
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              support@meta.sanjusk.in
+              WhatsApp is a trademark of Meta Platforms, Inc. MetaBSP is an independent solution provider.
             </Typography>
-          </Box>
+          </Stack>
         </Container>
       </Box>
     </Box>

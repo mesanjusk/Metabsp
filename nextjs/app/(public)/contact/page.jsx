@@ -143,7 +143,7 @@ export default function ContactPage() {
                   </Typography>
                   <Button
                     component={NextLink}
-                    href="/help"
+                    href="/help-center"
                     variant="contained"
                     color="primary"
                     size="small"

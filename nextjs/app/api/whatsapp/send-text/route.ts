@@ -38,7 +38,16 @@ export async function POST(req: NextRequest) {
       userId: authed.id,
     });
     if (!windowCheck.allowed) {
-      return NextResponse.json({ success: false, message: 'Outside 24h window. केवल template messages allowed हैं.' }, { status: 403 });
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'OUTSIDE_24H_WINDOW',
+          message:
+            'This contact is outside the 24-hour customer service window. Send an approved template instead.',
+          lastCustomerMessageAt: windowCheck.lastUserMessageAt,
+        },
+        { status: 403 }
+      );
     }
 
     const data = await dispatchTextMessage({ accountContext, userId: authed.id, to, body: resolvedText });

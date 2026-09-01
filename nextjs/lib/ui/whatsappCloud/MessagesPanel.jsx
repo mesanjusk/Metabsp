@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
-import { io } from 'socket.io-client';
+import { useRealtimeMessages } from '@/lib/ui/hooks/useRealtimeMessages';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Avatar, Box, Divider, Stack, Typography } from '@mui/material';
 import { toast } from '@/lib/ui/components/Toast';
@@ -15,8 +15,6 @@ import ConversationList from './ConversationList';
 import EmptyState from './EmptyState';
 import LoadingSkeleton from './LoadingSkeleton';
 import WhatsAppLayout from './WhatsAppLayout';
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_BASE || window.location.origin;
 
 const getMessageText = (message) => message?.body || message?.text?.body || message?.text || message?.message || 'Unsupported message payload';
 const getTimestampRaw = (message) => message?.timestamp ?? message?.createdAt ?? message?.time;
@@ -116,13 +114,16 @@ export default function MessagesPanel({ search: externalSearch }) {
   }, []);
 
   useEffect(() => { loadMessages(); loadContacts(); }, [loadMessages, loadContacts]);
+  useRealtimeMessages({ onMessage: appendMessage });
+
+  // A slow safety net behind the websocket, not the delivery mechanism: it
+  // reconciles anything missed while the socket was reconnecting. The old
+  // 5-second interval refetched the entire inbox twelve times a minute per
+  // open tab because the socket never actually worked.
   useEffect(() => {
-    if (!SOCKET_URL || typeof io !== 'function') return undefined;
-    const socket = io(SOCKET_URL, { transports: ['polling'], reconnection: true, reconnectionAttempts: 5, reconnectionDelay: 2000 });
-    socket.on('new_message', appendMessage);
-    return () => socket.disconnect();
-  }, [appendMessage]);
-  useEffect(() => { const interval = setInterval(loadMessages, 5000); return () => clearInterval(interval); }, [loadMessages]);
+    const interval = setInterval(loadMessages, 60000);
+    return () => clearInterval(interval);
+  }, [loadMessages]);
 
   const orderedMessages = useMemo(() => [...messages].sort((a, b) => getMessageTimestampMs(a) - getMessageTimestampMs(b)), [messages]);
 

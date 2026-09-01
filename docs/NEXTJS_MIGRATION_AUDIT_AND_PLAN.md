@@ -1,3 +1,8 @@
+> **Historical record.** This document describes the repository before the
+> three-codebase consolidation. Paths and architecture it names have moved;
+> see `docs/CONSOLIDATION.md` for the mapping. Kept unedited as a record of
+> what was decided and when.
+
 # Metabsp → Next.js 15 / Vercel Migration — Audit & Plan (Phase 1 & 2)
 
 > **Superseded on the Baileys question.** The unofficial WhatsApp Web

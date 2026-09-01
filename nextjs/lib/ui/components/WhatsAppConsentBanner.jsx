@@ -187,7 +187,7 @@ export default function WhatsAppConsentBanner({ storageKey = STORAGE_KEY, onLear
                   </Button>
 
                   <Link
-                    href="/privacy"
+                    href="/privacy-policy"
                     target="_blank"
                     rel="noopener"
                     underline="hover"
@@ -202,7 +202,7 @@ export default function WhatsAppConsentBanner({ storageKey = STORAGE_KEY, onLear
                   <Typography variant="caption" color="text.disabled">·</Typography>
 
                   <Link
-                    href="/terms"
+                    href="/terms-of-service"
                     target="_blank"
                     rel="noopener"
                     underline="hover"

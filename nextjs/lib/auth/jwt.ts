@@ -11,9 +11,24 @@ export function getJwtSecret(): string {
   return secret;
 }
 
-// Ported from backend/src/routes/Users.js:signTokenForUser.
+/**
+ * Session lifetime.
+ *
+ * The original hardcoded 99 days, while the deployment configuration set
+ * JWT_EXPIRES_IN=7d — so the variable operators were setting had no effect and
+ * every session token stayed valid for over three months. That is a long time
+ * for a bearer token held in browser storage: revoking access meant
+ * deactivating the account, because the token itself could not be expired.
+ *
+ * The env var is now honoured, with a 7-day default matching what the
+ * deployment already declared.
+ */
+const DEFAULT_TOKEN_TTL = '7d';
+
 export function signTokenForUser(userId: unknown): string {
-  return jwt.sign({ id: userId, type: 'db-user' }, getJwtSecret(), { expiresIn: '99d' });
+  return jwt.sign({ id: userId, type: 'db-user' }, getJwtSecret(), {
+    expiresIn: (process.env.JWT_EXPIRES_IN || DEFAULT_TOKEN_TTL) as any,
+  });
 }
 
 export function verifyToken(token: string): { id: string; type: string } {

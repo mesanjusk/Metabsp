@@ -19,29 +19,6 @@ export const buildTemplatePayload = ({ to, template }) => {
   };
 };
 
-const getCloudinaryResourceType = ({ type, fileType }) => {
-  const normalizedType = String(type || '').toLowerCase();
-  const normalizedFileType = String(fileType || '').toLowerCase();
-
-  if (
-    normalizedType === 'image' ||
-    normalizedType.startsWith('image/') ||
-    normalizedFileType.startsWith('image/')
-  ) {
-    return 'image';
-  }
-
-  if (
-    normalizedType === 'video' ||
-    normalizedType.startsWith('video/') ||
-    normalizedFileType.startsWith('video/')
-  ) {
-    return 'video';
-  }
-
-  return 'raw';
-};
-
 const AUTO_REPLY_ENDPOINTS = [
   '/api/whatsapp/auto-reply',
   '/api/whatsapp/auto-replies',
@@ -239,54 +216,6 @@ export const updateManagedUser = (id, payload) =>
     },
   });
 
-export const uploadToCloudinary = async ({ file, type, cloudName, uploadPreset }) => {
-  const resolvedCloudName =
-    cloudName || import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dadcprflr';
-  const resolvedUploadPreset =
-    uploadPreset ||
-    import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET ||
-    'mern-images';
-
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('upload_preset', resolvedUploadPreset);
-
-  const resourceType = getCloudinaryResourceType({
-    type,
-    fileType: file?.type,
-  });
-
-  const endpoint = `https://api.cloudinary.com/v1_1/${resolvedCloudName}/${resourceType}/upload`;
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    body: formData,
-  });
-
-  let data = {};
-  try {
-    data = await response.json();
-  } catch (parseError) {
-    data = { error: { message: 'Invalid Cloudinary response payload' } };
-    console.error('Cloudinary response parse failed:', parseError);
-  }
-
-  if (!response.ok) {
-    console.error('Cloudinary upload failed:', {
-      status: response.status,
-      statusText: response.statusText,
-      endpoint,
-      resourceType,
-      fileType: file?.type,
-      uploadPreset: resolvedUploadPreset,
-      response: data,
-    });
-    throw new Error(data?.error?.message || 'Cloudinary upload failed.');
-  }
-
-  return data?.secure_url || '';
-};
-
 export const whatsappCloudService = {
   sendTextMessage: sendWhatsAppTextMessage,
   sendTemplateMessage: sendWhatsAppTemplateMessage,
@@ -318,7 +247,6 @@ export const whatsappCloudService = {
   updateAutoReplyRule,
   deleteAutoReplyRule,
   toggleAutoReplyRule,
-  uploadToCloudinary,
 };
 
 export default whatsappCloudService;

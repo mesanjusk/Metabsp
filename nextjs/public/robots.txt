@@ -1,0 +1,17 @@
+# The marketing and legal pages are meant to be indexed — a Meta reviewer
+# checking the Privacy Policy URL should find a real, reachable page.
+# Everything behind a session is not.
+User-agent: *
+Allow: /
+Disallow: /inbox
+Disallow: /contacts
+Disallow: /templates
+Disallow: /broadcasts
+Disallow: /automations
+Disallow: /analytics
+Disallow: /numbers
+Disallow: /developers
+Disallow: /settings
+Disallow: /admin
+Disallow: /api/
+Disallow: /webhook

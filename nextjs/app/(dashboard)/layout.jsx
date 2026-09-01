@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Box, CircularProgress } from '@mui/material';
 import { useAuth } from '@/lib/ui/AuthContext';
 import { ROUTES } from '@/lib/constants/routes';
+import DashboardShell from '@/lib/ui/app/DashboardShell';
 
 /**
  * Replaces App.jsx's CloudProtectedRoute + Pages/Layout.jsx.
@@ -47,5 +48,5 @@ export default function DashboardLayout({ children }) {
     );
   }
 
-  return <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>{children}</Box>;
+  return <DashboardShell>{children}</DashboardShell>;
 }

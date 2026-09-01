@@ -1,5 +1,5 @@
 /**
- * Socket.IO server bootstrap. Ported from backend/src/socket.js.
+ * Socket.IO server bootstrap.
  *
  * Deliberately plain CommonJS rather than TypeScript: it is required by
  * server.js, which runs before (and outside) Next's compilation, so it cannot
@@ -9,17 +9,24 @@
  * lib/socket/emitter.ts, which writes to the same Redis channels this
  * server's adapter subscribes to — so an emit from a route handler reaches
  * connected clients without either side holding a reference to the other.
- * That indirection is what let the app run split across two hosts, and it
- * keeps working unchanged now that both halves share one process.
  *
  * The Redis connection is cached on the same `global` key lib/db/redis.ts
  * uses, so the socket server and the App Router share one connection rather
  * than opening a second.
+ *
+ * ── Tenant isolation ────────────────────────────────────────────────────────
+ * Every connection MUST present the same JWT the REST API uses, and is placed
+ * in a room named for its own user. Emits are addressed to a room, never
+ * broadcast. Before this, the server accepted anonymous connections and
+ * `emitNewMessage` fanned every message out to every socket — so any visitor
+ * who opened a websocket received every tenant's WhatsApp traffic. Rooms and
+ * handshake auth are what make this safe to run as a multi-tenant BSP.
  */
 
 const { Server: SocketIOServer } = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter');
 const IORedis = require('ioredis');
+const jwt = require('jsonwebtoken');
 
 const REDIS_GLOBAL_KEY = '__metabspRedisConnection';
 
@@ -75,6 +82,23 @@ function getRedisConnection() {
   return connection;
 }
 
+// Mirrors lib/auth/jwt.ts:getJwtSecret. Duplicated rather than imported for
+// the CommonJS reason in the header — keep the two in step.
+function getJwtSecret() {
+  return process.env.JWT_SECRET || process.env.ACCESS_TOKEN_SECRET || '';
+}
+
+// Same allow-list the HTTP layer applies (lib/http/cors.ts). A websocket
+// upgrade is a cross-origin request like any other, and `origin: true` —
+// which reflects whatever Origin the client sent — combined with
+// `credentials: true` is exactly the configuration CORS exists to prevent.
+function resolveAllowedOrigins() {
+  return String(process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((entry) => entry.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+}
+
 let ioInstance = null;
 
 function initSocket(server) {
@@ -87,20 +111,80 @@ function initSocket(server) {
   // adapter falls back to its own bare console.warn on every reconnect.
   subClient.on('error', throttledErrorLogger('[socket.io redis] Subscriber connection error:'));
 
+  const allowedOrigins = resolveAllowedOrigins();
+
   ioInstance = new SocketIOServer(server, {
-    cors: { origin: true, methods: ['GET', 'POST'], credentials: true },
+    cors: {
+      origin: (origin, callback) => {
+        // No Origin header at all: a native/server-side client, not a browser
+        // page, so there is no cross-origin escalation to prevent.
+        if (!origin) return callback(null, true);
+        const normalized = origin.replace(/\/$/, '');
+        if (allowedOrigins.includes(normalized)) return callback(null, true);
+        // Same-origin is the normal case for the dashboard, which is served by
+        // this very process; an unset allow-list must not break it.
+        if (!allowedOrigins.length) return callback(null, true);
+        return callback(new Error(`Socket.IO: origin '${origin}' not allowed`));
+      },
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
     adapter: createAdapter(pubClient, subClient),
   });
 
+  // Handshake auth. The client sends the same bearer token it uses for REST
+  // (see lib/ui/hooks/useRealtimeMessages.js). A connection that cannot be
+  // attributed to a user is refused rather than allowed in read-only —
+  // there is nothing on this server a signed-out client may legitimately see.
+  ioInstance.use((socket, nextMiddleware) => {
+    const secret = getJwtSecret();
+    if (!secret) return nextMiddleware(new Error('Server auth is not configured'));
+
+    const token =
+      socket.handshake.auth?.token ||
+      String(socket.handshake.headers?.authorization || '').replace(/^Bearer\s+/i, '');
+    if (!token) return nextMiddleware(new Error('Authentication required'));
+
+    try {
+      const decoded = jwt.verify(token, secret);
+      if (!decoded?.id) return nextMiddleware(new Error('Authentication required'));
+      socket.data.userId = String(decoded.id);
+      return nextMiddleware();
+    } catch {
+      return nextMiddleware(new Error('Authentication required'));
+    }
+  });
+
   ioInstance.on('connection', (socket) => {
-    console.log(`[socket.io] Client connected: ${socket.id}`);
-    socket.on('disconnect', (reason) => {
-      console.log(`[socket.io] Client disconnected: ${socket.id} (${reason})`);
+    const { userId } = socket.data;
+    socket.join(userRoom(userId));
+
+    // A user may hold several WhatsApp numbers; the client asks to follow the
+    // one it is currently viewing. Membership is still bounded by the user
+    // room above — this only narrows what arrives, it cannot widen it, because
+    // every account emit is addressed to the owning user's room as well.
+    socket.on('watch-account', (accountId) => {
+      const room = accountRoom(accountId);
+      if (room) socket.join(room);
+    });
+    socket.on('unwatch-account', (accountId) => {
+      const room = accountRoom(accountId);
+      if (room) socket.leave(room);
     });
   });
 
-  console.log('[socket.io] Server attached');
+  console.log('[socket.io] Server attached (authenticated, room-scoped)');
   return ioInstance;
 }
 
-module.exports = { initSocket, getRedisConnection };
+// Room naming is shared with lib/socket/emitter.ts — both sides must agree or
+// events are published to a room nobody is in, which fails silently.
+function userRoom(userId) {
+  return userId ? `user:${userId}` : '';
+}
+
+function accountRoom(accountId) {
+  return accountId ? `account:${String(accountId)}` : '';
+}
+
+module.exports = { initSocket, getRedisConnection, userRoom, accountRoom };

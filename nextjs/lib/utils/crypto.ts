@@ -49,9 +49,26 @@ export const decryptSensitiveValue = (cipherText: unknown): string => {
 
   if (parts.length === 5 && parts[0] === 'v2') {
     const [, keyLabel, ivPart, authTagPart, encryptedPart] = parts;
-    const key = keyLabel === 'previous' ? previous : current;
-    if (!key) throw new AppError(`No encryption key available for label "${keyLabel}"`, 500);
-    return runDecipher(key, ivPart, authTagPart, encryptedPart);
+    const labelled = keyLabel === 'previous' ? previous : current;
+    if (!labelled) throw new AppError(`No encryption key available for label "${keyLabel}"`, 500);
+
+    try {
+      return runDecipher(labelled, ivPart, authTagPart, encryptedPart);
+    } catch (error) {
+      // The label records which key was current AT THE TIME OF WRITING, and
+      // encryptSensitiveValue always writes "current" — so the moment
+      // WHATSAPP_TOKEN_ENCRYPTION_KEY is rotated, every value already in the
+      // database still claims "current" while meaning the outgoing key.
+      // Without this fallback a rotation silently invalidates every stored
+      // access token: each connected number stops sending, and the only
+      // recovery is re-onboarding every customer. Rotation is supposed to be
+      // the safe operation, so a labelled-key failure retries the other key
+      // before giving up. The 3-part legacy branch below always worked this
+      // way; the v2 branch did not.
+      const fallback = keyLabel === 'previous' ? current : previous;
+      if (fallback) return runDecipher(fallback, ivPart, authTagPart, encryptedPart);
+      throw error;
+    }
   }
 
   if (parts.length === 3) {

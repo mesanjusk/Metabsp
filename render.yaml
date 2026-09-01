@@ -1,108 +1,33 @@
+# One web service, one Redis instance.
+#
+# This used to describe two web services — an Express host and a Next.js host —
+# running the same product against the same database, with the split existing
+# only because the migration between them was unfinished. The Express half is
+# gone; `nextjs/` serves the App Router, the API, the Meta webhook, Socket.IO,
+# the queue workers and the schedulers from one persistent Node process
+# (see nextjs/server.js and nextjs/instrumentation.ts for how those coexist).
+#
+# CUTOVER, before merging this to a branch Render auto-deploys:
+#   1. Point the Meta App Dashboard webhook callback URL at this service's
+#      /webhook path and re-verify it.
+#   2. Add this service's origin to the Meta app's Allowed Domains for the
+#      JavaScript SDK, or Embedded Signup fails with a JSSDK host error.
+#   3. Copy MONGO_URI, JWT_SECRET and WHATSAPP_TOKEN_ENCRYPTION_KEY across
+#      VERBATIM from the old service. A different encryption key does not
+#      error — it silently fails to decrypt every stored access token, and
+#      every connected number stops sending.
+#   4. Point the production domain at this service, then retire the old one.
 services:
   - type: web
-    name: metabsp-backend
-    runtime: node
-    rootDir: backend
-    branch: main
-    autoDeploy: true
-    buildCommand: node ../scripts/meta-deploy-check.js && npm ci && npm test
-    startCommand: npm start
-    healthCheckPath: /api/health
-    envVars:
-      - key: PORT
-        value: 5000
-      - key: NODE_ENV
-        value: production
-      - key: MONGO_URI
-        sync: false
-      - key: FRONTEND_URL
-        sync: false
-      - key: META_APP_ID
-        sync: false
-      - key: META_APP_SECRET
-        sync: false
-      - key: WHATSAPP_API_VERSION
-        value: v23.0
-      - key: META_API_VERSION
-        value: v23.0
-      - key: META_EMBEDDED_SIGNUP_CONFIG_ID
-        sync: false
-      - key: META_ENABLE_COEXISTENCE
-        value: "true"
-      - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
-        sync: false
-      - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE
-        value: "true"
-      - key: WHATSAPP_TOKEN_ENCRYPTION_KEY
-        sync: false
-      - key: JWT_SECRET
-        sync: false
-      - key: JWT_EXPIRES_IN
-        value: 7d
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: metabsp-redis
-          property: connectionString
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
-      - key: WHATSAPP_ACCESS_TOKEN
-        sync: false
-      - key: WHATSAPP_PHONE_NUMBER_ID
-        sync: false
-      - key: WHATSAPP_TEMPLATE_LANGUAGE
-        value: en_US
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: FACEBOOK_APP_ID
-        sync: false
-      - key: FACEBOOK_APP_SECRET
-        sync: false
-      # This belongs only to optional Facebook social sign-in. Do not request
-      # public_profile as part of the WhatsApp Meta App Review submission.
-      - key: FACEBOOK_LOGIN_SCOPES
-        value: public_profile
-      - key: ACCESS_TOKEN_SECRET
-        sync: false
-      - key: BOOTSTRAP_USERNAME
-        sync: false
-      - key: BOOTSTRAP_NAME
-        sync: false
-      - key: BOOTSTRAP_PASSWORD
-        sync: false
-      - key: SUPER_ADMIN_USERNAME
-        sync: false
-      - key: SUPER_ADMIN_NAME
-        sync: false
-      - key: SUPER_ADMIN_MOBILE
-        sync: false
-      - key: SUPER_ADMIN_PASSWORD
-        sync: false
-      - key: KEEP_ALIVE_TOKEN
-        sync: false
-      # Keep false during normal development. Before the exact deployment used
-      # for App Review, set true in Render so missing reviewer credentials fail
-      # the build instead of reaching Meta in a broken state.
-      - key: META_REVIEW_ENFORCE_READY
-        value: "false"
-      - key: META_REVIEWER_LOGIN
-        sync: false
-      - key: META_REVIEWER_PASSWORD
-        sync: false
-      - key: META_REVIEW_CONTACT_EMAIL
-        sync: false
-
-  - type: web
-    name: metabsp-nextjs
+    name: metabsp
     runtime: node
     rootDir: nextjs
     branch: main
     autoDeploy: true
-    buildCommand: node ../scripts/meta-deploy-check.js && npm ci && npm run typecheck && npm run build
+    # Config gate, then typecheck, then the test suite, then the build. Each
+    # fails the deploy on its own, so a broken deployment never reaches Meta's
+    # webhook — an endpoint Meta disables if it stays unhealthy.
+    buildCommand: node ../scripts/meta-deploy-check.js && npm ci && npm run typecheck && npm test && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -115,12 +40,24 @@ services:
           type: redis
           name: metabsp-redis
           property: connectionString
+
+      # ── Sessions ────────────────────────────────────────────────────────
       - key: JWT_SECRET
         sync: false
       - key: JWT_EXPIRES_IN
         value: 7d
+
+      # ── Public origin ───────────────────────────────────────────────────
+      # FRONTEND_URL is the canonical public origin. ALLOWED_ORIGINS is the
+      # comma-separated CORS and websocket allow-list; leave it unset for a
+      # single-origin deployment, which is the normal case now that the app
+      # and its API are one service.
       - key: FRONTEND_URL
         sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+      # ── Meta ────────────────────────────────────────────────────────────
       - key: META_APP_ID
         sync: false
       - key: META_APP_SECRET
@@ -133,24 +70,41 @@ services:
         value: v23.0
       - key: META_ES_VERSION
         value: v4
+      # Keep false until the three coexistence webhook fields are subscribed
+      # in the App Dashboard AND one real coexistence onboarding has been run
+      # end to end — otherwise the Embedded Signup popup offers a path whose
+      # traffic goes nowhere. See docs/meta-tech-provider/COEXISTENCE.md.
       - key: META_ENABLE_COEXISTENCE
         value: "true"
       - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
         sync: false
       - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE
         value: "true"
+      # Must match the value that encrypted the data already in MONGO_URI.
       - key: WHATSAPP_TOKEN_ENCRYPTION_KEY
         sync: false
+
+      # ── Media storage ───────────────────────────────────────────────────
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+
+      # ── Background work ─────────────────────────────────────────────────
+      # true on every instance is correct for a single-instance deployment:
+      # the schedulers coordinate through a Redis leader lock, and the two
+      # queue workers are meant to run as competing consumers. Set false on
+      # web instances only if you also run dedicated worker instances.
       - key: RUN_BACKGROUND_JOBS
-        value: "false"
+        value: "true"
       - key: KEEP_ALIVE_TOKEN
         sync: false
+
+      # ── App Review ──────────────────────────────────────────────────────
+      # Set true on the exact deployment submitted to Meta, so missing
+      # reviewer credentials fail the build instead of reaching Meta broken.
       - key: META_REVIEW_ENFORCE_READY
         value: "false"
       - key: META_REVIEWER_LOGIN
@@ -164,4 +118,7 @@ services:
     name: metabsp-redis
     ipAllowList: []
     plan: starter
+    # noeviction is required, not a preference: BullMQ keeps queue state in
+    # Redis, and an eviction policy that drops keys under memory pressure
+    # silently discards queued customer messages.
     maxmemoryPolicy: noeviction

@@ -268,9 +268,9 @@ export default function ConsentDialog({ open, onAccept, onDecline }) {
         {/* Links */}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
           By connecting your account you agree to our{' '}
-          <Link href="/terms" target="_blank" rel="noopener" underline="always">Terms of Service</Link>
+          <Link href="/terms-of-service" target="_blank" rel="noopener" underline="always">Terms of Service</Link>
           {' '}and{' '}
-          <Link href="/privacy" target="_blank" rel="noopener" underline="always">Privacy Policy</Link>.
+          <Link href="/privacy-policy" target="_blank" rel="noopener" underline="always">Privacy Policy</Link>.
           MetaBSP is an independent service provider and is not affiliated with Meta Platforms, Inc.
         </Typography>
 
@@ -290,7 +290,7 @@ export default function ConsentDialog({ open, onAccept, onDecline }) {
             label={
               <Typography variant="body2">
                 I agree to the{' '}
-                <Link href="/terms" target="_blank" rel="noopener" underline="always">Terms of Service</Link>
+                <Link href="/terms-of-service" target="_blank" rel="noopener" underline="always">Terms of Service</Link>
               </Typography>
             }
           />
@@ -306,7 +306,7 @@ export default function ConsentDialog({ open, onAccept, onDecline }) {
             label={
               <Typography variant="body2">
                 I agree to the{' '}
-                <Link href="/privacy" target="_blank" rel="noopener" underline="always">Privacy Policy</Link>
+                <Link href="/privacy-policy" target="_blank" rel="noopener" underline="always">Privacy Policy</Link>
               </Typography>
             }
           />

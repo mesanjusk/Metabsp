@@ -18,6 +18,7 @@ import { saveAndEmitMessage, normalizePhone } from './dispatch';
 import { parseIncoming, deliverToDestinations, resolveInboundRouting } from './webhookProcessing';
 import { extractCoexistenceEvents, processCoexistenceEvents } from './coexistence';
 import { enqueueDelayedReply } from '../queues/whatsappSendQueue';
+import { enqueueWebhookEnvelope } from '../queues/webhookQueue';
 
 const RESOLVED_API_VERSION = getGraphApiVersion();
 
@@ -46,22 +47,34 @@ export async function handleVerifyWebhook(req: NextRequest): Promise<NextRespons
 /**
  * POST /webhook, POST /api/whatsapp/webhook — Meta's inbound event delivery.
  *
- * IMPORTANT DEVIATION FROM THE ORIGINAL (see
- * docs/NEXTJS_MIGRATION_AUDIT_AND_PLAN.md §0/§1.2/§1.6): the Express version
- * responded 200 immediately and did all real work inside a bare
- * `setImmediate()` callback afterward — safe only because that process
- * never exits between requests. A Vercel serverless function offers no such
- * guarantee once the response is sent, so every step below is awaited
- * BEFORE this handler returns. Delayed auto-reply/workflow-step sends
- * (previously `setTimeout`) are instead enqueued as delayed BullMQ jobs
- * (see lib/queues/whatsappSendQueue.ts:enqueueDelayedReply) so they're
- * delivered durably by the always-on host's existing, unchanged Worker
- * regardless of how long the delay is or whether this function has since
- * been torn down.
+ * This handler does exactly two things: verify Meta's HMAC signature, and
+ * hand the payload to a durable queue. It then returns 200 without waiting
+ * for any of the work.
+ *
+ * That split is not an optimisation, it is a requirement of being a BSP.
+ * Meta expects a webhook to acknowledge within seconds and retries — then
+ * eventually disables the subscription — for an endpoint that is slow or
+ * failing. Real processing here means a media download from Meta, a
+ * re-upload to Cloudinary, a fan-out to every registered customer
+ * destination with retries, and workflow matching: comfortably tens of
+ * seconds under load, and unbounded when a customer's own destination is
+ * slow. Doing that before the ack put the whole platform's inbound delivery
+ * at the mercy of the slowest downstream endpoint.
+ *
+ * Two earlier designs both failed for the same underlying reason. The Express
+ * original did the work in a bare `setImmediate()` after responding — safe
+ * only while that process happened to stay up, with no retry if it did not.
+ * The first Next.js port awaited everything before responding, which was
+ * correct for a serverless function that may be frozen after the response but
+ * is what created the timeout exposure described above. A queue gives both
+ * halves: an immediate ack, and processing that survives a restart because it
+ * is persisted in Redis before the ack is sent.
+ *
+ * If enqueueing itself fails (Redis unavailable), the payload is processed
+ * inline rather than dropped — a slow ack is recoverable, a lost customer
+ * message is not.
  */
 export async function handleReceiveWebhook(req: NextRequest): Promise<NextResponse> {
-  await connectDB();
-
   // Raw body text is required for HMAC verification — must read it before
   // any JSON parsing, and only parse JSON after signature verification
   // passes (or is disabled).
@@ -100,6 +113,36 @@ export async function handleReceiveWebhook(req: NextRequest): Promise<NextRespon
       return NextResponse.json({ received: true, ignored: true }, { status: 200 });
     }
 
+    try {
+      await enqueueWebhookEnvelope(body);
+      return NextResponse.json({ received: true, queued: true }, { status: 200 });
+    } catch (queueError: any) {
+      logger.error(
+        '[whatsapp] webhook enqueue failed, processing inline instead:',
+        queueError.message
+      );
+      await processWebhookEnvelope(body);
+      return NextResponse.json({ received: true, queued: false }, { status: 200 });
+    }
+  } catch (error: any) {
+    logger.error('[whatsapp] webhook error:', error);
+    // Ack 200 even on an unexpected error so Meta does not retry-storm a
+    // payload that will fail identically — the error is logged above for
+    // investigation. A 5xx here is what eventually gets a webhook disabled.
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+}
+
+/**
+ * Everything the webhook actually does, run by the queue worker
+ * (lib/queues/webhookWorker.ts) rather than in the request that delivered it.
+ * Exported so the worker — and the inline fallback above — share one
+ * implementation.
+ */
+export async function processWebhookEnvelope(body: any): Promise<void> {
+  await connectDB();
+
+  try {
     const entries = Array.isArray(body?.entry) ? body.entry : [];
     const incoming: any[] = [];
     const statuses: any[] = [];
@@ -343,13 +386,12 @@ export async function handleReceiveWebhook(req: NextRequest): Promise<NextRespon
       }
     }
 
-    return NextResponse.json({ received: true }, { status: 200 });
   } catch (error: any) {
-    logger.error('[whatsapp] webhook error:', error);
-    // Matches the original's behavior of still acking 200 on an unexpected
-    // processing error, so Meta doesn't retry-storm a payload that will
-    // just fail the same way again — the error itself is already logged
-    // above for investigation.
-    return NextResponse.json({ received: true }, { status: 200 });
+    // Rethrown, unlike the pre-queue version which swallowed this: the caller
+    // is now a BullMQ job, and a thrown error is what earns the payload its
+    // retries with backoff instead of being lost. Meta has already been
+    // acked, so nothing here can cause a webhook retry-storm.
+    logger.error('[whatsapp] webhook processing error:', error);
+    throw error;
   }
 }

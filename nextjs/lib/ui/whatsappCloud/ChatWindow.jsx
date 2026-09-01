@@ -49,12 +49,11 @@ export default function ChatWindow({
         flexDirection: 'column',
         height: '100%',
         minHeight: 0,
-        bgcolor: '#efeae2',
+        bgcolor: 'background.default',
       }}
     >
       <Box
         ref={scrollRef}
-        className="whatsapp-wallpaper"
         sx={{
           flex: 1,
           minHeight: 0,

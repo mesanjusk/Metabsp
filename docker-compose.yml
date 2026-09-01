@@ -1,3 +1,9 @@
+# Local development stack: MongoDB, Redis and the app.
+#
+# One app service, not three: the Express backend and the Vite SPA that used
+# to sit alongside this were the same product implemented twice, and both are
+# gone. `app` serves the dashboard, the API, the Meta webhook, Socket.IO and
+# the background workers from one process.
 services:
   mongo:
     image: mongo:7
@@ -10,68 +16,61 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    # BullMQ keeps queue state here; an eviction policy that drops keys under
+    # memory pressure silently discards queued messages.
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
 
-  backend:
+  app:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: nextjs/Dockerfile
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "3000:3000"
     environment:
       NODE_ENV: development
-      PORT: 5000
+      PORT: 3000
       MONGO_URI: mongodb://mongo:27017/metabsp
       REDIS_URL: redis://redis:6379
-      # Dev-only placeholder secrets — override with real values via a local
-      # .env file or your shell before running this in anything but a
-      # throwaway local environment.
+      FRONTEND_URL: http://localhost:3000
+      # Dev-only placeholders. Override with a local .env or your shell before
+      # running this anywhere but a throwaway environment — and never point it
+      # at a database holding real encrypted tokens with this key.
       JWT_SECRET: dev-only-change-me
       WHATSAPP_TOKEN_ENCRYPTION_KEY: ZGV2LW9ubHktMzItYnl0ZS1rZXktY2hhbmdlLW1lITE=
-      FRONTEND_URL: http://localhost:8080
+      # Signature enforcement off locally so a hand-crafted webhook payload can
+      # be replayed without signing it. Never set this in a deployed
+      # environment: it makes the webhook accept anything from anyone.
+      WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE: "false"
     depends_on:
       - mongo
       - redis
 
-  # Optional standalone broadcast-send worker (see backend/src/worker.js) —
-  # scale send throughput independently of the API by running this as its
-  # own replica set, instead of relying on the backend's in-process worker.
-  # Not started by a plain `docker compose up`; opt in with
+  # Optional dedicated worker instance: run the queue consumers and schedulers
+  # separately from the web instance to scale send throughput independently.
+  # Not started by a plain `docker compose up` — opt in with
   # `docker compose --profile scale-workers up worker`.
   worker:
     profiles: ["scale-workers"]
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: nextjs/Dockerfile
     restart: unless-stopped
-    command: ["npm", "run", "worker", "--workspace=backend"]
     environment:
       NODE_ENV: development
+      PORT: 3001
       MONGO_URI: mongodb://mongo:27017/metabsp
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev-only-change-me
       WHATSAPP_TOKEN_ENCRYPTION_KEY: ZGV2LW9ubHktMzItYnl0ZS1rZXktY2hhbmdlLW1lITE=
+      RUN_BACKGROUND_JOBS: "true"
     depends_on:
       - mongo
       - redis
-
-  frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-      args:
-        VITE_API_SERVER: http://localhost:5000
-        VITE_API_URL: http://localhost:5000/api/bulk
-        VITE_SOCKET_URL: http://localhost:5000
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
 
 volumes:
   mongo_data:

@@ -1,15 +1,21 @@
 {
   "name": "metabsp",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
+  "description": "MetaBSP — a WhatsApp Business Solution Provider platform on the official Meta Cloud API.",
   "workspaces": [
-    "frontend",
-    "backend"
+    "nextjs"
   ],
   "scripts": {
-    "dev:frontend": "npm run dev --workspace=frontend",
-    "dev:backend": "npm run start --workspace=backend",
-    "build:frontend": "npm run build --workspace=frontend",
-    "install:all": "npm install --workspace=frontend && npm install --workspace=backend"
+    "dev": "npm run dev --workspace=nextjs",
+    "build": "npm run build --workspace=nextjs",
+    "start": "npm run start --workspace=nextjs",
+    "test": "npm run test --workspace=nextjs",
+    "typecheck": "npm run typecheck --workspace=nextjs",
+    "lint": "npm run lint --workspace=nextjs",
+    "verify": "npm run typecheck --workspace=nextjs && npm run test --workspace=nextjs && npm run build --workspace=nextjs"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

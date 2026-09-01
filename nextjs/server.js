@@ -13,9 +13,15 @@
  *
  * Creating the HTTP server here and handing requests to Next's request
  * handler lets all three share one process, one port, and one deploy. That is
- * what running on Render (a persistent Node process) buys over Vercel
- * (functions), and why the deployment target decides the architecture rather
- * than the other way round.
+ * what running on a persistent Node process buys over serverless functions,
+ * and why the deployment target decides the architecture rather than the other
+ * way round.
+ *
+ * Only the first of the three lives in this file. Socket.IO needs the raw HTTP
+ * server, which exists only here. The worker and the schedulers need the
+ * application's TypeScript models and services, which do not exist yet at this
+ * point in the boot — they start from instrumentation.ts instead, which Next
+ * runs once inside its own compiled runtime.
  *
  * Start with `node server.js`, not `next start`.
  */
@@ -42,11 +48,10 @@ const hostname = process.env.BIND_HOST || '0.0.0.0';
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-// Background work is opt-in per replica. Render can run several instances of
-// a service; the schedulers already coordinate through a Redis leader lock,
-// but keeping this behind a flag means a deployment can also run a dedicated
-// worker instance with RUN_BACKGROUND_JOBS=true and web instances without it.
-const runBackgroundJobs = String(process.env.RUN_BACKGROUND_JOBS ?? 'true').toLowerCase() !== 'false';
+// Background work (the two BullMQ workers and the four schedulers) is started
+// from instrumentation.ts, not here — see that file for why. RUN_BACKGROUND_JOBS
+// is read there, so a deployment can still run dedicated worker instances
+// alongside HTTP-only web instances.
 
 async function start() {
   await app.prepare();
@@ -70,14 +75,6 @@ async function start() {
 
   server.listen(port, hostname, () => {
     console.log(`[server] Ready on http://${hostname}:${port} (dev=${dev})`);
-    // NOTE: the schedulers and the BullMQ worker still run on the Express
-    // host — they have not been ported yet. This flag and its plumbing exist
-    // so they can be attached here without a second deployment, but nothing
-    // reads it today. Deliberately not logging "background jobs enabled",
-    // which would be untrue.
-    if (!runBackgroundJobs) {
-      console.log('[server] Background jobs opted out for this instance');
-    }
   });
 
   const shutdown = (signal) => {
