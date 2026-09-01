@@ -14,6 +14,7 @@ import Contact from '../models/Contact';
 import { loadWhatsAppAccountFromWebhookIdentifiers } from '../services/whatsappAccountService';
 import { parseIncoming, forwardToWebhookDestinations } from './webhookProcessing';
 import { saveAndEmitMessage } from './dispatch';
+import { emitHistorySyncProgress } from '../socket/emitter';
 import logger from '../utils/logger';
 
 export const COEXISTENCE_FIELDS = ['history', 'smb_message_echoes', 'smb_app_state_sync'];
@@ -315,6 +316,21 @@ export const processHistoryChunks = async (chunks: CoexistenceEvents['historyChu
             },
           }
         );
+      }
+
+      // One event per chunk, not one per message: the individual saves above
+      // deliberately do not emit (see saveAndEmitMessage), so this is the only
+      // thing telling an open inbox that a backfill is running.
+      if (account?.userId || account?._id) {
+        emitHistorySyncProgress({
+          userId: account?.userId,
+          whatsappAccountId: account?._id,
+          status: completed ? 'completed' : 'in_progress',
+          progress: hasProgress ? progress : null,
+          phase: chunk.metadata?.phase ?? null,
+          chunkOrder: chunk.metadata?.chunk_order ?? null,
+          messagesImported: imported,
+        });
       }
 
       logger.info(

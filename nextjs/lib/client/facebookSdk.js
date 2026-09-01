@@ -58,6 +58,20 @@ export function loadFacebookSdk({ appId, apiVersion = 'v20.0' }) {
 const FINISH_EVENTS = ['FINISH', 'FINISH_ONLY_WABA', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'];
 const COEXISTENCE_FINISH_EVENT = 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING';
 
+// Exact origins, not a suffix test. `origin.endsWith('facebook.com')` also
+// accepts https://evilfacebook.com, which is a registrable domain anyone can
+// buy — and this listener hands whatever it receives straight to the server as
+// the WABA and phone number to claim. The popup posts from www.facebook.com;
+// web.facebook.com and the m. host are included because Meta has served the
+// flow from both.
+export const EMBEDDED_SIGNUP_ORIGINS = [
+  'https://www.facebook.com',
+  'https://web.facebook.com',
+  'https://m.facebook.com',
+  'https://business.facebook.com',
+  'https://facebook.com',
+];
+
 // Meta's Embedded Signup popup posts window messages with the WABA/phone
 // number identifiers — FB.login's own callback only carries the OAuth
 // `code`, not these IDs, so they must be captured via this side channel.
@@ -72,7 +86,7 @@ export function listenForEmbeddedSignupData({ timeoutMs = 5 * 60 * 1000 } = {}) 
     };
 
     const handleMessage = (event) => {
-      if (!event.origin?.endsWith('facebook.com')) return;
+      if (!EMBEDDED_SIGNUP_ORIGINS.includes(event.origin)) return;
       let data;
       try {
         data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;

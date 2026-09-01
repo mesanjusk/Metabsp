@@ -58,7 +58,16 @@ export const saveAndEmitMessage = async (payload: any) => {
   }
 
   const savedMessage: any = await Message.create(payload);
-  emitNewMessage(savedMessage.toObject());
+
+  // A coexistence history backfill saves up to 180 days of already-delivered
+  // chats one message at a time. Emitting `new_message` for each would fire
+  // thousands of live-inbox events at every open browser — the conversation
+  // list would thrash, unread counts would spike, and a three-month-old
+  // message would announce itself as new. History is loaded by fetching the
+  // conversation, not by pushing it; progress is reported once per chunk via
+  // emitHistorySyncProgress instead.
+  if (!payload.isHistorical) emitNewMessage(savedMessage.toObject());
+
   return { message: savedMessage, isDuplicate: false };
 };
 

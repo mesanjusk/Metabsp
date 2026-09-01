@@ -69,7 +69,12 @@ reviewer or, worse, to customers.
   and never surfaces an internal error message.
 - Security headers are present on every response; CORS is open on `/api/v1`
   without credentials and allow-listed everywhere else.
-- 66 tests, a typecheck and a production build run in CI and again in the
+- Coexistence webhook handling — extraction of all three fields, direction
+  derivation, echo de-duplication, "history never emits live message events"
+  and "a removed contact is marked, not deleted" (`nextjs/tests/coexistence.test.ts`).
+- The Embedded Signup popup's `postMessage` is accepted only from an exact
+  allow-list of Meta origins (`nextjs/tests/embeddedSignupOrigin.test.ts`).
+- 132 tests, a typecheck and a production build run in CI and again in the
   Render build.
 
 ## Deploy gate
@@ -108,6 +113,7 @@ so the gate additionally requires `META_REVIEWER_LOGIN`,
 | Privacy / Terms / Data Deletion URLs | CODE + EXTERNAL | Pages exist and resolve; the dashboard values must be set to match. |
 | Reviewer credentials | RUNTIME | The gate can enforce their presence; a human must confirm the login works in a private window. |
 | Reviewer walkthrough video | EXTERNAL | Record only after the exact production deployment passes end to end. |
+| Embedded Signup v4 migration | CODE + EXTERNAL | **Dated.** Meta deprecates Embedded Signup v2 on 2026-10-15, and the `coex` feature type does not migrate automatically. This repo sends the v3-shaped flow. See `COEXISTENCE.md` § Embedded Signup v4. |
 
 ---
 
@@ -159,13 +165,27 @@ in the system that owns it.
   documentation. It is off unless credentials are set, and self-service
   subscription returns a clear `503` until then. Verify against a sandbox call
   before accepting real payments.
-- **The Redis instance backing the queues is misconfigured for this use.**
-  It runs `maxmemory-policy=allkeys_lru` with persistence off, on the free
-  plan. Queued inbound webhooks and outbound sends can be evicted under
-  memory pressure, and are lost outright on a restart — silent customer
-  message loss. This cannot be changed through the API; set it to
-  `noeviction` in the Render dashboard, and move off the free plan for
-  anything carrying real traffic.
+- **The Redis instance backing the queues has no persistence.** The
+  eviction-policy half of this is now fixed: the provider API reports
+  `maxmemory-policy=noeviction` (an earlier revision of this document said
+  `allkeys_lru`, which is no longer what the instance runs). The app itself
+  still cannot confirm it — Render blocks `CONFIG GET`, so the boot
+  self-check reports "could not verify" rather than a pass, by design.
+  What remains is persistence: it is off, on the free plan, so a restart
+  loses every queued inbound webhook and outbound send. Move to a paid plan
+  with persistence on before carrying real traffic.
+- **The deployed web service runs on a free plan and hibernates.** Render
+  spins a free service down after 15 minutes without inbound traffic and
+  takes about a minute to wake it. Observed on the live service: instances
+  started at 16:49 and 17:12 UTC on 2026-09-01 with no deploy behind them,
+  i.e. wake cycles. Meta retries a webhook that slow and eventually disables
+  the subscription, and an App Review reviewer would wait out the same cold
+  start. Keeping it awake with a keep-alive ping is not a fix: the free
+  allowance is 750 instance-hours per month for the whole workspace against
+  a ~730-hour month, so one always-on free service consumes it and Render
+  then suspends every free service until the 1st. `render.yaml` now declares
+  `plan: starter` so a fresh blueprint deploy does not recreate this.
+
 - **The deployed service's build command does not run the deploy gate.**
   `render.yaml` describes the gated build, but the live service predates the
   blueprint and is configured by hand as `npm install && npm run build`. Set
@@ -177,9 +197,15 @@ in the system that owns it.
   image optimiser off. The real fix is a Next major upgrade, which pulls
   React 19 and MUI 7 with it — that deserves its own change and its own
   regression pass, not a cutover.
-- **The Cashfree billing integration is unverified** against live Cashfree
-  documentation. It is off unless credentials are set, and self-service
-  subscription returns a clear `503` until then.
+- **Coexistence is implemented but has never met live traffic.** The three
+  webhook fields are parsed and now tested
+  (`nextjs/tests/coexistence.test.ts` — the Express tests this document once
+  cited were deleted with that codebase and nothing replaced them until
+  now), but no real coexistence onboarding has been run. It stays off
+  (`META_ENABLE_COEXISTENCE=false`) until the three fields are confirmed
+  subscribed via `GET /api/whatsapp/preflight` and one QR-scan onboarding
+  has been walked end to end.
+
 - **Retention windows are configured but set to 0**, meaning nothing is
   deleted. The mechanism is in place; choosing the periods is a legal and
   commercial decision.

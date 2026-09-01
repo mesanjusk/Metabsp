@@ -50,6 +50,23 @@ export function emitNewMessage(message: any): void {
 }
 
 /**
+ * Coexistence history backfill progress, emitted once per `history` chunk
+ * rather than once per imported message (see saveAndEmitMessage). This is what
+ * lets the inbox show "importing chat history (40%)" instead of either an
+ * empty screen or a flood of messages announcing themselves as new.
+ */
+export function emitHistorySyncProgress(payload: any): void {
+  const rooms = [userRoom(payload?.userId), accountRoom(payload?.whatsappAccountId)].filter(Boolean);
+  if (!rooms.length) return;
+
+  try {
+    getEmitter().to(rooms).emit('history_sync_progress', payload);
+  } catch (error: any) {
+    logger.warn('[socket-emitter] Failed to emit history_sync_progress:', error.message);
+  }
+}
+
+/**
  * Delivery/read receipts and other per-message status transitions. Same
  * room-addressing rule as above.
  */
