@@ -55,7 +55,7 @@ export default function TermsOfServicePage() {
 
             <Section title="2. WhatsApp Business Platform Usage Requirements">
               <Para>
-                SanjuSK is a WhatsApp Business Solution Provider (BSP) authorized by Meta Platforms, Inc. Your use of our Service to access the WhatsApp Business API is subject to additional requirements:
+                SanjuSK provides access to the WhatsApp Business Platform through Meta&apos;s official Cloud API. Your use of our Service to access the WhatsApp Business API is subject to additional requirements:
               </Para>
               <BulletList items={[
                 'You must comply with Meta\'s WhatsApp Business Policy (https://www.whatsapp.com/legal/business-policy)',
@@ -68,7 +68,7 @@ export default function TermsOfServicePage() {
                 'You must honor Meta\'s quality ratings and reduce opt-out rates to maintain messaging access',
               ]} />
               <Para>
-                SanjuSK reserves the right to suspend or terminate your access if we determine, at our sole discretion, that your use violates Meta's policies, as violations may jeopardize our status as an authorized BSP.
+                SanjuSK reserves the right to suspend or terminate your access if we determine, at our sole discretion, that your use violates Meta&apos;s policies, as violations may jeopardize our standing with Meta and, with it, every other customer&apos;s access.
               </Para>
             </Section>
 

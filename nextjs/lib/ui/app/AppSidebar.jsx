@@ -115,7 +115,7 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
               Official WhatsApp Business Platform
             </Typography>
             <Typography variant="caption" color="text.disabled">
-              Cloud API · Meta Tech Provider
+              Cloud API
             </Typography>
           </Stack>
         </Tooltip>

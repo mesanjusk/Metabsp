@@ -111,7 +111,7 @@ export default function ForgotPassword() {
       >
         <Stack direction="row" spacing={1.5} alignItems="center">
           <ChatRoundedIcon sx={{ color: '#25d366', fontSize: 32 }} />
-          <Typography variant="h4" fontWeight={700}>WhatsApp BSP</Typography>
+          <Typography variant="h4" fontWeight={700}>SanjuSK</Typography>
         </Stack>
         <Typography variant="h6" sx={{ maxWidth: 540 }}>
           Reset your password using an OTP sent to your registered WhatsApp number.

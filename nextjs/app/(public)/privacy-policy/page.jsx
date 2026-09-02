@@ -45,7 +45,7 @@ export default function PrivacyPolicyPage() {
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Para>
-              SanjuSK ("we," "us," or "our") is a WhatsApp Business Solution Provider authorized by Meta Platforms, Inc. This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our platform, including our website and API services.
+              SanjuSK ("we," "us," or "our") is a messaging platform built on Meta&apos;s official WhatsApp Business Platform (Cloud API). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our platform, including our website and API services.
             </Para>
 
             <Divider sx={{ my: 4 }} />
