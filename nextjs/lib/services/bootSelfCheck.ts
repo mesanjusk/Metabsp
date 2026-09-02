@@ -101,21 +101,44 @@ export async function checkRedisEvictionPolicy(): Promise<{
   }
 }
 
+type RedisPolicyResult = Awaited<ReturnType<typeof checkRedisEvictionPolicy>>;
+
 /**
- * Runs both checks and logs loudly. Deliberately never throws: a platform that
- * refuses to boot over a misconfiguration is worse than one that boots and
- * says exactly what is wrong, because the second one still serves the pages an
- * operator needs in order to fix it.
+ * ioredis answers an unreachable instance by retrying forever rather than
+ * rejecting, so `redis.config('GET', …)` against one never settles at all —
+ * `checkRedisEvictionPolicy`'s own catch never runs because nothing is ever
+ * thrown.
+ *
+ * That is why this bound exists. The two checks used to be awaited through a
+ * single `Promise.all`, and one promise that never settles blocks the whole
+ * thing: pointing a deployment at a Redis URL that does not resolve silenced
+ * the *token* result too. Losing the encryption-key line to an unrelated Redis
+ * outage is the worst possible time to lose it — a wrong `REDIS_URL` and a
+ * wrong `WHATSAPP_TOKEN_ENCRYPTION_KEY` are the two mistakes a migration makes
+ * together, and only one of them announces itself.
+ *
+ * Observed exactly that way on a fresh deployment: ENOTFOUND on the previous
+ * account's Redis host, in a retry loop, and no self-check output whatsoever.
  */
-export async function runBootSelfCheck(): Promise<void> {
-  const [tokens, redis] = await Promise.all([
-    checkTokenDecryptability().catch((error: any) => ({
-      ok: true as const,
-      checked: 0,
-      reason: `Check failed: ${error.message}`,
-    })),
-    checkRedisEvictionPolicy(),
-  ]);
+const REDIS_CHECK_TIMEOUT_MS = 5_000;
+
+function withTimeout<T>(work: Promise<T>, ms: number, onTimeout: () => T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(onTimeout()), ms);
+    const settle = (value: T) => {
+      clearTimeout(timer);
+      resolve(value);
+    };
+    work.then(settle, () => settle(onTimeout()));
+  });
+}
+
+async function reportTokenDecryptability(): Promise<void> {
+  const tokens = await checkTokenDecryptability().catch((error: any) => ({
+    ok: true as const,
+    checked: 0,
+    reason: `Check failed: ${error.message}`,
+  }));
 
   if (!tokens.ok) {
     logger.error(
@@ -130,6 +153,18 @@ export async function runBootSelfCheck(): Promise<void> {
   } else {
     logger.info(`[self-check] Token encryption key not verified — ${tokens.reason}`);
   }
+}
+
+async function reportRedisEvictionPolicy(): Promise<void> {
+  const redis = await withTimeout<RedisPolicyResult>(
+    checkRedisEvictionPolicy(),
+    REDIS_CHECK_TIMEOUT_MS,
+    () => ({
+      ok: true,
+      unverified: true,
+      reason: `No answer within ${REDIS_CHECK_TIMEOUT_MS}ms — the instance is probably unreachable`,
+    })
+  );
 
   if (!redis.ok) {
     logger.error(
@@ -147,4 +182,19 @@ export async function runBootSelfCheck(): Promise<void> {
   } else {
     logger.info('[self-check] Redis eviction policy is noeviction');
   }
+}
+
+/**
+ * Runs both checks and logs loudly. Deliberately never throws: a platform that
+ * refuses to boot over a misconfiguration is worse than one that boots and
+ * says exactly what is wrong, because the second one still serves the pages an
+ * operator needs in order to fix it.
+ *
+ * The two run concurrently but report independently — `allSettled` over one
+ * self-contained reporter each — so neither check can suppress the other's
+ * finding. They diagnose unrelated things and are worth exactly as much
+ * separately as together.
+ */
+export async function runBootSelfCheck(): Promise<void> {
+  await Promise.allSettled([reportTokenDecryptability(), reportRedisEvictionPolicy()]);
 }
