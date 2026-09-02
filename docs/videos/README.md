@@ -9,11 +9,29 @@ mistakes, a troubleshooting callout, summary, and related resources), and
 references real routes, UI components, and behavior verified in this
 codebase — nothing here describes a feature that doesn't actually exist.
 
-Some of these are also referenced directly from
+Some of these are also referenced from
 [`docs/meta-tech-provider/REQUIRED_PERMISSIONS.md`](../meta-tech-provider/REQUIRED_PERMISSIONS.md)
-and [`APP_REVIEW.md`](../meta-tech-provider/APP_REVIEW.md) as the evidence
-recordings Meta's App Review reviewers expect for each requested permission —
-see videos 02, 09, 10, and 11 in particular.
+and [`APP_REVIEW.md`](../meta-tech-provider/APP_REVIEW.md) as background for
+App Review — videos 02, 09, 10 and 11 in particular.
+
+**Do not submit those to App Review.** They are customer-education scripts
+that happen to cover relevant ground, and Meta asks for something narrower: a
+distinct screencast **per permission**, with reuse across permissions
+explicitly disallowed. Video 10 runs five to seven minutes across free-form
+sends, template selection and product benefits; a reviewer checking one
+permission should not have to locate the relevant thirty seconds inside it.
+
+The two recordings App Review actually requires are **26** and **27**, written
+for that job alone:
+
+| # | Video | Proves |
+|---|---|---|
+| 26 | [App Review Evidence: Sending a Message](./26-app-review-evidence-sending-a-message.md) | `whatsapp_business_messaging` — a real message sent through the Send API and received on a physical phone |
+| 27 | [App Review Evidence: Creating a Message Template](./27-app-review-evidence-creating-a-template.md) | `whatsapp_business_management` — a template created against the business's WABA |
+
+Both carry a "what to keep out of frame" section, because on an evidence
+recording every extra feature on screen is another thing a reviewer can ask
+about and none of it strengthens the case for the permission being reviewed.
 
 ## Getting started / onboarding
 
