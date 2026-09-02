@@ -7,6 +7,7 @@ import { User } from '@/lib/models';
 import WhatsAppAccount from '@/lib/models/WhatsAppAccount';
 import { getGlobalRoles } from '@/lib/auth/globalRoles';
 import { assertPhoneNumberAvailable, sanitizeAccount } from '@/lib/services/whatsappAccountService';
+import { canWriteWhatsAppAccount, resolveAccountIds } from '@/lib/services/adminAccountEdit';
 import { normalizeAccountMobile, isPlausibleMobile, mobileLookupCandidates } from '@/lib/utils/accountMobile';
 import { encryptSensitiveValue } from '@/lib/utils/crypto';
 import logger from '@/lib/utils/logger';
@@ -81,27 +82,58 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       account = await WhatsAppAccount.findOne({ userId: user._id, phoneNumberId });
     }
 
-    if (accessToken && phoneNumberId && (businessAccountId || wabaId)) {
-      if (!account || phoneNumberId !== account.phoneNumberId) {
-        await assertPhoneNumberAvailable({ phoneNumberId, userId: user._id, excludeAccountId: account?._id });
+    // Creating an account needs a token; correcting one does not. The panel
+    // cannot prefill the token — the API strips it, and it must — so requiring
+    // it to save ANY field meant an admin who fixed a wrong wabaId and pressed
+    // save got a success message and no write at all. That silence is
+    // expensive on exactly the field it hides: a wrong WABA id costs every
+    // inbound message, and the one screen built to correct it appeared to work.
+    const canWriteAccount = canWriteWhatsAppAccount({
+      hasExistingAccount: Boolean(account),
+      accessToken,
+      phoneNumberId,
+      businessAccountId,
+      wabaId,
+    });
+
+    if (canWriteAccount) {
+      const ids = resolveAccountIds({
+        stored: {
+          phoneNumberId: account?.phoneNumberId,
+          businessAccountId: account?.businessAccountId,
+          wabaId: account?.wabaId,
+        },
+        submitted: { phoneNumberId, businessAccountId, wabaId },
+      });
+      const effectivePhoneNumberId = ids.phoneNumberId;
+      if (!account || effectivePhoneNumberId !== account.phoneNumberId) {
+        await assertPhoneNumberAvailable({
+          phoneNumberId: effectivePhoneNumberId,
+          userId: user._id,
+          excludeAccountId: account?._id,
+        });
       }
       if (!account) {
         account = new WhatsAppAccount({
           userId: user._id,
-          phoneNumberId,
+          phoneNumberId: effectivePhoneNumberId,
           accessTokenEncrypted: encryptSensitiveValue(accessToken),
         });
       }
       account.connectionMode = 'manual';
-      account.phoneNumberId = phoneNumberId;
-      account.businessAccountId = businessAccountId || wabaId;
-      account.wabaId = wabaId || businessAccountId;
+      account.phoneNumberId = effectivePhoneNumberId;
+      account.businessAccountId = ids.businessAccountId;
+      account.wabaId = ids.wabaId;
       account.displayPhoneNumber = String(whatsapp?.displayPhoneNumber || account.displayPhoneNumber || '').trim();
       account.verifiedName = String(whatsapp?.verifiedName || account.verifiedName || '').trim();
-      account.accessTokenEncrypted = encryptSensitiveValue(accessToken);
+      if (accessToken) account.accessTokenEncrypted = encryptSensitiveValue(accessToken);
       account.tokenType = 'Bearer';
       account.status = 'active';
-      account.webhookSubscribed = Boolean(whatsapp?.webhookSubscribed);
+      // Only when the caller said something about it. Defaulting a missing
+      // field to false would record "not subscribed" on every unrelated edit.
+      if (typeof whatsapp?.webhookSubscribed === 'boolean') {
+        account.webhookSubscribed = whatsapp.webhookSubscribed;
+      }
       account.isActive = true;
       account.numberClaimed = true;
       account.lastSyncAt = new Date();
