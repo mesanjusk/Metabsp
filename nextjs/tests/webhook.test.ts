@@ -6,6 +6,12 @@ const enqueueWebhookEnvelope = vi.fn(async () => ({ id: '1' }));
 vi.mock('@/lib/queues/webhookQueue', () => ({ enqueueWebhookEnvelope }));
 vi.mock('@/lib/queues/whatsappSendQueue', () => ({ enqueueDelayedReply: vi.fn() }));
 
+// Read once at module load by the handler, so it has to be set before the
+// import below. Short enough to keep the "Redis never answers" test honest
+// about waiting for a real timer rather than a mocked clock.
+const ENQUEUE_TIMEOUT_MS = 50;
+process.env.WEBHOOK_ENQUEUE_TIMEOUT_MS = String(ENQUEUE_TIMEOUT_MS);
+
 const { handleVerifyWebhook, handleReceiveWebhook } = await import('@/lib/whatsapp/webhookHandler');
 
 const APP_SECRET = 'test-app-secret';
@@ -115,5 +121,25 @@ describe('Meta webhook — signature enforcement and fast acknowledgement', () =
     const res = await handleReceiveWebhook(post(body, { 'x-hub-signature-256': sign(JSON.stringify(body)) }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ received: true, queued: false });
+  });
+
+  it('falls back to inline processing when the enqueue never settles at all', async () => {
+    // The failure the test above cannot express, and the one that actually
+    // happens: the shared Redis connection is built with
+    // maxRetriesPerRequest:null and the offline queue on, so a command issued
+    // while Redis is unreachable is buffered and retried forever. It does not
+    // reject — it hangs. Without a bound, the request hung with it until the
+    // platform killed it, Meta recorded a timeout instead of a 200, and
+    // enough of those disable the subscription.
+    enqueueWebhookEnvelope.mockImplementationOnce(() => new Promise(() => {}) as any);
+    const body = { object: 'whatsapp_business_account', entry: [] };
+
+    const startedAt = Date.now();
+    const res = await handleReceiveWebhook(post(body, { 'x-hub-signature-256': sign(JSON.stringify(body)) }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ received: true, queued: false });
+    // Bounded by the timeout rather than by the promise, which is the point.
+    expect(Date.now() - startedAt).toBeLessThan(ENQUEUE_TIMEOUT_MS + 2000);
   });
 });

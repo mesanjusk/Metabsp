@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Box, Tab, Tabs } from '@mui/material';
+import { Box, Stack, Tab, Tabs } from '@mui/material';
 import PageBody from '@/lib/ui/app/PageBody';
 import LoadingSkeleton from '@/lib/ui/whatsappCloud/LoadingSkeleton';
 import { useAuth } from '@/lib/ui/AuthContext';
@@ -17,6 +17,10 @@ const AdminUserManagementPanel = dynamic(() => import('@/lib/ui/whatsappCloud/Ad
   loading: () => <LoadingSkeleton />,
 });
 const MetaWebhookConfigPanel = dynamic(() => import('@/lib/ui/whatsappCloud/MetaWebhookConfigPanel'), {
+  ssr: false,
+  loading: () => <LoadingSkeleton />,
+});
+const WebhookDeliveryPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WebhookDeliveryPanel'), {
   ssr: false,
   loading: () => <LoadingSkeleton />,
 });
@@ -75,7 +79,15 @@ export default function AdminPage() {
 
       {tab === 'overview' ? <AdminAnalyticsPanel /> : null}
       {tab === 'users' ? <AdminUserManagementPanel /> : null}
-      {tab === 'meta' ? <MetaWebhookConfigPanel /> : null}
+      {tab === 'meta' ? (
+        <Stack spacing={3}>
+          <MetaWebhookConfigPanel />
+          {/* Directly below the values that get pasted into Meta, because
+              "I pasted them and nothing happened" is the next thing that
+              happens. */}
+          <WebhookDeliveryPanel />
+        </Stack>
+      ) : null}
     </PageBody>
   );
 }

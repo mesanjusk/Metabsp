@@ -19,8 +19,48 @@ import { parseIncoming, deliverToDestinations, resolveInboundRouting } from './w
 import { extractCoexistenceEvents, processCoexistenceEvents } from './coexistence';
 import { enqueueDelayedReply } from '../queues/whatsappSendQueue';
 import { enqueueWebhookEnvelope } from '../queues/webhookQueue';
+import { recordWebhookOutcome } from './webhookTelemetry';
 
 const RESOLVED_API_VERSION = getGraphApiVersion();
+
+/**
+ * How long the enqueue gets before the payload is processed inline instead.
+ *
+ * Not a performance tuning knob — it is what makes the inline fallback below
+ * reachable at all. The shared Redis connection is created with
+ * `maxRetriesPerRequest: null` and ioredis's offline queue on, so a command
+ * issued while Redis is unreachable is buffered and retried indefinitely: it
+ * does not reject, it never settles. `await enqueueWebhookEnvelope(...)`
+ * therefore hung until the platform killed the request, Meta saw a timeout
+ * rather than a 200, and — after enough of them — disabled the subscription.
+ * The catch block was written for a Redis outage and was the one thing a
+ * Redis outage could not trigger.
+ *
+ * Chosen well under Meta's own patience for an ack, so that losing Redis
+ * costs a slow acknowledgement rather than a dropped message.
+ */
+const ENQUEUE_TIMEOUT_MS = Number(process.env.WEBHOOK_ENQUEUE_TIMEOUT_MS) || 2500;
+
+class EnqueueTimeoutError extends Error {
+  constructor(ms: number) {
+    super(`Redis did not accept the webhook envelope within ${ms}ms`);
+    this.name = 'EnqueueTimeoutError';
+  }
+}
+
+async function enqueueWithinTimeout(body: any): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      enqueueWebhookEnvelope(body),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new EnqueueTimeoutError(ENQUEUE_TIMEOUT_MS)), ENQUEUE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 /**
  * GET /webhook, GET /api/whatsapp/webhook — Meta's verification handshake.
@@ -36,11 +76,23 @@ export async function handleVerifyWebhook(req: NextRequest): Promise<NextRespons
 
   if (!verifyToken) {
     logger.error('[WhatsApp] WHATSAPP_WEBHOOK_VERIFY_TOKEN not configured — rejecting verification');
+    void recordWebhookOutcome('verify_rejected');
     return new NextResponse(null, { status: 403 });
   }
   if (mode === 'subscribe' && token === verifyToken) {
+    logger.info('[WhatsApp] Webhook verification handshake accepted');
+    void recordWebhookOutcome('verify_ok');
     return new NextResponse(challenge, { status: 200 });
   }
+
+  // Logged because the dashboard reports this as a generic failure to
+  // verify, which reads as "the URL is wrong" when the URL is fine and the
+  // token is what differs.
+  logger.warn(
+    `[WhatsApp] Webhook verification rejected (mode=${mode || 'none'}, verify token ${token ? 'did not match' : 'absent'}) — ` +
+      'the value in Meta App Dashboard → WhatsApp → Configuration must equal WHATSAPP_WEBHOOK_VERIFY_TOKEN on this deployment'
+  );
+  void recordWebhookOutcome('verify_rejected');
   return new NextResponse(null, { status: 403 });
 }
 
@@ -87,10 +139,22 @@ export async function handleReceiveWebhook(req: NextRequest): Promise<NextRespon
     if (enforceSignature) {
       if (!appSecret) {
         logger.error('[WhatsApp] META_APP_SECRET not configured — rejecting webhook');
+        void recordWebhookOutcome('rejected_unconfigured');
         return new NextResponse('Webhook signature verification not configured', { status: 403 });
       }
       const signature = req.headers.get('x-hub-signature-256') || '';
       if (!signature.startsWith('sha256=') || !rawBody) {
+        // Every rejection is logged from here on. A refused delivery used to
+        // be silent on both sides — Meta's dashboard still shows the
+        // subscription as saved, and nothing here said otherwise — which
+        // makes a wrong app secret indistinguishable from a Meta-side
+        // misconfiguration for as long as nobody reads the response bodies
+        // Meta keeps to itself.
+        logger.error(
+          `[WhatsApp] Webhook rejected: ${signature ? 'malformed' : 'missing'} X-Hub-Signature-256 header. ` +
+            'Meta always signs deliveries, so this is usually another caller — or a proxy stripping the header'
+        );
+        void recordWebhookOutcome('rejected_signature');
         return new NextResponse('Invalid signature', { status: 403 });
       }
 
@@ -103,24 +167,40 @@ export async function handleReceiveWebhook(req: NextRequest): Promise<NextRespon
         }
       })();
 
-      if (!isValid) return new NextResponse('Invalid signature', { status: 403 });
+      if (!isValid) {
+        logger.error(
+          '[WhatsApp] Webhook rejected: X-Hub-Signature-256 does not match META_APP_SECRET. ' +
+            'The signing secret is the App Secret of the SAME Meta app the callback URL is registered under — ' +
+            'set WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE=false only to confirm that diagnosis, never as the fix'
+        );
+        void recordWebhookOutcome('rejected_signature');
+        return new NextResponse('Invalid signature', { status: 403 });
+      }
     }
 
     const body = rawBody ? JSON.parse(rawBody) : {};
 
     const payloadObject = String(body?.object || '');
     if (payloadObject && payloadObject !== 'whatsapp_business_account') {
+      void recordWebhookOutcome('ignored_object');
       return NextResponse.json({ received: true, ignored: true }, { status: 200 });
     }
 
+    void recordWebhookOutcome('accepted');
+
     try {
-      await enqueueWebhookEnvelope(body);
+      await enqueueWithinTimeout(body);
       return NextResponse.json({ received: true, queued: true }, { status: 200 });
     } catch (queueError: any) {
       logger.error(
         '[whatsapp] webhook enqueue failed, processing inline instead:',
         queueError.message
       );
+      // A timed-out enqueue may still land later, in which case the worker
+      // processes an envelope this request has already handled. That is safe
+      // and deliberate: saveAndEmitMessage de-duplicates on messageId before
+      // any side effect, so the duplicate costs a database read rather than a
+      // second auto-reply. Losing the message is the outcome worth avoiding.
       await processWebhookEnvelope(body);
       return NextResponse.json({ received: true, queued: false }, { status: 200 });
     }
@@ -197,6 +277,14 @@ export async function processWebhookEnvelope(body: any): Promise<void> {
       }
     }
 
+    // One line per envelope, at info, so a working pipeline is visible in the
+    // logs rather than only its failures. An envelope that reports 0 and 0 is
+    // itself the answer to "Meta says it delivered, where did it go?" — it
+    // carried a field this app does not consume.
+    logger.info(
+      `[whatsapp][webhook] Envelope processed: ${incoming.length} message(s), ${statuses.length} status update(s)`
+    );
+
     // ── Status events ────────────────────────────────────────────────────
     for (const statusEvent of statuses) {
       const messageId = String(statusEvent?.id || '');
@@ -258,6 +346,26 @@ export async function processWebhookEnvelope(body: any): Promise<void> {
         { requireAccount: false }
       );
       const matchedAccount: any = (matchedAccountContext as any)?.account || null;
+
+      if (!matchedAccount) {
+        // The message is still saved — dropping a customer's words because
+        // our own records are incomplete would be worse — but it is saved
+        // with no owner, and every inbox query is scoped by userId or
+        // whatsappAccountId. It will therefore never be shown to anyone.
+        //
+        // This is the failure mode that looks exactly like "the webhook is
+        // not working": deliveries arrive, are acknowledged, are written to
+        // the database, and the inbox stays empty. The cause is always the
+        // same shape — the number sending us traffic is not the number this
+        // deployment has connected (a WABA connected on another environment,
+        // a phone number id that changed, or an account row left
+        // 'disconnected').
+        logger.error(
+          '[whatsapp][webhook] Inbound message matched NO connected WhatsApp account and will not appear in any inbox — ' +
+            `phone_number_id=${payload.phoneNumberId || 'none'} waba_id=${payload.wabaId || 'none'} ` +
+            `display_phone_number=${payload.to || 'none'}. Connect that number, or check the account's status field.`
+        );
+      }
 
       const withOwnership = { ...payload, userId: matchedAccount?.userId, whatsappAccountId: matchedAccount?._id };
       const { message, isDuplicate } = await saveAndEmitMessage(withOwnership);

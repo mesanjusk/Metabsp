@@ -32,18 +32,85 @@ which this service surfaces rather than swallowing.
 
 ## Webhook not receiving messages
 
-1. Confirm the webhook is actually subscribed **per WABA**, not just at
-   the App level — `subscribeAppToWaba` should have run automatically at
-   connect time; check `WhatsAppAccount.webhookSubscribed` on the account
-   in question.
-2. Confirm `WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE` and `META_APP_SECRET`
-   match what Meta is actually signing with — a signature mismatch
-   returns 403 and Meta will show delivery failures in its own webhook
-   diagnostics panel (App Dashboard → Webhooks).
-3. Check `GET /health` — if Mongo is down, message processing (deferred
-   via `setImmediate` after the fast ack) will fail silently in the
-   background; check server logs for `[whatsapp] contact upsert failed`
-   or similar.
+**Start here: Administration → Meta configuration → "Inbound message
+delivery".** It runs `GET /api/whatsapp/webhook-diagnostics` (admin only)
+and names the first broken stage. Everything below is what each verdict
+means and what to do about it — read it after the panel has told you which
+one you have.
+
+The reason a checklist is not enough: an inbound message crosses five
+stages, each of which fails silently, and **a saved, verified webhook
+subscription proves only that stage 1 works**. The verification handshake
+is a GET that checks the verify token alone; it never touches the app
+secret, never involves a WABA, and never exercises the queue. A callback
+URL can verify perfectly and still be refusing, dropping, or hiding every
+message that follows.
+
+### 1. Meta decides to deliver
+
+- The app subscription must include the **`messages`** field. Every other
+  field can be ticked and no customer message will arrive. App Dashboard →
+  WhatsApp → Configuration → Webhook fields.
+- The WABA must have this app in its `subscribed_apps`. `subscribeAppToWaba`
+  does this at connect time, but a number connected on another environment,
+  or before the app id changed, will not be. `GET /api/whatsapp/preflight?wabas=true`
+  reports it per account.
+
+### 2. The request reaches this deployment
+
+Meta stores **one callback URL per app**. If it was updated on a different
+Meta app, or points at a previous host, deliveries are arriving somewhere
+else and nothing local will explain it. The diagnostics compare the URL
+Meta actually holds against this deployment's own origin and say so
+outright.
+
+### 3. This deployment accepts it
+
+A signature mismatch answers `403`. This is the most common cause of
+"verified but nothing arrives", because the two secrets are checked at
+different times: `WHATSAPP_WEBHOOK_VERIFY_TOKEN` at verification,
+`META_APP_SECRET` on every delivery. A wrong app secret therefore looks
+perfect in the dashboard.
+
+- Every rejection is now logged — grep for `Webhook rejected` in the
+  server logs.
+- The delivery counters distinguish "Meta has never POSTed here" from "Meta
+  POSTs and we refuse it". Those are opposite problems: the first is a
+  Meta-side subscription, the second is `META_APP_SECRET`.
+- The app secret must belong to the **same Meta app** the callback URL is
+  registered under. Setting `WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE=false` is a
+  way to confirm the diagnosis for a minute, never a fix to leave in place.
+
+### 4. Something processes it
+
+An accepted payload is queued and answered `200` immediately. If no replica
+runs the queue worker (`RUN_BACKGROUND_JOBS=false` everywhere), the
+endpoint stays perfectly healthy while jobs accumulate and no message is
+ever written. The diagnostics report the attached worker count and the
+queue depth.
+
+If Redis is unreachable the handler falls back to processing inline —
+slower, but the message is kept. That fallback is bounded by
+`WEBHOOK_ENQUEUE_TIMEOUT_MS` (default 2500ms) because the shared Redis
+connection buffers commands indefinitely rather than failing, so without a
+bound the request hangs instead of falling back.
+
+### 5. It lands somewhere visible
+
+The quietest failure of all: an inbound message whose `phone_number_id` /
+WABA matches no connected account is **saved with no owner**, and every
+inbox query is scoped by `userId` or `whatsappAccountId`. Delivered,
+acknowledged, stored — and invisible to everyone.
+
+The log line is `matched NO connected WhatsApp account`, and the
+diagnostics count these rows over the last 24 hours. The cause is always
+that the number sending traffic is not one this deployment has connected:
+connected on another environment, a `phoneNumberId` that changed, or an
+account row left `disconnected`.
+
+Per-number receipt times are on the same panel — `lastWebhookAt` is written
+on every matched inbound event, so it answers "which of my numbers is
+actually receiving?" directly.
 
 ## Messages fail to send with "outside 24h window"
 
