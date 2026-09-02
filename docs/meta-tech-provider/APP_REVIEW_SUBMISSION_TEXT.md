@@ -59,34 +59,84 @@ paragraph becomes false — rewrite it before submitting again.
 
 ## `whatsapp_business_messaging` → "Tell us how you're using this permission"
 
-> SanjuSK is a multi-tenant WhatsApp Business Platform that lets a business
-> connect its own WhatsApp Business Account and manage customer conversations
-> from a shared team inbox.
+The field asks three things, and a submission that answers only the first is
+the most common way to be refused: **how** the app uses the permission, **what
+value it adds** for the person using the app, and **why it is necessary** for
+the app to function. Answer all three, in that order, in one block.
+
+> **How we use it.** SanjuSK is a multi-tenant WhatsApp Business Platform. A
+> business connects its own WhatsApp Business Account through Meta's Embedded
+> Signup flow, and from then on manages its customer conversations from a
+> shared team inbox at https://meta.sanjusk.in. We use
+> `whatsapp_business_messaging` on behalf of that connected business, and only
+> for its own conversations:
 >
-> We use `whatsapp_business_messaging` to send and receive messages on behalf
-> of the business that has connected its own WABA through Meta's Embedded
-> Signup flow. Specifically:
+> - Sending text, media and pre-approved template messages that the business's
+>   own staff compose, schedule or trigger from our dashboard.
+> - Receiving that business's inbound customer messages, plus delivery and
+>   read statuses, through our webhook endpoint, so staff can reply from the
+>   shared inbox.
+> - Uploading and retrieving the media attached to those messages.
+> - Registering a connected phone number with Cloud API during onboarding.
 >
-> - Sending text, media, and pre-approved template messages that the connected
->   business composes or schedules in our dashboard.
-> - Receiving inbound customer messages and delivery/read statuses through our
->   webhook endpoint, so the business can reply from the shared inbox.
-> - Uploading and retrieving media attached to those messages.
+> **The value it adds.** The person using our app is an employee of the
+> connected business — typically a small team sharing one WhatsApp number.
+> Without this permission they are limited to the WhatsApp Business app on a
+> single handset: one person holds the phone, there is no way to assign a
+> conversation to a colleague, no history when someone leaves, and no record of
+> who replied. Our app turns that number into a shared inbox with per-agent
+> accounts, assignment, searchable history, saved replies and templates —
+> which is what a business with more than one person answering customers
+> actually needs.
 >
-> All messaging is initiated either by the business's own staff or by a
-> customer messaging that business first. We enforce Meta's 24-hour customer
-> service window in code: outside it, only approved template messages can be
-> sent. We never message a person who has not contacted the connected
-> business or opted in through it.
+> **Why it is necessary.** Sending and receiving messages is not a feature of
+> this product alongside others; it is the product. Every screen in the app —
+> the inbox, conversation assignment, templates, delivery receipts, automated
+> replies — exists to compose, deliver or display a WhatsApp message. Without
+> `whatsapp_business_messaging` a connected business can see its account and
+> nothing else: no message can be sent, and no customer reply can arrive.
 >
-> We do not use this permission for any purpose beyond operating the connected
-> business's own conversations, and we do not share message content between
-> tenants.
+> **Compliance.** All messaging is initiated either by the connected
+> business's own staff or by a customer who messaged that business first. We
+> enforce Meta's 24-hour customer service window in code: outside it, only
+> approved template messages can be sent. We never message a person who has
+> not contacted the connected business or opted in through it, we do not share
+> message content between tenants, and we use this permission for no purpose
+> beyond operating each connected business's own conversations.
 
 The 24-hour claim is enforced and tested — `nextjs/tests/twentyFourHourGuard.test.ts`.
 The tenant-isolation claim rests on Socket.IO being authenticated and
 room-scoped (`nextjs/tests/socketEmitter.test.ts`). Both are worth being able
 to point at if a reviewer asks.
+
+### The screen recording for this permission
+
+Meta requires a distinct screencast per permission and will not accept one
+reused across several. The shot list for this one is
+`docs/videos/26-app-review-evidence-sending-a-message.md` — record that, not a
+product tour.
+
+The single shot the recording exists for is the message arriving on a second,
+physical phone. A reviewer cannot confirm a send from the sending screen alone,
+because the sending screen is our own UI: it proves what our app displays, not
+what Meta's API delivered. Keep everything else out of frame — template
+creation belongs to `whatsapp_business_management` and video 27, and every
+extra feature on screen is another thing a reviewer may ask about.
+
+### After a refusal
+
+A completed review that approves nothing does not say why in the notification;
+the reason is on the App Review page itself, per request. Read it before
+changing anything here. Resubmitting the same evidence with a longer
+description is how an app gets refused twice — and the three most common
+findings are all fixable: the recording did not show a real message arriving
+on a real device, the reviewer could not sign in with the supplied
+credentials, or the description claimed behaviour the reviewer could not see
+in the app.
+
+Confirm the reviewer login still works before every resubmission —
+`npm run seed:reviewer` recreates it — and check the credentials in the form
+match what that script produced.
 
 ## `whatsapp_business_management` → "Tell us how you're using this permission"
 
