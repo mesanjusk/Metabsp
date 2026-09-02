@@ -333,6 +333,12 @@ export const checkEmbeddedSignupConfig = () => {
   };
 };
 
+// Above this many connected WABAs, the per-WABA check is one Graph call per
+// customer at every boot and belongs on the admin endpoint instead. At or
+// below it — which is every deployment that is not yet a busy BSP — the call
+// is cheap and answers the one question the app-level check cannot.
+export const WABA_CHECK_AUTO_LIMIT = 10;
+
 export const runPreflightChecks = async ({ includeWabaSubscriptions = false }: any = {}) => {
   const coexistenceEnabled = isCoexistenceEnabled();
   const graphVersion = getGraphApiVersion();
@@ -358,7 +364,15 @@ export const runPreflightChecks = async ({ includeWabaSubscriptions = false }: a
     checkTokenSources(accounts),
   ];
 
-  if (includeWabaSubscriptions) {
+  // 'auto' is what boot passes: include the check while it costs a call or
+  // two, skip it once a deployment has enough customers for that to matter.
+  const wabaAccounts = accounts.filter((a: any) => a.wabaId);
+  const runWabaCheck =
+    includeWabaSubscriptions === 'auto'
+      ? wabaAccounts.length > 0 && wabaAccounts.length <= WABA_CHECK_AUTO_LIMIT
+      : Boolean(includeWabaSubscriptions);
+
+  if (runWabaCheck) {
     checks.push(await checkWabaSubscriptions(accounts, { graphVersion }));
   }
 
@@ -430,6 +444,18 @@ export const logPreflightReport = (report: any) => {
   for (const check of report.checks) {
     const level = LOG_BY_SEVERITY[check.severity] || 'info';
     logger[level](`[preflight] ${check.id}: ${check.summary}`);
+
+    // A count ("0/1 confirmed") does not say which number is unreachable or
+    // why, and that is exactly what someone reading this line needs next.
+    if (check.id === 'waba_subscriptions') {
+      for (const account of check.accounts || []) {
+        if (account.severity === 'ok') continue;
+        logger[LOG_BY_SEVERITY[account.severity] || 'info'](
+          `[preflight] waba_subscriptions: WABA ${account.wabaId || 'unknown'} ` +
+            `(phone_number_id ${account.phoneNumberId || 'unknown'}): ${account.note}`
+        );
+      }
+    }
     if (check.notReadyForCoexistence?.length) {
       logger.info(
         `[preflight] ${check.id}: coexistence fields not yet subscribed (${check.notReadyForCoexistence.join(', ')}) — subscribe them before setting META_ENABLE_COEXISTENCE=true`
@@ -445,9 +471,14 @@ export const logPreflightReport = (report: any) => {
 export const runPreflightOnBoot = async () => {
   if (String(process.env.RUN_PREFLIGHT_ON_BOOT ?? 'true').toLowerCase() === 'false') return null;
   try {
-    // App-level fields only — one Graph call. Per-WABA verification is left to
-    // the admin endpoint so a restart never fans out across every customer.
-    const report = await runPreflightChecks({ includeWabaSubscriptions: false });
+    // App-level fields plus, while there are few enough WABAs to be cheap, the
+    // per-WABA subscription. Those two are not interchangeable and the
+    // difference is the whole diagnosis: an app can have `messages` ticked and
+    // the callback URL verified, and still receive nothing for a WABA it was
+    // never attached to. Leaving that to the admin endpoint meant the answer
+    // was only ever a login away — no use at all when the question is being
+    // asked of the logs.
+    const report = await runPreflightChecks({ includeWabaSubscriptions: 'auto' });
     logPreflightReport(report);
     return report;
   } catch (error) {
