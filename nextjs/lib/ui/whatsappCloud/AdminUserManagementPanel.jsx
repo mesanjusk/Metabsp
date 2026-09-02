@@ -27,6 +27,7 @@ import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded
 import { toast } from '@/lib/ui/components/Toast';
 import { createManagedUser, fetchManagedUsers, updateManagedUser } from '@/lib/client/services/whatsappCloudService';
 import { parseApiError } from '@/lib/api/parseApiError';
+import { canWriteWhatsAppAccount } from '@/lib/services/adminAccountEdit';
 
 const emptyForm = {
   id: '',
@@ -42,6 +43,7 @@ const emptyForm = {
   verifiedName: '',
   webhookSubscribed: false,
   clearAccount: false,
+  hasAccount: false,
 };
 
 const mapUserToForm = (item) => ({
@@ -58,6 +60,9 @@ const mapUserToForm = (item) => ({
   verifiedName: item?.whatsappAccount?.verifiedName || '',
   webhookSubscribed: Boolean(item?.whatsappAccount?.webhookSubscribed),
   clearAccount: false,
+  // Whether there is an account to correct, as opposed to one to create. The
+  // token is required only for the second.
+  hasAccount: Boolean(item?.whatsappAccount?.phoneNumberId),
 });
 
 export default function AdminUserManagementPanel() {
@@ -89,7 +94,27 @@ export default function AdminUserManagementPanel() {
   const canSubmit = useMemo(() => {
     if (!form.Mobile_number.trim()) return false;
     if (!form.id && !form.Password.trim()) return false;
-    if ((form.accessToken || form.phoneNumberId || form.businessAccountId || form.wabaId) && !form.accessToken.trim()) return false;
+    // The same rule the server applies, from the same module, because the two
+    // disagreeing is how this button came to be permanently disabled: the form
+    // preloads the stored ids and cannot preload the token (the API strips it),
+    // so "any id present without a token" was always true for every user who
+    // had an account. Correcting a wrong WABA id was unreachable from the one
+    // screen built to do it.
+    const mentionsAccount = Boolean(
+      form.accessToken || form.phoneNumberId || form.businessAccountId || form.wabaId
+    );
+    if (
+      mentionsAccount &&
+      !canWriteWhatsAppAccount({
+        hasExistingAccount: form.hasAccount,
+        accessToken: form.accessToken.trim(),
+        phoneNumberId: form.phoneNumberId.trim(),
+        businessAccountId: form.businessAccountId.trim(),
+        wabaId: form.wabaId.trim(),
+      })
+    ) {
+      return false;
+    }
     return true;
   }, [form]);
 
