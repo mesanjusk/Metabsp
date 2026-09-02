@@ -319,6 +319,42 @@ it on the exact deployment you submit.
 
 ---
 
+## Data handling → "Do you have data processors or service providers?"
+
+**Answer Yes.** The 2026-07-13 submission answered **No**, and that is provably
+wrong: `app/(public)/privacy-policy/page.jsx` names four. A submission whose
+data-handling answer contradicts its own published privacy policy is a problem
+whether or not a reviewer notices, because the Data Use Checkup asks you to
+certify that policy.
+
+> Yes. The following processors have access to Platform Data:
+>
+> - **MongoDB Atlas** — the database of record: accounts, contacts, message
+>   history, and encrypted access tokens.
+> - **Cloudinary** — media attachments sent or received on a connected number,
+>   stored so they remain viewable in the inbox after Meta expires the
+>   original URL.
+> - **Render** — hosting, and the queue that holds inbound messages between
+>   arrival and processing.
+> - **Anthropic PBC** — the text of an incoming message, and only when a
+>   customer has switched on an AI auto-reply rule. It is sent to generate that
+>   one reply and is not used to train models. No message reaches Anthropic
+>   while AI replies are off.
+>
+> Meta is the delivery channel rather than a processor acting on our behalf.
+> Webhook destinations that a customer registers are also not our processors:
+> we deliver to a URL that customer chose, and from that point the data is
+> governed by their policy.
+
+Keep this list and the privacy policy in step. If a sub-processor is added or
+removed in one, change the other in the same pass — they are two statements of
+the same fact, and Meta reads both.
+
+The other data-handling answers from the previous submission were fine and can
+be repeated: responsible entity **Sanju SK**, located in **India**, no
+personal data provided to public authorities under national-security requests,
+and a required review of the legality of any such request.
+
 ## Before you submit
 
 The deploy gate proves configuration, not readiness. Check these yourself:
