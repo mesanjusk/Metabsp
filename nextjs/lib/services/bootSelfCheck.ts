@@ -80,6 +80,7 @@ export async function checkRedisEvictionPolicy(): Promise<{
   policy?: string;
   reason?: string;
   unverified?: boolean;
+  blocked?: boolean;
 }> {
   try {
     const redis: any = getRedisConnection();
@@ -92,16 +93,35 @@ export async function checkRedisEvictionPolicy(): Promise<{
 
     return { ok: false, policy };
   } catch (error: any) {
-    // Managed Redis commonly blocks CONFIG GET — Render does. That is not a
-    // failure, but it must not be reported as a pass either: it means the
-    // single property protecting queued customer messages from being thrown
-    // away is unverified. Callers surface this as a warning naming the
-    // dashboard, rather than silence.
+    // A managed instance refusing CONFIG GET is not a fault and never becomes
+    // one: no restart, redeploy or code change will ever make the command
+    // succeed. Render, Upstash and ElastiCache all block it. Distinguishing
+    // that from any other error is what lets the caller stop crying wolf at
+    // every boot about a condition nobody can act on twice.
+    if (isCommandBlocked(error)) {
+      return { ok: true, unverified: true, blocked: true, reason: error.message };
+    }
     return { ok: true, unverified: true, reason: `Could not read the policy: ${error.message}` };
   }
 }
 
-type RedisPolicyResult = Awaited<ReturnType<typeof checkRedisEvictionPolicy>>;
+/**
+ * Does this error mean "the provider will not run that command", as opposed to
+ * "something is wrong"? Redis answers a forbidden or absent command with a
+ * NOPERM or unknown-command error rather than a connection failure, and every
+ * managed provider that hides CONFIG uses one of those shapes.
+ */
+function isCommandBlocked(error: any): boolean {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    message.includes('noperm') ||
+    message.includes('unknown command') ||
+    message.includes('not allowed') ||
+    message.includes('disabled')
+  );
+}
+
+type RedisPolicyResult = Awaited<ReturnType<typeof checkRedisEvictionPolicy>> & { unreachable?: boolean };
 
 /**
  * ioredis answers an unreachable instance by retrying forever rather than
@@ -162,7 +182,8 @@ async function reportRedisEvictionPolicy(): Promise<void> {
     () => ({
       ok: true,
       unverified: true,
-      reason: `No answer within ${REDIS_CHECK_TIMEOUT_MS}ms — the instance is probably unreachable`,
+      unreachable: true,
+      reason: `No answer within ${REDIS_CHECK_TIMEOUT_MS}ms`,
     })
   );
 
@@ -172,16 +193,47 @@ async function reportRedisEvictionPolicy(): Promise<void> {
         'Queued inbound webhooks and outbound sends can be evicted under memory pressure — ' +
         'that is silent customer message loss. Change it in your Redis provider.'
     );
-  } else if (redis.unverified) {
+    return;
+  }
+
+  // Silence at boot is not a Redis that answered — it is a Redis that did not.
+  // These two used to share one message about the eviction policy, which made
+  // an unreachable instance read as a provider quirk. That is backwards: an
+  // unread policy is a thing to confirm once in a dashboard, while a Redis
+  // that never answers means nothing is draining the webhook queue right now.
+  // The louder of the two was being reported as the quieter.
+  if ((redis as any).unreachable) {
     logger.warn(
-      '[self-check] Could not verify the Redis eviction policy — this provider blocks the check. ' +
+      `[self-check] Redis did not answer within ${REDIS_CHECK_TIMEOUT_MS}ms. ` +
+        'While that holds, inbound webhooks fall back to inline processing and queued sends do not drain. ' +
+        'Check REDIS_URL and that the instance is running — this is not about the eviction policy.'
+    );
+    return;
+  }
+
+  if (redis.blocked) {
+    // Info, not warn: permanent, expected on every managed provider, and
+    // actionable exactly once. Repeating it as a warning at every boot trains
+    // an operator to skim past the self-check output entirely, which is the
+    // opposite of what these checks are for.
+    logger.info(
+      '[self-check] Redis eviction policy cannot be read — this managed provider blocks CONFIG GET, which is normal. ' +
+        'Confirm once in the provider dashboard that maxmemory-policy is "noeviction".'
+    );
+    return;
+  }
+
+  if (redis.unverified) {
+    logger.warn(
+      '[self-check] Could not verify the Redis eviction policy. ' +
         'Confirm in the provider dashboard that maxmemory-policy is "noeviction": any other value ' +
         'lets queued inbound webhooks and outbound sends be discarded under memory pressure. ' +
         `(${redis.reason})`
     );
-  } else {
-    logger.info('[self-check] Redis eviction policy is noeviction');
+    return;
   }
+
+  logger.info('[self-check] Redis eviction policy is noeviction');
 }
 
 /**

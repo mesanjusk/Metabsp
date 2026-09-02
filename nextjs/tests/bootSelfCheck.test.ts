@@ -77,7 +77,7 @@ describe('boot self-check', () => {
     expect(loggedLines()).toContainEqual(
       expect.stringContaining('Token encryption key verified against 1 stored account(s)')
     );
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Could not verify the Redis eviction policy'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Redis did not answer'));
   });
 
   it('still reports an unreadable encryption key when Redis never answers', async () => {
@@ -115,8 +115,36 @@ describe('boot self-check', () => {
 
     await runPastRedisTimeout();
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Could not verify the Redis eviction policy'));
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('blocks CONFIG GET, which is normal'));
     expect(loggedLines()).not.toContainEqual(expect.stringContaining('Redis eviction policy is noeviction'));
+  });
+
+  it('does not warn every boot about a provider that will never allow the check', async () => {
+    // The condition is permanent and actionable exactly once. Warned at every
+    // boot, it is what teaches an operator to skim past the self-check —
+    // which is how the far louder finding below went unread.
+    config.mockImplementation(async () => {
+      throw new Error("NOPERM User default has no permissions to run the 'config|get' command");
+    });
+
+    await runPastRedisTimeout();
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('separates an unreachable Redis from a policy it merely cannot read', async () => {
+    // These shared one message before, so an instance that answered nothing
+    // read as a provider quirk. It is the more serious of the two: while it
+    // holds, nothing drains the webhook queue.
+    config.mockImplementation(() => new Promise<never>(() => {}));
+
+    await runPastRedisTimeout();
+
+    const lines = loggedLines();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Redis did not answer'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('queued sends do not drain'));
+    // The old message blamed the eviction policy for a reachability failure.
+    expect(lines).not.toContainEqual(expect.stringContaining('Could not verify the Redis eviction policy'));
   });
 
   it('does not claim a key is verified when there is nothing to verify against', async () => {
