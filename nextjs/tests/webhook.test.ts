@@ -30,6 +30,10 @@ const post = (body: unknown, headers: Record<string, string> = {}) => {
 
 describe('Meta webhook — verification handshake', () => {
   beforeEach(() => {
+    // getWebhookVerifyToken() falls back to two older names, so the
+    // "no verify token configured" case has to clear all three.
+    delete process.env.WHATSAPP_VERIFY_TOKEN;
+    delete process.env.VERIFY_TOKEN;
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = 'the-verify-token';
   });
 
@@ -64,6 +68,7 @@ describe('Meta webhook — verification handshake', () => {
 describe('Meta webhook — signature enforcement and fast acknowledgement', () => {
   beforeEach(() => {
     enqueueWebhookEnvelope.mockClear();
+    delete process.env.WHATSAPP_APP_SECRET;
     process.env.META_APP_SECRET = APP_SECRET;
     process.env.WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE = 'true';
   });
@@ -88,9 +93,17 @@ describe('Meta webhook — signature enforcement and fast acknowledgement', () =
   });
 
   it('refuses everything when enforcement is on but no app secret is configured', async () => {
+    // WHATSAPP_APP_SECRET too: the handler accepts it as a legacy alias, so
+    // deleting only META_APP_SECRET leaves this asserting a 403 that the
+    // missing signature header would have produced anyway — passing for the
+    // wrong reason on any machine where the alias is set, as it is on the
+    // deployment host.
     delete process.env.META_APP_SECRET;
+    delete process.env.WHATSAPP_APP_SECRET;
+
     const res = await handleReceiveWebhook(post({ object: 'whatsapp_business_account' }));
     expect(res.status).toBe(403);
+    expect(await res.text()).toBe('Webhook signature verification not configured');
   });
 
   it('accepts a correctly signed payload and queues it instead of processing inline', async () => {

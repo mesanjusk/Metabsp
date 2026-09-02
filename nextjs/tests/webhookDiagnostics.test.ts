@@ -47,8 +47,24 @@ const telemetry = (counts: Record<string, number>, lastAt: Record<string, string
   },
 });
 
+// Both secrets have legacy aliases the app still honours, and a test that
+// deletes only the primary name is answered by whichever alias the machine
+// running it happens to have set. That is not hypothetical: `delete
+// process.env.META_APP_SECRET` passed locally and in CI, then failed the
+// Render build, where WHATSAPP_APP_SECRET is a real environment variable —
+// the assertion was reading the deployment's own configuration rather than
+// the fixture's. Clearing every name a check consults is what makes these
+// tests say the same thing everywhere they run.
+const APP_SECRET_VARS = ['META_APP_SECRET', 'WHATSAPP_APP_SECRET'];
+const VERIFY_TOKEN_VARS = ['WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'WHATSAPP_VERIFY_TOKEN', 'VERIFY_TOKEN'];
+
+const clearEndpointEnv = () => {
+  for (const name of [...APP_SECRET_VARS, ...VERIFY_TOKEN_VARS]) delete process.env[name];
+};
+
 describe('webhook diagnostics — this deployment can accept a delivery', () => {
   beforeEach(() => {
+    clearEndpointEnv();
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = 'a-verify-token';
     process.env.META_APP_SECRET = 'an-app-secret';
     process.env.WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE = 'true';
@@ -68,7 +84,8 @@ describe('webhook diagnostics — this deployment can accept a delivery', () => 
   });
 
   it('calls a missing app secret an error, because every delivery is then refused', () => {
-    delete process.env.META_APP_SECRET;
+    // Every name the check consults, not just the primary one.
+    for (const name of APP_SECRET_VARS) delete process.env[name];
     const check = checkEndpointConfig();
     expect(check.severity).toBe('error');
     expect(check.summary).toContain('META_APP_SECRET');
