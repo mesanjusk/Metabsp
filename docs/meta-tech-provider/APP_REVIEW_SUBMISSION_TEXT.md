@@ -253,10 +253,22 @@ META_REVIEW_CONTACT_EMAIL
 META_REVIEW_ENFORCE_READY=true
 ```
 
-`/meta-app-review` reads them, so the walkthrough page shows the same
-credentials you submitted. They are read from the environment rather than
-committed, because this repository is public and a working login in git is a
-credential leak.
+These four are read by **the deploy gate and nothing else**
+(`scripts/meta-deploy-check.js`). They do not reach the application at
+runtime, and setting them does not create, change or validate any account —
+they record which credentials were submitted so a deployment cannot go to Meta
+without them being decided.
+
+The public `/meta-app-review` page reads a *different* pair,
+`NEXT_PUBLIC_REVIEWER_LOGIN` and `NEXT_PUBLIC_REVIEWER_PASSWORD`
+(`app/(public)/meta-app-review/page.jsx:65`). Leave those unset unless you
+have a reason not to: `NEXT_PUBLIC_` values are baked into the client bundle
+at build time, so setting them publishes the reviewer password to anyone who
+opens that page. Unset, it prints "Provided in the App Review submission",
+which is the right answer for a public page.
+
+All of them are read from the environment rather than committed, because this
+repository is public and a working login in git is a credential leak.
 
 Setting `META_REVIEW_ENFORCE_READY=true` makes the deploy gate
 (`scripts/meta-deploy-check.js`) *require* the three values, so a submission
