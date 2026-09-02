@@ -25,13 +25,13 @@ can't do it for you, that is stated plainly.
 
 ## The onboarding flow in this codebase
 
-1. **`GET /api/whatsapp/connect/config`** (`getConnectConfig` in
-   `backend/src/controllers/whatsappController.js`) returns
+1. **`GET /api/whatsapp/connect/config`**
+   (`nextjs/app/api/whatsapp/connect/config/route.ts`) returns
    `coexistenceEnabled`, `featureType` and `sessionInfoVersion` alongside
    the existing `appId`/`configId`/`apiVersion`. Coexistence is on unless
    `META_ENABLE_COEXISTENCE=false`.
-2. **`FB.login` extras** — `handleConnectFlow` in
-   `frontend/src/Pages/WhatsAppCloudDashboard.jsx` passes:
+2. **`FB.login` extras** — `connectWithMeta` in
+   `nextjs/lib/ui/hooks/useWhatsAppConnection.js` passes:
    ```js
    extras: {
      setup: {},
@@ -44,12 +44,13 @@ can't do it for you, that is stated plainly.
    the deployment disables coexistence the key is omitted entirely and
    the popup behaves exactly as it did before.
 3. **Finish event** — `listenForEmbeddedSignupData` in
-   `frontend/src/utils/facebookSdk.js` now resolves on
+   `nextjs/lib/client/facebookSdk.js` resolves on
    `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING` in addition to `FINISH` and
    `FINISH_ONLY_WABA`, and returns a `coexistence` boolean (also inferred
    from a `FINISH` whose `data.current_step` names the WhatsApp Business
    app screen).
-4. **Server-side exchange** — `completeEmbeddedSignup` takes the same
+4. **Server-side exchange** —
+   `nextjs/app/api/whatsapp/embedded-signup/exchange-code/route.ts` takes the same
    `code`/`wabaId`/`phoneNumberId` path as before, then additionally
    reads Meta's `platform_type` for the number. The account is stored as
    `connectionMode: 'coexistence'` when *either* the browser reported a
@@ -60,9 +61,9 @@ can't do it for you, that is stated plainly.
    entry fails the whole request, and losing the display number would
    matter far more than losing this hint.
 
-The Next.js port does the same thing in
-`nextjs/app/api/whatsapp/connect/config/route.ts` and
-`nextjs/app/api/whatsapp/embedded-signup/exchange-code/route.ts`.
+`sessionInfoVersion` is read from `META_ES_SESSION_INFO_VERSION` (default
+`3`) so it can be changed without a code deploy — but see **Embedded Signup
+v4** below before changing it: the number alone is not the migration.
 
 ## The three coexistence webhooks
 
@@ -72,8 +73,9 @@ integration never sees them, and — this is the part that silently breaks
 coexistence deployments — an integration that doesn't handle them will
 happily onboard a number and then show an empty, permanently stale inbox.
 
-Handled by `nextjs/lib/services/coexistenceService.ts` (and its port,
-`nextjs/lib/whatsapp/coexistence.ts`):
+Handled by `nextjs/lib/whatsapp/coexistence.ts` (there is no separate
+`coexistenceService.ts`; the Express service of that name went with the
+consolidation):
 
 ### `history`
 Meta streams up to 6 months of the customer's existing chats in chunks
@@ -92,6 +94,11 @@ and `metadata.chunk_order`, and `threads[].messages[]`.
   (`coexistence.historySyncStatus` / `historySyncProgress` /
   `historyChunksReceived` / `historyMessagesImported`) so the dashboard
   can show "importing chat history (40%)" instead of an empty inbox.
+- Imported messages do **not** emit a `new_message` socket event. A
+  backfill saves thousands of messages one at a time; emitting each would
+  flood every open inbox and announce three-month-old messages as new.
+  One `history_sync_progress` event is emitted per chunk instead
+  (`nextjs/lib/socket/emitter.ts`).
 
 ### `smb_message_echoes`
 Every message the customer subsequently sends **from the WhatsApp
@@ -130,12 +137,19 @@ subscribe to all of these:
 - `smb_message_echoes`
 - `smb_app_state_sync`
 
-**Status: confirmed subscribed** in the App Dashboard as of 2026-08-25 —
-all four fields. `nextjs/lib/services/preflightCheckService.ts` now
-re-verifies this on every boot (and via `GET /api/whatsapp/preflight`) by
-reading `GET /{app-id}/subscriptions` with an app access token, so a later
-change in the dashboard surfaces as a startup warning rather than as
-customers with silently stale inboxes.
+**Status: check it, do not assume it.** An earlier revision of this
+document recorded all four fields as confirmed subscribed on 2026-08-25.
+That snapshot cannot be trusted now — the dashboard may have changed, and
+while `META_ENABLE_COEXISTENCE` is false the boot log proves only that
+`messages` is subscribed, because that is all it requires.
+
+`nextjs/lib/services/preflightCheckService.ts` reads the live answer on
+every boot and via `GET /api/whatsapp/preflight` (authenticated), by
+calling `GET /{app-id}/subscriptions` with an app access token. Read
+`webhook_fields.notReadyForCoexistence` in that response: it lists exactly
+which of the three coexistence fields are missing. An empty array is the
+green light to flip the flag; anything else means coexistence numbers
+would onboard and then silently drop history, echoes and contacts.
 
 Webhook **field** subscriptions can only be *set* app-level in Meta's
 dashboard — there is no Graph API call this repo can make to set them per
@@ -156,13 +170,51 @@ whose Business-app traffic silently goes nowhere.
 
 `WHATSAPP_API_VERSION` (`render.yaml`) feeds both the server's Graph calls
 and — via `GET /api/whatsapp/connect/config` — the Facebook JS SDK version
-the browser initialises for the Embedded Signup popup. It is pinned to
-`v20.0`, which predates coexistence's availability. Confirm against Meta's
-current changelog which version first supports
-`featureType: 'whatsapp_business_app_onboarding'` and the three webhook
-fields, and bump this before enabling coexistence. Treat it as a change
+the browser initialises for the Embedded Signup popup. It is now pinned to
+`v23.0` (it was `v20.0`, which predated coexistence), and the deploy gate
+refuses anything below that baseline. Treat any further bump as a change
 affecting every Graph call in the app, not a coexistence-only edit:
 re-test ordinary send/receive after bumping.
+
+## Embedded Signup v4 — a dated deadline, not a background task
+
+**Meta deprecates Embedded Signup v2 on 15 October 2026.** Reporting on the
+v4 rollout is explicit that three feature types — `only_waba_sharing`,
+`marketing_messages_lite` and **`coex`** — cannot be migrated automatically
+and need deliberate developer work before that date. Coexistence is the one
+this product depends on, so this is a coexistence blocker, not a general
+housekeeping item.
+
+What this repository sends today is the v3-shaped flow: `FB.login` with
+`config_id`, `response_type: 'code'`, and
+`extras.sessionInfoVersion` (`META_ES_SESSION_INFO_VERSION`, default `3`)
+plus `extras.featureType: 'whatsapp_business_app_onboarding'`. The popup's
+`WA_EMBEDDED_SIGNUP` messages are parsed against that shape in
+`nextjs/lib/client/facebookSdk.js`.
+
+An earlier revision of `render.yaml` carried `META_ES_VERSION: v4`, which no
+code has ever read. It described a migration that had not happened. That key
+is gone; changing a version number is not the migration, because v4
+consolidates onboarding into a configuration-driven Facebook Login for
+Business flow and the payloads this repo parses may differ.
+
+Before the deadline, in this order:
+
+1. Read Meta's current Embedded Signup v4 documentation and its coexistence
+   section — not this file, and not a third-party summary — for the exact
+   configuration, parameters and message shapes.
+2. Create or migrate the Embedded Signup configuration in the App Dashboard
+   for v4, keeping the coexistence path enabled.
+3. Update `nextjs/lib/ui/hooks/useWhatsAppConnection.js` (the `FB.login`
+   call) and `nextjs/lib/client/facebookSdk.js` (the message parsing) to
+   whatever v4 actually specifies, and extend
+   `nextjs/tests/embeddedSignupOrigin.test.ts` with the v4 payload shape.
+4. Retest the whole path end to end: permissions, callbacks, the coexistence
+   selection screen, the three webhook fields, and one real history sync.
+
+Treat a v4 migration and enabling coexistence as the same piece of work.
+Shipping coexistence on the v2/v3 flow first means building something with
+a known expiry date.
 
 ## Permissions
 
@@ -191,6 +243,11 @@ didn't work" tickets:
   sent from the WhatsApp Business app.
 - Official Business Account (green/blue badge) is not available for
   coexistence numbers.
+- Standard Business Verification is not available for a coexistence number
+  either. The routes reported for these customers are Partner-Led Business
+  Verification or Meta Verified for Business — which changes how you
+  onboard them, so settle it before you sell coexistence rather than after
+  a customer is stuck.
 - Throughput is lower than a dedicated Cloud API number, which matters
   for large broadcasts.
 - The customer must open the Business app periodically to keep the link
@@ -203,8 +260,15 @@ them to a customer.
 
 Verified in this repository: the webhook parsing and persistence for all
 three fields, including direction derivation, de-duplication, the
-"echoes must not reopen the 24-hour window" rule and the "removal is not
-a delete" rule — see `backend/__tests__/coexistenceWebhook.test.js`.
+"history does not emit live message events" rule and the "removal is not
+a delete" rule — see `nextjs/tests/coexistence.test.ts`.
+
+This claim was false for a while and is worth saying plainly: the tests it
+used to cite lived at `backend/__tests__/coexistenceWebhook.test.js` and
+were deleted with the Express codebase during the consolidation. Nothing
+replaced them until `nextjs/tests/coexistence.test.ts`, so coexistence
+shipped untested while this document said otherwise. The 24-hour window
+rule is covered separately in `nextjs/tests/twentyFourHourGuard.test.ts`.
 
 **Not** verified: live traffic from a real, App-Review-approved Meta
 Business app. The payload shapes here follow Meta's documented structure
