@@ -213,13 +213,31 @@ screen are worse than no instructions.
 
 ### Creating the reviewer account
 
-Nothing in this repository seeds one, and signup requires a WhatsApp OTP, so
-create it by hand:
+**Setting `META_REVIEWER_LOGIN` and `META_REVIEWER_PASSWORD` does not create
+an account.** Those variables tell the deploy gate and `/meta-app-review`
+which credentials were submitted; the account behind them must already exist,
+or the reviewer gets "Invalid mobile number or password" and the submission
+fails for being untestable. The gate cannot catch this — it checks that three
+strings are present, not that they log in.
+
+Signup requires a one-time code delivered over WhatsApp to the number being
+registered, so an account can only be self-served by someone holding that
+number. Two ways to get one:
 
 - Sign up through the normal flow with a mobile number you control and can
   receive WhatsApp on, then set a known password; **or**
-- Insert the user directly in MongoDB with a bcrypt-hashed password, matching
-  the shape in `nextjs/lib/models/User.ts`.
+- Run the seeder, which needs no OTP:
+
+  ```
+  MONGO_URI=... REVIEWER_MOBILE=... REVIEWER_PASSWORD=... npm run seed:reviewer
+  ```
+
+  It creates the account under the canonical form of the number, assigns the
+  default `METABSP_USER` role (refusing if that role has been given `'*'`,
+  which would hand a reviewer platform-administrator access), and hashes the
+  password at the same bcrypt cost the model uses. Running it again on an
+  existing account resets the password rather than failing, which is what you
+  want the day before a submission.
 
 The account is identified by its **mobile number** — `username` and `mobile`
 hold the same canonical value, and sign-in normalises `+91 98765-43210`,

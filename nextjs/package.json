@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "seed:billing-plans": "node scripts/seed-billing-plans.mjs",
+    "seed:reviewer": "node scripts/create-reviewer-user.mjs",
     "verify-restore": "node scripts/verify-restore.mjs",
     "backup:mongo": "bash scripts/backup-mongo.sh",
     "restore:mongo": "bash scripts/restore-mongo.sh",
