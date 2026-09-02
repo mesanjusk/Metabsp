@@ -1,30 +1,65 @@
 # App Review — submission text, ready to paste
 
-Copy each block into the matching field in the Meta App Dashboard. These
-replace the text submitted on 2026-07-13, which was rejected-prone for four
-reasons, all fixed here:
+Copy each block into the matching field in the Meta App Dashboard.
 
-1. `[Your Name]` was left in two justifications — an unmistakable sign to a
-   reviewer that a template was pasted unread.
-2. `public_profile` was requested at all. It has zero usage; the fix is to drop it, not to write a justification.
-3. `business_management` was justified as "register and manage phone numbers",
-   which is `whatsapp_business_management`'s job. Overclaiming on
-   `business_management` is a common rejection trigger; the text below narrows
-   it to the one Graph call this app actually makes with it.
-4. The reviewer instructions said no credentials were required. They are: the
-   WhatsApp dashboard sits behind `CloudProtectedRoute`, `/connect/config` and
-   `/connect/complete` are `requireAuth`, and signup needs a WhatsApp-delivered
-   OTP — so a reviewer could not reach the Embedded Signup button at all. This
-   is almost certainly why the submission stalled.
+Every claim below is checked against the code in this repository, with the
+file and line that backs it. Do not add capabilities the app does not have: a
+reviewer who finds one overstatement distrusts the rest, and the fastest way
+to fail is to describe a product that is adjacent to the one you built.
 
-Every claim below is checked against the code. Do not add capabilities the app
-does not have; a reviewer who finds one overstatement distrusts the rest.
+**The product is called SanjuSK** in everything a reviewer sees — the
+wordmark, the legal pages, the consent dialog and `/meta-app-review`. Use that
+name here too. "Metabsp" survives only as a repository name, a webhook
+signature header and some database role codes; none of those are branding.
+
+---
+
+## The "Testing instructions" form
+
+### Is Facebook Login integrated on this platform? → **Yes**
+
+Answer yes. Embedded Signup *is* Facebook Login for Business:
+`nextjs/lib/ui/hooks/useWhatsAppConnection.js:123` calls `window.FB.login`
+with a `config_id`, `response_type: 'code'` and
+`override_default_response_type: true`. There is no version of this product
+that answers no.
+
+### Confirmation of Meta APIs / Facebook Login use
+
+> Facebook Login is used in one place only: Facebook Login for Business, as
+> the transport for WhatsApp Embedded Signup. A business owner clicks "Connect
+> with Meta", completes Meta's Embedded Signup popup, and the app exchanges
+> the returned authorization code server-side for a WhatsApp Business Account
+> token.
+>
+> We do not request or use `email`, `public_profile`, `user_friends`,
+> `user_gender`, `user_birthday`, or any other user-profile permission. No
+> Meta API is called for personal profile data at any point.
+>
+> The codebase contains an optional consumer Facebook sign-in path, but it is
+> disabled on this deployment: it requires `FACEBOOK_APP_ID` and
+> `FACEBOOK_APP_SECRET`, neither of which is set, so the provider endpoint
+> reports it disabled and no Facebook sign-in button is rendered. Sign-in is by
+> mobile number and password only.
+
+That last paragraph is a factual claim about the deployment, so keep it true.
+`isFacebookEnabled()` (`nextjs/lib/services/socialAuthService.ts:53`) requires
+both variables, and neither appears in `nextjs/.env.example` or `render.yaml`.
+If you ever set them, the Facebook button appears on the login page and this
+paragraph becomes false — rewrite it before submitting again.
+
+### The remaining fields
+
+- **Payment / test credentials** — no payment is required to reach any
+  reviewed functionality. Supply the reviewer login below.
+- **Gift codes** — not applicable; this is not a store app.
+- **Geographic restrictions** — none. No geo-blocking or geo-fencing.
 
 ---
 
 ## `whatsapp_business_messaging` → "Tell us how you're using this permission"
 
-> MetaBSP is a multi-tenant WhatsApp Business Platform that lets a business
+> SanjuSK is a multi-tenant WhatsApp Business Platform that lets a business
 > connect its own WhatsApp Business Account and manage customer conversations
 > from a shared team inbox.
 >
@@ -48,6 +83,11 @@ does not have; a reviewer who finds one overstatement distrusts the rest.
 > business's own conversations, and we do not share message content between
 > tenants.
 
+The 24-hour claim is enforced and tested — `nextjs/tests/twentyFourHourGuard.test.ts`.
+The tenant-isolation claim rests on Socket.IO being authenticated and
+room-scoped (`nextjs/tests/socketEmitter.test.ts`). Both are worth being able
+to point at if a reviewer asks.
+
 ## `whatsapp_business_management` → "Tell us how you're using this permission"
 
 > We use `whatsapp_business_management` to read and manage the WhatsApp
@@ -70,6 +110,10 @@ does not have; a reviewer who finds one overstatement distrusts the rest.
 > Embedded Signup and granted us access. We do not enumerate, read, or modify
 > assets belonging to any other business.
 
+Backing code: the code exchange and `platform_type` read are in
+`nextjs/app/api/whatsapp/embedded-signup/exchange-code/route.ts`; the
+`subscribed_apps` subscription is in `nextjs/lib/whatsapp/connect.ts`.
+
 ## `business_management` → "Tell us how you're using this permission"
 
 > We use `business_management` for one narrow purpose: reading
@@ -88,68 +132,80 @@ does not have; a reviewer who finds one overstatement distrusts the rest.
 > onboarding. If Meta would prefer this validation be done another way, we are
 > happy to adjust it.
 
+One call, one place: `nextjs/lib/services/whatsappCredentialValidationService.ts:62`.
+Keep the justification this narrow. Describing `business_management` as
+"registering and managing phone numbers" — which is
+`whatsapp_business_management`'s job — is a common rejection trigger.
+
 ## `public_profile` → **drop this permission**
 
-Do not re-request it. Meta's own usage table shows **0 lifetime API calls**,
-and the code agrees:
+Do not request it. Meta's usage table shows **0 lifetime API calls**, and the
+code agrees:
 
-- `completeEmbeddedSignup` (`backend/src/controllers/whatsappController.js`)
-  makes exactly three Graph calls — `oauth/access_token` twice and
-  `GET /{phone-number-id}`. It never calls `/me`.
-- The only `/me` call in the WhatsApp path is in
-  `whatsappCredentialValidationService.js`, on the **manual connect** path
-  only, and it uses the customer's own WhatsApp token. A `/me` with a system
-  user or WABA token returns that token's app-scoped ID; it does not need
-  `public_profile`, which governs Facebook Login user tokens.
+- The Embedded Signup completion path makes only the OAuth code exchange and a
+  read of the phone number. It never calls `/me`
+  (`nextjs/app/api/whatsapp/connect/complete/route.ts`,
+  `nextjs/app/api/whatsapp/embedded-signup/exchange-code/route.ts`).
+- The only `/me` in the WhatsApp path is
+  `nextjs/lib/services/whatsappCredentialValidationService.ts:31`, on the
+  manual-connect path, using the customer's own WhatsApp token. A `/me` with a
+  system user or WABA token returns that token's app-scoped ID; it does not
+  need `public_profile`, which governs Facebook Login user tokens.
 
-An earlier draft of this file claimed `/me` was called "during Embedded Signup
-and manual connect". That was wrong for Embedded Signup, and requesting a
-permission the app does not exercise is precisely the kind of overclaim that
-gets a submission rejected. Remove `public_profile` from the request.
-
-(If Google/Facebook social sign-in is ever deployed,
-`nextjs/lib/services/socialAuthService.ts` does call `/me` with a Facebook
-Login token — but that is a separate feature, not deployed today, and belongs
-in its own submission.)
+Requesting a permission the app does not exercise is precisely the overclaim
+that gets a submission rejected. The consumer social sign-in that *would* use
+it is disabled on this deployment (see the Facebook Login section above) and
+belongs in its own submission if it is ever turned on.
 
 ---
 
-## Web reviewer instructions
+## Reviewer instructions
 
-**This is the field that matters most.** Fill the bracketed values in with a
-real, working account before submitting, and test it yourself in a private
-browser window first.
+**This is the field that matters most.** Fill in the bracketed values with a
+real, working account, and test it yourself in a private browser window before
+submitting.
+
+The navigation below is taken from `nextjs/lib/ui/app/navigation.js`. An
+earlier revision of this document sent reviewers to a sidebar entry called
+"WhatsApp" and a "Chats" tab; neither exists. Re-check this section against
+that file whenever the navigation changes — instructions that do not match the
+screen are worse than no instructions.
 
 > The WhatsApp features in this app are behind a login, so credentials are
-> required. Please use the reviewer account below — self-registration is not
-> possible, because signup requires a one-time code delivered over WhatsApp.
+> required. Self-registration is not possible: signup requires a one-time code
+> delivered over WhatsApp.
 >
 > Application URL: [YOUR APP URL]
-> Mobile / Username: [REVIEWER LOGIN]
+> Mobile number: [REVIEWER MOBILE NUMBER]
 > Password: [REVIEWER PASSWORD]
 >
-> Note: the login form's first field is labelled "Mobile / Username" and
-> expects the value above — it is not an email address.
+> The first field is labelled "Mobile / Username" and expects the mobile
+> number above. It is not an email address.
 >
 > Steps to review each requested permission:
 >
 > 1. Sign in with the credentials above.
-> 2. Open "WhatsApp" from the left sidebar.
-> 3. Click "Connect with Meta" to launch Meta's Embedded Signup popup. Sign in
->    with a Facebook account that has a WhatsApp Business Account and grant the
->    requested permissions. On completion the app exchanges the authorization
->    code for a token, reads the phone number's details, and subscribes itself
->    to the WABA's webhooks — all `whatsapp_business_management`.
-> 4. To see `business_management`: on the same page choose "Connect manually"
->    and supply an existing access token. The app reads
+> 2. In the left sidebar, open **Platform → Numbers**.
+> 3. Click **Connect with Meta**. A consent disclosure appears first, stating
+>    what the platform may do with the connected account; accepting it opens
+>    Meta's Embedded Signup popup (Facebook Login for Business). Signing in
+>    with a Facebook account that owns a WhatsApp Business Account and granting
+>    the requested permissions completes onboarding: the app exchanges the
+>    authorization code for a token, reads the phone number's details, and
+>    subscribes itself to the WABA's webhooks — all
+>    `whatsapp_business_management`.
+> 4. To see `business_management`: on the same screen choose **Connect
+>    manually** and supply an existing access token. The app reads
 >    `owned_whatsapp_business_accounts` on the supplied business to confirm the
->    WABA genuinely belongs to it before storing anything.
-> 5. Open the "Templates" tab to see template listing and creation
+>    WABA genuinely belongs to it before storing anything. This is the only use
+>    of that permission.
+> 5. Open **Workspace → Templates** for template listing and creation
 >    (`whatsapp_business_management`).
-> 6. Open the "Chats" tab and send a message to a number that has messaged the
->    business (`whatsapp_business_messaging`). Inbound messages and delivery
->    statuses appear in the same view as they arrive over our webhook.
-> 7. A supporting walkthrough, including this same flow, is at
+> 6. Open **Workspace → Inbox** and send a message to a number that has
+>    messaged the business (`whatsapp_business_messaging`). Inbound messages
+>    and delivery receipts appear in the same view as they arrive over our
+>    webhook.
+> 7. A supporting walkthrough of the same flow is at
 >    [YOUR APP URL]/meta-app-review.
 >
 > If the reviewer account stops working at any point, please contact
@@ -157,19 +213,55 @@ browser window first.
 
 ### Creating the reviewer account
 
-Nothing in this repository seeds one. Because signup requires a WhatsApp OTP,
-create it directly:
+Nothing in this repository seeds one, and signup requires a WhatsApp OTP, so
+create it by hand:
 
-- Sign up through the normal flow using a mobile number you control and can
+- Sign up through the normal flow with a mobile number you control and can
   receive WhatsApp on, then set a known password; **or**
 - Insert the user directly in MongoDB with a bcrypt-hashed password, matching
-  the `username` / `mobile` / `password` shape in `backend/bulk/models/User.js`.
+  the shape in `nextjs/lib/models/User.ts`.
 
-Then set `VITE_REVIEWER_LOGIN`, `VITE_REVIEWER_PASSWORD` and
-`VITE_PUBLIC_APP_URL` in Vercel so `/meta-app-review` shows the same values.
-They are read from the environment rather than committed, because this
-repository is public and a working login in git is a credential leak.
+The account is identified by its **mobile number** — `username` and `mobile`
+hold the same canonical value, and sign-in normalises `+91 98765-43210`,
+`9876543210` and `919876543210` to one account. Give the reviewer whichever
+form you like; all three reach it.
 
-**Verify before submitting**: open a private browser window, go to the app URL,
-sign in with exactly those credentials, and reach the "Connect with Meta"
-button. If you cannot, neither can the reviewer.
+Then set these on the Render service (not Vercel — the deployment moved):
+
+```
+META_REVIEWER_LOGIN
+META_REVIEWER_PASSWORD
+META_REVIEW_CONTACT_EMAIL
+META_REVIEW_ENFORCE_READY=true
+```
+
+`/meta-app-review` reads them, so the walkthrough page shows the same
+credentials you submitted. They are read from the environment rather than
+committed, because this repository is public and a working login in git is a
+credential leak.
+
+Setting `META_REVIEW_ENFORCE_READY=true` makes the deploy gate
+(`scripts/meta-deploy-check.js`) *require* the three values, so a submission
+cannot go out on a deployment whose reviewer login was never configured. Set
+it on the exact deployment you submit.
+
+---
+
+## Before you submit
+
+The deploy gate proves configuration, not readiness. Check these yourself:
+
+1. Open a private browser window, go to the app URL, sign in with exactly the
+   submitted credentials, and reach **Connect with Meta**. If you cannot,
+   neither can the reviewer.
+2. The URL you put in the Website field resolves, and the App Dashboard's
+   webhook callback URL, JS SDK Allowed Domains and Valid OAuth Redirect URI
+   all name that same origin. A mismatch fails Embedded Signup with a JSSDK
+   host error before the reviewer sees anything.
+3. The published Privacy Policy is publicly reachable and **true** — in
+   particular, that the retention periods it states match what
+   `RETENTION_MESSAGES_DAYS` / `RETENTION_AUDIT_LOG_DAYS` actually enforce.
+   Meta's Data Use Checkup asks you to certify that document.
+4. Business Verification shows Verified.
+5. The full pre-submission walkthrough in `READINESS_STATUS.md` has been run
+   end to end on the exact deployment being submitted.

@@ -159,6 +159,45 @@ in the system that owns it.
 | A wrong encryption key failing silently | A boot self-check samples stored tokens and logs a CRITICAL naming `WHATSAPP_TOKEN_ENCRYPTION_KEY_PREVIOUS` as the remedy. |
 | Redis evicting queued messages silently | A boot self-check reads `maxmemory-policy` and logs an error when it is not `noeviction`. |
 
+## Third pass — the move to a dedicated Render account (2026-09-02)
+
+The deployment was rebuilt in a separate Render account so the keep-alive
+schedule above could run without competing for one workspace's free
+instance-hours. What that move proved, and what it cost:
+
+| | |
+|---|---|
+| Service | `Metabsp` (`srv-dabq8l2fngtc73eunb90`), `https://metabsp.onrender.com`, Oregon, free plan |
+| Build | Gated, and actually running: `node ../scripts/meta-deploy-check.js && npm ci --include=dev && npm run typecheck && npm test && npm run build`. The predecessor's hand-configured `npm install && npm run build` is gone. |
+| Health check | `/api/health` |
+| Encryption key | **Verified.** `[self-check] Token encryption key verified against 2 stored account(s)` on the live instance — the tokens survived the account change. |
+| Queues | Reachable. Zero `[redis]` errors after `REDIS_URL` was repointed. |
+
+Two defects surfaced only because a *fresh* service exercised paths the
+predecessor never did, which is the argument for rebuilding rather than
+mutating a deployment you intend to submit:
+
+- `npm ci` under `NODE_ENV=production` skips `devDependencies`, so the gated
+  build died at `npm test` with `vitest: not found` — *after* the deploy gate
+  printed PASS. Fixed with `--include=dev`. The old service never ran the
+  suite, and CI does not set `NODE_ENV`, so nothing had ever tried it.
+- Pointing at a Redis that does not resolve produced **no self-check output
+  at all**. ioredis retries an unresolvable host forever instead of
+  rejecting, and both probes were gathered in one `Promise.all`, so the
+  encryption-key result was suppressed by an unrelated outage — precisely
+  when a migration most needs it. Each probe now reports independently, with
+  a bounded wait on the Redis one.
+
+Still outstanding from this move, and each of them external to the code:
+
+- `meta.sanjusk.in` still resolves to the **previous account's** service. The
+  new deployment is reachable only at its `onrender.com` host.
+- The Meta App Dashboard's webhook callback URL, JS SDK Allowed Domains and
+  OAuth redirect URI all still name the previous origin.
+- The `METABSP_URL` repository variable that the keep-alive workflow reads
+  must name the new host, or the pinger warms the wrong service and reports
+  success either way — every `curl` in it ends in `|| true`.
+
 ## Known gaps, stated plainly
 
 - **The Cashfree billing integration is unverified** against live Cashfree
@@ -166,32 +205,42 @@ in the system that owns it.
   subscription returns a clear `503` until then. Verify against a sandbox call
   before accepting real payments.
 - **The Redis instance backing the queues has no persistence.** The
-  eviction-policy half of this is now fixed: the provider API reports
-  `maxmemory-policy=noeviction` (an earlier revision of this document said
-  `allkeys_lru`, which is no longer what the instance runs). The app itself
-  still cannot confirm it — Render blocks `CONFIG GET`, so the boot
-  self-check reports "could not verify" rather than a pass, by design.
-  What remains is persistence: it is off, on the free plan, so a restart
-  loses every queued inbound webhook and outbound send. Move to a paid plan
-  with persistence on before carrying real traffic.
-- **The deployed web service runs on a free plan and hibernates.** Render
-  spins a free service down after 15 minutes without inbound traffic and
-  takes about a minute to wake it. Observed on the live service: instances
-  started at 16:49 and 17:12 UTC on 2026-09-01 with no deploy behind them,
-  i.e. wake cycles. Meta retries a webhook that slow and eventually disables
-  the subscription, and an App Review reviewer would wait out the same cold
-  start. Keeping it awake with a keep-alive ping is not a fix: the free
-  allowance is 750 instance-hours per month for the whole workspace against
-  a ~730-hour month, so one always-on free service consumes it and Render
-  then suspends every free service until the 1st. `render.yaml` now declares
-  `plan: starter` so a fresh blueprint deploy does not recreate this.
-
-- **The deployed service's build command does not run the deploy gate.**
-  `render.yaml` describes the gated build, but the live service predates the
-  blueprint and is configured by hand as `npm install && npm run build`. Set
-  it to `node ../scripts/meta-deploy-check.js && npm ci && npm run typecheck
-  && npm test && npm run build` so a misconfigured or failing release cannot
-  reach Meta's webhook.
+  eviction half is now settled by construction rather than by belief: the
+  instance the deployment uses (`metabsp-redis`, `red-dabquqf40ujc73a4e780`,
+  created 2026-09-02) was created *with* `maxmemory-policy=noeviction`, so it
+  cannot silently be something else. The app still cannot confirm it — Render
+  blocks `CONFIG GET`, and the boot self-check reports "could not verify"
+  rather than a pass, by design; a `NOPERM` on that command is now the
+  expected reading and, usefully, also proves the instance is reachable.
+  What remains is persistence: `persistenceMode` is `off`, which the free
+  plan does not offer, so a restart loses every queued inbound webhook and
+  outbound send. Nothing in the application compensates for that today. The
+  two ways out are a paid plan, or persisting the inbound envelope to
+  MongoDB before acknowledging Meta and replaying unprocessed rows at boot,
+  which would make Redis a dispatch cache whose loss costs nothing.
+- **The deployed web service runs on the free plan.** This is now a chosen
+  constraint rather than an oversight, and it is only safe under conditions
+  a reader has to check rather than assume:
+  - Render spins a free service down after 15 minutes idle and takes about a
+    minute to wake it. Meta retries a webhook that slow and eventually
+    disables the subscription outright, and an App Review reviewer would sit
+    through the same cold start.
+  - The mitigation is `.github/workflows/render-keep-alive.yml` pinging every
+    12 minutes around the clock. That costs ~744 instance-hours a month
+    against a 750-hour allowance granted **per workspace**, so it works only
+    while this service is effectively alone in its workspace. It is: the
+    deployment moved to a dedicated Render account on 2026-09-02 and every
+    sibling free service there is suspended. Un-suspending any of them
+    overruns the allowance and Render then suspends *all* of them, this one
+    included.
+  - GitHub Actions cron is best-effort and can stop firing (delays under
+    load; schedules disabled on inactive repositories; Actions usage limits).
+    It has been observed silent for ~10 hours. Treat the workflow's run
+    history as something to check, not to trust, and keep a second external
+    pinger.
+  - `render.yaml` still declares `plan: starter`, which remains the correct
+    recommendation for a blueprint deploy and does *not* describe the live
+    service.
 - **Next.js still pins vulnerable `postcss` and `sharp`.** `postcss` runs at
   build time over this repository's own CSS; `sharp` is unreachable with the
   image optimiser off. The real fix is a Next major upgrade, which pulls
@@ -207,8 +256,18 @@ in the system that owns it.
   has been walked end to end.
 
 - **Retention windows are configured but set to 0**, meaning nothing is
-  deleted. The mechanism is in place; choosing the periods is a legal and
-  commercial decision.
+  deleted — and the published privacy policy says otherwise. `app/(public)/
+  privacy-policy/page.jsx` promises message content is deleted after 90 days
+  and security/audit logs after 2 years, while the live deployment logs
+  `[retention] No retention window configured — records are kept
+  indefinitely` at every boot. That is a false statement in a document Meta's
+  Data Use Checkup asks you to certify, so it is a submission blocker rather
+  than a tidy-up. Close it in whichever direction is true: set
+  `RETENTION_MESSAGES_DAYS` / `RETENTION_AUDIT_LOG_DAYS` /
+  `RETENTION_CONTACTS_INACTIVE_DAYS` to match the page, or change the page to
+  match the configuration. The mechanism is in place either way; choosing the
+  periods is a legal and commercial decision, and the first sweep is
+  irreversible.
 
 ## Submission recommendation
 
