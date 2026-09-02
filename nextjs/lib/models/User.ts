@@ -11,9 +11,29 @@ const userSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     username: { type: String, required: true, trim: true },
-    password: { type: String, required: true },
+    // Required only for accounts that sign in with one. An account created
+    // through Google or Facebook has no password and never will, and an
+    // unconditional `required: true` here made every social sign-in throw
+    // ValidationError at User.create — the whole flow was dead.
+    password: {
+      type: String,
+      required() {
+        return !this.googleId && !this.facebookId;
+      },
+    },
     mobile: { type: String, default: '', trim: true },
     email: { type: String, default: '' },
+    // Provider identities. socialAuthService looks accounts up by these and
+    // writes them on link, but they were absent from this schema, so Mongoose
+    // strict mode dropped them on every save: the lookup could never match,
+    // and nothing recorded which Meta user an account belonged to. That second
+    // consequence is why Meta's data-deletion callback — which identifies a
+    // person only by their Facebook user id — needs them.
+    googleId: { type: String, default: undefined, unique: true, sparse: true, index: true },
+    facebookId: { type: String, default: undefined, unique: true, sparse: true, index: true },
+    // Guards the email-linking path in socialAuthService: an unverified
+    // address must not be allowed to claim an existing account.
+    emailVerified: { type: Boolean, default: false },
     roleId: { type: Schema.Types.ObjectId, ref: 'Role', required: true },
     tenantId: { type: Schema.Types.ObjectId, ref: 'Organization', default: null },
     eventDutyType: {

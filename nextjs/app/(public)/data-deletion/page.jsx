@@ -18,6 +18,11 @@ import { motion } from 'framer-motion';
 // dashboard, and the running service cannot drift apart.
 const DATA_DELETION_CALLBACK_URL =
   process.env.NEXT_PUBLIC_DATA_DELETION_CALLBACK_URL ||
+  `${process.env.NEXT_PUBLIC_APP_URL || 'https://meta.sanjusk.in'}/api/meta/data-deletion`;
+
+// The human-readable instructions URL, which is a different field in the Meta
+// App Dashboard from the callback above. This page is that URL.
+const DATA_DELETION_INSTRUCTIONS_URL =
   `${process.env.NEXT_PUBLIC_APP_URL || 'https://meta.sanjusk.in'}/data-deletion`;
 
 const REASONS = [
@@ -185,7 +190,13 @@ export default function DataDeletionPage() {
                 ))}
               </Box>
               <Alert severity="info" sx={{ mt: 2 }} icon={<InfoOutlinedIcon />}>
-                SanjuSK's Facebook App Data Deletion Callback URL: <strong>{DATA_DELETION_CALLBACK_URL}</strong>. This URL is registered with Meta and handles automated deletion callbacks triggered when users remove our app from their Facebook settings.
+                Two URLs are registered with Meta, and they do different jobs. The{' '}
+                <strong>Data Deletion Callback URL</strong> is{' '}
+                <strong>{DATA_DELETION_CALLBACK_URL}</strong> — Meta posts a signed request to it
+                when someone removes SanjuSK from their Facebook settings, and it deletes that
+                account automatically and returns a confirmation code. The{' '}
+                <strong>Data Deletion Instructions URL</strong> is{' '}
+                <strong>{DATA_DELETION_INSTRUCTIONS_URL}</strong> — this page.
               </Alert>
             </Paper>
 

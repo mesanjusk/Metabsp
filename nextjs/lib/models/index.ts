@@ -23,3 +23,4 @@ export { default as CloudOtpVerification } from './CloudOtpVerification';
 export { default as Subscription } from './Subscription';
 export { default as SubscriptionPlan } from './SubscriptionPlan';
 export { default as Invoice } from './Invoice';
+export { default as DataDeletionRequest } from './DataDeletionRequest';
