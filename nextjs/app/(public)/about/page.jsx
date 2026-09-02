@@ -61,7 +61,7 @@ export default function AboutPage() {
                 Empowering Businesses Through WhatsApp
               </Typography>
               <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.75)', maxWidth: 560, mx: 'auto', lineHeight: 1.8 }}>
-                SanjuSK is a Meta-authorized WhatsApp Business Solution Provider, helping businesses of all sizes communicate with their customers at scale through the world's most popular messaging platform.
+                SanjuSK is built on Meta's official WhatsApp Business Platform, helping businesses of all sizes communicate with their customers at scale through the world's most popular messaging platform.
               </Typography>
               <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ mt: 3 }} flexWrap="wrap" useFlexGap>
                 <Chip label="Meta Technology Partner" icon={<VerifiedIcon />} sx={{ bgcolor: '#25d366', color: '#05260f', fontWeight: 700 }} />
@@ -141,17 +141,17 @@ export default function AboutPage() {
           <Box sx={{ mb: 8 }}>
             <Typography variant="h4" fontWeight={800} sx={{ mb: 1, textAlign: 'center' }}>Meta Technology Partner</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', mb: 5, maxWidth: 600, mx: 'auto' }}>
-              SanjuSK is an authorized WhatsApp Business Solution Provider, recognized by Meta for our adherence to their platform policies and technical standards.
+              SanjuSK sends and receives entirely through Meta's official WhatsApp Business Platform. There is no unofficial transport anywhere in the product.
             </Typography>
             <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '2px solid', borderColor: 'primary.main', textAlign: 'center', maxWidth: 600, mx: 'auto' }}>
               <VerifiedIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1.5 }} />
-              <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>Authorized WhatsApp Business Solution Provider</Typography>
+              <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>Built on the WhatsApp Business Platform</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                As an authorized BSP, SanjuSK has direct access to Meta's WhatsApp Business API infrastructure and is bound by Meta's Business Solution Provider Agreement to maintain the highest standards of platform usage.
+                Every message in and out goes through Meta's Cloud API. Businesses connect their own WhatsApp Business Account through Meta&apos;s Embedded Signup and keep ownership of it — including full access in WhatsApp Manager — and can revoke our access at any time.
               </Typography>
               <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap>
-                <Chip label="Official BSP" color="primary" size="small" />
-                <Chip label="Policy Compliant" color="success" size="small" />
+                <Chip label="Cloud API only" color="primary" size="small" />
+                <Chip label="You own your WABA" color="primary" size="small" variant="outlined" />
                 <Chip label="Verified Business" color="primary" size="small" variant="outlined" />
               </Stack>
             </Paper>

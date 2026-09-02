@@ -18,7 +18,7 @@ const FAQ_DATA = [
     items: [
       {
         q: 'What is SanjuSK and how does it work?',
-        a: 'SanjuSK is a WhatsApp Business Solution Provider (BSP) authorized by Meta. We provide API access to the WhatsApp Business Platform, allowing your business to send and receive WhatsApp messages at scale. You connect your WhatsApp Business Account to our platform, and we handle the API infrastructure, authentication, and message delivery.',
+        a: 'SanjuSK is a messaging platform built on Meta\'s official WhatsApp Business Platform (Cloud API). It lets your business send and receive WhatsApp messages at scale. You connect your own WhatsApp Business Account to our platform — you keep ownership of it — and we handle the API infrastructure, authentication, and message delivery.',
       },
       {
         q: 'How do I create an account?',
@@ -48,7 +48,7 @@ const FAQ_DATA = [
     items: [
       {
         q: 'What is the Embedded Signup process?',
-        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a BSP like SanjuSK. During this process, you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize SanjuSK to send messages on your behalf. The entire process takes about 5-10 minutes.',
+        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a platform like SanjuSK. During this process, you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize SanjuSK to send messages on your behalf. The entire process takes about 5-10 minutes.',
       },
       {
         q: 'How long does business verification take?',
@@ -187,7 +187,7 @@ const FAQ_DATA = [
         a: 'Meta monitors the quality of messages sent by each phone number based on user feedback (blocks, reports, opt-outs). A yellow or red quality rating means users are reporting your messages negatively. This can reduce your messaging tier. To improve: review your message content, ensure proper opt-in, honor opt-outs promptly, and reduce sending frequency.',
       },
       {
-        q: 'How do I migrate from another WhatsApp BSP?',
+        q: 'How do I migrate from another WhatsApp provider?',
         a: 'You can migrate your existing WABA to SanjuSK by connecting it through our Embedded Signup flow and selecting "Connect Existing WABA." You will need access to the Facebook Business Manager that owns the WABA. Phone numbers, templates, and business profile settings will carry over. Message history is not migrated. Contact support@meta.sanjusk.in for migration assistance.',
       },
     ],

@@ -350,10 +350,42 @@ Keep this list and the privacy policy in step. If a sub-processor is added or
 removed in one, change the other in the same pass — they are two statements of
 the same fact, and Meta reads both.
 
-The other data-handling answers from the previous submission were fine and can
-be repeated: responsible entity **Sanju SK**, located in **India**, no
-personal data provided to public authorities under national-security requests,
-and a required review of the legality of any such request.
+### The responsible entity
+
+The previous submission answered **Sanju SK**. Check that against Business
+Verification before repeating it: the privacy policy says "SanjuSK", the
+verified business portfolio is "Sanju Sk Digital", and a later draft of the
+form said "Sanju Ahuja". Meta cross-checks this field against the verification
+documents, so the answer should be the name the business was **verified**
+under, and the privacy policy should then be made to match. Four spellings of
+the same organisation is the kind of small inconsistency that costs credibility
+on a form whose whole purpose is establishing who you are.
+
+Country: **India**.
+
+### National-security requests and the processes behind them
+
+**No** personal data has been provided to public authorities in response to
+national-security requests. Re-check this rather than copying it forward — the
+question asks about the past twelve months, so a true answer in July is not
+automatically a true answer now.
+
+The checkbox list that follows it asks which processes are *in place*. Answer
+it from `docs/legal/PUBLIC_AUTHORITY_REQUESTS_POLICY.md`, which was written for
+exactly these four options and maps them to its own sections in a table at the
+end. With that policy adopted, all four are truthfully checkable:
+
+- Required review of the legality of these requests
+- Provisions for challenging these requests if they are considered unlawful
+- Data minimization policy
+- Documentation of these requests, including responses, legal reasoning and actors
+
+**Adopting it is what makes them true.** Before ticking the boxes, confirm the
+owner named in that policy's header knows they are the owner, that counsel
+named in §4 has agreed, and that the register in §6 exists — empty is fine,
+absent is not. A policy nobody has read is not a process in place, and the
+previous submission checked only the first box, which was the honest answer at
+the time.
 
 ## Before you submit
 

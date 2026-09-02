@@ -17,6 +17,7 @@ These are templates for the **company operating Metabsp**, not for its business 
 | [`COOKIE_POLICY.md`](./COOKIE_POLICY.md) | Cookie/local-storage usage on the web frontend, based on what the frontend code actually sets. |
 | [`SECURITY_POLICY.md`](./SECURITY_POLICY.md) | Technical and organizational security measures: token encryption, auth, webhook signature verification, rate limiting, audit logging, and responsible disclosure. |
 | [`ACCEPTABLE_USE_POLICY.md`](./ACCEPTABLE_USE_POLICY.md) | Prohibited uses specific to operating a WhatsApp BSP, consequences of violation, and abuse reporting. |
+| [`PUBLIC_AUTHORITY_REQUESTS_POLICY.md`](./PUBLIC_AUTHORITY_REQUESTS_POLICY.md) | How law enforcement, regulator and court requests for personal data are reviewed, challenged, minimised and recorded. Written because Meta's App Review data handling questionnaire asks which of these processes exist, and answering it honestly requires having decided in advance. |
 | [`DPDP_COMPLIANCE_CHECKLIST.md`](./DPDP_COMPLIANCE_CHECKLIST.md) | Honest, item-by-item checklist against India's Digital Personal Data Protection Act, 2023. |
 | [`GDPR_COMPLIANCE_CHECKLIST.md`](./GDPR_COMPLIANCE_CHECKLIST.md) | Honest, item-by-item checklist against the EU General Data Protection Regulation. |
 
