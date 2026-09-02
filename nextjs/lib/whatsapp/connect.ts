@@ -69,7 +69,15 @@ export const subscribeAppToWaba = async ({ wabaId, accessToken }: { wabaId: stri
     );
     return true;
   } catch (error: any) {
-    logger.warn('[embedded-signup] Failed to subscribe app to WABA', wabaId, error?.response?.data || error.message);
+    // Not '[embedded-signup]': this also runs from account revalidation, and a
+    // prefix naming the wrong flow sends whoever greps for it to the wrong
+    // place. Meta's own reason is the useful part — without it the failure is
+    // indistinguishable from a network blip, and the consequence is that the
+    // number sends fine and receives nothing.
+    logger.error(
+      `[whatsapp] Failed to subscribe this app to WABA ${wabaId} — inbound webhooks will NOT be delivered for it. ` +
+        `Meta said: ${JSON.stringify(error?.response?.data || error.message)}`
+    );
     return false;
   }
 };
