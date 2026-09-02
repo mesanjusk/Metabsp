@@ -11,6 +11,12 @@ const Section = ({ title, children }) => (
   </Box>
 );
 
+const SubHeading = ({ children }) => (
+  <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 2, mb: 1 }}>
+    {children}
+  </Typography>
+);
+
 const Para = ({ children }) => (
   <Typography variant="body1" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.8 }}>
     {children}
@@ -132,15 +138,32 @@ export default function PrivacyPolicyPage() {
             </Section>
 
             <Section title="6. Data Sharing and Disclosure">
-              <Para>We share your information only in the following circumstances:</Para>
-              <BulletList items={[
-                'With Meta Platforms, Inc. as required to operate the WhatsApp Business API',
-                'With your designated webhook endpoints as configured in your account',
-                'With payment processors for billing purposes (we do not store full card numbers)',
-                'With cloud infrastructure providers (AWS/GCP) who process data under our instructions',
-                'When required by law, court order, or government request',
-                'With your explicit consent for any other purpose',
-              ]} />
+              <Para>
+                We do not sell your data or use message content for advertising. Beyond the
+                sub-processors named below, we share information only when required by law, court
+                order or government request, or with your explicit consent.
+              </Para>
+
+              <SubHeading>Sub-processors</SubHeading>
+                <Para>
+                  These are the third parties that process data on our behalf, what each one
+                  receives, and why. Every one of them is bound to process it only on our
+                  instructions.
+                </Para>
+                <BulletList items={[
+                  'Meta Platforms, Inc. — message content, phone numbers and delivery status. Required to send and receive on the WhatsApp Business Platform; there is no way to operate without it.',
+                  'MongoDB Atlas — the database of record: accounts, contacts, message history, and encrypted access tokens.',
+                  'Cloudinary — media attachments (images, video, audio, documents) sent or received on your number, so they can be shown in the inbox after Meta expires the original.',
+                  'Render — hosting and the queue that holds inbound messages between arrival and processing.',
+                  'Anthropic PBC — the text of an incoming message, and only when you have switched on an AI auto-reply rule. It is sent to generate that one reply, is not used to train models, and no message reaches Anthropic while AI replies are off. Turn the rule off and this sub-processor drops out entirely.',
+                ]} />
+
+              <SubHeading>Your own endpoints</SubHeading>
+                <Para>
+                  Where you register a webhook destination, we also deliver your inbound messages to
+                  the URL you gave us. What happens to them after that is governed by your own
+                  policies, not this one.
+                </Para>
             </Section>
 
             <Section title="7. Your Rights – GDPR and CCPA">
