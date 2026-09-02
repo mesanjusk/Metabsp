@@ -194,6 +194,15 @@ screen are worse than no instructions.
 >    authorization code for a token, reads the phone number's details, and
 >    subscribes itself to the WABA's webhooks — all
 >    `whatsapp_business_management`.
+>
+>    Please note: this app currently holds **Standard Access**, which is what
+>    this submission asks to change. At that level Meta's own popup offers
+>    "Create a business portfolio" and does not allow selecting an existing
+>    portfolio, so the flow is completed by letting it create a new portfolio,
+>    WABA and test number. Everything after the popup — the code exchange, the
+>    phone number read, the webhook subscription — is our integration and runs
+>    identically either way. We have verified this end to end; the restriction
+>    is Meta's access tier, not a limitation of the app.
 > 4. To see `business_management`: on the same screen choose **Connect
 >    manually** and supply an existing access token. The app reads
 >    `owned_whatsapp_business_accounts` on the supplied business to confirm the
@@ -210,6 +219,39 @@ screen are worse than no instructions.
 >
 > If the reviewer account stops working at any point, please contact
 > [YOUR REVIEW CONTACT EMAIL] and we will restore access immediately.
+
+### What you can and cannot demonstrate before approval
+
+Advanced Access is what this submission requests, so the pre-submission run
+cannot exercise the thing the submission is asking for. That is the shape of
+the process, not a problem to solve: Meta's guidance is explicit that "you
+will not be able to onboard business customers until your app has been
+approved for advanced access for each of the permissions it requires", while
+"the embedded signup flow works with Standard Access for most use cases … so
+you can test your app while you are in this access level".
+
+In practice, at Standard Access:
+
+- **Embedded Signup opens and completes**, but its asset step offers only
+  "Create a business portfolio". An existing portfolio — including the
+  verified one that owns the app — is not selectable. Completing the flow
+  therefore creates a new portfolio, WABA and test number. Meta's own
+  documentation warns that testing this way "can result in additional business
+  portfolios, WABAs, and business phone numbers"; that litter is the cost of
+  proving the path works.
+- **Manual connect is unaffected.** Supplying an existing token exercises
+  `owned_whatsapp_business_accounts`, templates, sending, receiving and
+  receipts against a real WABA without going through Embedded Signup at all.
+
+So run the pre-submission checklist across both paths: Embedded Signup for the
+onboarding steps, manual connect for everything downstream of a connected
+number. Between them every claim in this submission is covered.
+
+Do not read a greyed-out portfolio as a broken integration. The check that
+actually proves the integration is that the popup **opens** on your App ID
+without a JavaScript SDK host error — that is the part depending on your
+Allowed Domains configuration, and it is the part nothing server-side can
+verify for you.
 
 ### Creating the reviewer account
 
