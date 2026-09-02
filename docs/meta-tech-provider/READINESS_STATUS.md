@@ -194,9 +194,9 @@ Still outstanding from this move, and each of them external to the code:
   new deployment is reachable only at its `onrender.com` host.
 - The Meta App Dashboard's webhook callback URL, JS SDK Allowed Domains and
   OAuth redirect URI all still name the previous origin.
-- The `METABSP_URL` repository variable that the keep-alive workflow reads
-  must name the new host, or the pinger warms the wrong service and reports
-  success either way — every `curl` in it ends in `|| true`.
+- The cron-job.org keep-alive must target the host this deployment actually
+  serves. It currently names the `onrender.com` host; moving the custom domain
+  means updating the job too, or it will faithfully keep the wrong service warm.
 
 ## Known gaps, stated plainly
 
@@ -225,19 +225,26 @@ Still outstanding from this move, and each of them external to the code:
     minute to wake it. Meta retries a webhook that slow and eventually
     disables the subscription outright, and an App Review reviewer would sit
     through the same cold start.
-  - The mitigation is `.github/workflows/render-keep-alive.yml` pinging every
-    12 minutes around the clock. That costs ~744 instance-hours a month
-    against a 750-hour allowance granted **per workspace**, so it works only
-    while this service is effectively alone in its workspace. It is: the
-    deployment moved to a dedicated Render account on 2026-09-02 and every
-    sibling free service there is suspended. Un-suspending any of them
-    overruns the allowance and Render then suspends *all* of them, this one
-    included.
-  - GitHub Actions cron is best-effort and can stop firing (delays under
-    load; schedules disabled on inactive repositories; Actions usage limits).
-    It has been observed silent for ~10 hours. Treat the workflow's run
-    history as something to check, not to trust, and keep a second external
-    pinger.
+  - The mitigation is an external cron-job.org job hitting `/api/health`
+    every 10 minutes, around the clock. Ten rather than fifteen is
+    deliberate: Render's spin-down timer is fifteen minutes, so a
+    fifteen-minute ping races its own deadline and any jitter puts the gap
+    over the line.
+  - That costs ~744 instance-hours a month against a 750-hour allowance
+    granted **per workspace**, so it works only while this service is
+    effectively alone in its workspace. It is: the deployment moved to a
+    dedicated Render account on 2026-09-02 and every sibling free service
+    there is suspended. Un-suspending any of them overruns the allowance and
+    Render then suspends *all* of them, this one included.
+  - This used to be a GitHub Actions schedule
+    (`.github/workflows/render-keep-alive.yml`, deleted 2026-09-02). It
+    stopped firing for ~13 hours while push- and pull-request-triggered
+    workflows in the same repository kept running normally, so the failure
+    was specific to `schedule` and gave no signal — the service was simply
+    unpinged until someone looked. An external pinger that emails on failure
+    is the right shape for this job; a silent cron is not.
+  - `/api/health` returns 503 when MongoDB is unreachable, so the pinger
+    doubles as uptime alerting if failure notifications are enabled.
   - `render.yaml` still declares `plan: starter`, which remains the correct
     recommendation for a blueprint deploy and does *not* describe the live
     service.
