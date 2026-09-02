@@ -102,7 +102,7 @@ so the gate additionally requires `META_REVIEWER_LOGIN`,
 | `whatsapp_business_messaging` | CODE + EXTERNAL | Implemented; approval is external. |
 | `whatsapp_business_management` | CODE + EXTERNAL | Implemented; approval is external. |
 | `business_management` | CODE + EXTERNAL | Keep the justification narrow: manual-connect ownership validation only. |
-| `public_profile` | CODE | Do **not** request it for this review. It belongs only to the optional Facebook social sign-in. |
+| `public_profile` | CODE + EXTERNAL | Do **not** request it. It belongs only to the optional Facebook social sign-in, which is disabled on this deployment. As of 2026-09-02 it is still listed among the app's requested permissions in the dashboard, carried over from the 2026-07-13 submission where it was requested with a blank justification — **remove it before submitting again.** |
 | Embedded Signup config | RUNTIME + EXTERNAL | Config ID required by the deploy gate; the popup flow must be verified in production. |
 | Informed consent before signup | CODE | **Now enforced** — `ConsentDialog` gates every path to `FB.login`. |
 | Webhook signature enforcement | CODE + RUNTIME | Enforced and tested. |
@@ -112,7 +112,9 @@ so the gate additionally requires `META_REVIEWER_LOGIN`,
 | Coexistence webhook fields | RUNTIME + EXTERNAL | Keep `META_ENABLE_COEXISTENCE=false` until the three fields are subscribed and one real onboarding is done. |
 | Privacy / Terms / Data Deletion URLs | CODE + EXTERNAL | Pages exist and resolve; the dashboard values must be set to match. |
 | Reviewer credentials | RUNTIME | The gate can enforce their presence; a human must confirm the login works in a private window. |
-| Reviewer walkthrough video | EXTERNAL | Record only after the exact production deployment passes end to end. |
+| Reviewer walkthrough video | EXTERNAL | **One per permission, not one for the app.** Reuse across permissions is explicitly disallowed. See § Screencasts below. |
+| Access Verification | EXTERNAL | A separate step *after* App Review, not part of it. See § After approval below. |
+| App icon, category, public Privacy Policy URL | EXTERNAL | Prerequisites checked before the request is accepted at all. The policy URL must be publicly reachable. |
 | Embedded Signup v4 migration | CODE + EXTERNAL | **Dated.** Meta deprecates Embedded Signup v2 on 2026-10-15, and the `coex` feature type does not migrate automatically. This repo sends the v3-shaped flow. See `COEXISTENCE.md` § Embedded Signup v4. |
 
 ---
@@ -276,8 +278,57 @@ Still outstanding from this move, and each of them external to the code:
   periods is a legal and commercial decision, and the first sweep is
   irreversible.
 
+## Screencasts — one per permission
+
+Meta asks for a video screencast **per permission**, and says plainly: do not
+reuse the same video across multiple permissions. A single product tour
+attached three times is not a submission, and reads as one.
+
+| Permission | What its video must show |
+|---|---|
+| `whatsapp_business_messaging` | The app sending a message to a **real** WhatsApp number through the Send API, with proof of delivery or receipt on the receiving device. |
+| `whatsapp_business_management` | A message template being **created** — through the Graph API or in the app's own UI. |
+| `business_management` | A clear business justification for managing business assets on behalf of client businesses. This one is carried by the written justification; see `APP_REVIEW_SUBMISSION_TEXT.md`. |
+
+`docs/videos/` holds 25 scripts, and **neither of the two videos App Review
+actually requires is among them**. The closest, `24-template-rejection-reasons.md`,
+covers why a template gets rejected rather than how one is created. Those
+scripts were written to explain the product to customers, which is a different
+job from proving one permission to a reviewer. Write the two that are missing
+before recording anything.
+
+## After approval: Access Verification
+
+**App Review is not the last gate.** Access Verification is a separate step
+that runs *after* the app is approved, started from Quick Start → Onboarding →
+Start verification, and takes Meta roughly five business days. It collects
+company information to confirm the business meets Tech Provider standards.
+
+Skipping it has a specific, measurable cost:
+
+- Business Verification alone: **10 new customers per rolling 7-day window.**
+- Business Verification + App Review + Access Verification: **200.**
+
+Ten a week is not a business. Plan for Access Verification as part of the
+launch, not as an afterthought discovered when the eleventh customer fails to
+onboard.
+
+**One-way door.** Requesting WhatsApp permissions permanently designates the
+app as a Tech Provider. That designation is irreversible, and Access
+Verification is required before final publication. This is not a setting to
+try out on an app you might want back for another purpose — which is also why
+Meta's own guidance says to create a dedicated app rather than reusing an
+existing one.
+
 ## Submission recommendation
 
 A successful deployment means the code and runtime gate passed. Treat the
 Meta submission as ready only when the external checklist above is also
 complete and the reviewer flow has been walked end to end by a person.
+
+Two things this document previously implied and should not have: that approval
+is the finish line, and that one walkthrough video covers the submission.
+Neither is true. The sequence is Business Verification → App Review, with a
+distinct screencast per permission → Access Verification → onboarding at
+volume. Only the second of those four is what this repository has been
+preparing for.
