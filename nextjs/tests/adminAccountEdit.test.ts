@@ -47,6 +47,33 @@ describe('may an admin edit write to the account', () => {
   });
 });
 
+describe('the admin form gate, which shares this rule', () => {
+  // The form preloads the stored ids and cannot preload the token, so this is
+  // the state it is in for every user who already has an account. Reading
+  // "any id present without a token" as a reason to refuse left the Update
+  // button permanently disabled — the server rule and the form rule have to
+  // be the same rule, and now are.
+  const preloadedForm = {
+    hasExistingAccount: true,
+    accessToken: '',
+    phoneNumberId: PHONE_NUMBER_ID,
+    businessAccountId: APP_ID,
+    wabaId: APP_ID,
+  };
+
+  it('lets the form submit an existing account with no token typed', () => {
+    expect(canWriteWhatsAppAccount(preloadedForm)).toBe(true);
+  });
+
+  it('lets the form submit once the WABA id is corrected in place', () => {
+    expect(canWriteWhatsAppAccount({ ...preloadedForm, wabaId: REAL_WABA })).toBe(true);
+  });
+
+  it('still holds the form back when a new account is being created without a token', () => {
+    expect(canWriteWhatsAppAccount({ ...preloadedForm, hasExistingAccount: false })).toBe(false);
+  });
+});
+
 describe('what the ids become after an edit', () => {
   // The state found in production: the Meta App ID stored as the WABA.
   const stored = { phoneNumberId: PHONE_NUMBER_ID, businessAccountId: APP_ID, wabaId: APP_ID };
