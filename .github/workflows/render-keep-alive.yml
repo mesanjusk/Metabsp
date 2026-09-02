@@ -6,20 +6,38 @@ name: Render keep-alive
 # project never hits a cold start. This does not touch WhatsApp/Meta at all
 # — it's plain HTTP GETs.
 #
-# Runs every 12 minutes, but only 7:00 AM-11:00 PM IST (Asia/Kolkata, UTC+5:30
-# — India does not observe DST, so this offset is fixed year-round). GitHub
-# Actions cron is UTC-only, so the three schedule entries below are the same
-# window converted to UTC (01:30-17:30), with the 12-minute tick offset by
-# +6 minutes so the 7:00 AM/11:00 PM boundaries land exactly on a tick
-# instead of being rounded off:
-#   - hour 1  (01:xx UTC): only the ticks at/after 01:30 (07:00 AM IST)
-#   - hours 2-16 UTC: every 12 minutes, the full hour
-#   - hour 17 (17:xx UTC): only the ticks at/before 17:30 (11:00 PM IST)
+# Every 12 minutes, around the clock.
+#
+# This used to run only 07:00-23:00 IST, which left the service asleep for
+# eight hours every night. That is not a quiet period for a WhatsApp BSP: an
+# inbound customer message arriving at 02:00 IST hit a ~60-second cold start,
+# and Meta counts a webhook that slow as a failure — enough of them and it
+# disables the subscription. It also put the dead zone squarely inside US
+# working hours, which is when a Meta App Review reviewer would open the
+# dashboard.
+#
+# BEFORE RELYING ON THIS, read the instance-hour arithmetic, because getting
+# it wrong suspends the service rather than merely slowing it:
+#
+#   Render's free tier grants 750 instance-hours per month PER WORKSPACE, and
+#   a calendar month is ~730-744 hours. A service kept awake around the clock
+#   therefore consumes very nearly the entire workspace allowance on its own.
+#   Any other non-suspended free service in the same workspace pushes the
+#   total past 750, at which point Render suspends EVERY free service in that
+#   workspace until the 1st — this one included, potentially mid-review.
+#
+#   So this schedule is only safe in a workspace where this service is
+#   effectively alone. If it shares a workspace with other free services,
+#   either suspend them or narrow this schedule back to a daytime window and
+#   accept the nightly cold starts.
+#
+# GitHub Actions cron is also best-effort — a scheduled run can be delayed
+# under load, and GitHub disables schedules on a repository with no activity
+# for 60 days. A second external pinger (cron-job.org, UptimeRobot) is worth
+# having as a backstop; both are free and more punctual than Actions.
 on:
   schedule:
-    - cron: '30,42,54 1 * * *'
-    - cron: '6,18,30,42,54 2-16 * * *'
-    - cron: '6,18,30 17 * * *'
+    - cron: '*/12 * * * *'
   workflow_dispatch: {}
 
 # Set this to the deployed service URL. The old value here was a legacy

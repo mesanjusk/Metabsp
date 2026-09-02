@@ -39,7 +39,17 @@ services:
     # Config gate, then typecheck, then the test suite, then the build. Each
     # fails the deploy on its own, so a broken deployment never reaches Meta's
     # webhook — an endpoint Meta disables if it stays unhealthy.
-    buildCommand: node ../scripts/meta-deploy-check.js && npm ci && npm run typecheck && npm test && npm run build
+    #
+    # `--include=dev` is load-bearing: NODE_ENV=production is set below, and a
+    # plain `npm ci` under it omits devDependencies — so `npm test` died with
+    # "sh: 1: vitest: not found" before running a single test. The gate had
+    # already passed at that point, which is the dangerous shape of this bug:
+    # it reads as a configuration failure when it is an install failure. It
+    # went unnoticed because the service this replaces built with
+    # `npm install && npm run build` and never ran the suite at all, and
+    # because CI does not set NODE_ENV. Runtime is unaffected either way —
+    # nextjs/package.json's `start` sets NODE_ENV=production itself.
+    buildCommand: node ../scripts/meta-deploy-check.js && npm ci --include=dev && npm run typecheck && npm test && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
