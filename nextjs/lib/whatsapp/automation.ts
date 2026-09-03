@@ -95,6 +95,27 @@ export const normalizeWorkflowPayload = (payload: any = {}) => ({
 });
 
 // Auto-reply rules predate per-account ownership, so unowned rows stay visible.
+/**
+ * The rules a user owns, and the legacy rules nobody owns.
+ *
+ * Both are Mongoose filters against AutoReply, whose `userId` is an ObjectId —
+ * which is the whole point of this living here rather than inline. A filter
+ * had a `{ userId: '' }` clause in it: unmatchable, because an empty string
+ * cannot be stored in an ObjectId field, and uncastable, so Mongoose threw
+ * CastError and the route answered 500. It sat in the branch taken only when a
+ * user owns no rules at all, so the screen failed for precisely the accounts
+ * that had never used the feature — a brand-new signup among them.
+ *
+ * `{ userId: null }` matches documents where the field is null *or* absent, so
+ * it covers the pre-ownership rows on its own.
+ */
+export const ownedAutoReplyFilter = (userId: string, accountContext: any) => ({
+  userId,
+  ...(accountContext?.account?._id ? { whatsappAccountId: accountContext.account._id } : {}),
+});
+
+export const unownedAutoReplyFilter = () => ({ userId: null });
+
 export const autoReplyScopeFilter = (userId: string, accountContext: any) => ({
   $or: [
     { userId, ...(accountContext?.account?._id ? { whatsappAccountId: accountContext.account._id } : {}) },
