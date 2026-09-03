@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import { resolveCurrentWhatsAppAccountForUser } from '@/lib/whatsapp/currentAccount';
 import Message from '@/lib/models/Message';
+import { hydrateLegacyTemplateMessages } from '@/lib/whatsapp/templates';
 
 // Ported from backend/src/controllers/whatsappController.js's getMessages.
 //
@@ -34,10 +35,15 @@ export async function GET(req: NextRequest) {
       Message.countDocuments(filter),
     ]);
 
+    // Template rows saved before sends recorded their rendered text hold only
+    // the template's name; render what can still be recovered so old threads
+    // read as messages rather than as identifiers.
+    const hydrated = await hydrateLegacyTemplateMessages(data, accountContext);
+
     return NextResponse.json({
       success: true,
-      data,
-      pagination: { page, limit, total, hasMore: skip + data.length < total },
+      data: hydrated,
+      pagination: { page, limit, total, hasMore: skip + hydrated.length < total },
     });
   } catch (error) {
     return errorResponse(error, 'Failed to load messages');

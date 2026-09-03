@@ -36,6 +36,14 @@ const messageSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     whatsappAccountId: { type: Schema.Types.ObjectId, ref: 'WhatsAppAccount', index: true },
 
+    // A template send stores the words it delivered in `body`/`message`/`text`
+    // like any other message; these keep the template it came from, so the
+    // thread can render header/body/footer as separate parts and a rendered row
+    // is still traceable back to its template.
+    templateName: String,
+    templateLanguage: String,
+    templateParts: Schema.Types.Mixed,
+
     interactiveType: String,
     replyId: String,
     replyTitle: String,

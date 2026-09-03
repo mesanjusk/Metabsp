@@ -41,7 +41,7 @@ const getMessageType = (message) => {
 
   const resolved = String(candidates[0] || 'text').toLowerCase();
 
-  if (['image', 'video', 'audio', 'document', 'sticker', 'text'].includes(resolved)) {
+  if (['image', 'video', 'audio', 'document', 'sticker', 'text', 'template'].includes(resolved)) {
     return resolved;
   }
 

@@ -4,6 +4,7 @@ import Message from '../models/Message';
 import CampaignMessageStatus from '../models/CampaignMessageStatus';
 import { emitNewMessage } from '../socket/emitter';
 import { validateWhatsAppConfig, classifyWhatsAppApiError } from '../services/whatsappHealthService';
+import { renderSentTemplate } from './templates';
 
 // Ported from backend/src/controllers/whatsappController.js (lines ~1-305):
 // callWhatsAppMessagesApi, saveAndEmitMessage, dispatchTextMessage,
@@ -154,20 +155,32 @@ export const dispatchTemplateMessage = async ({
   );
 
   const messageId = data?.messages?.[0]?.id || '';
+
+  // After the send, never before it: resolving the template's text is what the
+  // inbox needs, not what the recipient needs, so it must not add latency to
+  // the Graph call that actually delivers the message — nor fail it.
+  const rendered = await renderSentTemplate({ accountContext, templateName, language, components });
+
   await saveAndEmitMessage({
     userId,
     whatsappAccountId: accountContext?.account?._id,
     fromMe: true,
     from: accountContext.phoneNumberId || '',
     to: normalizedTo,
-    message: templateName,
-    body: templateName,
-    text: templateName,
+    message: rendered.text,
+    body: rendered.text,
+    text: rendered.text,
     timestamp: new Date(),
     time: new Date(),
     status: 'sent',
     direction: 'outgoing',
     type: 'template',
+    // Kept alongside the flattened text so the thread can show the template's
+    // header, body and footer as their own parts, and so a row stays traceable
+    // to the template it came from once the text has been rendered away.
+    templateName,
+    templateLanguage: language,
+    ...(rendered.parts ? { templateParts: rendered.parts } : {}),
     messageId,
   });
 
