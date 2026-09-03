@@ -17,6 +17,10 @@ const formatMessageTime = (timestamp) => {
 
 const getMessageType = (message) => {
   const resolved = String(message?.messageType || message?.type || message?.payloadType || message?.contentType || 'text').toLowerCase();
+  // Templates used to fall through to 'text', which is why a sent template
+  // rendered as the bare `order_ready` line it was stored as. They have their
+  // own shape — header, body, footer, buttons — and their own branch.
+  if (resolved === 'template') return 'template';
   if (resolved.includes('image')) return 'image';
   if (resolved.includes('video')) return 'video';
   if (resolved.includes('audio')) return 'audio';
