@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, IconButton, InputAdornment, Paper, Stack, TextField, Tooltip, Typography,
+  Alert, AlertTitle, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+  IconButton, InputAdornment, Paper, Stack, TextField, Tooltip, Typography,
 } from '@mui/material';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
@@ -30,6 +31,8 @@ export default function MetaWebhookConfigPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [tokenVisible, setTokenVisible] = useState(false);
+  const [confirmRepoint, setConfirmRepoint] = useState(false);
+  const [isRepointing, setIsRepointing] = useState(false);
 
   const load = async () => {
     setIsLoading(true);
@@ -45,6 +48,23 @@ export default function MetaWebhookConfigPanel() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const repoint = async () => {
+    setIsRepointing(true);
+    try {
+      const response = await apiClient.post('/api/whatsapp/meta-webhook-config');
+      toast.success(response?.data?.message || 'Meta webhook updated.');
+      setConfirmRepoint(false);
+      await load();
+    } catch (err) {
+      setError(parseApiError(err, 'Could not update the webhook subscription.'));
+    } finally {
+      setIsRepointing(false);
+    }
+  };
+
+  const comparison = config?.comparison || null;
+  const metaUrl = config?.meta?.callbackUrl || '';
 
   const maskedToken = config?.verifyToken
     ? (tokenVisible ? config.verifyToken : '•'.repeat(Math.min(24, config.verifyToken.length)))
@@ -70,6 +90,41 @@ export default function MetaWebhookConfigPanel() {
           <Alert severity="info">
             WHATSAPP_WEBHOOK_VERIFY_TOKEN isn't set on the server yet. Set it in Render's environment
             variables, then use the same value here and in Meta's dashboard.
+          </Alert>
+        ) : null}
+
+        {comparison?.state === 'elsewhere' ? (
+          <Alert severity="error">
+            <AlertTitle>Meta is delivering somewhere else</AlertTitle>
+            {comparison.reason} Use the button below to point it here.
+          </Alert>
+        ) : null}
+
+        {comparison?.state === 'unset' ? (
+          <Alert severity="error">
+            <AlertTitle>Meta has no callback URL for this app</AlertTitle>
+            No inbound message can arrive until one is set.
+          </Alert>
+        ) : null}
+
+        {comparison?.state === 'same_host' ? (
+          <Alert severity="warning">{comparison.reason}</Alert>
+        ) : null}
+
+        {comparison?.state === 'match' && config?.meta?.active ? (
+          <Alert severity="success">{comparison.reason}</Alert>
+        ) : null}
+
+        {config?.meta?.status === 'ok' && !config?.meta?.active ? (
+          <Alert severity="error">
+            <AlertTitle>Meta has marked this subscription inactive</AlertTitle>
+            It stops delivering while that is true, however the URL and fields are set.
+          </Alert>
+        ) : null}
+
+        {config?.meta?.status && config.meta.status !== 'ok' ? (
+          <Alert severity="warning">
+            Could not read what Meta currently holds: {config.meta.reason || 'no reason given'}
           </Alert>
         ) : null}
 
@@ -113,7 +168,44 @@ export default function MetaWebhookConfigPanel() {
             ),
           }}
         />
+
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Button
+            variant={comparison?.state === 'elsewhere' || comparison?.state === 'unset' ? 'contained' : 'outlined'}
+            color={comparison?.state === 'elsewhere' || comparison?.state === 'unset' ? 'error' : 'primary'}
+            onClick={() => setConfirmRepoint(true)}
+            disabled={isLoading || isRepointing || !config?.verifyToken}
+          >
+            Point Meta at this deployment
+          </Button>
+          <Typography variant="caption" color="text.secondary">
+            Writes the subscription through the Graph API rather than the dashboard form.
+          </Typography>
+        </Stack>
       </Stack>
+
+      <Dialog open={confirmRepoint} onClose={() => (isRepointing ? null : setConfirmRepoint(false))} fullWidth maxWidth="sm">
+        <DialogTitle>Point Meta at this deployment?</DialogTitle>
+        <DialogContent>
+          <DialogContentText component="div">
+            <Typography variant="body2" sx={{ mb: 1.5 }}>
+              Meta currently delivers to <strong>{metaUrl || '(nothing)'}</strong>. This changes it to{' '}
+              <strong>{config?.callbackUrl}</strong>.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              This affects the whole Meta app, not one user — Meta stores a single callback URL. Anything else
+              relying on the old URL stops receiving WhatsApp webhooks. Meta verifies the new URL before storing
+              it, so a wrong verify token fails here rather than quietly later.
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmRepoint(false)} disabled={isRepointing}>Cancel</Button>
+          <Button variant="contained" onClick={repoint} disabled={isRepointing}>
+            {isRepointing ? 'Updating…' : 'Point it here'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }
