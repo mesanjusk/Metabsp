@@ -216,6 +216,8 @@ export const updateManagedUser = (id, payload) =>
     },
   });
 
+export const deleteManagedUser = (id) => apiClient.delete(`/api/users/manage/${id}`);
+
 export const whatsappCloudService = {
   sendTextMessage: sendWhatsAppTextMessage,
   sendTemplateMessage: sendWhatsAppTemplateMessage,
@@ -238,6 +240,7 @@ export const whatsappCloudService = {
   fetchManagedUsers,
   createManagedUser,
   updateManagedUser,
+  deleteManagedUser,
   activateAccount: activateWhatsAppAccount,
   disconnectAccount: disconnectWhatsAppAccount,
   deleteAccount: deleteWhatsAppAccount,

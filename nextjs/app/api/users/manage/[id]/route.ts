@@ -10,6 +10,7 @@ import { assertPhoneNumberAvailable, sanitizeAccount } from '@/lib/services/what
 import { canWriteWhatsAppAccount, resolveAccountIds } from '@/lib/services/adminAccountEdit';
 import { normalizeAccountMobile, isPlausibleMobile, mobileLookupCandidates } from '@/lib/utils/accountMobile';
 import { encryptSensitiveValue } from '@/lib/utils/crypto';
+import { recordAuditEvent } from '@/lib/services/auditLogService';
 import logger from '@/lib/utils/logger';
 
 // Ported from backend/src/routes/Users.js's PUT /manage/:id.
@@ -166,5 +167,77 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
     return errorResponse(error, 'Failed to update user.');
+  }
+}
+
+/**
+ * Remove a sign-in account and the WhatsApp account attached to it.
+ *
+ * The WhatsApp rows go with the user rather than being orphaned, because a
+ * row nobody owns is worse than no row: inbound webhooks resolve a number by
+ * phone_number_id across every account, so a stale row keeps competing to
+ * answer for a number long after the person it belonged to is gone. That is
+ * not hypothetical — a duplicate account left behind by an earlier edit is
+ * exactly what kept a corrected WABA id from taking effect.
+ *
+ * An admin cannot delete themselves. Not a policy nicety: the panel is the
+ * only place these accounts can be managed, and an admin who removes their
+ * own sign-in locks everyone out of it with no way back in.
+ */
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await connectDB();
+    const authed = await requireAuth(req);
+    requireAdmin(authed);
+
+    const { id } = await params;
+
+    if (String(id) === String(authed.id)) {
+      return NextResponse.json(
+        { success: false, message: 'You cannot delete the account you are signed in with.' },
+        { status: 400 }
+      );
+    }
+
+    const user: any = await User.findById(id);
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'User not found.' }, { status: 404 });
+    }
+
+    const accounts: any[] = await WhatsAppAccount.find({ userId: user._id })
+      .select('_id phoneNumberId wabaId')
+      .lean();
+
+    await WhatsAppAccount.deleteMany({ userId: user._id });
+    await User.deleteOne({ _id: user._id });
+
+    // Worth a line of its own: this is how a phone number stops being claimed
+    // by two accounts, and the numbers are what someone will search for when
+    // they wonder where a connection went.
+    logger.info(
+      `[admin] Deleted user ${user._id} and ${accounts.length} WhatsApp account(s): ` +
+        accounts.map((a) => `phone_number_id ${a.phoneNumberId || 'none'} / WABA ${a.wabaId || 'none'}`).join('; ')
+    );
+
+    recordAuditEvent({
+      req: req as any,
+      userId: authed.id,
+      action: 'user.delete',
+      resource: 'user',
+      resourceId: user._id,
+      metadata: {
+        deletedMobile: user.mobile || '',
+        whatsappAccountsRemoved: accounts.length,
+        phoneNumberIds: accounts.map((a) => a.phoneNumberId).filter(Boolean),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `User removed, along with ${accounts.length} connected WhatsApp account(s).`,
+      whatsappAccountsRemoved: accounts.length,
+    });
+  } catch (error) {
+    return errorResponse(error, 'Failed to delete user');
   }
 }
