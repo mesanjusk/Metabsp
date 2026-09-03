@@ -70,7 +70,11 @@ export default function WhatsAppAccountsAdminPanel() {
     try {
       const response = await apiClient.patch(
         `/api/whatsapp/admin/accounts/${repairing.id}`,
-        { wabaId: repairWabaId.trim(), businessAccountId: repairWabaId.trim() },
+        // Only the WABA id. Sending it as businessAccountId too would
+        // overwrite a valid business portfolio id with a different kind of
+        // node — and that field is what the manual-connect validation later
+        // reads /owned_whatsapp_business_accounts from.
+        { wabaId: repairWabaId.trim() },
         { headers: { 'Content-Type': 'application/json' } }
       );
       toast.success(response?.data?.message || 'WABA id updated.');

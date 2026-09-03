@@ -7,9 +7,23 @@ let accountRows: any[] = [];
 let userRows: any[] = [];
 const deletedIds: any[] = [];
 
+const liveRows = () => accountRows.filter((a) => a.status !== 'disconnected' && a.phoneNumberId);
+
 vi.mock('@/lib/models/WhatsAppAccount', () => ({
   default: {
     find: () => ({ select: () => ({ sort: () => ({ limit: () => ({ lean: async () => accountRows }) }) }) }),
+    countDocuments: async () => accountRows.length,
+    // Stands in for the $group/$match pipeline: numbers claimed by more than
+    // one row that could actually answer a webhook.
+    aggregate: async () => {
+      const counts = liveRows().reduce<Record<string, number>>((acc, a) => {
+        acc[a.phoneNumberId] = (acc[a.phoneNumberId] || 0) + 1;
+        return acc;
+      }, {});
+      return Object.entries(counts)
+        .filter(([, count]) => count > 1)
+        .map(([_id, count]) => ({ _id, count }));
+    },
     findById: (id: string) => ({
       select: () => ({ lean: async () => accountRows.find((a) => String(a._id) === String(id)) || null }),
     }),
@@ -81,6 +95,31 @@ describe('the account-level admin listing', () => {
 
     expect(body.summary.duplicateNumbers).toEqual([]);
     expect(body.data[0].duplicateNumber).toBe(false);
+  });
+
+  it('does not call a released row a duplicate', async () => {
+    // A number given up by one user and reconnected by another leaves the old
+    // row behind as disconnected, and the webhook lookup skips those. Flagging
+    // that pair would send someone to delete a row that is already inert.
+    accountRows = [
+      { _id: 'acct-live', userId: 'user-1', phoneNumberId: PHONE, wabaId: REAL_WABA, isActive: true, status: 'active' },
+      { _id: 'acct-released', userId: 'user-1', phoneNumberId: PHONE, wabaId: REAL_WABA, isActive: false, status: 'disconnected' },
+    ];
+
+    const body = await list();
+
+    expect(body.summary.duplicateNumbers).toEqual([]);
+    expect(body.data.every((a: any) => a.duplicateNumber === false)).toBe(true);
+  });
+
+  it('reports the whole collection, not just the page it listed', async () => {
+    const body = await list();
+
+    // total counts every row; listed says how many came back, so a deployment
+    // past the cap is told rather than shown a subset described as everything.
+    expect(body.summary.total).toBe(accountRows.length);
+    expect(body.summary.listed).toBe(body.data.length);
+    expect(body.summary.truncated).toBe(false);
   });
 });
 

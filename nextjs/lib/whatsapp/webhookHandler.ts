@@ -9,7 +9,6 @@ import Contact from '../models/Contact';
 import CampaignMessageStatus from '../models/CampaignMessageStatus';
 import {
   loadWhatsAppAccountFromWebhookIdentifiers,
-  loadWhatsAppAccountByPhoneNumberId,
 } from '../services/whatsappAccountService';
 import { uploadWhatsAppMediaToCloudinary } from '../services/whatsappMediaService';
 import { resolveAutoReplyAction, resolveReplyDelayMs } from '../services/autoReplyService';
@@ -396,9 +395,13 @@ export async function processWebhookEnvelope(body: any): Promise<void> {
       // guarantee it completes otherwise. This is the single biggest
       // execution-time contributor per message; see the maxDuration
       // export below and docs/NEXTJS_MIGRATION_AUDIT_AND_PLAN.md §1.2.
-      if (!isDuplicate && payload.mediaId && matchedAccount?.accessTokenEncrypted) {
+      // Keyed off the already-resolved context rather than re-reading the row
+      // and re-checking accessTokenEncrypted: a legacy-env match has a usable
+      // token and no encrypted field, so the old guard skipped media on
+      // exactly the deployments the fallback above is for.
+      if (!isDuplicate && payload.mediaId) {
         try {
-          const accountContext: any = await loadWhatsAppAccountByPhoneNumberId(payload.phoneNumberId, { requireAccount: false });
+          const accountContext: any = matchedAccountContext;
           if (accountContext?.accessToken) {
             const uploaded = await uploadWhatsAppMediaToCloudinary({
               mediaId: payload.mediaId,

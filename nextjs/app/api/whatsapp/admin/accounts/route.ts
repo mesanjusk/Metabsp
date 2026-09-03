@@ -29,13 +29,19 @@ export async function GET(req: NextRequest) {
     const authed = await requireAuth(req);
     requireAdmin(authed);
 
-    const accounts: any[] = await WhatsAppAccount.find({})
-      .select(
-        '_id userId phoneNumberId displayPhoneNumber verifiedName wabaId businessAccountId status isActive webhookSubscribed connectionMode lastWebhookAt lastSyncAt createdAt'
-      )
-      .sort({ isActive: -1, updatedAt: -1 })
-      .limit(200)
-      .lean();
+    // A page of rows to show, and a count of how many there are, so a
+    // deployment past the cap is told rather than silently shown a subset.
+    const LIST_LIMIT = 500;
+    const [accounts, totalAccounts] = await Promise.all([
+      WhatsAppAccount.find({})
+        .select(
+          '_id userId phoneNumberId displayPhoneNumber verifiedName wabaId businessAccountId status isActive webhookSubscribed connectionMode lastWebhookAt lastSyncAt createdAt'
+        )
+        .sort({ isActive: -1, updatedAt: -1 })
+        .limit(LIST_LIMIT)
+        .lean(),
+      WhatsAppAccount.countDocuments({}),
+    ]);
 
     // One query for the owners rather than one per account, and a missing
     // owner is reported as such: an account whose user is gone is precisely
@@ -46,14 +52,24 @@ export async function GET(req: NextRequest) {
       : [];
     const ownerById = new Map(owners.map((o: any) => [String(o._id), o]));
 
-    // Which numbers are claimed by more than one row. This is the finding the
-    // whole screen exists for, so it is computed here rather than left for the
-    // reader to spot by eye.
-    const countsByNumber = accounts.reduce<Record<string, number>>((acc, a) => {
-      const key = String(a.phoneNumberId || '');
-      if (key) acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
+    // Which numbers are claimed by more than one row — the finding the whole
+    // screen exists for, so it is computed rather than left to be spotted by
+    // eye. Two things it has to get right:
+    //
+    //   - Only rows that could actually answer count. A number released by one
+    //     user and reconnected by another leaves the old row behind as
+    //     `disconnected`, and the webhook lookup skips those — calling that a
+    //     dangerous duplicate would send someone to delete a row that is
+    //     already inert.
+    //   - It runs over the whole collection, not the page above. A duplicate
+    //     pair split across the listing cap is exactly the case this screen
+    //     exists to catch, and counting only what was listed would miss it.
+    const duplicateRows: any[] = await WhatsAppAccount.aggregate([
+      { $match: { status: { $ne: 'disconnected' }, phoneNumberId: { $nin: [null, ''] } } },
+      { $group: { _id: '$phoneNumberId', count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } },
+    ]);
+    const duplicateNumbers = new Set(duplicateRows.map((row: any) => String(row._id)));
 
     const data = accounts.map((account: any) => {
       const owner = ownerById.get(String(account.userId || ''));
@@ -75,7 +91,10 @@ export async function GET(req: NextRequest) {
         // True when the owning user no longer exists. Nothing in the per-user
         // screens can reach such a row, which is why it can be deleted here.
         orphaned: Boolean(account.userId) && !owner,
-        duplicateNumber: (countsByNumber[String(account.phoneNumberId || '')] || 0) > 1,
+        // Mirrors the webhook's own filter: a disconnected row is not
+        // competing for anything.
+        duplicateNumber:
+          account.status !== 'disconnected' && duplicateNumbers.has(String(account.phoneNumberId || '')),
       };
     });
 
@@ -83,10 +102,14 @@ export async function GET(req: NextRequest) {
       success: true,
       data,
       summary: {
-        total: data.length,
+        total: totalAccounts,
+        listed: data.length,
+        truncated: totalAccounts > data.length,
         active: data.filter((a) => a.isActive).length,
         orphaned: data.filter((a) => a.orphaned).length,
-        duplicateNumbers: [...new Set(data.filter((a) => a.duplicateNumber).map((a) => a.phoneNumberId))],
+        // From the aggregation, so it holds for the whole collection even when
+        // the listing above is a page of it.
+        duplicateNumbers: [...duplicateNumbers],
       },
     });
   } catch (error) {

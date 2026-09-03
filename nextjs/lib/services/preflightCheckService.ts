@@ -178,10 +178,15 @@ export const checkWebhookFields = (fieldResult, { coexistenceEnabled }) => {
   return {
     id: 'webhook_fields',
     severity: fieldResult.active === false ? 'warn' : 'ok',
+    // The callback URL belongs in the summary, not just the payload. Meta
+    // stores one per app, and "the fields are subscribed" says nothing about
+    // where the deliveries are being sent — a URL pointing at a previous host
+    // or a different environment looks exactly like a healthy subscription
+    // from every other angle, and is invisible in a log line that omits it.
     summary:
       fieldResult.active === false
-        ? 'All required webhook fields are subscribed, but the subscription is marked inactive by Meta'
-        : `All required webhook fields subscribed (${required.join(', ')})`,
+        ? `All required webhook fields are subscribed, but Meta has marked the subscription INACTIVE. Callback URL: ${fieldResult.callbackUrl || '(none reported)'}`
+        : `All required webhook fields subscribed (${required.join(', ')}). Meta delivers to: ${fieldResult.callbackUrl || '(no URL reported)'}`,
     required,
     subscribed,
     missing: [],
