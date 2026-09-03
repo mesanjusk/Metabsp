@@ -3,6 +3,7 @@ import { decryptSensitiveValue } from '../utils/crypto';
 import { getGraphApiVersion as graphVersion } from '../config/graphApi';
 import WhatsAppAccount from '../models/WhatsAppAccount';
 import User from '../models/User';
+import logger from '../utils/logger';
 
 // Ported from backend/src/services/whatsappAccountService.js.
 
@@ -144,6 +145,51 @@ export const assertPhoneNumberAvailable = async ({
 
 const normalizeDigits = (value: unknown) => String(value || '').replace(/\D/g, '');
 
+// The platform's own operator. Not "an admin" — the account whose connected
+// WhatsApp number the product sends from when it is speaking for itself rather
+// than for a tenant.
+export const findPlatformOwnerId = async (): Promise<string | null> => {
+  const owner: any = await User.findOne({ eventDutyType: 'SUPER_ADMIN' })
+    .select('_id')
+    .sort({ createdAt: 1 })
+    .lean();
+  return owner?._id ? String(owner._id) : null;
+};
+
+/**
+ * The number the platform sends its own messages from — signup and
+ * password-reset OTPs, which belong to no tenant. A brand-new registrant has
+ * no 24-hour session with anybody, so these always go as templates.
+ *
+ * The connected account comes first and the environment second. It used to be
+ * the other way round, with the same credentials living in Render and in the
+ * dashboard at once — and two copies of a credential is one copy too many:
+ * correcting the dashboard changed nothing that read the environment, and the
+ * halves disagreed silently for weeks. The environment path stays only so that
+ * blanking those variables cannot take signup down with it, and says so when
+ * it is used.
+ */
+export const loadPlatformSenderAccount = async () => {
+  const ownerId = await findPlatformOwnerId();
+
+  if (ownerId) {
+    const context: any = await loadActiveWhatsAppAccountForUser(ownerId, { requireAccount: false });
+    if (context?.accessToken && context?.phoneNumberId) return context;
+  }
+
+  const legacy = resolveLegacyEnvConfig();
+  if (legacy) {
+    logger.warn(
+      '[whatsapp] Platform messages are falling back to WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID. ' +
+        'Connect the number on the admin account instead — the environment copy is deprecated and cannot be ' +
+        'corrected from any screen.'
+    );
+    return legacy;
+  }
+
+  return null;
+};
+
 // Which identifiers in an inbound envelope mean "this is the number the
 // legacy env vars describe". phoneNumberId is the reliable one — Meta puts it
 // in metadata.phone_number_id on every message, and WHATSAPP_PHONE_NUMBER_ID
@@ -167,17 +213,14 @@ export const resolveLegacyEnvWebhookContext = async ({
 
   // The same owner the send path picks: without a userId the message is saved
   // unowned, which is the state this fallback exists to prevent.
-  const owner: any = await User.findOne({ eventDutyType: 'SUPER_ADMIN' })
-    .select('_id')
-    .sort({ createdAt: 1 })
-    .lean();
-  if (!owner?._id) return null;
+  const ownerId = await findPlatformOwnerId();
+  if (!ownerId) return null;
 
   // No `_id`: there is no account row, and callers key per-account features
   // (inbound routing, auto-reply, lastWebhookAt) off one. They already guard
   // on it. What matters is that userId is set, because every inbox query is
   // scoped by userId or whatsappAccountId and this supplies the first.
-  return { ...legacy, account: { _id: null, userId: owner._id } };
+  return { ...legacy, account: { _id: null, userId: ownerId } };
 };
 
 export const loadWhatsAppAccountFromWebhookIdentifiers = async (
