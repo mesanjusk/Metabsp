@@ -101,6 +101,44 @@ describe('preflight — the per-WABA subscription at boot', () => {
   });
 });
 
+describe('preflight — where Meta actually delivers', () => {
+  it('names the callback URL in the log line, not just in the payload', async () => {
+    // "The fields are subscribed" says nothing about where deliveries go, and
+    // Meta stores one callback URL per app. A URL left pointing at a previous
+    // host looks like a healthy subscription from every other angle.
+    givenAccounts([account(1)]);
+
+    logPreflightReport(await runPreflightChecks({ includeWabaSubscriptions: false }));
+
+    expect(loggedLines()).toContainEqual(expect.stringContaining('Meta delivers to: https://x.test/webhook'));
+  });
+
+  it('says so loudly when Meta has marked the subscription inactive', async () => {
+    givenAccounts([account(1)]);
+    axiosGet.mockImplementation(async (url: string) => {
+      if (url.includes('/subscriptions')) {
+        return {
+          data: {
+            data: [
+              {
+                object: 'whatsapp_business_account',
+                fields: [{ name: 'messages' }],
+                callback_url: 'https://x.test/webhook',
+                active: false,
+              },
+            ],
+          },
+        };
+      }
+      return { data: { data: [] } };
+    });
+
+    logPreflightReport(await runPreflightChecks({ includeWabaSubscriptions: false }));
+
+    expect(loggedLines()).toContainEqual(expect.stringContaining('INACTIVE'));
+  });
+});
+
 describe('preflight — reporting an unsubscribed WABA', () => {
   it('names the WABA and its number rather than only counting them', async () => {
     givenAccounts([account(1)]);
