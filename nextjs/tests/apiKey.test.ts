@@ -34,6 +34,20 @@ describe('API key authentication', () => {
     await expect(requireApiKey(request())).rejects.toMatchObject({ statusCode: 401 });
   });
 
+  it('rejects a key whose owner no longer exists', async () => {
+    // The account-deletion path revokes keys, but this is the check that holds
+    // however the user went: requireApiKey resolves the key record first, and
+    // shared accounts are reached through teamMemberIds — so a surviving key
+    // on a deleted user could keep sending on somebody else's number.
+    const rawKey = 'mbsp_' + crypto.randomBytes(28).toString('hex');
+    findOne.mockResolvedValue({ _id: 'key-1', userId: 'deleted-user', keyHash: hashApiKey(rawKey), isActive: true });
+    userFindById.mockReturnValue(lean(null));
+
+    await expect(requireApiKey(request({ authorization: `Bearer ${rawKey}` }))).rejects.toMatchObject({
+      statusCode: 401,
+    });
+  });
+
   it('rejects an unknown key', async () => {
     findOne.mockResolvedValue(null);
     await expect(requireApiKey(request({ authorization: 'Bearer mbsp_nope' }))).rejects.toMatchObject({

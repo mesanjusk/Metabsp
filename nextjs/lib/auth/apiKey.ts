@@ -57,8 +57,16 @@ export async function requireApiKey(req: NextRequest): Promise<ApiKeyPrincipal> 
   let tenantId: string | null = null;
   try {
     const owner: any = await User.findById(record.userId).select('tenantId isActive').lean();
-    if (owner && owner.isActive === false) throw new AppError('Account is inactive', 403);
-    tenantId = owner?.tenantId || null;
+    // A key whose owner no longer exists must not authenticate. `owner` being
+    // null used to fall straight through this block to `tenantId = null` and
+    // return a valid principal, so deleting a user left their API key working
+    // — and loadActiveWhatsAppAccountForUser resolves accounts through
+    // teamMemberIds, so a deleted member could keep sending on somebody else's
+    // connected number. Revoking keys at the point of deletion is necessary
+    // and not sufficient: this is the check that holds however the user went.
+    if (!owner) throw new AppError('API key owner no longer exists', 401);
+    if (owner.isActive === false) throw new AppError('Account is inactive', 403);
+    tenantId = owner.tenantId || null;
   } catch (error) {
     if (error instanceof AppError) throw error;
     tenantId = null;

@@ -5,6 +5,8 @@ import { errorResponse } from '@/lib/http/errorResponse';
 import { sanitizeUser } from '@/lib/http/sanitizeUser';
 import { User } from '@/lib/models';
 import WhatsAppAccount from '@/lib/models/WhatsAppAccount';
+import ApiKey from '@/lib/models/ApiKey';
+import ConversationAssignment from '@/lib/models/ConversationAssignment';
 import { getGlobalRoles } from '@/lib/auth/globalRoles';
 import { assertPhoneNumberAvailable, sanitizeAccount } from '@/lib/services/whatsappAccountService';
 import { canWriteWhatsAppAccount, resolveAccountIds } from '@/lib/services/adminAccountEdit';
@@ -208,6 +210,22 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       .select('_id phoneNumberId wabaId')
       .lean();
 
+    // Everything that still grants this user access, or still points at them.
+    // Deleting the user row alone leaves three ways for them to linger:
+    //
+    //   - an API key, which authenticates against the key record rather than
+    //     the person, and which reaches shared accounts via teamMemberIds;
+    //   - membership of somebody else's account, which is what those shared
+    //     accounts are resolved through;
+    //   - conversation assignments, which the inbox reads as "assigned to
+    //     someone" — so the thread stops appearing under unassigned while
+    //     nobody remains who can work it.
+    const [apiKeys, memberships, assignments] = await Promise.all([
+      ApiKey.deleteMany({ userId: user._id }),
+      WhatsAppAccount.updateMany({ teamMemberIds: user._id }, { $pull: { teamMemberIds: user._id } }),
+      ConversationAssignment.updateMany({ assignedToUserId: user._id }, { $set: { assignedToUserId: null } }),
+    ]);
+
     await WhatsAppAccount.deleteMany({ userId: user._id });
     await User.deleteOne({ _id: user._id });
 
@@ -215,8 +233,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     // by two accounts, and the numbers are what someone will search for when
     // they wonder where a connection went.
     logger.info(
-      `[admin] Deleted user ${user._id} and ${accounts.length} WhatsApp account(s): ` +
-        accounts.map((a) => `phone_number_id ${a.phoneNumberId || 'none'} / WABA ${a.wabaId || 'none'}`).join('; ')
+      `[admin] Deleted user ${user._id}: ${accounts.length} WhatsApp account(s) ` +
+        `(${accounts.map((a) => `phone_number_id ${a.phoneNumberId || 'none'} / WABA ${a.wabaId || 'none'}`).join('; ') || 'none'}), ` +
+        `${apiKeys?.deletedCount ?? 0} API key(s) revoked, ` +
+        `${memberships?.modifiedCount ?? 0} shared-account membership(s) removed, ` +
+        `${assignments?.modifiedCount ?? 0} conversation assignment(s) cleared`
     );
 
     recordAuditEvent({
@@ -229,13 +250,21 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         deletedMobile: user.mobile || '',
         whatsappAccountsRemoved: accounts.length,
         phoneNumberIds: accounts.map((a) => a.phoneNumberId).filter(Boolean),
+        apiKeysRevoked: apiKeys?.deletedCount ?? 0,
+        sharedAccountMembershipsRemoved: memberships?.modifiedCount ?? 0,
+        conversationAssignmentsCleared: assignments?.modifiedCount ?? 0,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: `User removed, along with ${accounts.length} connected WhatsApp account(s).`,
+      message:
+        `User removed, along with ${accounts.length} connected WhatsApp account(s) ` +
+        `and ${apiKeys?.deletedCount ?? 0} API key(s).`,
       whatsappAccountsRemoved: accounts.length,
+      apiKeysRevoked: apiKeys?.deletedCount ?? 0,
+      sharedAccountMembershipsRemoved: memberships?.modifiedCount ?? 0,
+      conversationAssignmentsCleared: assignments?.modifiedCount ?? 0,
     });
   } catch (error) {
     return errorResponse(error, 'Failed to delete user');
