@@ -75,6 +75,33 @@ export async function checkTokenDecryptability(): Promise<{
  * already told Meta it received. `noeviction` makes a full Redis refuse new
  * writes instead, which surfaces as an error someone can act on.
  */
+/**
+ * Is Redis reachable at all — asked with PING, which no provider blocks.
+ *
+ * The policy check below cannot answer this, and reading it as though it could
+ * is how a healthy Redis got reported as an outage for hours. Render, Upstash
+ * and ElastiCache all hide CONFIG; when a provider hides it by not answering
+ * rather than by refusing, `redis.config('GET', …)` never settles — ioredis is
+ * built here with maxRetriesPerRequest:null and the offline queue on, so the
+ * command is buffered, not rejected. The timeout that follows is
+ * indistinguishable from an unreachable instance, and the boot log said
+ * "check REDIS_URL" about a URL that was correct.
+ *
+ * PING separates the two: it answers on any reachable instance, so a PONG
+ * followed by a CONFIG timeout means the provider is hiding CONFIG, and only a
+ * PING that never comes back is an outage.
+ */
+export async function checkRedisReachable(): Promise<{ reachable: boolean; reason?: string }> {
+  try {
+    const redis: any = getRedisConnection();
+    const pong = await redis.ping();
+    if (String(pong || '').toUpperCase() === 'PONG') return { reachable: true };
+    return { reachable: false, reason: `PING answered ${JSON.stringify(pong)}` };
+  } catch (error: any) {
+    return { reachable: false, reason: error?.message || 'no message' };
+  }
+}
+
 export async function checkRedisEvictionPolicy(): Promise<{
   ok: boolean;
   policy?: string;
@@ -176,15 +203,31 @@ async function reportTokenDecryptability(): Promise<void> {
 }
 
 async function reportRedisEvictionPolicy(): Promise<void> {
+  // PING first. Everything below this line is about the eviction policy, and
+  // none of it can tell a blocked command from a dead instance — see
+  // checkRedisReachable.
+  const reachable = await withTimeout(
+    checkRedisReachable(),
+    REDIS_CHECK_TIMEOUT_MS,
+    () => ({ reachable: false, reason: `PING got no answer within ${REDIS_CHECK_TIMEOUT_MS}ms` })
+  );
+
+  if (!reachable.reachable) {
+    logger.warn(
+      `[self-check] Redis did not answer PING (${reachable.reason || 'no reason given'}). ` +
+        'While that holds, inbound webhooks fall back to inline processing and queued sends do not drain. ' +
+        'Check REDIS_URL and that the instance is running — this is not about the eviction policy.'
+    );
+    return;
+  }
+
   const redis = await withTimeout<RedisPolicyResult>(
     checkRedisEvictionPolicy(),
     REDIS_CHECK_TIMEOUT_MS,
-    () => ({
-      ok: true,
-      unverified: true,
-      unreachable: true,
-      reason: `No answer within ${REDIS_CHECK_TIMEOUT_MS}ms`,
-    })
+    // PING already answered, so a CONFIG that does not is the provider hiding
+    // it silently rather than refusing it with an error — same situation as
+    // the NOPERM reply, and reported the same way.
+    () => ({ ok: true, unverified: true, blocked: true, reason: 'CONFIG GET got no answer' })
   );
 
   if (!redis.ok) {
@@ -192,21 +235,6 @@ async function reportRedisEvictionPolicy(): Promise<void> {
       `[self-check] Redis maxmemory-policy is "${redis.policy}", not "noeviction". ` +
         'Queued inbound webhooks and outbound sends can be evicted under memory pressure — ' +
         'that is silent customer message loss. Change it in your Redis provider.'
-    );
-    return;
-  }
-
-  // Silence at boot is not a Redis that answered — it is a Redis that did not.
-  // These two used to share one message about the eviction policy, which made
-  // an unreachable instance read as a provider quirk. That is backwards: an
-  // unread policy is a thing to confirm once in a dashboard, while a Redis
-  // that never answers means nothing is draining the webhook queue right now.
-  // The louder of the two was being reported as the quieter.
-  if ((redis as any).unreachable) {
-    logger.warn(
-      `[self-check] Redis did not answer within ${REDIS_CHECK_TIMEOUT_MS}ms. ` +
-        'While that holds, inbound webhooks fall back to inline processing and queued sends do not drain. ' +
-        'Check REDIS_URL and that the instance is running — this is not about the eviction policy.'
     );
     return;
   }

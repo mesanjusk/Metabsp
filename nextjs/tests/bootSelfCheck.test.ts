@@ -16,7 +16,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
  */
 
 const config = vi.fn();
-vi.mock('@/lib/db/redis', () => ({ getRedisConnection: () => ({ config }) }));
+const ping = vi.fn();
+vi.mock('@/lib/db/redis', () => ({ getRedisConnection: () => ({ config, ping }) }));
 
 const lean = vi.fn();
 vi.mock('@/lib/models/WhatsAppAccount', () => ({
@@ -44,10 +45,14 @@ function loggedLines(): string[] {
   return [...info.mock.calls, ...warn.mock.calls, ...error.mock.calls].map((call) => String(call[0]));
 }
 
-/** Drives the run to completion, pushing past the Redis probe's timeout. */
+/**
+ * Drives the run to completion, pushing past both Redis probes' timeouts.
+ * PING and CONFIG are bounded separately and run in sequence, so one timeout's
+ * worth of fake time is no longer enough to finish the run.
+ */
 async function runPastRedisTimeout(): Promise<void> {
   const done = runBootSelfCheck();
-  await vi.advanceTimersByTimeAsync(6_000);
+  await vi.advanceTimersByTimeAsync(12_000);
   await done;
 }
 
@@ -57,7 +62,9 @@ beforeEach(() => {
   warn.mockClear();
   error.mockClear();
   config.mockClear();
+  ping.mockClear();
   lean.mockClear();
+  ping.mockImplementation(async () => 'PONG');
   lean.mockImplementation(async () => [{ _id: '1', accessTokenEncrypted: 'cipher' }]);
   config.mockImplementation(async () => ['maxmemory-policy', 'noeviction']);
 });
@@ -69,19 +76,21 @@ afterEach(() => {
 describe('boot self-check', () => {
   it('still reports the encryption key when Redis never answers', async () => {
     // Exactly what an unreachable instance looks like from ioredis: no
-    // resolution, no rejection, just a promise that never settles.
-    config.mockImplementation(() => new Promise<never>(() => {}));
+    // resolution, no rejection, just a promise that never settles. It has to
+    // be PING that hangs — a CONFIG that hangs behind a PONG is a provider
+    // hiding CONFIG, which is a different thing entirely.
+    ping.mockImplementation(() => new Promise<never>(() => {}));
 
     await runPastRedisTimeout();
 
     expect(loggedLines()).toContainEqual(
       expect.stringContaining('Token encryption key verified against 1 stored account(s)')
     );
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Redis did not answer'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Redis did not answer PING'));
   });
 
   it('still reports an unreadable encryption key when Redis never answers', async () => {
-    config.mockImplementation(() => new Promise<never>(() => {}));
+    ping.mockImplementation(() => new Promise<never>(() => {}));
     lean.mockImplementation(async () => [{ _id: '1', accessTokenEncrypted: 'undecryptable' }]);
 
     await runPastRedisTimeout();
@@ -136,15 +145,57 @@ describe('boot self-check', () => {
     // These shared one message before, so an instance that answered nothing
     // read as a provider quirk. It is the more serious of the two: while it
     // holds, nothing drains the webhook queue.
-    config.mockImplementation(() => new Promise<never>(() => {}));
+    ping.mockImplementation(() => new Promise<never>(() => {}));
 
     await runPastRedisTimeout();
 
     const lines = loggedLines();
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Redis did not answer'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Redis did not answer PING'));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('queued sends do not drain'));
     // The old message blamed the eviction policy for a reachability failure.
     expect(lines).not.toContainEqual(expect.stringContaining('Could not verify the Redis eviction policy'));
+  });
+
+  it('does not call a live Redis unreachable because CONFIG went unanswered', async () => {
+    // The bug this rewrite is for, seen in production: Render hides CONFIG by
+    // not answering it rather than by refusing it, and ioredis is built here
+    // with maxRetriesPerRequest:null, so the command is buffered rather than
+    // rejected and never settles. The old check read that timeout as an
+    // outage and told an operator to check a REDIS_URL that was correct,
+    // while webhooks were queueing through the same connection perfectly.
+    config.mockImplementation(() => new Promise<never>(() => {}));
+
+    await runPastRedisTimeout();
+
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('blocks CONFIG GET, which is normal'));
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('asks PING before it asks anything a provider is allowed to refuse', async () => {
+    await runPastRedisTimeout();
+
+    expect(ping).toHaveBeenCalled();
+    expect(ping.mock.invocationCallOrder[0]).toBeLessThan(config.mock.invocationCallOrder[0]);
+  });
+
+  it('treats an answer that is not PONG as unreachable', async () => {
+    // A proxy or a wrong port can accept the connection and answer something
+    // else. Reading any response as success would be worse than the timeout.
+    ping.mockImplementation(async () => 'no');
+
+    await runPastRedisTimeout();
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Redis did not answer PING'));
+  });
+
+  it('names what PING actually said, rather than only that it failed', async () => {
+    ping.mockImplementation(async () => {
+      throw new Error('getaddrinfo ENOTFOUND red-old-instance');
+    });
+
+    await runPastRedisTimeout();
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('ENOTFOUND red-old-instance'));
   });
 
   it('does not claim a key is verified when there is nothing to verify against', async () => {
