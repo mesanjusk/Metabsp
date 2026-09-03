@@ -24,6 +24,10 @@ const WebhookDeliveryPanel = dynamic(() => import('@/lib/ui/whatsappCloud/Webhoo
   ssr: false,
   loading: () => <LoadingSkeleton />,
 });
+const WhatsAppAccountsAdminPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WhatsAppAccountsAdminPanel'), {
+  ssr: false,
+  loading: () => <LoadingSkeleton />,
+});
 
 const TABS = [
   { value: 'overview', label: 'Platform overview' },
@@ -86,6 +90,10 @@ export default function AdminPage() {
               "I pasted them and nothing happened" is the next thing that
               happens. */}
           <WebhookDeliveryPanel />
+          {/* And when the diagnostics name a number that is not behaving, the
+              rows behind it are right here rather than somewhere behind a
+              user. */}
+          <WhatsAppAccountsAdminPanel />
         </Stack>
       ) : null}
     </PageBody>
