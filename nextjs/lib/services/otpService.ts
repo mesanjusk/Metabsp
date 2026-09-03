@@ -1,13 +1,16 @@
 import axios from 'axios';
 import CloudOtpVerification from '../models/CloudOtpVerification';
-import { resolveLegacyEnvConfig } from './whatsappAccountService';
+import { loadPlatformSenderAccount } from './whatsappAccountService';
 import normalizeWhatsAppNumber from '../utils/normalizeNumber';
 import logger from '../utils/logger';
 
-// Ported from backend/src/services/otpService.js. Uses the platform's own
-// legacy-env WhatsApp config (WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID)
-// rather than any tenant's connected account, same as the original — a
-// brand-new registrant has no 24h session window with any tenant's number.
+// Ported from backend/src/services/otpService.js. Sends from the platform's
+// own number rather than any tenant's — a brand-new registrant has no 24h
+// session window with anybody, so this is always a template send.
+//
+// The original read WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID directly.
+// It now resolves the admin account connected in the dashboard, so there is
+// one place a credential lives and one place to correct it.
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_TEMPLATE_NAME = process.env.WHATSAPP_OTP_TEMPLATE_NAME || 'instify_otp';
 const OTP_TEMPLATE_LANGUAGE = process.env.WHATSAPP_OTP_TEMPLATE_LANGUAGE || 'en_US';
@@ -15,9 +18,12 @@ const OTP_TEMPLATE_LANGUAGE = process.env.WHATSAPP_OTP_TEMPLATE_LANGUAGE || 'en_
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendWhatsAppOtpMessage = async (mobile: string, code: string) => {
-  const config = resolveLegacyEnvConfig();
+  const config: any = await loadPlatformSenderAccount();
   if (!config) {
-    throw new Error('WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID must be set to send OTP messages');
+    throw new Error(
+      'No WhatsApp number is connected on the admin account, so signup and password-reset codes cannot be ' +
+        'sent. Connect it under the admin\'s WhatsApp settings.'
+    );
   }
 
   const to = normalizeWhatsAppNumber(mobile);
@@ -42,7 +48,15 @@ const sendWhatsAppOtpMessage = async (mobile: string, code: string) => {
     }
   );
 
-  logger.info('[OTP] WhatsApp send accepted. phoneNumberId=%s to=%s response=%s', config.phoneNumberId, to, JSON.stringify(response?.data));
+  // The source is logged because "the OTP went to the old number" is
+  // otherwise indistinguishable from "the OTP did not send".
+  logger.info(
+    '[OTP] WhatsApp send accepted. source=%s phoneNumberId=%s to=%s response=%s',
+    config.source || 'unknown',
+    config.phoneNumberId,
+    to,
+    JSON.stringify(response?.data)
+  );
 };
 
 export const sendOtp = async (mobile: string, purpose: 'SIGNUP' | 'RESET') => {
