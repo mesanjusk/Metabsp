@@ -19,13 +19,24 @@ import {
   TableRow,
   TextField,
   Typography,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
 import { toast } from '@/lib/ui/components/Toast';
-import { createManagedUser, fetchManagedUsers, updateManagedUser } from '@/lib/client/services/whatsappCloudService';
+import {
+  createManagedUser,
+  deleteManagedUser,
+  fetchManagedUsers,
+  updateManagedUser,
+} from '@/lib/client/services/whatsappCloudService';
+import { useAuth } from '@/lib/ui/AuthContext';
 import { parseApiError } from '@/lib/api/parseApiError';
 import { canWriteWhatsAppAccount } from '@/lib/services/adminAccountEdit';
 
@@ -121,6 +132,38 @@ export default function AdminUserManagementPanel() {
   const handleChange = (field) => (event) => {
     const value = event?.target?.type === 'checkbox' ? event.target.checked : event.target.value;
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Held as the whole row, not just an id, so the confirmation can name the
+  // number and the WhatsApp account that go with it. "Delete user?" on its own
+  // is not enough information to consent to deleting a connected number.
+  const { mobileNumber: signedInMobile } = useAuth();
+  // Matched on the mobile number because that is what people sign in with and
+  // what the table shows; the session carries no user id. The server refuses
+  // self-deletion regardless — this only keeps the button from offering it.
+  const isOwnAccount = (item) =>
+    Boolean(signedInMobile) &&
+    String(item?.Mobile_number || item?.User_name || '').trim() === String(signedInMobile).trim();
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    setError('');
+    try {
+      const response = await deleteManagedUser(pendingDelete.id);
+      toast.success(response?.data?.message || 'User removed.');
+      // If the deleted user was loaded into the form, the form is now editing
+      // something that no longer exists.
+      if (form.id === pendingDelete.id) handleReset();
+      setPendingDelete(null);
+      await loadUsers();
+    } catch (err) {
+      setError(parseApiError(err, 'Could not delete this user.'));
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleEdit = (item) => {
@@ -279,7 +322,22 @@ export default function AdminUserManagementPanel() {
                             {account?.webhookSubscribed ? <Chip size="small" label="Webhook" color="info" /> : null}
                           </Stack>
                         </TableCell>
-                        <TableCell align="right"><Button size="small" onClick={() => handleEdit(item)}>Edit</Button></TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                            <Button size="small" onClick={() => handleEdit(item)}>Edit</Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => setPendingDelete(item)}
+                              // The panel is the only way to manage these
+                              // accounts, so deleting your own sign-in would
+                              // lock everyone out of it.
+                              disabled={isOwnAccount(item)}
+                            >
+                              Delete
+                            </Button>
+                          </Stack>
+                        </TableCell>
                       </TableRow>
                     );
                   })
@@ -289,6 +347,44 @@ export default function AdminUserManagementPanel() {
           </Box>
         </Paper>
       </Stack>
+
+      {/* Deleting a user takes their connected number with it, so the
+          confirmation names both. "Delete user?" alone is not enough to
+          consent to disconnecting a WhatsApp number. */}
+      <Dialog open={Boolean(pendingDelete)} onClose={() => (isDeleting ? null : setPendingDelete(null))}>
+        <DialogTitle>Delete this user?</DialogTitle>
+        <DialogContent>
+          <DialogContentText component="div">
+            <Typography variant="body2" sx={{ mb: 1.5 }}>
+              {pendingDelete?.Mobile_number || pendingDelete?.User_name}
+              {pendingDelete?.Display_name ? ` — ${pendingDelete.Display_name}` : ''}
+            </Typography>
+            {pendingDelete?.whatsappAccount ? (
+              <Alert severity="warning" sx={{ mb: 1.5 }}>
+                Their connected WhatsApp account is deleted too — phone number ID{' '}
+                <strong>{pendingDelete.whatsappAccount.phoneNumberId || 'unknown'}</strong>
+                {pendingDelete.whatsappAccount.wabaId ? <> , WABA {pendingDelete.whatsappAccount.wabaId}</> : null}.
+                Inbound messages for that number stop arriving through this user.
+              </Alert>
+            ) : null}
+            <Typography variant="body2" color="text.secondary">
+              This cannot be undone. Their conversation history stays in the database.
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDelete(null)} disabled={isDeleting}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            startIcon={isDeleting ? <CircularProgress size={18} color="inherit" /> : null}
+          >
+            Delete user
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
