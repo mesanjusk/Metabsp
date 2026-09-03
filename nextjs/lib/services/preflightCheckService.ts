@@ -51,6 +51,52 @@ const worstSeverity = (results: any) =>
   results.reduce((worst, r) => (severityRank[r.severity] > severityRank[worst] ? r.severity : worst), 'ok');
 
 /**
+ * Why a Graph call failed, in a form that survives being read in a log.
+ *
+ * The old version was `error.response.data.error.message || error.message`,
+ * and on this deployment both came back empty — so the boot log printed
+ * "Could not read webhook field subscriptions: " and stopped. An empty
+ * reason is worse than no check at all: it reports a failure while withholding
+ * every fact that would let anyone act on it, and it is indistinguishable from
+ * a formatting bug.
+ *
+ * So: whatever is actually present. Meta's error code, type, subcode and
+ * fbtrace_id identify the failure in the App Dashboard's own logs; the HTTP
+ * status separates an auth rejection from a rate limit; the node error code
+ * separates a DNS or TLS failure from either. If none of that exists, the
+ * error's own class name is still more than a blank.
+ */
+export const describeGraphFailure = (error: any): string => {
+  const parts: string[] = [];
+  const metaError = error?.response?.data?.error;
+
+  const message = String(metaError?.message || error?.message || '').trim();
+  if (message) parts.push(message);
+
+  if (metaError?.code !== undefined) parts.push(`code ${metaError.code}`);
+  if (metaError?.error_subcode !== undefined) parts.push(`subcode ${metaError.error_subcode}`);
+  if (metaError?.type) parts.push(String(metaError.type));
+  if (metaError?.fbtrace_id) parts.push(`fbtrace_id ${metaError.fbtrace_id}`);
+
+  const status = error?.response?.status;
+  if (status !== undefined) parts.push(`HTTP ${status}`);
+  if (error?.code) parts.push(String(error.code));
+
+  // Gated on there being no message rather than no parts at all: an HTTP
+  // status is a part, so "!parts.length" swallowed the body of exactly the
+  // response this clause is for — a proxy or a WAF answering instead of Graph,
+  // which has a status and HTML and no Meta error object anywhere.
+  if (!message && error?.response?.data !== undefined) {
+    const body = typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error.response.data);
+    if (body) parts.push(`unrecognised response: ${body.slice(0, 300)}`);
+  }
+
+  if (!parts.length) parts.push(`${error?.constructor?.name || typeof error} with no message`);
+
+  return parts.join(' — ');
+};
+
+/**
  * GET /{app-id}/subscriptions — which webhook fields this Meta app is actually
  * subscribed to for the `whatsapp_business_account` object.
  *
@@ -102,7 +148,7 @@ export const fetchAppWebhookFields = async ({
   } catch (error) {
     return {
       status: 'unknown',
-      reason: error?.response?.data?.error?.message || error.message,
+      reason: describeGraphFailure(error),
       fields: [],
     };
   }
@@ -127,9 +173,12 @@ export const fetchWabaSubscription = async ({ wabaId, accessToken, appId = proce
 
     return { status: ids.includes(String(appId)) ? 'ok' : 'not_subscribed', subscribedAppIds: ids };
   } catch (error) {
+    // Same reasoning as above: this reason is read from a log, so it has to
+    // carry the code and the trace id, not just whatever message Meta felt
+    // like sending.
     return {
       status: 'unknown',
-      reason: error?.response?.data?.error?.message || error.message,
+      reason: describeGraphFailure(error),
       subscribedAppIds: [],
     };
   }
