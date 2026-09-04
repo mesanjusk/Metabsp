@@ -91,7 +91,7 @@ export default function AboutPage() {
                 {
                   icon: <ApiIcon sx={{ fontSize: 32 }} />,
                   title: 'WhatsApp Cloud API',
-                  description: 'Direct access to Meta\'s WhatsApp Cloud API with simplified authentication, embedded signup, and intelligent rate limit management.',
+                  description: 'Direct access to Meta\'s WhatsApp Cloud API with simplified authentication, token-based number connection (embedded signup coming soon), and intelligent rate limit management.',
                 },
                 {
                   icon: <AutomationIcon sx={{ fontSize: 32 }} />,
@@ -147,7 +147,7 @@ export default function AboutPage() {
               <VerifiedIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1.5 }} />
               <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>Built on the WhatsApp Business Platform</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Every message in and out goes through Meta's Cloud API. Businesses connect their own WhatsApp Business Account through Meta&apos;s Embedded Signup and keep ownership of it — including full access in WhatsApp Manager — and can revoke our access at any time.
+                Every message in and out goes through Meta's Cloud API. Businesses connect their own WhatsApp Business Account with their own Meta access token — connecting through Meta&apos;s Embedded Signup is coming soon — and keep ownership of it — including full access in WhatsApp Manager — and can revoke our access at any time.
               </Typography>
               <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap" useFlexGap>
                 <Chip label="Cloud API only" color="primary" size="small" />

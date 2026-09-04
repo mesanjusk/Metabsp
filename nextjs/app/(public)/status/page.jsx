@@ -7,12 +7,16 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ErrorIcon from '@mui/icons-material/Error';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import { motion } from 'framer-motion';
 
 const STATUS = {
   operational: { label: 'Operational', color: 'success', icon: <CheckCircleIcon fontSize="small" /> },
   degraded: { label: 'Degraded', color: 'warning', icon: <WarningAmberIcon fontSize="small" /> },
   outage: { label: 'Outage', color: 'error', icon: <ErrorIcon fontSize="small" /> },
+  // Not live yet, which is different from broken: a service still being built
+  // must not colour the page banner "Partial Service Disruption".
+  coming_soon: { label: 'Coming soon', color: 'info', icon: <ScheduleIcon fontSize="small" /> },
 };
 
 const SERVICES = [
@@ -23,7 +27,7 @@ const SERVICES = [
   { name: 'Database', description: 'Primary data storage and retrieval', status: 'operational', uptime: 99.99 },
   { name: 'Dashboard', description: 'Web dashboard and admin interface', status: 'operational', uptime: 99.97 },
   { name: 'CDN / Media Storage', description: 'Media file storage and delivery', status: 'operational', uptime: 99.90 },
-  { name: 'Embedded Signup', description: 'WhatsApp Business Account onboarding flow', status: 'operational', uptime: 99.85 },
+  { name: 'Embedded Signup', description: 'WhatsApp Business Account onboarding flow — coming soon; connect with an existing access token for now', status: 'coming_soon', uptime: null },
 ];
 
 const INCIDENTS = [
@@ -98,7 +102,7 @@ const UptimeBar = ({ uptime }) => {
 };
 
 export default function StatusPage() {
-  const allOperational = SERVICES.every((s) => s.status === 'operational');
+  const allOperational = SERVICES.every((s) => s.status === 'operational' || s.status === 'coming_soon');
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
@@ -148,12 +152,14 @@ export default function StatusPage() {
                           <Typography variant="body2" color="text.secondary">{service.description}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Box sx={{ textAlign: 'right' }}>
-                            <Typography variant="caption" color="text.disabled" display="block">90-day uptime</Typography>
-                            <Typography variant="body2" fontWeight={700} color="success.main">
-                              {service.uptime}%
-                            </Typography>
-                          </Box>
+                          {typeof service.uptime === 'number' ? (
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography variant="caption" color="text.disabled" display="block">90-day uptime</Typography>
+                              <Typography variant="body2" fontWeight={700} color="success.main">
+                                {service.uptime}%
+                              </Typography>
+                            </Box>
+                          ) : null}
                           <Chip
                             label={statusInfo.label}
                             color={statusInfo.color}
@@ -162,12 +168,14 @@ export default function StatusPage() {
                           />
                         </Box>
                       </Box>
-                      <LinearProgress
-                        variant="determinate"
-                        value={service.uptime}
-                        color={statusInfo.color}
-                        sx={{ borderRadius: 1, height: 4, bgcolor: 'action.hover' }}
-                      />
+                      {typeof service.uptime === 'number' ? (
+                        <LinearProgress
+                          variant="determinate"
+                          value={service.uptime}
+                          color={statusInfo.color}
+                          sx={{ borderRadius: 1, height: 4, bgcolor: 'action.hover' }}
+                        />
+                      ) : null}
                     </Paper>
                   </motion.div>
                 );

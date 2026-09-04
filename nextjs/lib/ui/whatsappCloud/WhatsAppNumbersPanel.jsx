@@ -18,6 +18,7 @@ import PropTypes from 'prop-types';
 import Modal from '@/lib/ui/components/common/Modal';
 import { toast } from '@/lib/ui/components/Toast';
 import { parseApiError } from '@/lib/api/parseApiError';
+import { EMBEDDED_SIGNUP_COMING_SOON_LABEL, EMBEDDED_SIGNUP_ENABLED } from '@/lib/ui/app/embeddedSignup';
 import {
   fetchWhatsAppAccounts,
   activateWhatsAppAccount,
@@ -126,10 +127,19 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Typography variant="subtitle1" fontWeight={700}>Connected WhatsApp numbers</Typography>
         <Stack direction="row" spacing={1}>
-          <Button size="small" variant="outlined" onClick={onConnect} disabled={accountActionLoading}>
-            Connect another number
-          </Button>
-          <Button size="small" variant="text" onClick={onManualConnect} disabled={accountActionLoading}>
+          {EMBEDDED_SIGNUP_ENABLED ? (
+            <Button size="small" variant="outlined" onClick={onConnect} disabled={accountActionLoading}>
+              Connect another number
+            </Button>
+          ) : (
+            <Chip size="small" variant="outlined" label={`Connect with Meta — ${EMBEDDED_SIGNUP_COMING_SOON_LABEL.toLowerCase()}`} />
+          )}
+          <Button
+            size="small"
+            variant={EMBEDDED_SIGNUP_ENABLED ? 'text' : 'outlined'}
+            onClick={onManualConnect}
+            disabled={accountActionLoading}
+          >
             Connect manually
           </Button>
         </Stack>
