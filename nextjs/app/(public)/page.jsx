@@ -74,7 +74,7 @@ const STEPS = [
   {
     title: 'Connect a number',
     description:
-      'Connect through Meta’s own Embedded Signup. Your credentials are entered on Meta, never here.',
+      'Connect with an access token from your Meta Business Manager. One-click Embedded Signup is coming soon.',
   },
   {
     title: 'Send and automate',
@@ -170,7 +170,8 @@ export default function LandingPage() {
 
               <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 620, lineHeight: 1.8 }}>
                 A shared inbox, approved templates, broadcasts, automations and a REST API — all on
-                Meta&apos;s Cloud API, with your own number connected through Meta&apos;s Embedded Signup.
+                Meta&apos;s Cloud API, with your own number connected using your Meta access token.
+                One-click Embedded Signup is coming soon.
               </Typography>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ pt: 1 }}>
@@ -265,7 +266,8 @@ export default function LandingPage() {
           <Stack spacing={2.5} alignItems="center">
             <Typography variant="h3">Ready to connect your number?</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 520 }}>
-              Create an account and complete Meta&apos;s Embedded Signup — it takes a few minutes.
+              Create an account and connect your number with your Meta access token — it takes a few
+              minutes. One-click Embedded Signup is coming soon.
             </Typography>
             <Button component={NextLink} href="/signup" variant="contained" size="large" sx={{ px: 5 }}>
               Get started

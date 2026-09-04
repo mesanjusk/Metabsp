@@ -22,11 +22,11 @@ const FAQ_DATA = [
       },
       {
         q: 'How do I create an account?',
-        a: 'Click "Sign Up" in the top navigation, enter your business email and create a password. You\'ll receive a verification email. After verifying, you can connect your WhatsApp Business Account using our Embedded Signup flow — this takes about 5-10 minutes.',
+        a: 'Click "Sign Up" in the top navigation, enter your business email and create a password. You\'ll receive a verification email. After verifying, connect your WhatsApp Business Account by pasting an access token, phone number ID and business account ID from Meta Business Manager — this takes about 5-10 minutes. One-click Embedded Signup is coming soon.',
       },
       {
         q: 'Do I need an existing WhatsApp Business Account?',
-        a: 'No. You can create a new WhatsApp Business Account directly through SanjuSK\'s Embedded Signup flow using your Facebook Business Manager account. If you already have a WABA, you can connect it during onboarding.',
+        a: 'For now, yes — connecting requires a WhatsApp Business Account you can generate an access token for in Meta Business Manager. Creating one directly through SanjuSK\'s Embedded Signup flow is coming soon.',
       },
       {
         q: 'What phone number can I use for WhatsApp Business?',
@@ -48,7 +48,7 @@ const FAQ_DATA = [
     items: [
       {
         q: 'What is the Embedded Signup process?',
-        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a platform like SanjuSK. During this process, you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize SanjuSK to send messages on your behalf. The entire process takes about 5-10 minutes.',
+        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a platform like SanjuSK: you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize SanjuSK to send messages on your behalf. It is coming soon here — until then, connect your number with an access token from Meta Business Manager.',
       },
       {
         q: 'How long does business verification take?',
@@ -188,7 +188,7 @@ const FAQ_DATA = [
       },
       {
         q: 'How do I migrate from another WhatsApp provider?',
-        a: 'You can migrate your existing WABA to SanjuSK by connecting it through our Embedded Signup flow and selecting "Connect Existing WABA." You will need access to the Facebook Business Manager that owns the WABA. Phone numbers, templates, and business profile settings will carry over. Message history is not migrated. Contact support@meta.sanjusk.in for migration assistance.',
+        a: 'You can migrate your existing WABA to SanjuSK by connecting it with an access token, phone number ID and business account ID — migrating through Embedded Signup is coming soon. You will need access to the Facebook Business Manager that owns the WABA. Phone numbers, templates, and business profile settings will carry over. Message history is not migrated. Contact support@meta.sanjusk.in for migration assistance.',
       },
     ],
   },

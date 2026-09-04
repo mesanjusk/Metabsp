@@ -21,6 +21,8 @@ import ConsentDialog from '@/lib/ui/components/ConsentDialog';
 import ManualConnectDialog from './ManualConnectDialog';
 import { DashboardContext } from './DashboardContext';
 import { ALL_NAV_ITEMS, MOBILE_NAV_HREFS, findNavItem } from './navigation';
+import { EMBEDDED_SIGNUP_COMING_SOON_NOTE, EMBEDDED_SIGNUP_ENABLED } from './embeddedSignup';
+import { toast } from '@/lib/ui/components/Toast';
 import { layout } from '@/lib/ui/theme';
 
 /**
@@ -80,7 +82,16 @@ export default function DashboardShell({ children }) {
    * WABA, and this is where that happens: nothing calls FB.login until the
    * dialog is accepted.
    */
-  const startConnect = useCallback(() => setConsentOpen(true), []);
+  const startConnect = useCallback(() => {
+    // Every entry point routes through here, so switching Embedded Signup off
+    // closes all of them at once — including any that still render an enabled
+    // button — rather than leaving one that opens a popup that cannot finish.
+    if (!EMBEDDED_SIGNUP_ENABLED) {
+      toast(EMBEDDED_SIGNUP_COMING_SOON_NOTE);
+      return;
+    }
+    setConsentOpen(true);
+  }, []);
 
   const handleConsentAccepted = useCallback(() => {
     setConsentOpen(false);
