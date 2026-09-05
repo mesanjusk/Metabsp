@@ -7,6 +7,15 @@ export const metadata = {
   title: 'SanjuSK — WhatsApp Business Solution Provider',
   description:
     'A WhatsApp Business Solution Provider on Meta’s official Cloud API: shared inbox, message templates, broadcasts, automations and a REST API.',
+  // Meta reads this from the home page to prove we control the domain, which
+  // is what unlocks the Business Manager domain-scoped permissions. It lives
+  // in the root metadata rather than in the landing page so it is present on
+  // every route — Meta's crawler has been known to follow a redirect (a
+  // signed-in visitor is bounced from `/` to the dashboard) and check
+  // whatever it lands on.
+  other: {
+    'facebook-domain-verification': '6yo212xlow0dqvwuhh3tl9tup31bzk',
+  },
 };
 
 /**
