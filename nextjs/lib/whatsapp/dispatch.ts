@@ -22,17 +22,23 @@ const ensureWhatsAppMessagingConfig = (config: any) => {
 };
 
 const normalizeWhatsAppApiError = (error: any, fallbackMessage = 'WhatsApp API request failed') => {
-  const normalized = classifyWhatsAppApiError(error);
-  const statusCode = normalized.code === 'INVALID_CONFIG' ? 400 : normalized.code === 'TOKEN_EXPIRED' ? 401 : 502;
+  const normalized: any = classifyWhatsAppApiError(error);
 
-  const sanitizedMessage =
-    normalized.code === 'TOKEN_EXPIRED'
-      ? 'WhatsApp authorization failed'
-      : normalized.code === 'INVALID_CONFIG'
-      ? 'Missing WhatsApp configuration'
-      : fallbackMessage;
+  if (normalized.code === 'INVALID_CONFIG') return new AppError('Missing WhatsApp configuration', 400);
+  if (normalized.code === 'TOKEN_EXPIRED') return new AppError('WhatsApp authorization failed', 401);
 
-  return new AppError(sanitizedMessage, statusCode);
+  // A Graph 4xx is the caller's request being rejected (unknown template,
+  // recipient not opted in, bad parameter), not an upstream outage — masking
+  // it as 502 tells the client to retry a request that can never succeed and
+  // hides the actionable reason. Propagate the real status and Meta's safe
+  // message. Only genuine upstream failures (Graph 5xx, timeouts, no response)
+  // stay a generic 502.
+  const graphStatus = Number(normalized.status || 0);
+  if (graphStatus >= 400 && graphStatus < 500) {
+    return new AppError(normalized.graphMessage || fallbackMessage, graphStatus);
+  }
+
+  return new AppError(fallbackMessage, 502);
 };
 
 export const callWhatsAppMessagesApi = async (payload: unknown, accountContext: any, { fallbackMessage }: { fallbackMessage?: string } = {}) => {
