@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://mcp.vercel.com"
     },
-    "meta-devtools": {
+    "meta_social_technologies": {
       "type": "http",
       "url": "https://mcp.facebook.com/devtools"
     }
