@@ -12,8 +12,14 @@ export async function GET(req: NextRequest) {
   try {
     await connectDB();
     const authed = await requireAuth(req);
-    const accountContext = await resolveCurrentWhatsAppAccountForUser(authed.id);
-    const health = await checkWhatsAppHealth(accountContext);
+    // A status poll must always answer — a user with no connected account is
+    // "disconnected", not a 404. Requiring an account here turned every poll
+    // from such a user into a 404 (and a noisy console error) instead of the
+    // disconnected state the UI is asking for.
+    const accountContext = await resolveCurrentWhatsAppAccountForUser(authed.id, { requireAccount: false });
+    const health = accountContext
+      ? await checkWhatsAppHealth(accountContext)
+      : { isConnected: false, reason: 'NO_ACCOUNT' as const };
     const accounts = await WhatsAppAccount.find({ userId: authed.id })
       .select('_id phoneNumberId displayPhoneNumber verifiedName status isActive')
       .lean();

@@ -17,7 +17,11 @@ export const classifyWhatsAppApiError = (error: any) => {
       return { code: 'TOKEN_EXPIRED', message: 'WhatsApp token is invalid or expired' };
     }
 
-    return { code: 'NETWORK_ERROR', message: 'WhatsApp API request failed', status };
+    // Meta's own user-facing strings are safe to surface (they carry no token
+    // or config secrets) and tell the sender what to fix — e.g. a template
+    // name that doesn't exist, or a recipient who hasn't opted in.
+    const graphMessage = String(apiError.error_user_msg || apiError.message || '').trim() || undefined;
+    return { code: 'NETWORK_ERROR', message: 'WhatsApp API request failed', status, graphMessage };
   }
 
   return { code: 'NETWORK_ERROR', message: 'Unable to reach WhatsApp API' };
