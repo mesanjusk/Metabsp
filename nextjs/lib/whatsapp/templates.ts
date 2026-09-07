@@ -57,9 +57,21 @@ export const normalizeWhatsAppApiError = (error: any, fallback: string) => {
 };
 
 const credentialsFrom = (accountContext: any) => {
-  const wabaId = String(accountContext?.wabaId || accountContext?.businessAccountId || '').trim();
+  const wabaId = String(accountContext?.wabaId || '').trim();
   const accessToken = String(accountContext?.accessToken || '').trim();
-  if (!accessToken || !wabaId) throw new AppError('Missing WhatsApp credentials', 400);
+  if (!accessToken) throw new AppError('Missing WhatsApp credentials', 400);
+  // Templates live on the WhatsApp Business Account (WABA). The Business
+  // portfolio ID is a different object with no message_templates edge, so
+  // never fall back to it — a template request aimed at the Business ID is
+  // doomed, and Meta answers with a cryptic "object does not exist / does not
+  // support this operation". Require the real WABA ID and, when it is absent,
+  // say exactly what to fix instead of firing the doomed request.
+  if (!wabaId) {
+    throw new AppError(
+      'This WhatsApp account has no WhatsApp Business Account (WABA) ID. Reconnect the number with its WABA ID to manage templates.',
+      400
+    );
+  }
   return { wabaId, accessToken };
 };
 
@@ -167,7 +179,10 @@ export const fetchTemplateDefinition = async (
   name: string,
   language: string
 ): Promise<any | null> => {
-  const wabaId = String(accountContext?.wabaId || accountContext?.businessAccountId || '').trim();
+  // WABA only — never the Business portfolio ID (see credentialsFrom). A wrong
+  // object here just makes the lookup fail and return null, but reusing the
+  // Business ID would also poison the cache under a key that can never resolve.
+  const wabaId = String(accountContext?.wabaId || '').trim();
   const accessToken = String(accountContext?.accessToken || '').trim();
   const resolvedName = String(name || '').trim();
   if (!wabaId || !accessToken || !resolvedName) return null;
