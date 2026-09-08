@@ -91,18 +91,19 @@ services:
       - key: META_API_VERSION
         value: v23.0
       # The Facebook JS SDK version the browser loads for the Embedded Signup
-      # popup (FB.init), served to the client via GET /api/whatsapp/connect/config.
-      # Kept separate from the Graph API version above so it can track Meta's
-      # Embedded Signup Builder output without moving every server Graph call.
-      # Falls back to WHATSAPP_API_VERSION when unset.
+      # popup (FB.init). This is deliberately separate from the Graph API
+      # version above. Meta's current production Embedded Signup Builder emits
+      # v26.0 for this configuration.
       - key: META_JS_SDK_VERSION
-        value: v23.0
-      # The Embedded Signup session-info version this app parses. It said `v4`
-      # under a key (META_ES_VERSION) that no code has ever read, which claimed
-      # a migration that has not happened: lib/client/facebookSdk.js parses the
-      # v3 WA_EMBEDDED_SIGNUP payload shape. Meta deprecates Embedded Signup v2
-      # on 2026-10-15 and the `coex` feature type does not auto-migrate to v4,
-      # so this needs real work before that date — not a changed value here.
+        value: v26.0
+      # The current configuration is Embedded Signup v4. This is sent in
+      # FB.login extras.version and kept separate from both SDK and Graph API
+      # versions so future Builder migrations are explicit.
+      - key: META_EMBEDDED_SIGNUP_VERSION
+        value: v4
+      # Meta's Builder still reports Session Info Version 3 for this config.
+      # It remains available for diagnostics/parser compatibility, but the v4
+      # launch itself follows Meta's generated code and does not send it.
       - key: META_ES_SESSION_INFO_VERSION
         value: "3"
       # Enabled: the three coexistence webhook fields (history,

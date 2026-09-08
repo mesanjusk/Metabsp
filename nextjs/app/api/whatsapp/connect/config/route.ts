@@ -6,24 +6,19 @@ import { getGraphApiVersion, getJsSdkVersion } from '@/lib/config/graphApi';
 
 // Coexistence onboarding is opt-in per deployment: it requires the Meta app to
 // be subscribed to the `history`, `smb_message_echoes` and `smb_app_state_sync`
-// webhook fields. See backend/src/controllers/whatsappController.js's
-// getConnectConfig and docs/meta-tech-provider/COEXISTENCE.md.
+// webhook fields. See docs/meta-tech-provider/COEXISTENCE.md.
 const isCoexistenceEnabled = () =>
   String(process.env.META_ENABLE_COEXISTENCE ?? 'true').toLowerCase() !== 'false';
 
 const COEXISTENCE_FEATURE_TYPE = 'whatsapp_business_app_onboarding';
+const EMBEDDED_SIGNUP_VERSION = String(process.env.META_EMBEDDED_SIGNUP_VERSION || 'v4');
 
-// The `sessionInfoVersion` passed to FB.login's `extras`, which decides the
-// shape of the WA_EMBEDDED_SIGNUP messages the popup posts back. Read from the
-// environment so the version can be changed without a code deploy — but note
-// that a version bump is not only this number: Meta deprecates Embedded Signup
-// v2 on 2026-10-15, and the `coex` feature type does not migrate to v4
-// automatically. Confirm the payload shape parsed in lib/client/facebookSdk.js
-// against Meta's current documentation before changing this.
-// See docs/meta-tech-provider/COEXISTENCE.md § Embedded Signup v4.
+// Meta's Builder still reports Session Info Version = 3 for this configuration.
+// We expose it for diagnostics/backward compatibility, but the current v4
+// FB.login launch does not send sessionInfoVersion; Meta's generated code sends
+// extras.version="v4" plus the coexistence featureType instead.
 const SESSION_INFO_VERSION = String(process.env.META_ES_SESSION_INFO_VERSION || '3');
 
-// Ported from backend/src/controllers/whatsappController.js's getConnectConfig.
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
@@ -36,10 +31,11 @@ export async function GET(req: NextRequest) {
         configId: process.env.META_EMBEDDED_SIGNUP_CONFIG_ID || '',
         // The Graph API version drives server-side calls; sdkVersion is what the
         // browser passes to FB.init for the Embedded Signup popup. They are
-        // reported separately so the browser SDK can track Meta's Builder output
-        // without forcing every server Graph call to the same version.
+        // separate because Meta's Builder can advance the browser SDK without
+        // requiring every WhatsApp Graph call to move with it.
         apiVersion: getGraphApiVersion(),
         sdkVersion: getJsSdkVersion(),
+        embeddedSignupVersion: EMBEDDED_SIGNUP_VERSION,
         coexistenceEnabled,
         featureType: coexistenceEnabled ? COEXISTENCE_FEATURE_TYPE : '',
         sessionInfoVersion: SESSION_INFO_VERSION,
