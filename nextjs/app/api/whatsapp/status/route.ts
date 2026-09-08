@@ -19,7 +19,13 @@ export async function GET(req: NextRequest) {
     // "disconnected", not a 404. Requiring an account here turned every poll
     // from such a user into a 404 (and a noisy console error) instead of the
     // disconnected state the UI is asking for.
-    const accountContext: any = await resolveCurrentWhatsAppAccountForUser(authed.id, { requireAccount: false });
+    const resolvedContext: any = await resolveCurrentWhatsAppAccountForUser(authed.id, { requireAccount: false });
+
+    // The SUPER_ADMIN may still have deployment-level WHATSAPP_* fallback
+    // credentials for platform OTPs. Those are not a WhatsApp account saved in
+    // this user's workspace and must never make the dashboard badge say
+    // Connected after the customer removes their own Meta integration.
+    const accountContext = resolvedContext?.source === 'database' ? resolvedContext : null;
     const health = accountContext
       ? await checkWhatsAppHealth(accountContext)
       : { isConnected: false, reason: 'NO_ACCOUNT' as const };
@@ -32,7 +38,6 @@ export async function GET(req: NextRequest) {
     // point: only persist a disconnect for definitive authorization/object-
     // access failures, never for a timeout or Meta 5xx.
     if (
-      accountContext?.source === 'database' &&
       accountContext?.account?._id &&
       !health.isConnected &&
       isDefinitiveWhatsAppDisconnectReason(health.reason)
