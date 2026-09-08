@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from '@/lib/ui/components/Toast';
 import { parseApiError } from '@/lib/api/parseApiError';
-import { loadFacebookSdk, listenForEmbeddedSignupData } from '@/lib/client/facebookSdk';
+import {
+  buildEmbeddedSignupLoginOptions,
+  loadFacebookSdk,
+  listenForEmbeddedSignupData,
+} from '@/lib/client/facebookSdk';
 import {
   completeWhatsAppConnect,
   connectWhatsAppManual,
@@ -34,13 +38,17 @@ const readConnectConfig = (response) => {
     // The Facebook JS SDK version for FB.init. Served separately from the Graph
     // API version; falls back to it, then to the baseline.
     sdkVersion: data?.sdkVersion || data?.sdk_version || data?.apiVersion || data?.api_version || 'v23.0',
+    // Meta's current Embedded Signup Builder emits extras.version = "v4".
+    // Keep this server/env driven so a future Builder migration does not
+    // require hardcoding a browser-only constant.
+    embeddedSignupVersion:
+      data?.embeddedSignupVersion || data?.embedded_signup_version || data?.esVersion || data?.es_version || 'v4',
     // Coexistence (the WhatsApp Business app and the Cloud API on one number).
     // The server decides whether this deployment's Meta app is subscribed to
     // the coexistence webhook fields; absent or false, the popup runs the
     // ordinary Cloud API flow exactly as before.
     coexistenceEnabled: Boolean(data?.coexistenceEnabled ?? data?.coexistence_enabled),
     featureType: data?.featureType || data?.feature_type || '',
-    sessionInfoVersion: data?.sessionInfoVersion || data?.session_info_version || '3',
   };
 };
 
@@ -179,23 +187,20 @@ export function useWhatsAppConnection() {
       // FB.login promise below.
       const embeddedSignupData = listenForEmbeddedSignupData();
 
-      // Embedded Signup v4: a config-driven Facebook Login for Business flow.
-      // sessionInfoVersion is retained because Meta's current Builder output for
-      // this configuration still reports Session Info Version = 3; featureType
-      // is what selects the WhatsApp Business app (coexistence) path and is
-      // passed additively whenever coexistence is enabled — the same popup still
-      // runs the ordinary Cloud API path for a customer with no Business app.
+      // Match the CURRENT Meta Embedded Signup v4 Builder output exactly:
+      // extras.version selects v4, while featureType selects the WhatsApp
+      // Business App/coexistence journey. The old v3-shaped setup:{} and
+      // sessionInfoVersion values are intentionally not sent here.
       const loginResult = await new Promise((resolve) =>
-        window.FB.login(resolve, {
-          config_id: config.configId,
-          response_type: 'code',
-          override_default_response_type: true,
-          extras: {
-            setup: {},
-            ...(config.sessionInfoVersion ? { sessionInfoVersion: config.sessionInfoVersion } : {}),
-            ...(config.coexistenceEnabled && config.featureType ? { featureType: config.featureType } : {}),
-          },
-        })
+        window.FB.login(
+          resolve,
+          buildEmbeddedSignupLoginOptions({
+            configId: config.configId,
+            embeddedSignupVersion: config.embeddedSignupVersion,
+            coexistenceEnabled: config.coexistenceEnabled,
+            featureType: config.featureType,
+          })
+        )
       );
 
       const code = loginResult?.authResponse?.code;
