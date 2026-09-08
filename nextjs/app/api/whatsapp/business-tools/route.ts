@@ -5,12 +5,12 @@ import { errorResponse } from '@/lib/http/errorResponse';
 import { resolveCurrentWhatsAppAccountForUser } from '@/lib/whatsapp/currentAccount';
 import { recordAuditEvent } from '@/lib/services/auditLogService';
 import {
-  businessToolCapabilities,
   createFlow,
   createQrCode,
   deleteQrCode,
   flowAction,
   getBusinessProfile,
+  getBusinessToolCapabilities,
   getCommerceSettings,
   listFlows,
   listQrCodes,
@@ -31,10 +31,13 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const authed = await requireAuth(req);
     const account: any = await resolveCurrentWhatsAppAccountForUser(authed.id);
+    const capabilities = getBusinessToolCapabilities(account);
 
     const [profile, commerce, qrCodes, flows] = await Promise.all([
       section(() => getBusinessProfile(account)),
-      section(() => getCommerceSettings(account)),
+      capabilities.commerceSettings
+        ? section(() => getCommerceSettings(account))
+        : Promise.resolve({ data: null, error: null }),
       section(() => listQrCodes(account)),
       section(() => listFlows(account)),
     ]);
@@ -46,8 +49,10 @@ export async function GET(req: NextRequest) {
         displayPhoneNumber: account.displayPhoneNumber,
         verifiedName: account.verifiedName,
         wabaId: account.wabaId,
+        connectionMode: capabilities.connectionMode,
+        coexistence: capabilities.coexistence,
       },
-      capabilities: businessToolCapabilities,
+      capabilities,
       profile,
       commerce,
       qrCodes,
@@ -67,7 +72,7 @@ export async function POST(req: NextRequest) {
     const account: any = await resolveCurrentWhatsAppAccountForUser(authed.id);
 
     let data: any;
-    let auditAction = `whatsapp_business_tools.${action || 'unknown'}`;
+    const auditAction = `whatsapp_business_tools.${action || 'unknown'}`;
 
     switch (action) {
       case 'update_profile':
