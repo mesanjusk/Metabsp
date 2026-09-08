@@ -4,6 +4,8 @@ import {
   createFlow,
   createQrCode,
   getBusinessProfile,
+  getBusinessToolCapabilities,
+  updateBusinessProfile,
   updateCommerceSettings,
 } from '@/lib/whatsapp/businessTools';
 
@@ -50,6 +52,42 @@ describe('WhatsApp business tools', () => {
     expect(String(url)).toContain('is_cart_enabled=true');
     expect(String(url)).toContain('is_catalog_visible=false');
     expect(init?.method).toBe('POST');
+  });
+
+  it('normalizes website URLs before a Cloud API-only profile update', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await updateBusinessProfile(account, { websites: ['www.example.com'], vertical: 'OTHER' });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      messaging_product: 'whatsapp',
+      websites: ['https://www.example.com'],
+      vertical: 'OTHER',
+    });
+  });
+
+  it('keeps coexistence business profile and catalogue writes in the WhatsApp Business App', async () => {
+    const coexistenceAccount = {
+      ...account,
+      account: { connectionMode: 'coexistence', coexistence: { enabled: true } },
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    const capabilities = getBusinessToolCapabilities(coexistenceAccount);
+
+    expect(capabilities.coexistence).toBe(true);
+    expect(capabilities.businessProfileWrite).toBe(false);
+    expect(capabilities.commerceSettings).toBe(false);
+    expect(capabilities.businessProfileWriteReason).toContain('WhatsApp Business App');
+
+    await expect(updateBusinessProfile(coexistenceAccount, { about: 'No API write' })).rejects.toThrow('Coexistence');
+    await expect(updateCommerceSettings(coexistenceAccount, { isCartEnabled: true })).rejects.toThrow('Coexistence');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('creates message QR codes without exposing the access token in the URL', async () => {
