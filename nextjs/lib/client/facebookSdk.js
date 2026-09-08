@@ -57,6 +57,29 @@ export function loadFacebookSdk({ appId, apiVersion = 'v23.0' }) {
   return loadPromise;
 }
 
+// Build exactly the launch shape emitted by Meta's current Embedded Signup v4
+// Builder for this production configuration. Keeping this pure and exported
+// gives the launch parameters direct unit coverage instead of burying them in
+// a React hook.
+export function buildEmbeddedSignupLoginOptions({
+  configId,
+  embeddedSignupVersion = 'v4',
+  coexistenceEnabled = false,
+  featureType = '',
+}) {
+  const extras = {
+    version: embeddedSignupVersion,
+    ...(coexistenceEnabled && featureType ? { featureType } : {}),
+  };
+
+  return {
+    config_id: configId,
+    response_type: 'code',
+    override_default_response_type: true,
+    extras,
+  };
+}
+
 // Meta's Embedded Signup "finish" events. FINISH is the ordinary Cloud API
 // completion; FINISH_ONLY_WABA means a WABA was created but no phone number
 // was attached; FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING is Coexistence — the
@@ -105,9 +128,9 @@ export function listenForEmbeddedSignupData({ timeoutMs = 5 * 60 * 1000 } = {}) 
       if (FINISH_EVENTS.includes(data.event)) {
         settled = true;
         cleanup();
-        // Coexistence is reported either as its own finish event or, in
-        // session-info v3, as a FINISH whose last step was the WhatsApp
-        // Business app onboarding screen — accept both.
+        // Coexistence is reported either as its own finish event or as a FINISH
+        // whose last step names the WhatsApp Business app onboarding screen —
+        // accept both defensively across current Meta payload variants.
         const step = String(data.data?.current_step || '').toUpperCase();
         resolve({
           wabaId: data.data?.waba_id || '',
