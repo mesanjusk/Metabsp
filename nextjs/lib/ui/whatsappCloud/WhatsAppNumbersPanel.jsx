@@ -24,6 +24,7 @@ import {
   activateWhatsAppAccount,
   deleteWhatsAppAccount,
   setSystemUserToken,
+  registerWhatsAppAccount,
 } from '@/lib/client/services/whatsappCloudService';
 
 const STATUS_COLOR = {
@@ -49,6 +50,9 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
   const [systemUserModalAccountId, setSystemUserModalAccountId] = useState('');
   const [systemUserForm, setSystemUserForm] = useState({ accessToken: '', systemUserId: '' });
   const [isSavingSystemUserToken, setIsSavingSystemUserToken] = useState(false);
+  const [registerModalAccountId, setRegisterModalAccountId] = useState('');
+  const [registerPin, setRegisterPin] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -100,6 +104,30 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
     setSystemUserModalAccountId('');
     setSystemUserForm({ accessToken: '', systemUserId: '' });
   }, []);
+
+  const closeRegisterModal = useCallback(() => {
+    setRegisterModalAccountId('');
+    setRegisterPin('');
+  }, []);
+
+  const handleRegister = async (event) => {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(registerPin.trim())) return toast.error('Enter a 6-digit PIN.');
+
+    setIsRegistering(true);
+    try {
+      await registerWhatsAppAccount(registerModalAccountId, { pin: registerPin.trim() });
+      toast.success('Number registered — it can now send messages.');
+      closeRegisterModal();
+      await load();
+      onChanged?.();
+    } catch (err) {
+      // Meta's own reason comes through (e.g. wrong PIN, re-verification needed).
+      toast.error(parseApiError(err, 'Could not register this number.'));
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   const handleSaveSystemUserToken = async (event) => {
     event.preventDefault();
@@ -172,6 +200,9 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
                     ) : (
                       <Chip size="small" color="primary" label="Active" />
                     )}
+                    <Button size="small" variant="text" onClick={() => setRegisterModalAccountId(id)} disabled={isBusy}>
+                      Register
+                    </Button>
                     <Button size="small" variant="text" onClick={() => setSystemUserModalAccountId(id)} disabled={isBusy}>
                       System User token
                     </Button>
@@ -198,6 +229,31 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
           })}
         </List>
       )}
+
+      {registerModalAccountId ? (
+        <Modal onClose={closeRegisterModal} title="Register this number">
+          <Stack component="form" onSubmit={handleRegister} spacing={1.5}>
+            <Typography variant="body2" color="text.secondary">
+              A newly connected number is <strong>pending</strong> until it is registered on the WhatsApp Cloud API —
+              until then sends fail with Meta error 133010 (&ldquo;Account not registered&rdquo;). Choose a 6-digit PIN:
+              it becomes this number&rsquo;s two-step verification PIN (or, if one is already set, enter the existing PIN).
+              Remember it — Meta asks for it again when re-verifying the number.
+            </Typography>
+            <TextField
+              label="6-digit PIN"
+              value={registerPin}
+              onChange={(e) => setRegisterPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              inputProps={{ inputMode: 'numeric', pattern: '\\d{6}', maxLength: 6 }}
+            />
+            <Stack direction="row" justifyContent="flex-end" spacing={1}>
+              <Button type="button" onClick={closeRegisterModal} variant="outlined">Cancel</Button>
+              <Button type="submit" variant="contained" disabled={isRegistering}>
+                {isRegistering ? 'Registering…' : 'Register number'}
+              </Button>
+            </Stack>
+          </Stack>
+        </Modal>
+      ) : null}
 
       {systemUserModalAccountId ? (
         <Modal onClose={closeSystemUserModal} title="Add a System User access token">
