@@ -6,6 +6,10 @@ import { Box, Tab, Tabs } from '@mui/material';
 import PageBody from '@/lib/ui/app/PageBody';
 import LoadingSkeleton from '@/lib/ui/whatsappCloud/LoadingSkeleton';
 
+const AccountProfilePanel = dynamic(() => import('@/lib/ui/whatsappCloud/AccountProfilePanel'), {
+  ssr: false,
+  loading: () => <LoadingSkeleton />,
+});
 const WorkspacePreferencesPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WorkspacePreferencesPanel'), {
   ssr: false,
   loading: () => <LoadingSkeleton />,
@@ -20,16 +24,17 @@ const BillingPanel = dynamic(() => import('@/lib/ui/whatsappCloud/BillingPanel')
 });
 
 const TABS = [
+  { value: 'account', label: 'Account' },
   { value: 'workspace', label: 'Workspace' },
   { value: 'team', label: 'Team' },
   { value: 'billing', label: 'Plan & usage' },
 ];
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState('workspace');
+  const [tab, setTab] = useState('account');
 
   return (
-    <PageBody title="Settings" description="How this workspace behaves, who can use it, and what it costs.">
+    <PageBody title="Settings" description="Your account, workspace preferences, team access, and plan.">
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tab} onChange={(_event, next) => setTab(next)} aria-label="Settings section">
           {TABS.map((entry) => (
@@ -38,6 +43,7 @@ export default function SettingsPage() {
         </Tabs>
       </Box>
 
+      {tab === 'account' ? <AccountProfilePanel /> : null}
       {tab === 'workspace' ? <WorkspacePreferencesPanel /> : null}
       {tab === 'team' ? <TeamManagementPanel /> : null}
       {tab === 'billing' ? <BillingPanel /> : null}
