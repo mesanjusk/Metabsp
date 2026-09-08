@@ -10,7 +10,12 @@ export async function GET(req: NextRequest) {
   try {
     await connectDB();
     const authed = await requireAuth(req);
-    const accounts = await WhatsAppAccount.find({ userId: authed.id }).sort({ createdAt: -1 }).lean();
+    // This endpoint powers the UI section titled "Connected WhatsApp numbers".
+    // Keep disconnected rows in Mongo for audit/reconnect history, but do not
+    // present a Meta-revoked customer as if they were still connected to us.
+    const accounts = await WhatsAppAccount.find({ userId: authed.id, status: { $ne: 'disconnected' } })
+      .sort({ createdAt: -1 })
+      .lean();
     return NextResponse.json({ success: true, data: accounts.map(sanitizeAccount) });
   } catch (error) {
     return errorResponse(error, 'Failed to list accounts');
