@@ -534,7 +534,10 @@ export const buildReadinessSummary = ({
   const subscribed = (field: string) => (fieldCheck?.subscribed || []).includes(field);
   const configReady = embeddedSignupCheck?.severity === 'ok';
   const versionsReady = versionCheck?.severity === 'ok';
-  const securityReady = securityCheck?.severity !== 'error';
+  // Must be fully 'ok', not merely non-error: a 'warn' here means webhook
+  // signature enforcement is off, i.e. inbound payloads are accepted without
+  // authentication. That is not a "ready" production state.
+  const securityReady = securityCheck?.severity === 'ok';
 
   const embeddedSignupReady = configReady && versionsReady && securityReady;
   const coexistenceFieldsReady = COEXISTENCE_WEBHOOK_FIELDS.every(subscribed);

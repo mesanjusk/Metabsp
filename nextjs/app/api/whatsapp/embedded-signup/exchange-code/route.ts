@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     const validation = validateTokenDebugData(debugData, { expectedAppId: appId });
 
     // ── 3. Resolve WABA + phone number server-side ─────────────────────────────
-    const resolvedWabaId = resolveWabaId({ reported: wabaId, wabaTargetIds: validation.wabaTargetIds });
+    const resolvedWabaId = resolveWabaId({ reported: wabaId, wabaTargetIdsByScope: validation.wabaTargetIdsByScope });
 
     const candidates = await fetchWabaPhoneNumbers({ wabaId: resolvedWabaId, accessToken, graphVersion });
     const phone = selectOnboardedPhone({

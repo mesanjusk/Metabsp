@@ -170,6 +170,20 @@ describe('buildReadinessSummary', () => {
     expect(summary.webhookFields.smb_message_echoes).toBe('missing');
   });
 
+  it('is NOT ready when webhook signature enforcement is off (security warn)', () => {
+    const summary = buildReadinessSummary({
+      coexistenceEnabled: true,
+      embeddedSignupCheck: ok('embedded_signup_config'),
+      versionCheck: ok('versions'),
+      // warn = verify token + key present but WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE off
+      securityCheck: { id: 'webhook_security', severity: 'warn' },
+      fieldCheck: { subscribed: ['messages', 'history', 'smb_message_echoes', 'smb_app_state_sync'] },
+      domainCheck: ok('public_domain', { callbackUrl: 'https://meta.sanjusk.in/webhook' }),
+    });
+    expect(summary.embeddedSignupV4).toBe('not_ready');
+    expect(summary.coexistenceSelector).toBe('not_ready');
+  });
+
   it('reports the selector disabled when coexistence is off', () => {
     const summary = buildReadinessSummary({
       coexistenceEnabled: false,

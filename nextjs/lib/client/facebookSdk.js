@@ -28,7 +28,10 @@ export function loadFacebookSdk({ appId, apiVersion = 'v23.0' }) {
     window.fbAsyncInit = function fbAsyncInit() {
       window.FB.init({
         appId,
-        autoLogAppEvents: true,
+        // Off deliberately: the SDK is loaded to power the Embedded Signup
+        // popup, not to send automatic app-event/analytics traffic to Meta on
+        // every dashboard that happens to initialise it.
+        autoLogAppEvents: false,
         xfbml: false,
         version: apiVersion,
       });

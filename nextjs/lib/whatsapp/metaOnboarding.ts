@@ -27,10 +27,14 @@ const isNumericId = (value: unknown) => /^\d+$/.test(String(value ?? ''));
 
 export type TokenValidation = {
   scopes: string[];
-  // WABA ids the token actually grants access to, read from debug_token's
-  // granular_scopes. Empty is possible on older Meta behaviour even when access
-  // was granted, so it is treated as "cannot cross-check", not "no access".
-  wabaTargetIds: string[];
+  // Per-required-scope WABA target ids from debug_token's granular_scopes. A
+  // required scope absent from this map (but present in the flat `scopes`
+  // list) is granted without asset restriction — i.e. it covers every WABA.
+  wabaTargetIdsByScope: Record<string, string[]>;
+  // WABAs covered by EVERY required WhatsApp scope that enumerates targets —
+  // the safe set to persist an account for, since both management and
+  // messaging apply. Empty when nothing enumerates targets (cannot cross-check).
+  coveredWabaIds: string[];
   // Unix ms, or null when the token never expires (Meta reports expires_at: 0).
   expiresAt: number | null;
 };
@@ -80,18 +84,54 @@ export const debugToken = async ({
   }
 };
 
-/** WABA ids from debug_token granular_scopes for the WhatsApp scopes only. */
-export const extractWabaTargetIds = (debugData: any): string[] => {
+/**
+ * WABA target ids per required WhatsApp scope from debug_token granular_scopes.
+ * Only the required WhatsApp scopes are kept; each maps to the numeric ids it
+ * enumerates (a scope may appear with an empty list).
+ */
+export const extractWabaTargetIdsByScope = (debugData: any): Record<string, string[]> => {
   const granular = Array.isArray(debugData?.granular_scopes) ? debugData.granular_scopes : [];
-  const ids = new Set<string>();
+  const byScope: Record<string, string[]> = {};
   for (const entry of granular) {
     const scope = String(entry?.scope || '');
     if (!REQUIRED_WHATSAPP_SCOPES.includes(scope)) continue;
-    for (const target of Array.isArray(entry?.target_ids) ? entry.target_ids : []) {
-      if (isNumericId(target)) ids.add(String(target));
-    }
+    const ids = (Array.isArray(entry?.target_ids) ? entry.target_ids : [])
+      .filter(isNumericId)
+      .map((t: any) => String(t));
+    byScope[scope] = [...(byScope[scope] || []), ...ids];
   }
-  return [...ids];
+  return byScope;
+};
+
+/**
+ * WABAs covered by EVERY required scope that enumerates targets.
+ *
+ * A required scope that enumerates nothing (absent from the map, or an empty
+ * list) is treated as unrestricted — it covers all WABAs and therefore does
+ * not constrain the set. When no required scope enumerates anything, the result
+ * is empty: there is nothing to cross-check against.
+ */
+export const coveredWabaIds = (byScope: Record<string, string[]>): string[] => {
+  const enumerated = REQUIRED_WHATSAPP_SCOPES
+    .map((scope) => byScope[scope])
+    .filter((list): list is string[] => Array.isArray(list) && list.length > 0);
+  if (!enumerated.length) return [];
+  return enumerated.reduce((acc, list) => acc.filter((id) => list.includes(id)));
+};
+
+/**
+ * Whether a specific WABA is covered by every required scope that enumerates
+ * targets. True when nothing enumerates (cannot disprove), false as soon as one
+ * enumerated required scope omits it — the case where, e.g., messaging is
+ * granted for a different WABA than management.
+ */
+export const wabaCoveredByAllScopes = (wabaId: string, byScope: Record<string, string[]>): boolean => {
+  const id = String(wabaId);
+  for (const scope of REQUIRED_WHATSAPP_SCOPES) {
+    const list = byScope[scope];
+    if (Array.isArray(list) && list.length && !list.includes(id)) return false;
+  }
+  return true;
 };
 
 /**
@@ -130,7 +170,8 @@ export const validateTokenDebugData = (
   const expiresAtSeconds = Number(data.expires_at);
   const expiresAt = Number.isFinite(expiresAtSeconds) && expiresAtSeconds > 0 ? expiresAtSeconds * 1000 : null;
 
-  return { scopes, wabaTargetIds: extractWabaTargetIds(data), expiresAt };
+  const wabaTargetIdsByScope = extractWabaTargetIdsByScope(data);
+  return { scopes, wabaTargetIdsByScope, coveredWabaIds: coveredWabaIds(wabaTargetIdsByScope), expiresAt };
 };
 
 // ── WABA id resolution ──────────────────────────────────────────────────────
@@ -138,33 +179,36 @@ export const validateTokenDebugData = (
 /**
  * Decide which WABA this connection is for. Pure.
  *
- * The browser's reported id is only trusted when the token's granular scopes
- * either confirm it or cannot speak to it at all. If the token clearly grants
- * a different set of WABAs than the browser claimed, that is a mismatch worth
- * refusing rather than papering over.
+ * A WABA is only acceptable when it is covered by *every* required WhatsApp
+ * scope that enumerates targets — not merely present in the union. Otherwise a
+ * token whose `management` grant targets WABA A and whose `messaging` grant
+ * targets WABA B would let A be persisted even though the account could never
+ * send from it. A browser-reported id is honoured when it clears that bar (or
+ * when nothing enumerates, so it cannot be cross-checked); when the browser
+ * names none, the WABA is derived from the covered set.
  */
 export const resolveWabaId = ({
   reported,
-  wabaTargetIds,
+  wabaTargetIdsByScope = {},
 }: {
   reported?: string;
-  wabaTargetIds: string[];
+  wabaTargetIdsByScope?: Record<string, string[]>;
 }): string => {
   const rep = String(reported || '').trim();
-  const ids = (wabaTargetIds || []).filter(isNumericId);
+  const covered = coveredWabaIds(wabaTargetIdsByScope);
 
   if (rep && isNumericId(rep)) {
-    if (ids.length && !ids.includes(rep)) {
+    if (!wabaCoveredByAllScopes(rep, wabaTargetIdsByScope)) {
       throw new AppError(
-        'The WhatsApp Business Account reported by the browser is not covered by the granted access token',
+        'The WhatsApp Business Account reported by the browser is not covered by every required WhatsApp permission on the granted token',
         400
       );
     }
     return rep;
   }
 
-  if (ids.length === 1) return ids[0];
-  if (ids.length > 1) {
+  if (covered.length === 1) return covered[0];
+  if (covered.length > 1) {
     throw new AppError(
       'The access token grants several WhatsApp Business Accounts and the browser named none — reconnect and choose one',
       409
@@ -175,7 +219,17 @@ export const resolveWabaId = ({
 
 // ── Phone number discovery ──────────────────────────────────────────────────
 
-/** GET /{waba-id}/phone_numbers — the numbers on the customer's WABA. */
+// A WABA rarely has more than a handful of numbers; this cap only stops a
+// runaway paging loop if Meta ever returns a self-referential `next`.
+const MAX_PHONE_PAGES = 20;
+
+/**
+ * GET /{waba-id}/phone_numbers — every number on the customer's WABA.
+ *
+ * Follows cursor pagination to the end: a browser-reported number on a later
+ * page must not be wrongly rejected as "not on the WABA", and the selection
+ * heuristic must see the full list before it chooses or refuses.
+ */
 export const fetchWabaPhoneNumbers = async ({
   wabaId,
   accessToken,
@@ -185,21 +239,38 @@ export const fetchWabaPhoneNumbers = async ({
   accessToken: string;
   graphVersion?: string;
 }): Promise<PhoneCandidate[]> => {
+  const candidates: PhoneCandidate[] = [];
+  let after = '';
   try {
-    const res = await axios.get(`${GRAPH}/${graphVersion}/${wabaId}/phone_numbers`, {
-      params: { fields: 'id,display_phone_number,verified_name,platform_type' },
-      headers: { Authorization: `Bearer ${accessToken}` },
-      timeout: GRAPH_TIMEOUT_MS,
-    });
-    const rows = Array.isArray(res.data?.data) ? res.data.data : [];
-    return rows
-      .map((p: any) => ({
-        id: String(p?.id || ''),
-        displayPhoneNumber: String(p?.display_phone_number || ''),
-        verifiedName: String(p?.verified_name || ''),
-        platformType: String(p?.platform_type || ''),
-      }))
-      .filter((p: PhoneCandidate) => p.id);
+    for (let page = 0; page < MAX_PHONE_PAGES; page += 1) {
+      const res = await axios.get(`${GRAPH}/${graphVersion}/${wabaId}/phone_numbers`, {
+        params: {
+          fields: 'id,display_phone_number,verified_name,platform_type',
+          limit: 100,
+          ...(after ? { after } : {}),
+        },
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: GRAPH_TIMEOUT_MS,
+      });
+
+      for (const p of Array.isArray(res.data?.data) ? res.data.data : []) {
+        const id = String(p?.id || '');
+        if (!id) continue;
+        candidates.push({
+          id,
+          displayPhoneNumber: String(p?.display_phone_number || ''),
+          verifiedName: String(p?.verified_name || ''),
+          platformType: String(p?.platform_type || ''),
+        });
+      }
+
+      // Meta returns paging.next only while more pages remain; stop otherwise.
+      const next = res.data?.paging?.next;
+      const cursor = res.data?.paging?.cursors?.after;
+      if (!next || !cursor) break;
+      after = String(cursor);
+    }
+    return candidates;
   } catch (error) {
     throw normalizeGraphError(error, 'Could not read the phone numbers on this WhatsApp Business Account');
   }

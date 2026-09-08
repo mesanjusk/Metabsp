@@ -82,23 +82,36 @@ export function useWhatsAppConnection() {
 
   const recheck = useCallback(() => setTick((value) => value + 1), []);
 
-  const preloadConnect = useCallback(async () => {
+  // Config only — safe to fetch on mount. It is a same-origin call to our own
+  // API and loads nothing from Meta, so it never contacts Facebook or logs an
+  // app event for a customer who never onboards.
+  const preloadConfig = useCallback(async () => {
     try {
       if (!connectConfigRef.current) {
         connectConfigRef.current = readConnectConfig(await fetchWhatsAppConnectConfig());
         setCoexistenceEnabled(Boolean(connectConfigRef.current?.coexistenceEnabled));
       }
-      const config = connectConfigRef.current;
+    } catch (_error) {
+      // Best-effort: connectWithMeta falls back to loading on demand.
+    }
+    return connectConfigRef.current;
+  }, []);
+
+  // Config + the Facebook SDK. Only ever called once the customer has
+  // expressed intent to onboard (the consent dialog opens), never on a plain
+  // dashboard mount — loading Meta's SDK reaches out to Facebook, so it must
+  // not happen for someone who never starts the flow.
+  const preloadConnect = useCallback(async () => {
+    try {
+      const config = await preloadConfig();
       if (config?.appId && config?.configId && typeof window !== 'undefined' && !window.FB) {
         await loadFacebookSdk({ appId: config.appId, apiVersion: config.sdkVersion });
       }
       return config;
     } catch (_error) {
-      // Best-effort: a failed preload just means connectWithMeta falls back to
-      // loading on demand and surfaces any real error there.
       return connectConfigRef.current;
     }
-  }, []);
+  }, [preloadConfig]);
 
   useEffect(() => {
     let active = true;
@@ -134,11 +147,13 @@ export function useWhatsAppConnection() {
     };
   }, [tick]);
 
-  // Warm the Embedded Signup config + SDK once on mount so the eventual
-  // FB.login opens directly from the consent click. Best-effort and idempotent.
+  // Warm only the config on mount (no Meta SDK). The SDK is loaded later, when
+  // the customer opens the consent dialog (preloadConnect), so FB.login can
+  // still open directly from the consent click without contacting Meta for a
+  // customer who never starts onboarding.
   useEffect(() => {
-    preloadConnect();
-  }, [preloadConnect]);
+    preloadConfig();
+  }, [preloadConfig]);
 
   const connectWithMeta = useCallback(async () => {
     setIsBusy(true);
