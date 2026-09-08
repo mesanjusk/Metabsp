@@ -49,17 +49,32 @@ can't do it for you, that is stated plainly.
    `FINISH_ONLY_WABA`, and returns a `coexistence` boolean (also inferred
    from a `FINISH` whose `data.current_step` names the WhatsApp Business
    app screen).
-4. **Server-side exchange** —
-   `nextjs/app/api/whatsapp/embedded-signup/exchange-code/route.ts` takes the same
-   `code`/`wabaId`/`phoneNumberId` path as before, then additionally
-   reads Meta's `platform_type` for the number. The account is stored as
-   `connectionMode: 'coexistence'` when *either* the browser reported a
-   coexistence finish *or* `platform_type` is `SMB_APP` — so a tampered
-   client flag alone cannot mislabel an ordinary Cloud API number.
-   `platform_type` is fetched in its own request, not appended to the
-   existing `display_phone_number,verified_name` call: an unknown `fields`
-   entry fails the whole request, and losing the display number would
-   matter far more than losing this hint.
+4. **Server-side exchange and validation** —
+   `nextjs/app/api/whatsapp/embedded-signup/exchange-code/route.ts` treats
+   every browser-supplied value (`wabaId`, `phoneNumberId`, `businessId`,
+   `coexistence`) as a *hint* and re-derives the truth from Meta
+   (`nextjs/lib/whatsapp/metaOnboarding.ts`):
+   - exchanges the `code` for the Business Integration System User (BISU)
+     token — for a v4 configuration this is already the long-lived business
+     token, so the old `fb_exchange_token` step is **not** run;
+   - `debug_token` confirms the token is valid, belongs to **this** Meta app
+     (`app_id === META_APP_ID`), and carries the required WhatsApp scopes;
+     a token minted for another app is rejected;
+   - the WABA id is resolved from the browser hint cross-checked against the
+     token's granular scopes (`whatsapp_business_management` /
+     `whatsapp_business_messaging` `target_ids`), or derived from them when
+     the browser named none;
+   - the phone number is discovered via `GET /{waba-id}/phone_numbers` (which
+     also returns `platform_type`, `display_phone_number`, `verified_name` in
+     one call). A browser-reported id is honoured only if it is actually on
+     the WABA; when absent, a single number is used, and several numbers are
+     refused rather than guessed — except that a single `SMB_APP` candidate is
+     selected under a coexistence hint.
+   The account is stored as `connectionMode: 'coexistence'` when *either* the
+   browser reported a coexistence finish *or* the resolved number's
+   `platform_type` is `SMB_APP` — so a tampered client flag alone cannot
+   mislabel an ordinary Cloud API number, and a coexistence completion that
+   omits the phone number id still onboards.
 
 `sessionInfoVersion` is read from `META_ES_SESSION_INFO_VERSION` (default
 `3`) so it can be changed without a code deploy — but see **Embedded Signup
@@ -166,55 +181,77 @@ the fields above are ticked. That way the rest of this work can ship
 before the Meta App configuration is touched, without onboarding numbers
 whose Business-app traffic silently goes nowhere.
 
-### Graph API version
+### Graph API version and JS SDK version (separate knobs)
 
-`WHATSAPP_API_VERSION` (`render.yaml`) feeds both the server's Graph calls
-and — via `GET /api/whatsapp/connect/config` — the Facebook JS SDK version
-the browser initialises for the Embedded Signup popup. It is now pinned to
-`v23.0` (it was `v20.0`, which predated coexistence), and the deploy gate
-refuses anything below that baseline. Treat any further bump as a change
-affecting every Graph call in the app, not a coexistence-only edit:
-re-test ordinary send/receive after bumping.
+Two version concerns are now split (`nextjs/lib/config/graphApi.ts`):
 
-## Embedded Signup v4 — a dated deadline, not a background task
+- **`WHATSAPP_API_VERSION`** — every server-side Graph call: the OAuth code
+  exchange, `debug_token`, phone-number discovery, the WABA subscription,
+  sending, media downloads. Pinned to `v23.0`; the deploy gate
+  (`scripts/meta-deploy-check.js`) refuses anything below that baseline. Treat
+  a bump as a change affecting every Graph call — re-test send/receive.
+- **`META_JS_SDK_VERSION`** — only the version the browser passes to `FB.init`
+  for the Embedded Signup popup, served via `GET /api/whatsapp/connect/config`
+  as `sdkVersion`. Meta's Embedded Signup Builder can move the SDK version
+  ahead of the Graph version, and there is no reason to tie the two together.
+  Falls back to `WHATSAPP_API_VERSION` when unset, so a single-version
+  deployment keeps working.
 
-**Meta deprecates Embedded Signup v2 on 15 October 2026.** Reporting on the
-v4 rollout is explicit that three feature types — `only_waba_sharing`,
-`marketing_messages_lite` and **`coex`** — cannot be migrated automatically
-and need deliberate developer work before that date. Coexistence is the one
-this product depends on, so this is a coexistence blocker, not a general
-housekeeping item.
+Both default to `v23.0`. Set `META_JS_SDK_VERSION` explicitly to match the
+current Meta Builder output when it moves ahead.
 
-What this repository sends today is the v3-shaped flow: `FB.login` with
-`config_id`, `response_type: 'code'`, and
-`extras.sessionInfoVersion` (`META_ES_SESSION_INFO_VERSION`, default `3`)
-plus `extras.featureType: 'whatsapp_business_app_onboarding'`. The popup's
-`WA_EMBEDDED_SIGNUP` messages are parsed against that shape in
-`nextjs/lib/client/facebookSdk.js`.
+## Embedded Signup v4
 
-An earlier revision of `render.yaml` carried `META_ES_VERSION: v4`, which no
-code has ever read. It described a migration that had not happened. That key
-is gone; changing a version number is not the migration, because v4
-consolidates onboarding into a configuration-driven Facebook Login for
-Business flow and the payloads this repo parses may differ.
+**Context:** Meta deprecates Embedded Signup v2 on 15 October 2026, and the
+`coex` feature type does not migrate automatically. The Meta-side
+configuration for this app is now an Embedded Signup **v4** configuration
+(ES Version v4, Session Info Version 3) with Coexistence enabled, and this
+repository targets it.
 
-Before the deadline, in this order:
+What the browser sends (`nextjs/lib/ui/hooks/useWhatsAppConnection.js`) is the
+config-driven Facebook Login for Business launch:
 
-1. Read Meta's current Embedded Signup v4 documentation and its coexistence
-   section — not this file, and not a third-party summary — for the exact
-   configuration, parameters and message shapes.
-2. Create or migrate the Embedded Signup configuration in the App Dashboard
-   for v4, keeping the coexistence path enabled.
-3. Update `nextjs/lib/ui/hooks/useWhatsAppConnection.js` (the `FB.login`
-   call) and `nextjs/lib/client/facebookSdk.js` (the message parsing) to
-   whatever v4 actually specifies, and extend
-   `nextjs/tests/embeddedSignupOrigin.test.ts` with the v4 payload shape.
-4. Retest the whole path end to end: permissions, callbacks, the coexistence
-   selection screen, the three webhook fields, and one real history sync.
+```js
+FB.login(callback, {
+  config_id: CONFIG_ID,                 // META_EMBEDDED_SIGNUP_CONFIG_ID
+  response_type: 'code',
+  override_default_response_type: true,
+  extras: {
+    setup: {},
+    sessionInfoVersion: '3',            // META_ES_SESSION_INFO_VERSION
+    featureType: 'whatsapp_business_app_onboarding', // when coexistence is on
+  },
+})
+```
 
-Treat a v4 migration and enabling coexistence as the same piece of work.
-Shipping coexistence on the v2/v3 flow first means building something with
-a known expiry date.
+- `sessionInfoVersion` is **retained** because Meta's current Builder output
+  for this configuration still reports Session Info Version = 3; it is passed
+  from `META_ES_SESSION_INFO_VERSION` and omitted only if that is cleared.
+- `featureType` is **not** dropped for v4. It is what selects the WhatsApp
+  Business app (coexistence) path and is passed additively whenever
+  coexistence is enabled — a customer with no Business app still runs the
+  ordinary Cloud API path in the same popup.
+- The `WA_EMBEDDED_SIGNUP` completion messages are parsed in
+  `nextjs/lib/client/facebookSdk.js`, which handles `FINISH`,
+  `FINISH_ONLY_WABA`, `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`, `CANCEL` and
+  `ERROR`, under strict exact-origin validation.
+
+The dead `META_ES_VERSION` key (which no code ever read) has been removed from
+`render.yaml` and `.env.example`.
+
+**The popup launches directly from the user's consent click.** The Embedded
+Signup config and the Facebook SDK are preloaded (on dashboard mount and again
+when the consent dialog opens), so `FB.login` runs from the gesture rather than
+after a network fetch or script load — modern browsers block a popup opened
+after intervening async work as unsolicited.
+
+**Server-side, the browser is not trusted.** See step 4 of the onboarding flow
+above: the code is exchanged for a BISU token, `debug_token` validates it
+against this app and its scopes, and the WABA + phone number are re-derived and
+validated against Meta before anything is persisted.
+
+Before relying on this commercially, still run one real coexistence onboarding
+end to end (see the launch gate at the end of this document).
 
 ## Permissions
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from '@/lib/ui/components/Toast';
 import { parseApiError } from '@/lib/api/parseApiError';
 import { loadFacebookSdk, listenForEmbeddedSignupData } from '@/lib/client/facebookSdk';
@@ -31,6 +31,9 @@ const readConnectConfig = (response) => {
     configId: data?.configId || data?.config_id || data?.configurationId || '',
     appId: data?.appId || data?.app_id || '',
     apiVersion: data?.apiVersion || data?.api_version || 'v23.0',
+    // The Facebook JS SDK version for FB.init. Served separately from the Graph
+    // API version; falls back to it, then to the baseline.
+    sdkVersion: data?.sdkVersion || data?.sdk_version || data?.apiVersion || data?.api_version || 'v23.0',
     // Coexistence (the WhatsApp Business app and the Cloud API on one number).
     // The server decides whether this deployment's Meta app is subscribed to
     // the coexistence webhook fields; absent or false, the popup runs the
@@ -66,8 +69,49 @@ export function useWhatsAppConnection() {
   const [lastCheckedAt, setLastCheckedAt] = useState(null);
   const [isBusy, setIsBusy] = useState(false);
   const [tick, setTick] = useState(0);
+  // Whether THIS deployment offers the coexistence path in the popup, per the
+  // server config. Drives onboarding copy only — never used to claim a
+  // connected number is in coexistence mode (that comes from the account).
+  const [coexistenceEnabled, setCoexistenceEnabled] = useState(false);
+
+  // Embedded Signup config + SDK are preloaded (see preloadConnect) so that
+  // FB.login can be invoked directly from the user's consent click. A popup
+  // opened after an intervening network fetch or script load is treated by
+  // browsers as unsolicited and blocked; preloading removes that gap.
+  const connectConfigRef = useRef(null);
 
   const recheck = useCallback(() => setTick((value) => value + 1), []);
+
+  // Config only — safe to fetch on mount. It is a same-origin call to our own
+  // API and loads nothing from Meta, so it never contacts Facebook or logs an
+  // app event for a customer who never onboards.
+  const preloadConfig = useCallback(async () => {
+    try {
+      if (!connectConfigRef.current) {
+        connectConfigRef.current = readConnectConfig(await fetchWhatsAppConnectConfig());
+        setCoexistenceEnabled(Boolean(connectConfigRef.current?.coexistenceEnabled));
+      }
+    } catch (_error) {
+      // Best-effort: connectWithMeta falls back to loading on demand.
+    }
+    return connectConfigRef.current;
+  }, []);
+
+  // Config + the Facebook SDK. Only ever called once the customer has
+  // expressed intent to onboard (the consent dialog opens), never on a plain
+  // dashboard mount — loading Meta's SDK reaches out to Facebook, so it must
+  // not happen for someone who never starts the flow.
+  const preloadConnect = useCallback(async () => {
+    try {
+      const config = await preloadConfig();
+      if (config?.appId && config?.configId && typeof window !== 'undefined' && !window.FB) {
+        await loadFacebookSdk({ appId: config.appId, apiVersion: config.sdkVersion });
+      }
+      return config;
+    } catch (_error) {
+      return connectConfigRef.current;
+    }
+  }, [preloadConfig]);
 
   useEffect(() => {
     let active = true;
@@ -103,22 +147,44 @@ export function useWhatsAppConnection() {
     };
   }, [tick]);
 
+  // Warm only the config on mount (no Meta SDK). The SDK is loaded later, when
+  // the customer opens the consent dialog (preloadConnect), so FB.login can
+  // still open directly from the consent click without contacting Meta for a
+  // customer who never starts onboarding.
+  useEffect(() => {
+    preloadConfig();
+  }, [preloadConfig]);
+
   const connectWithMeta = useCallback(async () => {
     setIsBusy(true);
     try {
-      const config = readConnectConfig(await fetchWhatsAppConnectConfig());
+      // Prefer the preloaded config/SDK; only fall back to loading on demand if
+      // preloading has not finished (or failed), keeping the common path free of
+      // any async work between the user's click and FB.login.
+      let config = connectConfigRef.current;
+      if (!config) {
+        config = readConnectConfig(await fetchWhatsAppConnectConfig());
+        connectConfigRef.current = config;
+      }
       if (!config.appId || !config.configId) {
         toast.error('Embedded Signup is not configured for this deployment. Use "Connect manually" instead.');
         return false;
       }
-
-      await loadFacebookSdk({ appId: config.appId, apiVersion: config.apiVersion });
+      if (typeof window === 'undefined' || !window.FB) {
+        await loadFacebookSdk({ appId: config.appId, apiVersion: config.sdkVersion });
+      }
 
       // Start listening before FB.login: Meta's popup can post the
       // WA_EMBEDDED_SIGNUP message before — or without ever — resolving the
       // FB.login promise below.
       const embeddedSignupData = listenForEmbeddedSignupData();
 
+      // Embedded Signup v4: a config-driven Facebook Login for Business flow.
+      // sessionInfoVersion is retained because Meta's current Builder output for
+      // this configuration still reports Session Info Version = 3; featureType
+      // is what selects the WhatsApp Business app (coexistence) path and is
+      // passed additively whenever coexistence is enabled — the same popup still
+      // runs the ordinary Cloud API path for a customer with no Business app.
       const loginResult = await new Promise((resolve) =>
         window.FB.login(resolve, {
           config_id: config.configId,
@@ -126,7 +192,7 @@ export function useWhatsAppConnection() {
           override_default_response_type: true,
           extras: {
             setup: {},
-            sessionInfoVersion: config.sessionInfoVersion,
+            ...(config.sessionInfoVersion ? { sessionInfoVersion: config.sessionInfoVersion } : {}),
             ...(config.coexistenceEnabled && config.featureType ? { featureType: config.featureType } : {}),
           },
         })
@@ -222,6 +288,8 @@ export function useWhatsAppConnection() {
     statusError,
     lastCheckedAt,
     isBusy,
+    coexistenceEnabled,
+    preloadConnect,
     connectWithMeta,
     connectManually,
     disconnect,

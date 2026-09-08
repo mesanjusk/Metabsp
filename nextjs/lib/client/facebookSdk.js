@@ -6,7 +6,11 @@
 // a manual paste prompt.
 let loadPromise = null;
 
-export function loadFacebookSdk({ appId, apiVersion = 'v20.0' }) {
+// `apiVersion` here is the Facebook JS SDK version passed to FB.init — the
+// server sends it as `sdkVersion` from GET /api/whatsapp/connect/config, which
+// can track Meta's Embedded Signup Builder output independently of the Graph
+// API version used for server-side calls. Defaults to the validated baseline.
+export function loadFacebookSdk({ appId, apiVersion = 'v23.0' }) {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('Facebook SDK can only load in a browser'));
   }
@@ -24,7 +28,10 @@ export function loadFacebookSdk({ appId, apiVersion = 'v20.0' }) {
     window.fbAsyncInit = function fbAsyncInit() {
       window.FB.init({
         appId,
-        autoLogAppEvents: true,
+        // Off deliberately: the SDK is loaded to power the Embedded Signup
+        // popup, not to send automatic app-event/analytics traffic to Meta on
+        // every dashboard that happens to initialise it.
+        autoLogAppEvents: false,
         xfbml: false,
         version: apiVersion,
       });

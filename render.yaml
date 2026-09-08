@@ -90,6 +90,13 @@ services:
         value: v23.0
       - key: META_API_VERSION
         value: v23.0
+      # The Facebook JS SDK version the browser loads for the Embedded Signup
+      # popup (FB.init), served to the client via GET /api/whatsapp/connect/config.
+      # Kept separate from the Graph API version above so it can track Meta's
+      # Embedded Signup Builder output without moving every server Graph call.
+      # Falls back to WHATSAPP_API_VERSION when unset.
+      - key: META_JS_SDK_VERSION
+        value: v23.0
       # The Embedded Signup session-info version this app parses. It said `v4`
       # under a key (META_ES_VERSION) that no code has ever read, which claimed
       # a migration that has not happened: lib/client/facebookSdk.js parses the

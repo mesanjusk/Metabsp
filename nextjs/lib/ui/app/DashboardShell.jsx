@@ -90,8 +90,13 @@ export default function DashboardShell({ children }) {
       toast(EMBEDDED_SIGNUP_COMING_SOON_NOTE);
       return;
     }
+    // Warm the Embedded Signup config + Facebook SDK while the consent dialog is
+    // open, so accepting it can open FB.login directly from that click instead
+    // of after a network fetch or script load (which browsers block as an
+    // unsolicited popup). Best-effort — connectWithMeta still loads on demand.
+    connection.preloadConnect?.();
     setConsentOpen(true);
-  }, []);
+  }, [connection]);
 
   const handleConsentAccepted = useCallback(() => {
     setConsentOpen(false);

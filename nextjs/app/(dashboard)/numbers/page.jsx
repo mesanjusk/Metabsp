@@ -22,7 +22,7 @@ const WhatsAppNumbersPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WhatsA
  */
 export default function NumbersPage() {
   const { connection, openManualConnect, startConnect } = useDashboard();
-  const { whatsappAccount, isAccountConnected, isBusy, refreshAccount, revalidate } = connection;
+  const { whatsappAccount, isAccountConnected, isBusy, refreshAccount, revalidate, coexistenceEnabled } = connection;
 
   const coexistence = whatsappAccount?.coexistence || null;
   const historySyncStatus = String(coexistence?.historySyncStatus || '');
@@ -34,7 +34,12 @@ export default function NumbersPage() {
       description="Both ways in are open to every account. Connect as many numbers as you need — each one sends, receives and runs its own automations."
     >
       <Stack spacing={3}>
-        <ConnectChoiceCards onEmbedded={startConnect} onManual={openManualConnect} isBusy={isBusy} />
+        <ConnectChoiceCards
+          onEmbedded={startConnect}
+          onManual={openManualConnect}
+          isBusy={isBusy}
+          coexistenceEnabled={coexistenceEnabled}
+        />
 
         {coexistence?.enabled ? (
           <Alert severity={historySyncStatus === 'completed' ? 'success' : 'info'}>

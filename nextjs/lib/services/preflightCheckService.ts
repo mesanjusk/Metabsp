@@ -28,7 +28,7 @@
 import axios from 'axios';
 import WhatsAppAccount from '../models/WhatsAppAccount';
 import { decryptSensitiveValue } from '../utils/crypto';
-import { getGraphApiVersion } from '../config/graphApi';
+import { getGraphApiVersion, getJsSdkVersion, getWebhookVerifyToken } from '../config/graphApi';
 import logger from '../utils/logger';
 
 // `messages` is required by every deployment; the other three are required
@@ -387,6 +387,177 @@ export const checkEmbeddedSignupConfig = () => {
   };
 };
 
+// vNN.N → { major, minor }, or null when it is not a version at all.
+export const parseGraphVersion = (raw: unknown) => {
+  const match = /^v(\d+)\.(\d+)$/.exec(String(raw || '').trim());
+  return match ? { major: Number(match[1]), minor: Number(match[2]) } : null;
+};
+
+// The validated baseline is v23.0 (coexistence predates nothing below it). Both
+// the Graph API version and the JS SDK version are checked, since they are now
+// separate env vars and either can drift below the baseline independently.
+const VERSION_BASELINE_MAJOR = 23;
+
+export const checkVersions = () => {
+  const graphVersion = getGraphApiVersion();
+  const sdkVersion = getJsSdkVersion();
+  const problems: string[] = [];
+
+  const graph = parseGraphVersion(graphVersion);
+  if (!graph) problems.push(`WHATSAPP_API_VERSION "${graphVersion}" is not a vNN.N version`);
+  else if (graph.major < VERSION_BASELINE_MAJOR) problems.push(`Graph API version ${graphVersion} is below the validated baseline v${VERSION_BASELINE_MAJOR}.0`);
+
+  const sdk = parseGraphVersion(sdkVersion);
+  if (!sdk) problems.push(`META_JS_SDK_VERSION "${sdkVersion}" is not a vNN.N version`);
+  else if (sdk.major < VERSION_BASELINE_MAJOR) problems.push(`JS SDK version ${sdkVersion} is below the validated baseline v${VERSION_BASELINE_MAJOR}.0`);
+
+  return {
+    id: 'versions',
+    severity: problems.length ? 'error' : 'ok',
+    graphVersion,
+    sdkVersion,
+    summary: problems.length ? problems.join('; ') : `Graph API ${graphVersion}, Facebook JS SDK ${sdkVersion}`,
+  };
+};
+
+/**
+ * The two secrets that fail silently when absent: the webhook verify token
+ * (without it Meta's callback verification cannot pass, so no subscription can
+ * be saved) and the token-encryption key (without it a connected account's
+ * access token cannot be stored or read). Reported present/absent only — a
+ * value is never echoed.
+ */
+export const checkWebhookSecurity = () => {
+  const hasVerifyToken = Boolean(getWebhookVerifyToken());
+  const hasEncryptionKey = Boolean(String(process.env.WHATSAPP_TOKEN_ENCRYPTION_KEY || '').trim());
+  const enforceSignature = String(process.env.WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE).toLowerCase() !== 'false';
+
+  const missing: string[] = [];
+  if (!hasVerifyToken) missing.push('WHATSAPP_WEBHOOK_VERIFY_TOKEN');
+  if (!hasEncryptionKey) missing.push('WHATSAPP_TOKEN_ENCRYPTION_KEY');
+
+  const severity = missing.length ? 'error' : !enforceSignature ? 'warn' : 'ok';
+
+  return {
+    id: 'webhook_security',
+    severity,
+    hasVerifyToken,
+    hasEncryptionKey,
+    enforceSignature,
+    missing,
+    summary: missing.length
+      ? `Missing required secret(s): ${missing.join(', ')} (values are never shown)`
+      : !enforceSignature
+        ? 'WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE is off — inbound webhook signatures are NOT being verified; set it to true in production'
+        : 'Webhook verify token and token-encryption key are set; signature verification is enforced',
+  };
+};
+
+const publicAppUrl = () =>
+  String(process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').trim();
+
+const originOf = (url: string) => {
+  try {
+    return new URL(url).origin.toLowerCase();
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * The production domain and the callback Meta actually holds.
+ *
+ * `fieldResult.callbackUrl` is the URL stored on Meta's `whatsapp_business_account`
+ * subscription (read back in fetchAppWebhookFields). A healthy-looking
+ * subscription that delivers to a different origin than this deployment is the
+ * exact failure this surfaces — see metaWebhookSubscriptionService.
+ */
+export const checkPublicDomain = (fieldResult: any = {}) => {
+  const appUrl = publicAppUrl();
+  const callbackUrl = String(fieldResult?.callbackUrl || '').trim();
+
+  if (!appUrl) {
+    return {
+      id: 'public_domain',
+      severity: 'warn',
+      publicAppUrl: '',
+      callbackUrl,
+      summary: 'No canonical public app URL is set (FRONTEND_URL / PUBLIC_APP_URL / NEXT_PUBLIC_APP_URL) — cannot confirm Meta delivers here',
+    };
+  }
+
+  let isHttps = false;
+  try {
+    isHttps = new URL(appUrl).protocol === 'https:';
+  } catch {
+    return { id: 'public_domain', severity: 'error', publicAppUrl: appUrl, callbackUrl, summary: `Public app URL is not a valid URL: ${appUrl}` };
+  }
+  if (!isHttps) {
+    return { id: 'public_domain', severity: 'error', publicAppUrl: appUrl, callbackUrl, summary: `Public app URL must be https: ${appUrl}` };
+  }
+
+  if (!callbackUrl) {
+    return {
+      id: 'public_domain',
+      severity: 'warn',
+      publicAppUrl: appUrl,
+      callbackUrl,
+      summary: `Production domain ${appUrl} is https, but Meta reports no stored callback URL yet — verify the webhook in the App Dashboard`,
+    };
+  }
+
+  const sameOrigin = originOf(appUrl) === originOf(callbackUrl);
+  return {
+    id: 'public_domain',
+    severity: sameOrigin ? 'ok' : 'error',
+    publicAppUrl: appUrl,
+    callbackUrl,
+    summary: sameOrigin
+      ? `Production domain ${appUrl} matches Meta's stored callback ${callbackUrl}`
+      : `Meta delivers to ${callbackUrl}, which is NOT this deployment (${appUrl}) — inbound messages are going elsewhere`,
+  };
+};
+
+/**
+ * A compact ready/not-ready view for the admin diagnostic, derived from the
+ * detailed checks. Everything here is safe to render in a UI — no secrets, only
+ * states.
+ */
+export const buildReadinessSummary = ({
+  coexistenceEnabled,
+  embeddedSignupCheck,
+  fieldCheck,
+  versionCheck,
+  securityCheck,
+  domainCheck,
+}: any) => {
+  const subscribed = (field: string) => (fieldCheck?.subscribed || []).includes(field);
+  const configReady = embeddedSignupCheck?.severity === 'ok';
+  const versionsReady = versionCheck?.severity === 'ok';
+  // Must be fully 'ok', not merely non-error: a 'warn' here means webhook
+  // signature enforcement is off, i.e. inbound payloads are accepted without
+  // authentication. That is not a "ready" production state.
+  const securityReady = securityCheck?.severity === 'ok';
+
+  const embeddedSignupReady = configReady && versionsReady && securityReady;
+  const coexistenceFieldsReady = COEXISTENCE_WEBHOOK_FIELDS.every(subscribed);
+
+  return {
+    embeddedSignupV4: embeddedSignupReady ? 'ready' : 'not_ready',
+    coexistenceSelector:
+      !coexistenceEnabled ? 'disabled' : embeddedSignupReady && coexistenceFieldsReady ? 'ready' : 'not_ready',
+    webhookFields: {
+      messages: subscribed('messages') ? 'subscribed' : 'missing',
+      history: subscribed('history') ? 'subscribed' : 'missing',
+      smb_message_echoes: subscribed('smb_message_echoes') ? 'subscribed' : 'missing',
+      smb_app_state_sync: subscribed('smb_app_state_sync') ? 'subscribed' : 'missing',
+    },
+    metaWebhookCallback:
+      domainCheck?.severity === 'ok' ? 'configured' : domainCheck?.callbackUrl ? 'not_verified' : 'not_configured',
+    productionDomain: domainCheck?.severity === 'ok' ? 'ready' : domainCheck?.severity === 'warn' ? 'unverified' : 'not_ready',
+  };
+};
+
 // Above this many connected WABAs, the per-WABA check is one Graph call per
 // customer at every boot and belongs on the admin endpoint instead. At or
 // below it — which is every deployment that is not yet a busy BSP — the call
@@ -411,9 +582,17 @@ export const runPreflightChecks = async ({ includeWabaSubscriptions = false }: a
     (a: any) => a.connectionMode === 'coexistence' || a?.coexistence?.enabled
   ).length;
 
+  const embeddedSignupCheck = checkEmbeddedSignupConfig();
+  const versionCheck = checkVersions();
+  const securityCheck = checkWebhookSecurity();
+  const domainCheck = checkPublicDomain(fieldResult);
+
   const checks = [
-    checkEmbeddedSignupConfig(),
+    embeddedSignupCheck,
+    versionCheck,
+    securityCheck,
     fieldCheck,
+    domainCheck,
     checkCoexistenceGating({ coexistenceEnabled, fieldCheck, coexistenceAccountCount }),
     checkTokenSources(accounts),
   ];
@@ -433,8 +612,17 @@ export const runPreflightChecks = async ({ includeWabaSubscriptions = false }: a
   return {
     checkedAt: new Date().toISOString(),
     graphVersion,
+    sdkVersion: getJsSdkVersion(),
     coexistenceEnabled,
     severity: worstSeverity(checks),
+    readiness: buildReadinessSummary({
+      coexistenceEnabled,
+      embeddedSignupCheck,
+      fieldCheck,
+      versionCheck,
+      securityCheck,
+      domainCheck,
+    }),
     checks,
   };
 };
