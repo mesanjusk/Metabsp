@@ -5,6 +5,7 @@ import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import DialpadRoundedIcon from '@mui/icons-material/DialpadRounded';
+import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import CodeRoundedIcon from '@mui/icons-material/CodeRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
@@ -44,6 +45,7 @@ export const NAV_SECTIONS = [
     label: 'Platform',
     items: [
       { href: '/numbers', label: 'Numbers', icon: DialpadRoundedIcon },
+      { href: '/business', label: 'Business tools', icon: StorefrontRoundedIcon, requiresConnection: true },
       { href: '/developers', label: 'Developers', icon: CodeRoundedIcon },
       { href: '/settings', label: 'Settings', icon: SettingsRoundedIcon },
       { href: '/admin', label: 'Administration', icon: AdminPanelSettingsRoundedIcon, adminOnly: true },
