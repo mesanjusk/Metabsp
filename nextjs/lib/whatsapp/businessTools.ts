@@ -5,6 +5,9 @@ type AccountContext = {
   accessToken: string;
   phoneNumberId: string;
   wabaId?: string;
+  connectionMode?: string;
+  coexistence?: { enabled?: boolean };
+  account?: any;
 };
 
 const GRAPH_ROOT = 'https://graph.facebook.com';
@@ -13,6 +16,28 @@ function requireValue(value: unknown, label: string) {
   const text = String(value || '').trim();
   if (!text) throw new AppError(`${label} is unavailable for this WhatsApp account`, 400);
   return text;
+}
+
+function accountConnectionMode(account: AccountContext) {
+  return String(account.connectionMode || account.account?.connectionMode || '').trim();
+}
+
+export function isCoexistenceAccount(account: AccountContext) {
+  return accountConnectionMode(account) === 'coexistence' || Boolean(account.coexistence?.enabled || account.account?.coexistence?.enabled);
+}
+
+const COEX_PROFILE_REASON =
+  'This number uses WhatsApp Coexistence. Meta keeps business-profile editing in the WhatsApp Business App for coexistence numbers. Edit the profile on the phone, then refresh it here.';
+
+const COEX_COMMERCE_REASON =
+  'This number uses WhatsApp Coexistence. Catalogue, cart and other WhatsApp Business App business tools remain managed in the WhatsApp Business App, not through the Cloud API.';
+
+function assertProfileWritable(account: AccountContext) {
+  if (isCoexistenceAccount(account)) throw new AppError(COEX_PROFILE_REASON, 409);
+}
+
+function assertCommerceWritable(account: AccountContext) {
+  if (isCoexistenceAccount(account)) throw new AppError(COEX_COMMERCE_REASON, 409);
 }
 
 function buildUrl(account: AccountContext, path: string, query: Record<string, unknown> = {}) {
@@ -44,11 +69,28 @@ async function graphRequest(
 
   const payload: any = await response.json().catch(() => ({}));
   if (!response.ok || payload?.error) {
-    const metaMessage = String(payload?.error?.message || payload?.message || '').trim();
-    const metaCode = payload?.error?.code ? ` (Meta ${payload.error.code})` : '';
-    throw new AppError(metaMessage ? `${metaMessage}${metaCode}` : `Meta Graph API request failed${metaCode}`, response.status >= 500 ? 502 : 400);
+    const metaError = payload?.error || {};
+    const userTitle = String(metaError.error_user_title || '').trim();
+    const userMessage = String(metaError.error_user_msg || '').trim();
+    const metaMessage = String(metaError.message || payload?.message || '').trim();
+    const primaryMessage = userMessage || metaMessage || userTitle;
+    const code = metaError.code ? `Meta ${metaError.code}` : '';
+    const subcode = metaError.error_subcode ? `subcode ${metaError.error_subcode}` : '';
+    const codeLabel = [code, subcode].filter(Boolean).join(', ');
+    const trace = String(metaError.fbtrace_id || '').trim();
+    const detail = [primaryMessage || 'Meta Graph API request failed', codeLabel ? `(${codeLabel})` : '', trace ? `[trace ${trace}]` : '']
+      .filter(Boolean)
+      .join(' ');
+    throw new AppError(detail, response.status >= 500 ? 502 : 400);
   }
   return payload;
+}
+
+function normalizeWebsite(value: unknown) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  if (/^https?:\/\//i.test(text)) return text;
+  return `https://${text}`;
 }
 
 export async function getBusinessProfile(account: AccountContext) {
@@ -61,6 +103,7 @@ export async function getBusinessProfile(account: AccountContext) {
 }
 
 export async function updateBusinessProfile(account: AccountContext, input: any = {}) {
+  assertProfileWritable(account);
   const phoneNumberId = requireValue(account.phoneNumberId, 'Phone number ID');
   const allowed = ['about', 'address', 'description', 'email', 'vertical'] as const;
   const body: Record<string, unknown> = { messaging_product: 'whatsapp' };
@@ -69,7 +112,7 @@ export async function updateBusinessProfile(account: AccountContext, input: any 
   }
   if (Object.prototype.hasOwnProperty.call(input, 'websites')) {
     body.websites = (Array.isArray(input.websites) ? input.websites : [])
-      .map((value: unknown) => String(value || '').trim())
+      .map(normalizeWebsite)
       .filter(Boolean)
       .slice(0, 2);
   }
@@ -86,6 +129,7 @@ export async function getCommerceSettings(account: AccountContext) {
 }
 
 export async function updateCommerceSettings(account: AccountContext, input: any = {}) {
+  assertCommerceWritable(account);
   const phoneNumberId = requireValue(account.phoneNumberId, 'Phone number ID');
   return graphRequest(account, `${phoneNumberId}/whatsapp_commerce_settings`, {
     method: 'POST',
@@ -162,12 +206,26 @@ export async function flowAction(account: AccountContext, flowId: unknown, actio
   return graphRequest(account, `${encodeURIComponent(id)}/${action}`, { method: 'POST' });
 }
 
-export const businessToolCapabilities = {
-  businessProfile: true,
-  commerceSettings: true,
-  qrCodes: true,
-  flows: true,
-  catalogItemManagement: false,
-  catalogItemManagementReason:
-    'Product/item CRUD belongs to the Meta catalog/Commerce APIs and needs additional catalog/business asset permissions. The current WhatsApp permissions can control catalog visibility/cart behavior and send catalog messages, but not safely edit the catalog inventory itself.',
-};
+export function getBusinessToolCapabilities(account: AccountContext) {
+  const coexistence = isCoexistenceAccount(account);
+  return {
+    connectionMode: coexistence ? 'coexistence' : accountConnectionMode(account) || 'unknown',
+    coexistence,
+    businessProfileRead: true,
+    businessProfileWrite: !coexistence,
+    businessProfileWriteReason: coexistence ? COEX_PROFILE_REASON : '',
+    commerceSettings: !coexistence,
+    commerceSettingsReason: coexistence ? COEX_COMMERCE_REASON : '',
+    qrCodes: true,
+    flows: true,
+    catalogItemManagement: false,
+    catalogItemManagementReason:
+      'Product/item CRUD belongs to the Meta catalog/Commerce APIs and needs additional catalog/business asset permissions. The current WhatsApp permissions can control catalog visibility/cart behavior on eligible Cloud API-only numbers and send catalog messages, but not safely edit the catalog inventory itself.',
+  };
+}
+
+export const businessToolCapabilities = getBusinessToolCapabilities({
+  graphVersion: 'v23.0',
+  accessToken: '',
+  phoneNumberId: '',
+});
