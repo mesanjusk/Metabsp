@@ -41,7 +41,13 @@ function accountLabel(account) {
 // always supported multiple — GET /api/whatsapp/accounts,
 // POST /accounts/:id/activate — but no UI ever called them) and lets the
 // user switch which one is active, or connect another.
-export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onChanged, accountActionLoading }) {
+export default function WhatsAppNumbersPanel({
+  onConnect,
+  onManualConnect,
+  onChanged,
+  accountActionLoading,
+  refreshKey,
+}) {
   const [accounts, setAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -64,9 +70,13 @@ export default function WhatsAppNumbersPanel({ onConnect, onManualConnect, onCha
     }
   }, []);
 
+  // Embedded Signup updates AuthContext after /connect/complete succeeds.
+  // Re-fetch this list when that account snapshot changes; previously the
+  // panel loaded only once on mount, so the screen could keep showing the old
+  // disconnected list even though the backend had already saved the number.
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   const handleActivate = async (accountId) => {
     setPendingAccountId(accountId);
@@ -237,6 +247,7 @@ WhatsAppNumbersPanel.propTypes = {
   onManualConnect: PropTypes.func,
   onChanged: PropTypes.func,
   accountActionLoading: PropTypes.bool,
+  refreshKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 };
 
 WhatsAppNumbersPanel.defaultProps = {
@@ -244,4 +255,5 @@ WhatsAppNumbersPanel.defaultProps = {
   onManualConnect: () => {},
   onChanged: () => {},
   accountActionLoading: false,
+  refreshKey: '',
 };
