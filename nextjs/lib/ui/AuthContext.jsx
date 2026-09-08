@@ -48,12 +48,23 @@ const getInitialUser = () => ({
   whatsappProvider: pickFirst([STORAGE_KEYS.whatsappProvider]),
 });
 
+const asWorkspaceWhatsAppAccount = (account) => {
+  if (!account) return null;
+  const source = String(account?.source || '').toLowerCase();
+  // SUPER_ADMIN can still use the deployment-wide WHATSAPP_* environment
+  // credentials as a backend fallback for platform messages. That is not a
+  // WhatsAppAccount row owned by this signed-in workspace, so it must never
+  // make /numbers claim that this user has saved/connected a number.
+  if (source === 'legacy-env' || source === 'legacy_env') return null;
+  return account;
+};
+
 const getAccountPayload = (response) => {
   const data = response?.data?.data ?? response?.data ?? null;
-  if (Array.isArray(data)) return data[0] || null;
-  if (Array.isArray(data?.items)) return data.items[0] || null;
-  if (data?.account) return data.account;
-  return data;
+  if (Array.isArray(data)) return asWorkspaceWhatsAppAccount(data[0] || null);
+  if (Array.isArray(data?.items)) return asWorkspaceWhatsAppAccount(data.items[0] || null);
+  if (data?.account) return asWorkspaceWhatsAppAccount(data.account);
+  return asWorkspaceWhatsAppAccount(data);
 };
 
 export function AuthProvider({ children }) {
@@ -265,6 +276,7 @@ export function AuthProvider({ children }) {
       isAccountLoading,
       isAccountConnected:
         Boolean(whatsappAccount) &&
+        !['legacy-env', 'legacy_env'].includes(String(whatsappAccount?.source || '').toLowerCase()) &&
         !['disconnected', 'inactive', 'error', 'not_connected'].includes(
           String(whatsappAccount?.status || whatsappAccountStatus || '').toLowerCase(),
         ),
