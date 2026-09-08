@@ -102,11 +102,14 @@ export const EMBEDDED_SIGNUP_ORIGINS = [
   'https://facebook.com',
 ];
 
-// Meta's Embedded Signup popup posts window messages with the WABA/phone
-// number identifiers — FB.login's own callback only carries the OAuth
-// `code`, not these IDs, so they must be captured via this side channel.
+// Meta's Embedded Signup popup normally posts window messages with the
+// WABA/phone identifiers, while FB.login's callback carries the OAuth code.
+// In practice some popup variants complete successfully but omit the final
+// WA_EMBEDDED_SIGNUP postMessage. The server is already designed to re-derive
+// WABA/phone/coexistence from the BISU token, so callers can opt into a safe
+// code-only fallback after a short grace period instead of hanging for minutes.
 // See: https://developers.facebook.com/docs/whatsapp/embedded-signup
-export function listenForEmbeddedSignupData({ timeoutMs = 5 * 60 * 1000 } = {}) {
+export function listenForEmbeddedSignupData({ timeoutMs = 5 * 60 * 1000, allowMissingOnTimeout = false } = {}) {
   return new Promise((resolve, reject) => {
     let settled = false;
 
@@ -150,7 +153,12 @@ export function listenForEmbeddedSignupData({ timeoutMs = 5 * 60 * 1000 } = {}) 
     window.addEventListener('message', handleMessage);
     const timer = setTimeout(() => {
       if (settled) return;
+      settled = true;
       cleanup();
+      if (allowMissingOnTimeout) {
+        resolve({ wabaId: '', phoneNumberId: '', businessId: '', coexistence: false, finishEvent: '' });
+        return;
+      }
       reject(new Error('Timed out waiting for Meta Embedded Signup to complete'));
     }, timeoutMs);
   });
