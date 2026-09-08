@@ -98,14 +98,16 @@ services:
       # so this needs real work before that date — not a changed value here.
       - key: META_ES_SESSION_INFO_VERSION
         value: "3"
-      # Keep false until the three coexistence webhook fields are subscribed
-      # in the App Dashboard AND one real coexistence onboarding has been run
-      # end to end — otherwise the Embedded Signup popup offers a path whose
-      # traffic goes nowhere. See docs/meta-tech-provider/COEXISTENCE.md.
-      # This shipped as "true" while its own comment said keep it false; false
-      # is what the comment, the deploy gate and the live service all mean.
+      # Enabled: the three coexistence webhook fields (history,
+      # smb_message_echoes, smb_app_state_sync) are subscribed in the App
+      # Dashboard, so the Embedded Signup popup may offer the WhatsApp Business
+      # app onboarding path and its traffic has somewhere to land. Verify with
+      # GET /api/whatsapp/preflight (webhook_fields.notReadyForCoexistence must
+      # be empty) before trusting this. As a launch gate, run one real
+      # coexistence onboarding end to end and confirm the three webhook
+      # payloads match this code. See docs/meta-tech-provider/COEXISTENCE.md.
       - key: META_ENABLE_COEXISTENCE
-        value: "false"
+        value: "true"
       - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
         sync: false
       - key: WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE
