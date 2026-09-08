@@ -16,7 +16,7 @@ vi.mock('@/lib/models/User', () => ({
 }));
 
 const { requireApiKey } = await import('@/lib/auth/apiKey');
-const { hashApiKey } = await import('@/lib/models/ApiKey');
+const { ApiKey, hashApiKey } = await import('@/lib/models/ApiKey');
 
 const request = (headers: Record<string, string> = {}) =>
   new NextRequest('https://example.test/api/v1/status', { headers });
@@ -28,6 +28,22 @@ describe('API key authentication', () => {
     findOne.mockReset();
     updateOne.mockClear();
     userFindById.mockReset().mockReturnValue(lean({ tenantId: 'tenant-1', isActive: true }));
+  });
+
+  it('creates hashed keys while filling the historical key slot with a non-authenticating marker', async () => {
+    const create = vi.fn(async (value: any) => value);
+
+    const { doc, rawKey } = await (ApiKey as any).generate.call({ create }, 'user-new', 'Orders');
+    const stored = create.mock.calls[0][0];
+
+    expect(rawKey).toMatch(/^mbsp_/);
+    expect(stored.keyHash).toBe(hashApiKey(rawKey));
+    expect(stored.keyPrefix).toBe(rawKey.slice(0, 12));
+    expect(stored.key).toMatch(/^__mbsp_hashed__:/);
+    expect(stored.key).not.toBe(rawKey);
+    expect(stored.userId).toBe('user-new');
+    expect(stored.name).toBe('Orders');
+    expect(doc).toBe(stored);
   });
 
   it('rejects a request with no key', async () => {
@@ -73,7 +89,7 @@ describe('API key authentication', () => {
     expect(principal.userId).toBe('u2');
   });
 
-  it('upgrades a pre-hashing plaintext key to a hash on first use', async () => {
+  it('upgrades a pre-hashing plaintext key and replaces plaintext with a retired marker', async () => {
     const rawKey = 'mbsp_older_key_stored_in_plaintext';
     const save = vi.fn(async () => undefined);
     const legacyRow: any = { _id: 'k3', userId: 'u3', key: rawKey, save };
@@ -83,8 +99,24 @@ describe('API key authentication', () => {
     await requireApiKey(request({ authorization: `Bearer ${rawKey}` }));
 
     expect(legacyRow.keyHash).toBe(hashApiKey(rawKey));
-    expect(legacyRow.key).toBeUndefined();
+    expect(legacyRow.keyPrefix).toBe(rawKey.slice(0, 12));
+    expect(legacyRow.key).toMatch(/^__mbsp_hashed__:/);
+    expect(legacyRow.key).not.toBe(rawKey);
     expect(save).toHaveBeenCalled();
+  });
+
+  it('never accepts a retired hashed-row marker through the legacy plaintext fallback', async () => {
+    const retiredMarker = '__mbsp_hashed__:copied-from-database';
+    findOne.mockResolvedValue(null);
+
+    await expect(requireApiKey(request({ authorization: `Bearer ${retiredMarker}` }))).rejects.toMatchObject({
+      statusCode: 401,
+    });
+
+    // Only the hash lookup runs. There must be no `{ key: retiredMarker }`
+    // fallback or the compatibility marker would itself become a credential.
+    expect(findOne).toHaveBeenCalledTimes(1);
+    expect(findOne).toHaveBeenCalledWith({ keyHash: hashApiKey(retiredMarker), isActive: true });
   });
 
   it('refuses a key whose owning account has been deactivated', async () => {
