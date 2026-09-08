@@ -25,7 +25,11 @@ afterEach(() => {
   delete (globalThis as any).window;
 });
 
-const { listenForEmbeddedSignupData, EMBEDDED_SIGNUP_ORIGINS } = await import('@/lib/client/facebookSdk');
+const {
+  buildEmbeddedSignupLoginOptions,
+  listenForEmbeddedSignupData,
+  EMBEDDED_SIGNUP_ORIGINS,
+} = await import('@/lib/client/facebookSdk');
 
 const finishEvent = (origin: string) => ({
   origin,
@@ -37,6 +41,43 @@ const finishEvent = (origin: string) => ({
 });
 
 const post = (event: any) => listeners.forEach((handler) => handler(event));
+
+describe('Embedded Signup v4 launch options', () => {
+  it('matches Meta Builder output for coexistence', () => {
+    expect(
+      buildEmbeddedSignupLoginOptions({
+        configId: '1003501095782121',
+        embeddedSignupVersion: 'v4',
+        coexistenceEnabled: true,
+        featureType: 'whatsapp_business_app_onboarding',
+      })
+    ).toEqual({
+      config_id: '1003501095782121',
+      response_type: 'code',
+      override_default_response_type: true,
+      extras: {
+        version: 'v4',
+        featureType: 'whatsapp_business_app_onboarding',
+      },
+    });
+  });
+
+  it('keeps the v4 version but omits coexistence featureType when disabled', () => {
+    expect(
+      buildEmbeddedSignupLoginOptions({
+        configId: 'cfg-1',
+        embeddedSignupVersion: 'v4',
+        coexistenceEnabled: false,
+        featureType: 'whatsapp_business_app_onboarding',
+      })
+    ).toEqual({
+      config_id: 'cfg-1',
+      response_type: 'code',
+      override_default_response_type: true,
+      extras: { version: 'v4' },
+    });
+  });
+});
 
 describe('Embedded Signup postMessage origin', () => {
   it('accepts the finish event from Meta and returns the identifiers', async () => {
