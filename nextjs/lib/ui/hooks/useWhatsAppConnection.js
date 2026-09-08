@@ -182,10 +182,15 @@ export function useWhatsAppConnection() {
         await loadFacebookSdk({ appId: config.appId, apiVersion: config.sdkVersion });
       }
 
-      // Start listening before FB.login: Meta's popup can post the
-      // WA_EMBEDDED_SIGNUP message before — or without ever — resolving the
-      // FB.login promise below.
-      const embeddedSignupData = listenForEmbeddedSignupData();
+      // Start listening before FB.login. Meta normally posts
+      // WA_EMBEDDED_SIGNUP with WABA/phone ids, but some successful popup
+      // variants omit that final message. Give it a short grace period and then
+      // proceed with the OAuth code alone; the backend re-derives WABA, phone
+      // and coexistence from the validated BISU token.
+      const embeddedSignupData = listenForEmbeddedSignupData({
+        timeoutMs: 5000,
+        allowMissingOnTimeout: true,
+      });
 
       // Match the CURRENT Meta Embedded Signup v4 Builder output exactly:
       // extras.version selects v4, while featureType selects the WhatsApp
@@ -207,12 +212,16 @@ export function useWhatsAppConnection() {
       if (!code) throw new Error('Embedded Signup did not return an authorization code.');
 
       const { wabaId, phoneNumberId, businessId, coexistence } = await embeddedSignupData;
-      await completeWhatsAppConnect({ code, wabaId, phoneNumberId, businessId, coexistence });
+      const completion = await completeWhatsAppConnect({ code, wabaId, phoneNumberId, businessId, coexistence });
+      const connectedAccount = completion?.data?.data || completion?.data || null;
+      const connectedAsCoexistence =
+        connectedAccount?.connectionMode === 'coexistence' || connectedAccount?.coexistence?.enabled === true || coexistence;
+
       await refreshWhatsAppAccount();
       recheck();
 
       toast.success(
-        coexistence
+        connectedAsCoexistence
           ? 'Number connected. Your existing chats are importing — this can take a few minutes.'
           : 'WhatsApp number connected.'
       );
