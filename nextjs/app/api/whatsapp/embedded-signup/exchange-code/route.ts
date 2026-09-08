@@ -7,6 +7,15 @@ import { checkUserRateLimit } from '@/lib/http/rateLimit';
 import { encryptSensitiveValue } from '@/lib/utils/crypto';
 import { getGraphApiVersion } from '@/lib/config/graphApi';
 import { upsertAndActivateAccountForUser, subscribeAppToWaba, isMetaNumericId, sanitizeAccount } from '@/lib/whatsapp/connect';
+import {
+  debugToken,
+  validateTokenDebugData,
+  resolveWabaId,
+  fetchWabaPhoneNumbers,
+  selectOnboardedPhone,
+  isCoexistenceNumber,
+  logOnboardingResolution,
+} from '@/lib/whatsapp/metaOnboarding';
 import { recordAuditEvent } from '@/lib/services/auditLogService';
 import AppError from '@/lib/utils/AppError';
 import logger from '@/lib/utils/logger';
@@ -16,13 +25,33 @@ const normalizeWhatsAppApiError = (error: any, fallback: string) => {
   return new AppError(apiMessage || fallback, error?.response?.status && error.response.status < 500 ? 400 : 502);
 };
 
-// Ported from backend/src/controllers/whatsappController.js's
-// completeEmbeddedSignup (exported as completeConnection). Completes
-// Meta's WhatsApp Embedded Signup flow: exchanges the OAuth code for a
-// token server-side (client secret never touches the browser), then
-// resolves phone number details and auto-subscribes the webhook.
+/**
+ * Completes Meta's WhatsApp Embedded Signup v4 flow.
+ *
+ * The browser posts back a WABA id, an optional phone number id, an optional
+ * business id and a coexistence hint; FB.login itself returns only the OAuth
+ * `code`. This handler treats every one of those browser values as a hint and
+ * re-derives the truth server-side (see docs/meta-tech-provider/COEXISTENCE.md
+ * § Embedded Signup v4):
+ *
+ *   1. Exchange the code for the Business Integration System User (BISU) token.
+ *      For a v4 configuration this is already the long-lived business token, so
+ *      the old fb_exchange_token step is intentionally NOT run — it does not
+ *      apply to a business-integration token and only added a way to fail.
+ *   2. debug_token: confirm the token is valid, belongs to THIS Meta app, and
+ *      carries the required WhatsApp scopes; read the WABA ids it actually
+ *      grants from its granular scopes.
+ *   3. Resolve the WABA id from the browser hint cross-checked against the
+ *      token, then discover the WABA's phone numbers and select the onboarded
+ *      one — never trusting a browser-supplied phone number that the WABA does
+ *      not actually contain, and refusing rather than guessing when ambiguous.
+ *   4. Subscribe this app to the customer's WABA and persist the account with
+ *      the token encrypted at rest.
+ *
+ * The client secret never reaches the browser, and the access token, code and
+ * secret are never logged.
+ */
 export async function POST(req: NextRequest) {
-
   try {
     await connectDB();
     const authed = await requireAuth(req);
@@ -36,8 +65,12 @@ export async function POST(req: NextRequest) {
     const { code, wabaId, phoneNumberId, businessId, coexistence } = body || {};
 
     if (!code) throw new AppError('code is required', 400);
-    if (!wabaId || !isMetaNumericId(wabaId)) throw new AppError('wabaId must be a valid Meta WABA ID', 400);
-    if (!phoneNumberId || !isMetaNumericId(phoneNumberId)) throw new AppError('phoneNumberId must be a valid Meta phone number ID', 400);
+    // wabaId and phoneNumberId are hints now: a coexistence completion can omit
+    // the phone number id, and the WABA id is re-derived from the token when the
+    // browser does not supply one. Validate the SHAPE of anything present, but
+    // do not require it.
+    if (wabaId && !isMetaNumericId(wabaId)) throw new AppError('wabaId must be a valid Meta WABA ID', 400);
+    if (phoneNumberId && !isMetaNumericId(phoneNumberId)) throw new AppError('phoneNumberId must be a valid Meta phone number ID', 400);
     if (businessId && !isMetaNumericId(businessId)) throw new AppError('businessId must be a valid Meta business ID', 400);
 
     const appId = process.env.META_APP_ID;
@@ -46,88 +79,89 @@ export async function POST(req: NextRequest) {
 
     const graphVersion = getGraphApiVersion();
 
-    let shortLivedToken: string | undefined;
+    // ── 1. Code → Business Integration System User token ───────────────────────
+    let accessToken: string | undefined;
+    let codeExchangeExpiresIn: number | null = null;
     try {
       const tokenRes = await axios.get(`https://graph.facebook.com/${graphVersion}/oauth/access_token`, {
         params: { client_id: appId, client_secret: appSecret, code },
         timeout: 15000,
       });
-      shortLivedToken = tokenRes.data?.access_token;
+      accessToken = tokenRes.data?.access_token;
+      codeExchangeExpiresIn = Number(tokenRes.data?.expires_in) || null;
     } catch (error) {
       throw normalizeWhatsAppApiError(error, 'Failed to exchange the Meta authorization code for an access token');
     }
-    if (!shortLivedToken) throw new AppError('Meta did not return an access token for this authorization code', 502);
+    if (!accessToken) throw new AppError('Meta did not return an access token for this authorization code', 502);
 
-    let accessToken = shortLivedToken;
-    let expiresIn: number | null = null;
-    try {
-      const longLivedRes = await axios.get(`https://graph.facebook.com/${graphVersion}/oauth/access_token`, {
-        params: { grant_type: 'fb_exchange_token', client_id: appId, client_secret: appSecret, fb_exchange_token: shortLivedToken },
-        timeout: 15000,
-      });
-      accessToken = longLivedRes.data?.access_token || shortLivedToken;
-      expiresIn = longLivedRes.data?.expires_in || null;
-    } catch (error: any) {
-      logger.warn('[embedded-signup] Long-lived token exchange failed, using short-lived token:', error.message);
-    }
+    // ── 2. Validate the token against THIS app + required scopes ───────────────
+    const debugData = await debugToken({ token: accessToken, appId, appSecret, graphVersion });
+    const validation = validateTokenDebugData(debugData, { expectedAppId: appId });
 
-    let phoneDetails: any = {};
-    try {
-      const phoneRes = await axios.get(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}`, {
-        params: { fields: 'display_phone_number,verified_name' },
-        headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 15000,
-      });
-      phoneDetails = phoneRes.data || {};
-    } catch (error: any) {
-      logger.warn('[embedded-signup] Failed to fetch phone number details:', error?.response?.data || error.message);
-    }
+    // ── 3. Resolve WABA + phone number server-side ─────────────────────────────
+    const resolvedWabaId = resolveWabaId({ reported: wabaId, wabaTargetIds: validation.wabaTargetIds });
 
-    const webhookSubscribed = await subscribeAppToWaba({ wabaId, accessToken });
+    const candidates = await fetchWabaPhoneNumbers({ wabaId: resolvedWabaId, accessToken, graphVersion });
+    const phone = selectOnboardedPhone({
+      reported: phoneNumberId,
+      candidates,
+      coexistenceHint: Boolean(coexistence),
+    });
 
-    // A coexistence number stays live in the customer's WhatsApp Business app.
-    // The browser reports which Embedded Signup path completed; Meta's own
-    // platform_type is fetched separately (an unknown `fields` entry would
-    // fail the whole request, and losing display_phone_number matters more)
-    // and used to confirm it, so a tampered client flag alone cannot mislabel
-    // an ordinary Cloud API number.
-    let platformType = '';
-    try {
-      const platformRes = await axios.get(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}`, {
-        params: { fields: 'platform_type' },
-        headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 15000,
-      });
-      platformType = String(platformRes.data?.platform_type || '');
-    } catch (error: any) {
-      logger.warn('[embedded-signup] Could not read platform_type:', error?.response?.data?.error?.message || error.message);
-    }
-    const isCoexistence = Boolean(coexistence) || platformType.toUpperCase() === 'SMB_APP';
+    const isCoexistence = isCoexistenceNumber({ coexistenceHint: Boolean(coexistence), platformType: phone.platformType });
+    logOnboardingResolution({
+      wabaId: resolvedWabaId,
+      phoneNumberId: phone.id,
+      coexistence: isCoexistence,
+      candidateCount: candidates.length,
+    });
+
+    // ── 4. Subscribe this app to the customer's WABA + persist ─────────────────
+    const webhookSubscribed = await subscribeAppToWaba({ wabaId: resolvedWabaId, accessToken });
+
+    // Prefer the token's own expiry (debug_token) over the code-exchange
+    // response: a business-integration token is typically non-expiring, and
+    // debug_token is authoritative about that.
+    const tokenExpiresAt =
+      validation.expiresAt !== null
+        ? new Date(validation.expiresAt)
+        : codeExchangeExpiresIn
+          ? new Date(Date.now() + codeExchangeExpiresIn * 1000)
+          : null;
 
     const account: any = await upsertAndActivateAccountForUser({
       userId: authed.id,
-      phoneNumberId: String(phoneNumberId),
+      phoneNumberId: String(phone.id),
       setPayload: {
         connectionMode: isCoexistence ? 'coexistence' : 'embedded_signup',
-        wabaId: String(wabaId),
+        wabaId: String(resolvedWabaId),
         businessAccountId: String(businessId || ''),
-        displayPhoneNumber: String(phoneDetails.display_phone_number || phoneNumberId),
-        verifiedName: String(phoneDetails.verified_name || ''),
+        displayPhoneNumber: String(phone.displayPhoneNumber || phone.id),
+        verifiedName: String(phone.verifiedName || ''),
         accessTokenEncrypted: encryptSensitiveValue(String(accessToken)),
         tokenType: 'Bearer',
-        tokenExpiresAt: expiresIn ? new Date(Date.now() + Number(expiresIn) * 1000) : null,
+        tokenExpiresAt,
         status: 'active',
         webhookSubscribed,
         connectedAt: new Date(),
         lastSyncAt: new Date(),
         'coexistence.enabled': isCoexistence,
-        'coexistence.platformType': platformType,
-        // Meta starts streaming `history` shortly after a coexistence number
-        // is onboarded — mark it pending so the UI can show "importing chats"
-        // rather than an empty inbox.
+        'coexistence.platformType': String(phone.platformType || ''),
+        // Meta starts streaming `history` shortly after a coexistence number is
+        // onboarded — mark it pending so the UI shows "importing chats" rather
+        // than an empty inbox.
         ...(isCoexistence ? { 'coexistence.historySyncStatus': 'in_progress' } : {}),
       },
     });
+
+    if (!webhookSubscribed) {
+      // Not fatal to the connection — the number is claimed and can send — but
+      // it will receive nothing until the app is attached to the WABA, so this
+      // is surfaced rather than swallowed.
+      logger.warn(
+        `[embedded-signup] Account ${account._id} connected but the app is NOT subscribed to WABA ${resolvedWabaId} — inbound webhooks will not arrive until this succeeds`
+      );
+    }
 
     recordAuditEvent({
       req: req as any,
@@ -135,7 +169,7 @@ export async function POST(req: NextRequest) {
       action: 'whatsapp_account.connect',
       resource: 'whatsapp_account',
       resourceId: account._id,
-      metadata: { connectionMode: isCoexistence ? 'coexistence' : 'embedded_signup', phoneNumberId },
+      metadata: { connectionMode: isCoexistence ? 'coexistence' : 'embedded_signup', phoneNumberId: phone.id },
     });
 
     return NextResponse.json({ success: true, data: sanitizeAccount(account) });

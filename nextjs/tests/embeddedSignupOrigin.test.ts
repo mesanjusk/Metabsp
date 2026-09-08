@@ -90,4 +90,55 @@ describe('Embedded Signup postMessage origin', () => {
       expect(origin).not.toContain('*');
     }
   });
+
+  it('resolves a normal FINISH as non-coexistence with its identifiers', async () => {
+    const pending = listenForEmbeddedSignupData();
+    post(finishEvent('https://www.facebook.com'));
+    await expect(pending).resolves.toMatchObject({ finishEvent: 'FINISH', coexistence: false });
+  });
+
+  it('resolves FINISH_ONLY_WABA (a WABA but no phone number yet)', async () => {
+    const pending = listenForEmbeddedSignupData();
+    post({
+      origin: 'https://www.facebook.com',
+      data: {
+        type: 'WA_EMBEDDED_SIGNUP',
+        event: 'FINISH_ONLY_WABA',
+        data: { waba_id: 'waba-9' },
+      },
+    });
+    await expect(pending).resolves.toMatchObject({
+      wabaId: 'waba-9',
+      phoneNumberId: '',
+      coexistence: false,
+      finishEvent: 'FINISH_ONLY_WABA',
+    });
+  });
+
+  it('rejects on CANCEL', async () => {
+    const pending = listenForEmbeddedSignupData({ timeoutMs: 200 });
+    post({ origin: 'https://www.facebook.com', data: { type: 'WA_EMBEDDED_SIGNUP', event: 'CANCEL' } });
+    await expect(pending).rejects.toThrow(/cancel|fail/i);
+  });
+
+  it('rejects on ERROR and surfaces Meta\'s message', async () => {
+    const pending = listenForEmbeddedSignupData({ timeoutMs: 200 });
+    post({
+      origin: 'https://www.facebook.com',
+      data: { type: 'WA_EMBEDDED_SIGNUP', event: 'ERROR', data: { error_message: 'boom' } },
+    });
+    await expect(pending).rejects.toThrow(/boom/);
+  });
+
+  it('ignores a well-formed message from a non-Meta origin', async () => {
+    const pending = listenForEmbeddedSignupData({ timeoutMs: 30 }).then(
+      () => 'resolved',
+      (error: any) => error.message
+    );
+    post({
+      origin: 'https://evil.test',
+      data: { type: 'WA_EMBEDDED_SIGNUP', event: 'FINISH', data: { waba_id: 'x', phone_number_id: 'y' } },
+    });
+    await expect(pending).resolves.toMatch(/timed out/i);
+  });
 });

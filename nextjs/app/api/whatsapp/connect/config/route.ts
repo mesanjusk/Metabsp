@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
-import { getGraphApiVersion } from '@/lib/config/graphApi';
+import { getGraphApiVersion, getJsSdkVersion } from '@/lib/config/graphApi';
 
 // Coexistence onboarding is opt-in per deployment: it requires the Meta app to
 // be subscribed to the `history`, `smb_message_echoes` and `smb_app_state_sync`
@@ -34,7 +34,12 @@ export async function GET(req: NextRequest) {
       data: {
         appId: process.env.META_APP_ID || '',
         configId: process.env.META_EMBEDDED_SIGNUP_CONFIG_ID || '',
+        // The Graph API version drives server-side calls; sdkVersion is what the
+        // browser passes to FB.init for the Embedded Signup popup. They are
+        // reported separately so the browser SDK can track Meta's Builder output
+        // without forcing every server Graph call to the same version.
         apiVersion: getGraphApiVersion(),
+        sdkVersion: getJsSdkVersion(),
         coexistenceEnabled,
         featureType: coexistenceEnabled ? COEXISTENCE_FEATURE_TYPE : '',
         sessionInfoVersion: SESSION_INFO_VERSION,

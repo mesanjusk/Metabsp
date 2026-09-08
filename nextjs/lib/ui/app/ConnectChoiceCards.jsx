@@ -26,20 +26,37 @@ import {
  * a customer may have been told about is visibly planned, not missing — and
  * the token route carries the recommendation.
  */
-const OPTIONS = [
-  {
-    id: 'embedded',
-    icon: BoltRoundedIcon,
-    title: 'Connect with Meta',
-    tag: EMBEDDED_SIGNUP_ENABLED ? 'Recommended' : EMBEDDED_SIGNUP_COMING_SOON_LABEL,
-    lead: "You do not have a WhatsApp Business Account yet, or you would rather Meta set it up.",
-    points: [
-      'Meta walks you through creating or choosing a business account and number',
-      'Everything happens in a Meta-hosted window — no credentials are typed here',
-      'Takes a few minutes end to end',
-    ],
-    cta: EMBEDDED_SIGNUP_ENABLED ? 'Connect with Meta' : EMBEDDED_SIGNUP_COMING_SOON_LABEL,
-  },
+// The embedded card's copy depends on whether this deployment offers
+// coexistence: with it on, the headline value is "keep WhatsApp on your phone
+// working while the same number joins the platform" (the deciding factor for
+// most SMBs); with it off, it is the ordinary Meta-hosted Cloud API setup.
+const embeddedOption = (coexistenceEnabled) => ({
+  id: 'embedded',
+  icon: BoltRoundedIcon,
+  title: coexistenceEnabled ? 'Connect WhatsApp Business App' : 'Connect with Meta',
+  tag: EMBEDDED_SIGNUP_ENABLED ? 'Recommended' : EMBEDDED_SIGNUP_COMING_SOON_LABEL,
+  lead: coexistenceEnabled
+    ? 'Keep using WhatsApp on your phone while connecting the same number to the platform.'
+    : 'You do not have a WhatsApp Business Account yet, or you would rather Meta set it up.',
+  points: coexistenceEnabled
+    ? [
+        'Scan a QR code in the WhatsApp Business app — your number keeps working there',
+        'Your recent chats import into the shared inbox automatically',
+        'Everything happens in a Meta-hosted window — no credentials are typed here',
+      ]
+    : [
+        'Meta walks you through creating or choosing a business account and number',
+        'Everything happens in a Meta-hosted window — no credentials are typed here',
+        'Takes a few minutes end to end',
+      ],
+  cta: EMBEDDED_SIGNUP_ENABLED
+    ? coexistenceEnabled
+      ? 'Connect WhatsApp Business App'
+      : 'Connect with Meta'
+    : EMBEDDED_SIGNUP_COMING_SOON_LABEL,
+});
+
+const MANUAL_OPTION = [
   {
     id: 'manual',
     icon: KeyRoundedIcon,
@@ -55,7 +72,8 @@ const OPTIONS = [
   },
 ];
 
-export default function ConnectChoiceCards({ onEmbedded, onManual, isBusy }) {
+export default function ConnectChoiceCards({ onEmbedded, onManual, isBusy, coexistenceEnabled = false }) {
+  const OPTIONS = [embeddedOption(coexistenceEnabled), ...MANUAL_OPTION];
   return (
     <Stack spacing={2.5}>
       {EMBEDDED_SIGNUP_ENABLED ? null : <Alert severity="info">{EMBEDDED_SIGNUP_COMING_SOON_NOTE}</Alert>}
