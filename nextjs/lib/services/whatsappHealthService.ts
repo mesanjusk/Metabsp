@@ -4,6 +4,13 @@ import { getGraphApiVersion as getGraphVersion } from '../config/graphApi';
 
 // Ported from backend/src/services/whatsappHealthService.js.
 const TOKEN_ERROR_CODES = new Set([190, 10, 102, 200, 2500]);
+const DEFINITIVE_OBJECT_ACCESS_PATTERNS = [
+  /unsupported get request/i,
+  /does not exist/i,
+  /cannot be loaded/i,
+  /missing permissions/i,
+  /permission/i,
+];
 
 export const classifyWhatsAppApiError = (error: any) => {
   if (!error) return { code: 'NETWORK_ERROR', message: 'Unknown error' };
@@ -12,20 +19,49 @@ export const classifyWhatsAppApiError = (error: any) => {
     const status = Number(error.response.status || 0);
     const apiError = error.response.data?.error || {};
     const apiCode = Number(apiError.code || 0);
+    const graphMessage = String(apiError.error_user_msg || apiError.message || '').trim() || undefined;
 
     if (status === 401 || status === 403 || TOKEN_ERROR_CODES.has(apiCode)) {
-      return { code: 'TOKEN_EXPIRED', message: 'WhatsApp token is invalid or expired' };
+      return {
+        code: 'TOKEN_EXPIRED',
+        message: 'WhatsApp token is invalid, expired, or no longer authorized',
+        status,
+        apiCode,
+        graphMessage,
+      };
+    }
+
+    // When a customer removes the WhatsApp asset / business integration on
+    // Meta's side, the phone-number lookup commonly changes from a successful
+    // GET to Graph error 100 ("Unsupported get request", "cannot be loaded",
+    // or equivalent permission text). That is different from a timeout or a
+    // 5xx: access to this exact phone-number object has been revoked and the
+    // workspace should stop presenting the account as connected.
+    if (
+      apiCode === 100 &&
+      graphMessage &&
+      DEFINITIVE_OBJECT_ACCESS_PATTERNS.some((pattern) => pattern.test(graphMessage))
+    ) {
+      return {
+        code: 'ACCESS_REVOKED',
+        message: 'WhatsApp phone-number access was revoked in Meta',
+        status,
+        apiCode,
+        graphMessage,
+      };
     }
 
     // Meta's own user-facing strings are safe to surface (they carry no token
     // or config secrets) and tell the sender what to fix — e.g. a template
     // name that doesn't exist, or a recipient who hasn't opted in.
-    const graphMessage = String(apiError.error_user_msg || apiError.message || '').trim() || undefined;
-    return { code: 'NETWORK_ERROR', message: 'WhatsApp API request failed', status, graphMessage };
+    return { code: 'NETWORK_ERROR', message: 'WhatsApp API request failed', status, apiCode, graphMessage };
   }
 
   return { code: 'NETWORK_ERROR', message: 'Unable to reach WhatsApp API' };
 };
+
+export const isDefinitiveWhatsAppDisconnectReason = (reason: unknown) =>
+  reason === 'TOKEN_EXPIRED' || reason === 'ACCESS_REVOKED';
 
 export const validateWhatsAppConfig = (overrides: any = {}) => {
   const accessToken = String(overrides.accessToken || '').trim();
