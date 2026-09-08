@@ -72,8 +72,21 @@ export function AuthProvider({ children }) {
   const [isIdentityLoading, setIsIdentityLoading] = useState(false);
 
   const login = useCallback((nextToken, userData = {}) => {
-    setStoredToken(nextToken || '');
-    setToken(nextToken || '');
+    const normalizedToken = nextToken || '';
+    setStoredToken(normalizedToken);
+
+    // Authentication identity changed. Never carry a WhatsApp account snapshot
+    // from the previous identity into the new session, even for one render.
+    // This matters when an admin deletes a user (which also deletes that user's
+    // WhatsAppAccount rows) and the browser then signs in as a recreated/new
+    // user without a full document reload. The old snapshot previously made
+    // /numbers show a green "saved" banner while the persisted account list
+    // correctly showed zero accounts.
+    setWhatsappAccount(null);
+    setWhatsappAccountStatus('idle');
+    setIsAccountLoading(Boolean(normalizedToken));
+
+    setToken(normalizedToken);
 
     const nextUser = {
       userName: userData.userName || '',
@@ -216,6 +229,9 @@ export function AuthProvider({ children }) {
           clearStoredSession();
           setToken('');
           setUser({ userName: '', userGroup: '', mobileNumber: '', whatsappProvider: '' });
+          setWhatsappAccount(null);
+          setWhatsappAccountStatus('idle');
+          setIsAccountLoading(false);
         }
         // Anything else (offline, a 5xx) leaves the session alone. The role
         // simply stays unknown, which means no administration UI — the safe
