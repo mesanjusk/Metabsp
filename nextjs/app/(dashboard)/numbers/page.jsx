@@ -27,6 +27,14 @@ export default function NumbersPage() {
   const coexistence = whatsappAccount?.coexistence || null;
   const historySyncStatus = String(coexistence?.historySyncStatus || '');
   const historyProgress = Number(coexistence?.historySyncProgress);
+  const accountId = whatsappAccount?.id || whatsappAccount?._id || '';
+  const accountRefreshKey = [
+    accountId,
+    whatsappAccount?.status || '',
+    whatsappAccount?.updatedAt || whatsappAccount?.connectedAt || '',
+  ].join(':');
+  const accountDisplay =
+    whatsappAccount?.displayPhoneNumber || whatsappAccount?.phoneNumber || whatsappAccount?.phoneNumberId || '';
 
   return (
     <PageBody
@@ -34,12 +42,21 @@ export default function NumbersPage() {
       description="Both ways in are open to every account. Connect as many numbers as you need — each one sends, receives and runs its own automations."
     >
       <Stack spacing={3}>
-        <ConnectChoiceCards
-          onEmbedded={startConnect}
-          onManual={openManualConnect}
-          isBusy={isBusy}
-          coexistenceEnabled={coexistenceEnabled}
-        />
+        {!isAccountConnected ? (
+          <ConnectChoiceCards
+            onEmbedded={startConnect}
+            onManual={openManualConnect}
+            isBusy={isBusy}
+            coexistenceEnabled={coexistenceEnabled}
+          />
+        ) : (
+          <Alert severity="success">
+            <AlertTitle>WhatsApp account saved to this workspace</AlertTitle>
+            {accountDisplay
+              ? `${accountDisplay} is connected in SanjuSK. Use “Connect another number” below only if you want to add another WhatsApp number.`
+              : 'Your WhatsApp account is connected in SanjuSK. Use “Connect another number” below only if you want to add another WhatsApp number.'}
+          </Alert>
+        )}
 
         {coexistence?.enabled ? (
           <Alert severity={historySyncStatus === 'completed' ? 'success' : 'info'}>
@@ -55,7 +72,7 @@ export default function NumbersPage() {
           </Alert>
         ) : null}
 
-        {isAccountConnected && whatsappAccount?.id ? (
+        {isAccountConnected && accountId ? (
           <Alert
             severity="info"
             action={
@@ -74,6 +91,7 @@ export default function NumbersPage() {
           onManualConnect={openManualConnect}
           onChanged={refreshAccount}
           accountActionLoading={isBusy}
+          refreshKey={accountRefreshKey}
         />
       </Stack>
     </PageBody>
