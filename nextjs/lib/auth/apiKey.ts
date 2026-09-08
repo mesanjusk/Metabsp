@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { connectDB } from '../db/mongo';
-import ApiKey, { hashApiKey } from '../models/ApiKey';
+import ApiKey, {
+  hashApiKey,
+  isLegacyPlaintextApiKeyCandidate,
+  makeRetiredApiKeyMarker,
+} from '../models/ApiKey';
 import User from '../models/User';
 import AppError from '../utils/AppError';
 
@@ -39,12 +43,20 @@ export async function requireApiKey(req: NextRequest): Promise<ApiKeyPrincipal> 
   // in place on first use, so the window closes by itself.
   let record: any = await ApiKey.findOne({ keyHash: hashApiKey(rawKey), isActive: true });
 
-  if (!record) {
+  // Every genuine legacy plaintext key issued by this product starts `mbsp_`.
+  // Hashed rows now keep a unique `__mbsp_hashed__:*` compatibility marker in
+  // the old `key` column so they can coexist with production's historical
+  // non-sparse unique index. Never query that marker as a credential: a DB
+  // dump must not contain an alternate usable API key.
+  if (!record && isLegacyPlaintextApiKeyCandidate(rawKey)) {
     const legacy: any = await ApiKey.findOne({ key: rawKey, isActive: true });
     if (legacy) {
       legacy.keyHash = hashApiKey(rawKey);
       legacy.keyPrefix = rawKey.slice(0, 12);
-      legacy.key = undefined;
+      // Do not unset `key`: older databases still have a UNIQUE, NON-SPARSE
+      // key_1 index. Replacing the plaintext with a unique retired marker both
+      // removes the secret and lets the write succeed under that index.
+      legacy.key = makeRetiredApiKeyMarker();
       await legacy.save().catch(() => {});
       record = legacy;
     }
