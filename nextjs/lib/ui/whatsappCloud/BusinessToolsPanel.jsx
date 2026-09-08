@@ -40,23 +40,24 @@ const EMPTY_PROFILE = {
 };
 
 const VERTICALS = [
-  'AUTOMOTIVE',
-  'BEAUTY_SPA_AND_SALON',
-  'CLOTHING_AND_APPAREL',
-  'EDUCATION',
-  'ENTERTAINMENT',
-  'EVENT_PLANNING_AND_SERVICE',
-  'FINANCE_AND_BANKING',
-  'FOOD_AND_GROCERY',
-  'HOTEL_AND_LODGING',
-  'MEDICAL_AND_HEALTH',
-  'NON_PROFIT',
-  'PROFESSIONAL_SERVICES',
-  'PUBLIC_SERVICE',
-  'RESTAURANT',
-  'SHOPPING_AND_RETAIL',
-  'TRAVEL_AND_TRANSPORTATION',
-  'OTHER',
+  ['AUTO', 'Automotive'],
+  ['BEAUTY', 'Beauty, spa & salon'],
+  ['APPAREL', 'Clothing & apparel'],
+  ['EDU', 'Education'],
+  ['ENTERTAIN', 'Entertainment'],
+  ['EVENT_PLAN', 'Event planning & service'],
+  ['FINANCE', 'Finance & banking'],
+  ['GROCERY', 'Food & grocery'],
+  ['GOVT', 'Government / public service'],
+  ['HOTEL', 'Hotel & lodging'],
+  ['HEALTH', 'Medical & health'],
+  ['NONPROFIT', 'Non-profit'],
+  ['PROF_SERVICES', 'Professional services'],
+  ['RESTAURANT', 'Restaurant'],
+  ['RETAIL', 'Shopping & retail'],
+  ['TRAVEL', 'Travel & transportation'],
+  ['NOT_A_BIZ', 'Not a business'],
+  ['OTHER', 'Other'],
 ];
 
 const FLOW_CATEGORIES = [
@@ -142,6 +143,9 @@ export default function BusinessToolsPanel() {
 
   const qrCodes = useMemo(() => snapshot?.qrCodes?.data || [], [snapshot]);
   const flows = useMemo(() => snapshot?.flows?.data || [], [snapshot]);
+  const profileWritable = snapshot?.capabilities?.businessProfileWrite !== false;
+  const commerceAvailable = snapshot?.capabilities?.commerceSettings !== false;
+  const isCoexistence = Boolean(snapshot?.capabilities?.coexistence || snapshot?.account?.coexistence);
 
   if (loading && !snapshot) {
     return <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={28} /></Stack>;
@@ -153,13 +157,22 @@ export default function BusinessToolsPanel() {
         <CardContent sx={{ py: 1.5 }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} justifyContent="space-between">
             <Box>
-              <Typography fontWeight={700}>{snapshot?.account?.verifiedName || 'Connected WhatsApp business'}</Typography>
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Typography fontWeight={700}>{snapshot?.account?.verifiedName || 'Connected WhatsApp business'}</Typography>
+                {isCoexistence ? <Chip size="small" color="info" label="Coexistence" /> : null}
+              </Stack>
               <Typography variant="body2" color="text.secondary">{snapshot?.account?.displayPhoneNumber || snapshot?.account?.phoneNumberId}</Typography>
             </Box>
             <Button size="small" variant="outlined" onClick={load}>Refresh from Meta</Button>
           </Stack>
         </CardContent>
       </Card>
+
+      {isCoexistence ? (
+        <Alert severity="info">
+          This number is connected through WhatsApp Coexistence. Messaging, templates, inbox and supported Cloud API features stay available here, while WhatsApp Business App profile and catalogue business tools remain managed on the phone.
+        </Alert>
+      ) : null}
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_event, next) => setTab(next)} variant="scrollable" scrollButtons="auto">
@@ -172,23 +185,33 @@ export default function BusinessToolsPanel() {
 
       {tab === 'profile' ? (
         <Card>
-          <CardHeader title="WhatsApp business profile" subheader="Changes are written directly to the business profile for the active WhatsApp number." />
+          <CardHeader
+            title="WhatsApp business profile"
+            subheader={profileWritable ? 'Changes are written directly to the business profile for the active WhatsApp number.' : 'Profile data is read from Meta. Coexistence profile editing stays in the WhatsApp Business App.'}
+          />
           <CardContent>
             <SectionError value={snapshot?.profile?.error} />
+            {!profileWritable ? (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                {snapshot?.capabilities?.businessProfileWriteReason || 'Edit this profile in the WhatsApp Business App, then use Refresh from Meta.'}
+              </Alert>
+            ) : null}
             {snapshot?.profile?.data?.profile_picture_url ? (
               <Box component="img" src={snapshot.profile.data.profile_picture_url} alt="WhatsApp business profile" sx={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', mb: 2 }} />
             ) : null}
             <Stack spacing={2}>
-              <TextField label="About" value={profile.about} onChange={(e) => setProfile((p) => ({ ...p, about: e.target.value }))} />
-              <TextField label="Description" multiline minRows={3} value={profile.description} onChange={(e) => setProfile((p) => ({ ...p, description: e.target.value }))} />
-              <TextField label="Address" value={profile.address} onChange={(e) => setProfile((p) => ({ ...p, address: e.target.value }))} />
-              <TextField label="Email" type="email" value={profile.email} onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} />
-              <TextField select label="Industry" value={profile.vertical} onChange={(e) => setProfile((p) => ({ ...p, vertical: e.target.value }))}>
-                {VERTICALS.map((value) => <MenuItem key={value} value={value}>{value.replaceAll('_', ' ')}</MenuItem>)}
+              <TextField disabled={!profileWritable} label="About" value={profile.about} onChange={(e) => setProfile((p) => ({ ...p, about: e.target.value }))} />
+              <TextField disabled={!profileWritable} label="Description" multiline minRows={3} value={profile.description} onChange={(e) => setProfile((p) => ({ ...p, description: e.target.value }))} />
+              <TextField disabled={!profileWritable} label="Address" value={profile.address} onChange={(e) => setProfile((p) => ({ ...p, address: e.target.value }))} />
+              <TextField disabled={!profileWritable} label="Email" type="email" value={profile.email} onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} />
+              <TextField disabled={!profileWritable} select label="Industry" value={profile.vertical} onChange={(e) => setProfile((p) => ({ ...p, vertical: e.target.value }))}>
+                {VERTICALS.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
               </TextField>
-              <TextField label="Website 1" value={profile.websites[0]} onChange={(e) => setProfile((p) => ({ ...p, websites: [e.target.value, p.websites[1]] }))} />
-              <TextField label="Website 2" value={profile.websites[1]} onChange={(e) => setProfile((p) => ({ ...p, websites: [p.websites[0], e.target.value] }))} />
-              <Box><Button variant="contained" disabled={saving || Boolean(snapshot?.profile?.error)} onClick={() => runAction({ action: 'update_profile', profile }, 'Business profile updated.')}>Save profile</Button></Box>
+              <TextField disabled={!profileWritable} label="Website 1" value={profile.websites[0]} onChange={(e) => setProfile((p) => ({ ...p, websites: [e.target.value, p.websites[1]] }))} />
+              <TextField disabled={!profileWritable} label="Website 2" value={profile.websites[1]} onChange={(e) => setProfile((p) => ({ ...p, websites: [p.websites[0], e.target.value] }))} />
+              {profileWritable ? (
+                <Box><Button variant="contained" disabled={saving || Boolean(snapshot?.profile?.error)} onClick={() => runAction({ action: 'update_profile', profile }, 'Business profile updated.')}>Save profile</Button></Box>
+              ) : null}
             </Stack>
           </CardContent>
         </Card>
@@ -196,17 +219,24 @@ export default function BusinessToolsPanel() {
 
       {tab === 'catalog' ? (
         <Card>
-          <CardHeader title="Catalogue & cart" subheader="Control the catalogue experience customers see on this WhatsApp number." />
+          <CardHeader title="Catalogue & cart" subheader={commerceAvailable ? 'Control the catalogue experience customers see on this WhatsApp number.' : 'Coexistence keeps catalogue and cart management in the WhatsApp Business App.'} />
           <CardContent>
             <SectionError value={snapshot?.commerce?.error} />
+            {!commerceAvailable ? (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                {snapshot?.capabilities?.commerceSettingsReason || 'Manage catalogue and cart settings from the WhatsApp Business App for this coexistence number.'}
+              </Alert>
+            ) : null}
             <Stack spacing={2}>
-              <FormControlLabel control={<Switch checked={catalogVisible} onChange={(e) => setCatalogVisible(e.target.checked)} />} label="Show catalogue in WhatsApp" />
-              <FormControlLabel control={<Switch checked={cartEnabled} onChange={(e) => setCartEnabled(e.target.checked)} />} label="Allow customers to use cart" />
-              <Box>
-                <Button variant="contained" disabled={saving || Boolean(snapshot?.commerce?.error)} onClick={() => runAction({ action: 'update_commerce', isCatalogVisible: catalogVisible, isCartEnabled: cartEnabled }, 'Catalogue settings updated.')}>Save catalogue settings</Button>
-              </Box>
+              <FormControlLabel control={<Switch disabled={!commerceAvailable} checked={catalogVisible} onChange={(e) => setCatalogVisible(e.target.checked)} />} label="Show catalogue in WhatsApp" />
+              <FormControlLabel control={<Switch disabled={!commerceAvailable} checked={cartEnabled} onChange={(e) => setCartEnabled(e.target.checked)} />} label="Allow customers to use cart" />
+              {commerceAvailable ? (
+                <Box>
+                  <Button variant="contained" disabled={saving || Boolean(snapshot?.commerce?.error)} onClick={() => runAction({ action: 'update_commerce', isCatalogVisible: catalogVisible, isCartEnabled: cartEnabled }, 'Catalogue settings updated.')}>Save catalogue settings</Button>
+                </Box>
+              ) : null}
               <Alert severity="info">
-                Product/item creation and inventory editing use Meta's separate Catalog/Commerce asset APIs. Your current approved WhatsApp permissions safely support profile, catalogue visibility, cart behavior, QR codes, Flows, templates and messaging; full product CRUD should only be enabled after the customer catalog asset and the additional Meta catalog/business permissions are granted.
+                Product/item creation and inventory editing use Meta's separate Catalog/Commerce asset APIs. Full product CRUD should only be enabled after the customer catalog asset and the additional Meta catalog/business permissions are granted.
               </Alert>
               <Box>
                 <Button component="a" href="https://business.facebook.com/commerce/" target="_blank" rel="noopener" variant="outlined" endIcon={<OpenInNewRoundedIcon />}>Open Meta Commerce Manager</Button>
@@ -218,7 +248,7 @@ export default function BusinessToolsPanel() {
 
       {tab === 'qr' ? (
         <Card>
-          <CardHeader title="WhatsApp QR codes" subheader="Create click-to-chat QR codes with a prefilled message." action={<Button startIcon={<AddRoundedIcon />} variant="contained" size="small" onClick={() => setQrOpen(true)}>New QR</Button>} />
+          <CardHeader title="WhatsApp QR codes" subheader="Create click-to-chat QR codes with a prefilled message." action={<Button disabled={Boolean(snapshot?.qrCodes?.error)} startIcon={<AddRoundedIcon />} variant="contained" size="small" onClick={() => setQrOpen(true)}>New QR</Button>} />
           <CardContent>
             <SectionError value={snapshot?.qrCodes?.error} />
             {!qrCodes.length ? <Typography color="text.secondary">No QR codes yet.</Typography> : (
@@ -250,7 +280,7 @@ export default function BusinessToolsPanel() {
 
       {tab === 'flows' ? (
         <Card>
-          <CardHeader title="WhatsApp Flows" subheader="Create and manage structured WhatsApp experiences such as lead forms, bookings, support and surveys." action={<Button startIcon={<AddRoundedIcon />} variant="contained" size="small" onClick={() => setFlowOpen(true)}>New Flow</Button>} />
+          <CardHeader title="WhatsApp Flows" subheader="Create and manage structured WhatsApp experiences such as lead forms, bookings, support and surveys." action={<Button disabled={Boolean(snapshot?.flows?.error)} startIcon={<AddRoundedIcon />} variant="contained" size="small" onClick={() => setFlowOpen(true)}>New Flow</Button>} />
           <CardContent>
             <SectionError value={snapshot?.flows?.error} />
             {!flows.length ? <Typography color="text.secondary">No Flows yet.</Typography> : (
