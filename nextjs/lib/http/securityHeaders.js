@@ -19,7 +19,11 @@
 // the point — keep this list short and justified rather than convenient.
 const META_SDK = 'https://connect.facebook.net';
 const META_FRAMES = 'https://www.facebook.com https://web.facebook.com https://business.facebook.com';
-const META_API = 'https://graph.facebook.com https://www.facebook.com';
+// The Facebook JS SDK loads from connect.facebook.net and also fetches its app
+// configuration from that same origin (for example /app_config/json/{app-id}/).
+// Keep it in connect-src as well as script-src or Embedded Signup can finish on
+// Meta's side while the parent page never receives/initialises the SDK state.
+const META_API = 'https://graph.facebook.com https://www.facebook.com https://connect.facebook.net';
 const CLOUDINARY = 'https://res.cloudinary.com https://api.cloudinary.com';
 
 /**
