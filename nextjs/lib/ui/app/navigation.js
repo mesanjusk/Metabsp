@@ -4,6 +4,7 @@ import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
+import InstagramIcon from '@mui/icons-material/Instagram';
 import DialpadRoundedIcon from '@mui/icons-material/DialpadRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import CodeRoundedIcon from '@mui/icons-material/CodeRounded';
@@ -33,6 +34,7 @@ export const NAV_SECTIONS = [
     label: 'Workspace',
     items: [
       { href: '/inbox', label: 'Inbox', icon: ForumRoundedIcon, requiresConnection: true },
+      { href: '/instagram', label: 'Instagram', icon: InstagramIcon },
       { href: '/contacts', label: 'Contacts', icon: PeopleAltRoundedIcon },
       { href: '/templates', label: 'Templates', icon: DescriptionRoundedIcon, requiresConnection: true },
       { href: '/broadcasts', label: 'Broadcasts', icon: CampaignRoundedIcon, requiresConnection: true },
