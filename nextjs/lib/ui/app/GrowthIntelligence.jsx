@@ -47,7 +47,7 @@ const AGENTS = [
     key: 'localGrowth',
     title: 'Local Growth',
     icon: TravelExploreRoundedIcon,
-    description: 'Keeps Google Business Profile inside the same service and entitlement architecture.',
+    description: 'Keeps Google Business Profile inside the same service architecture and marks it live only after a real provider connection exists.',
     href: '/services/google-business',
     actionLabel: 'Google Business',
   },
