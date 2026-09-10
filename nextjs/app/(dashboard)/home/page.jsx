@@ -25,6 +25,10 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
+import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
+import TravelExploreRoundedIcon from '@mui/icons-material/TravelExploreRounded';
 import PageBody from '@/lib/ui/app/PageBody';
 import apiClient from '@/lib/api/client';
 import { SERVICES } from '@/lib/ui/app/serviceRegistry';
@@ -56,14 +60,39 @@ function MetricCard({ icon: Icon, label, value, helper }) {
   );
 }
 
-function Section({ title, action, children }) {
+function Section({ title, subtitle, action, children }) {
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 3, minWidth: 0 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-        <Typography variant="h6" fontWeight={800}>{title}</Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
+        <Box>
+          <Typography variant="h6" fontWeight={800}>{title}</Typography>
+          {subtitle ? <Typography variant="caption" color="text.secondary">{subtitle}</Typography> : null}
+        </Box>
         {action}
       </Stack>
       {children}
+    </Paper>
+  );
+}
+
+function GrowthAgent({ icon: Icon, title, description, status, href, actionLabel }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2.5, minWidth: 0, height: '100%' }}>
+      <Stack spacing={1.2} height="100%">
+        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+          <Box sx={{ width: 38, height: 38, borderRadius: 2.25, bgcolor: 'action.hover', display: 'grid', placeItems: 'center' }}>
+            <Icon fontSize="small" />
+          </Box>
+          <Chip size="small" variant="outlined" label={status} />
+        </Stack>
+        <Box sx={{ flex: 1 }}>
+          <Typography fontWeight={800}>{title}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4 }}>{description}</Typography>
+        </Box>
+        <Button component={NextLink} href={href} size="small" variant="text" sx={{ alignSelf: 'flex-start', px: 0 }}>
+          {actionLabel}
+        </Button>
+      </Stack>
     </Paper>
   );
 }
@@ -86,9 +115,7 @@ export default function BusinessControlCenterPage() {
       .finally(() => {
         if (active) setLoading(false);
       });
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   const kpis = overview.kpis || {};
@@ -111,7 +138,7 @@ export default function BusinessControlCenterPage() {
   return (
     <PageBody
       title="Business Control Center"
-      description="One view of your customers, conversations and connected digital services. Use the service strip above to open any tool."
+      description="One business brain for customers, conversations, marketing and every connected service. Open any product from the service strip above."
     >
       {loading ? (
         <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2 }}>
@@ -130,8 +157,51 @@ export default function BusinessControlCenterPage() {
         <MetricCard icon={TrendingUpRoundedIcon} label="OUTGOING TODAY" value={kpis.outgoingToday} helper="Messages sent" />
       </Box>
 
+      <Box sx={{ mb: 2 }}>
+        <Section
+          title="AI Growth Team"
+          subtitle="Role-based assistants working on the same shared contacts and service data — not separate CRMs."
+          action={<Chip icon={<AutoAwesomeRoundedIcon />} label="Shared business brain" variant="outlined" />}
+        >
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0,1fr))', xl: 'repeat(4, minmax(0,1fr))' }, gap: 1.25 }}>
+            <GrowthAgent
+              icon={SupportAgentRoundedIcon}
+              title="Customer Support"
+              description="Handle WhatsApp conversations and customer follow-up from the existing shared inbox."
+              status={whatsapp.messagesToday !== undefined ? 'Live data' : 'Ready'}
+              href="/inbox"
+              actionLabel="Open inbox"
+            />
+            <GrowthAgent
+              icon={CampaignRoundedIcon}
+              title="Marketing"
+              description="Create once and publish through connected channels using the existing Marketing service and entitlements."
+              status="Pro"
+              href="/services/marketing"
+              actionLabel="Create campaign"
+            />
+            <GrowthAgent
+              icon={TravelExploreRoundedIcon}
+              title="Local Growth"
+              description="Google Business Profile posts, reviews and local visibility will plug into the same service layer when enabled."
+              status="Next"
+              href="/services/google-business"
+              actionLabel="View Google Business"
+            />
+            <GrowthAgent
+              icon={InsightsRoundedIcon}
+              title="Business Analyst"
+              description="Use combined channel activity, contact stages and service health to show what needs attention."
+              status="Live data"
+              href="/analytics"
+              actionLabel="Open analytics"
+            />
+          </Box>
+        </Section>
+      </Box>
+
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.15fr 0.85fr' }, gap: 2, mb: 2 }}>
-        <Section title="Channel performance">
+        <Section title="Channel performance" subtitle="Combined view across connected services.">
           <Stack spacing={2.25}>
             <Box>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.75 }}>
@@ -155,12 +225,12 @@ export default function BusinessControlCenterPage() {
             </Box>
 
             <Typography variant="caption" color="text.secondary">
-              Google Business, Dialer, Store and other channel metrics will appear here automatically as those services start writing events to the shared workspace.
+              Google Business, Dialer, Store and future services appear here as they start writing events to the shared workspace.
             </Typography>
           </Stack>
         </Section>
 
-        <Section title="Lead funnel">
+        <Section title="Lead funnel" subtitle="One funnel based on the shared Contact category.">
           <Stack spacing={1.35}>
             {funnelRows.map(([label, value]) => (
               <Box key={label}>
@@ -171,7 +241,7 @@ export default function BusinessControlCenterPage() {
                 <LinearProgress variant="determinate" value={(Number(value || 0) / funnelMax) * 100} sx={{ height: 7, borderRadius: 5 }} />
               </Box>
             ))}
-            <Typography variant="caption" color="text.secondary">Built from the Category field in your shared contacts. Existing custom categories are mapped to the closest funnel stage.</Typography>
+            <Typography variant="caption" color="text.secondary">Existing custom categories are mapped to the closest funnel stage; no duplicate lead database is introduced.</Typography>
           </Stack>
         </Section>
       </Box>
@@ -205,7 +275,7 @@ export default function BusinessControlCenterPage() {
         </Section>
       </Box>
 
-      <Section title="Service health">
+      <Section title="Service health" subtitle="All products stay visible; actual access continues to follow release status and account entitlements.">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, gap: 1 }}>
           {SERVICES.map((service) => {
             const item = healthBySlug[service.slug] || {};
