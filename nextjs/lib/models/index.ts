@@ -10,6 +10,7 @@ export { default as Role } from './Role';
 export { default as Organization } from './Organization';
 export { default as ApiKey } from './ApiKey';
 export { default as WhatsAppAccount } from './WhatsAppAccount';
+export { default as InstagramAccount } from './InstagramAccount';
 export { default as Message } from './Message';
 export { default as Contact } from './Contact';
 export { default as AutoReply } from './AutoReply';
