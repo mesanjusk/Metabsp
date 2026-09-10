@@ -6,6 +6,7 @@ import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogT
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DesignServicesRoundedIcon from '@mui/icons-material/DesignServicesRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 import PageBody from '@/lib/ui/app/PageBody';
 import apiClient from '@/lib/api/client';
 
@@ -18,6 +19,7 @@ function parseCsv(text) {
 
 export default function InstituteIDCardManager() {
   const [projects, setProjects] = useState([]);
+  const [designs, setDesigns] = useState([]);
   const [selected, setSelected] = useState(null);
   const [students, setStudents] = useState([]);
   const [error, setError] = useState('');
@@ -28,16 +30,20 @@ export default function InstituteIDCardManager() {
   const [filter, setFilter] = useState('');
 
   const loadProjects = async () => {
-    try { const r = await apiClient.get('/api/institute/idcards/projects'); setProjects(r.data?.data || []); }
+    try { const r = await apiClient.get('/api/institute/idcards/projects'); const rows=r.data?.data || []; setProjects(rows); setSelected((current)=>current ? rows.find((p)=>p.project_uuid===current.project_uuid)||current : current); }
     catch (e) { setError(e?.response?.data?.message || 'Could not load ID card projects.'); }
+  };
+  const loadDesigns = async () => {
+    try { const r=await apiClient.get('/api/institute/designs',{params:{docType:'id_card'}}); setDesigns(r.data?.data||[]); }
+    catch (e) { setError(e?.response?.data?.message || 'Could not load design templates.'); }
   };
   const loadStudents = async (project) => {
     if (!project) return;
     try { const r = await apiClient.get(`/api/institute/idcards/projects/${project.project_uuid}/students`); setStudents(r.data?.data || []); }
     catch (e) { setError(e?.response?.data?.message || 'Could not load students.'); }
   };
-  useEffect(() => { loadProjects(); }, []);
-  useEffect(() => { if (selected) loadStudents(selected); }, [selected]);
+  useEffect(() => { loadProjects(); loadDesigns(); }, []);
+  useEffect(() => { if (selected) loadStudents(selected); }, [selected?.project_uuid]);
 
   const visibleStudents = useMemo(() => students.filter((s) => !filter || [s.student_name,s.roll_number,s.class_name,s.section,s.card_status].join(' ').toLowerCase().includes(filter.toLowerCase())), [students, filter]);
 
@@ -46,6 +52,11 @@ export default function InstituteIDCardManager() {
       const r = await apiClient.post('/api/institute/idcards/projects', projectForm);
       setProjectOpen(false); setProjectForm({ title:'', academic_year:'' }); await loadProjects(); setSelected(r.data?.data || null);
     } catch (e) { setError(e?.response?.data?.message || 'Could not create project.'); }
+  };
+  const assignDesign = async (designId) => {
+    if (!selected) return;
+    try { const r=await apiClient.patch(`/api/institute/idcards/projects/${selected.project_uuid}`,{design_id:designId||null}); setSelected(r.data.data); await loadProjects(); }
+    catch(e){setError(e?.response?.data?.message||'Could not assign template.');}
   };
   const importStudents = async () => {
     const rows = parseCsv(csv);
@@ -82,9 +93,14 @@ export default function InstituteIDCardManager() {
           <Stack spacing={1.5}>
             {!selected ? <Paper variant="outlined" sx={{p:4,borderRadius:3,textAlign:'center'}}><Typography color="text.secondary">Select or create an ID-card project.</Typography></Paper> : <>
               <Paper variant="outlined" sx={{p:2,borderRadius:3}}>
-                <Stack direction={{xs:'column',sm:'row'}} spacing={1} justifyContent="space-between">
-                  <Box><Typography variant="h6" fontWeight={850}>{selected.title}</Typography><Typography variant="body2" color="text.secondary">Academic year {selected.academic_year || '—'} · {students.length} students</Typography></Box>
-                  <Stack direction="row" spacing={1}><Button variant="outlined" onClick={()=>setImportOpen(true)}>Import CSV</Button><Button component={NextLink} href="/services/institute/canvas">Design card</Button></Stack>
+                <Stack spacing={1.5}>
+                  <Stack direction={{xs:'column',sm:'row'}} spacing={1} justifyContent="space-between">
+                    <Box><Typography variant="h6" fontWeight={850}>{selected.title}</Typography><Typography variant="body2" color="text.secondary">Academic year {selected.academic_year || '—'} · {students.length} students</Typography></Box>
+                    <Stack direction="row" spacing={1}><Button variant="outlined" onClick={()=>setImportOpen(true)}>Import CSV</Button><Button component={NextLink} href="/services/institute/canvas">Design card</Button><Button component={NextLink} href={`/services/institute/id-card-print?project=${selected.project_uuid}`} startIcon={<PrintRoundedIcon/>} disabled={!selected.design_id}>Print</Button></Stack>
+                  </Stack>
+                  <TextField select size="small" label="Assigned ID-card template" value={selected.design_id||''} onChange={(e)=>assignDesign(e.target.value)} helperText={!designs.length?'Create a template in Canvas editor first.':'This template is used for preview, student verification and printing.'}>
+                    <MenuItem value="">No template</MenuItem>{designs.map((d)=><MenuItem key={d._id} value={d._id}>{d.name}</MenuItem>)}
+                  </TextField>
                 </Stack>
               </Paper>
               <TextField size="small" placeholder="Search student, class, roll or status" value={filter} onChange={(e)=>setFilter(e.target.value)} />
