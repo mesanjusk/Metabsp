@@ -17,7 +17,7 @@ export type GrowthInputs = {
   whatsappConnected: boolean;
   instagramConnected: boolean;
   marketingEnabled: boolean;
-  googleBusinessEnabled: boolean;
+  googleBusinessLive: boolean;
 };
 
 export function buildGrowthRecommendations(input: GrowthInputs): GrowthRecommendation[] {
@@ -29,7 +29,7 @@ export function buildGrowthRecommendations(input: GrowthInputs): GrowthRecommend
       agent: 'support',
       priority: 'urgent',
       title: `${input.unansweredConversations} conversation${input.unansweredConversations === 1 ? '' : 's'} need attention`,
-      detail: 'The customer message window is open and the latest customer message is older than 15 minutes.',
+      detail: 'The latest message is from the customer and has been waiting at least 15 minutes.',
       count: input.unansweredConversations,
       href: '/inbox',
       actionLabel: 'Open inbox',
@@ -90,13 +90,13 @@ export function buildGrowthRecommendations(input: GrowthInputs): GrowthRecommend
     });
   }
 
-  if (!input.googleBusinessEnabled) {
+  if (!input.googleBusinessLive) {
     recommendations.push({
       id: 'google-business',
       agent: 'local-growth',
       priority: 'low',
       title: 'Google Business Profile is the next local-growth channel',
-      detail: 'Keep it inside the shared service architecture so posts, reviews and local leads feed the same business brain.',
+      detail: 'The service stays marked as upcoming until a real provider connection exists; access entitlement alone never counts as connected.',
       count: 0,
       href: '/services/google-business',
       actionLabel: 'View service',
@@ -119,9 +119,9 @@ export function buildGrowthAgents(input: GrowthInputs) {
       metricLabel: 'reactivation candidates',
     },
     localGrowth: {
-      status: input.googleBusinessEnabled ? 'live' : 'next',
+      status: input.googleBusinessLive ? 'live' : 'next',
       metric: 0,
-      metricLabel: input.googleBusinessEnabled ? 'service enabled' : 'Google Business next',
+      metricLabel: input.googleBusinessLive ? 'service connected' : 'Google Business next',
     },
     analyst: {
       status: 'live',
