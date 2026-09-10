@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import LoginRoundedIcon from '@mui/icons-material/LoginRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded';
-import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
+import AppsRoundedIcon from '@mui/icons-material/AppsRounded';
 import {
   Alert,
   Box,
@@ -35,13 +35,10 @@ export default function Login() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace(ROUTES.WHATSAPP);
+      router.replace(ROUTES.DASHBOARD);
     }
   }, [isAuthenticated, router]);
 
-  // Social sign-in returns the same {token, user} envelope as password login,
-  // so it lands in the session through the identical code path — no second
-  // notion of "logged in" to keep consistent.
   const handleAuthenticated = (data) => {
     login(data.token, {
       userName: data.user?.Display_name || data.user?.User_name || '',
@@ -50,7 +47,7 @@ export default function Login() {
       whatsappProvider: data.user?.Whatsapp_provider || '',
     });
     toast.success('Login successful.');
-    router.replace(ROUTES.WHATSAPP);
+    router.replace(ROUTES.DASHBOARD);
   };
 
   const submit = async (event) => {
@@ -79,11 +76,9 @@ export default function Login() {
       });
 
       toast.success('Login successful.');
-      router.replace(ROUTES.WHATSAPP);
+      router.replace(ROUTES.DASHBOARD);
     } catch (error) {
-      setErrorText(
-        error?.response?.data?.message || 'Login failed. Please try again.'
-      );
+      setErrorText(error?.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -109,11 +104,11 @@ export default function Login() {
         spacing={2}
       >
         <Stack direction="row" spacing={1.5} alignItems="center">
-          <ChatRoundedIcon sx={{ color: '#25d366', fontSize: 32 }} />
+          <AppsRoundedIcon sx={{ color: '#25d366', fontSize: 32 }} />
           <Typography variant="h4" fontWeight={700}>SanjuSK</Typography>
         </Stack>
         <Typography variant="h6" sx={{ maxWidth: 540 }}>
-          Manage customer conversations, broadcast campaigns, templates, and automation from a single WhatsApp-native workspace.
+          One digital workspace for WhatsApp, Instagram, customer management and the everyday tools a small business needs.
         </Typography>
       </Stack>
 
@@ -125,7 +120,7 @@ export default function Login() {
                 Sign in
               </Typography>
               <Typography color="text.secondary">
-                Sign in with the mobile number your account was created with.
+                Sign in to choose the business service you want to use.
               </Typography>
             </Box>
 
