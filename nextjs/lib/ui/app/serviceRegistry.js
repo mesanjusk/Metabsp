@@ -83,12 +83,12 @@ export const SERVICES = [
   },
   {
     slug: 'marketing',
-    label: 'Marketing Tools',
+    label: 'Marketing & Publisher',
     shortLabel: 'Marketing',
-    description: 'Campaigns, offers, social content and review requests.',
+    description: 'Create once and publish to connected social/local channels.',
     href: '/services/marketing',
     icon: CampaignRoundedIcon,
-    status: 'planned',
+    status: 'beta',
   },
   {
     slug: 'staff',
