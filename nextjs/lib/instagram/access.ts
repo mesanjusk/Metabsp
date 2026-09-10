@@ -1,10 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
-import { requireServiceAccess } from '@/lib/services/serviceAccess';
 
-/** Authenticate the dashboard user and enforce Instagram entitlement. */
+/**
+ * Instagram routes call the shared auth helper. requireAuth itself maps
+ * /api/instagram/* to the Instagram entitlement, so there is no second DB
+ * entitlement lookup here.
+ */
 export async function requireInstagramService(req: NextRequest) {
-  const authed = await requireAuth(req);
-  await requireServiceAccess(authed, 'instagram');
-  return authed;
+  return requireAuth(req);
 }
