@@ -10,7 +10,12 @@ function feeFilter(id: string) {
   const value = String(id || '').trim();
   return mongoose.isValidObjectId(value) ? { $or: [{ _id: value }, { feeUuid: value }] } : { feeUuid: value };
 }
-
+function legacyFilter(id: string) {
+  const value = String(id || '').trim();
+  const ors: any[] = [{ legacyId: value }, { 'payload.uuid': value }];
+  if (mongoose.isValidObjectId(value)) ors.unshift({ _id: value });
+  return { $or: ors };
+}
 async function joinedItem(fee: any) {
   const [student, admission] = await Promise.all([
     InstituteRecord.findById(fee.studentRecordId).lean(),
@@ -21,66 +26,52 @@ async function joinedItem(fee: any) {
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    await connectDB();
-    const authed = await requireAuth(req);
-    const { id } = await context.params;
+    await connectDB(); const authed = await requireAuth(req); const { id } = await context.params;
     const fee: any = await InstituteFee.findOne({ ...instituteScope(authed), archived: { $ne: true }, ...feeFilter(id) });
-    if (!fee) return NextResponse.json({ success: false, message: 'Fee plan not found' }, { status: 404 });
+    if (!fee) {
+      const legacy: any = await InstituteRecord.findOne({ ...instituteScope(authed), entityType:'fees', archived:{ $ne:true }, ...legacyFilter(id) }).lean();
+      if (!legacy) return NextResponse.json({ success:false, message:'Fee plan not found' }, { status:404 });
+      return NextResponse.json({ success:true, data:{ ...legacy, _id:String(legacy._id), source:legacy.source || 'legacy' } });
+    }
     return NextResponse.json({ success: true, data: await joinedItem(fee) });
-  } catch (error) {
-    return errorResponse(error, 'Failed to load fee plan');
-  }
+  } catch (error) { return errorResponse(error, 'Failed to load fee plan'); }
 }
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    await connectDB();
-    const authed = await requireAuth(req);
-    const { id } = await context.params;
-    const body: any = await req.json().catch(() => ({}));
-    const fee: any = await InstituteFee.findOne({ ...instituteScope(authed), archived: { $ne: true }, ...feeFilter(id) });
-    if (!fee) return NextResponse.json({ success: false, message: 'Fee plan not found' }, { status: 404 });
-
+    await connectDB(); const authed = await requireAuth(req); const { id } = await context.params; const body:any = await req.json().catch(()=>({}));
+    const fee:any = await InstituteFee.findOne({ ...instituteScope(authed), archived:{ $ne:true }, ...feeFilter(id) });
+    if (!fee) {
+      const legacy:any = await InstituteRecord.findOne({ ...instituteScope(authed), entityType:'fees', archived:{ $ne:true }, ...legacyFilter(id) });
+      if (!legacy) return NextResponse.json({ success:false, message:'Fee plan not found' }, { status:404 });
+      const payload = { ...(legacy.payload || {}), ...body };
+      const fees = normalizeMoney(payload.fees); const discount = normalizeMoney(payload.discount); const paid = normalizeMoney(payload.feePaid);
+      if (discount > fees) return NextResponse.json({ success:false, message:'Discount cannot exceed fees' }, { status:400 });
+      payload.total = normalizeMoney(fees - discount); if (paid > payload.total) return NextResponse.json({ success:false, message:'Paid amount cannot exceed total' }, { status:400 });
+      payload.balance = normalizeMoney(payload.total - paid); legacy.payload = payload; await legacy.save();
+      return NextResponse.json({ success:true, data:{ ...legacy.toObject(), _id:String(legacy._id), source:legacy.source || 'legacy' } });
+    }
     const fees = body.fees !== undefined ? normalizeMoney(body.fees) : normalizeMoney(fee.fees);
     const discount = body.discount !== undefined ? normalizeMoney(body.discount) : normalizeMoney(fee.discount);
-    if (fees < 0 || discount < 0 || discount > fees) {
-      return NextResponse.json({ success: false, message: 'Invalid fees or discount' }, { status: 400 });
-    }
+    if (fees < 0 || discount < 0 || discount > fees) return NextResponse.json({ success:false, message:'Invalid fees or discount' }, { status:400 });
     const total = normalizeMoney(fees - discount);
-    if (fee.feePaid > total) return NextResponse.json({ success: false, message: 'New total cannot be lower than amount already paid' }, { status: 400 });
+    if (fee.feePaid > total) return NextResponse.json({ success:false, message:'New total cannot be lower than amount already paid' }, { status:400 });
     const balance = normalizeMoney(total - Number(fee.feePaid || 0));
     const installment = body.installment !== undefined ? Math.max(0, Math.floor(Number(body.installment || 0))) : Number(fee.installment || 0);
-
-    fee.fees = fees;
-    fee.discount = discount;
-    fee.total = total;
-    fee.balance = balance;
-    fee.paidBy = body.paidBy !== undefined ? String(body.paidBy || '') : fee.paidBy;
-    fee.installment = installment;
-    fee.emi = installment > 0 ? normalizeMoney(balance / installment) : 0;
-    if (body.installment !== undefined || body.emiDate || body.firstDueDate) {
-      fee.installmentPlan = buildInstallmentPlan(balance, installment, body.emiDate || body.firstDueDate || null);
-    }
-    fee.updatedBy = authed.id;
-    await fee.save();
-    return NextResponse.json({ success: true, data: await joinedItem(fee) });
-  } catch (error) {
-    return errorResponse(error, 'Failed to update fee plan');
-  }
+    fee.fees=fees; fee.discount=discount; fee.total=total; fee.balance=balance; fee.paidBy = body.paidBy !== undefined ? String(body.paidBy || '') : fee.paidBy; fee.installment=installment; fee.emi=installment>0?normalizeMoney(balance/installment):0;
+    if (body.installment !== undefined || body.emiDate || body.firstDueDate) fee.installmentPlan = buildInstallmentPlan(balance, installment, body.emiDate || body.firstDueDate || null);
+    fee.updatedBy=authed.id; await fee.save(); return NextResponse.json({ success:true, data:await joinedItem(fee) });
+  } catch (error) { return errorResponse(error, 'Failed to update fee plan'); }
 }
 
 export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    await connectDB();
-    const authed = await requireAuth(req);
-    const { id } = await context.params;
-    const fee: any = await InstituteFee.findOne({ ...instituteScope(authed), archived: { $ne: true }, ...feeFilter(id) });
-    if (!fee) return NextResponse.json({ success: false, message: 'Fee plan not found' }, { status: 404 });
-    fee.archived = true;
-    fee.updatedBy = authed.id;
-    await fee.save();
-    return NextResponse.json({ success: true, message: 'Fee plan archived' });
-  } catch (error) {
-    return errorResponse(error, 'Failed to delete fee plan');
-  }
+    await connectDB(); const authed = await requireAuth(req); const { id } = await context.params;
+    const fee:any = await InstituteFee.findOne({ ...instituteScope(authed), archived:{ $ne:true }, ...feeFilter(id) });
+    if (!fee) {
+      const legacy:any = await InstituteRecord.findOne({ ...instituteScope(authed), entityType:'fees', archived:{ $ne:true }, ...legacyFilter(id) });
+      if (!legacy) return NextResponse.json({ success:false, message:'Fee plan not found' }, { status:404 }); legacy.archived=true; await legacy.save(); return NextResponse.json({ success:true, message:'Fee plan archived' });
+    }
+    fee.archived=true; fee.updatedBy=authed.id; await fee.save(); return NextResponse.json({ success:true, message:'Fee plan archived' });
+  } catch (error) { return errorResponse(error, 'Failed to delete fee plan'); }
 }
