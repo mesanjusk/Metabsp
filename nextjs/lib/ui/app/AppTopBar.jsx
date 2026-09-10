@@ -42,19 +42,13 @@ const SCHEME_OPTIONS = [
   { value: 'system', label: 'Match system', icon: SettingsBrightnessRoundedIcon },
 ];
 
-/**
- * The application top bar: page title, contextual search, connection state and
- * the account menu.
- *
- * Search is rendered only where the current screen actually consumes it. The
- * previous shell showed a search field on every screen and quietly ignored it
- * on most of them, which teaches people the control is broken.
- */
+/** Shared top bar. Provider status is shown only by the active service. */
 export default function AppTopBar({
   title,
   searchPlaceholder,
   search,
   onSearchChange,
+  showConnection = true,
   connectionState,
   connectionDetail,
   lastCheckedAt,
@@ -115,9 +109,11 @@ export default function AppTopBar({
       )}
 
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flexShrink: 0 }}>
-        <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-          <ConnectionBadge state={connectionState} detail={connectionDetail} lastCheckedAt={lastCheckedAt} />
-        </Box>
+        {showConnection ? (
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <ConnectionBadge state={connectionState} detail={connectionDetail} lastCheckedAt={lastCheckedAt} />
+          </Box>
+        ) : null}
 
         <Tooltip title="Account">
           <IconButton onClick={(event) => setAnchorEl(event.currentTarget)} size="small" aria-label="Account menu">
