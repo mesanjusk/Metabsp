@@ -18,6 +18,8 @@ export { default as InstituteFee } from './InstituteFee';
 export { default as InstituteIDCardProject } from './InstituteIDCardProject';
 export { default as InstituteIDCardStudent } from './InstituteIDCardStudent';
 export { default as InstituteDesign } from './InstituteDesign';
+export { default as InstituteForm } from './InstituteForm';
+export { default as InstituteFormResponse } from './InstituteFormResponse';
 export { default as Message } from './Message';
 export { default as Contact } from './Contact';
 export { default as AutoReply } from './AutoReply';
