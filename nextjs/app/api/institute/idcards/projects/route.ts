@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
       { $match: { projectId: { $in: ids }, archived: { $ne: true } } },
       { $group: { _id: '$projectId', count: { $sum: 1 } } },
     ]);
-    const byId = new Map(counts.map((x: any) => [String(x._id), x.count]));
-    return NextResponse.json({ success: true, data: projects.map((p) => projectDto(p, byId.get(String(p._id)) || 0)) });
+    const byId = new Map<string, number>(counts.map((x: any) => [String(x._id), Number(x.count || 0)] as [string, number]));
+    return NextResponse.json({ success: true, data: projects.map((p) => projectDto(p, Number(byId.get(String(p._id)) || 0))) });
   } catch (error) {
     return errorResponse(error, 'Failed to load ID card projects');
   }
