@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
-import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
+import { requireInstagramService } from '@/lib/instagram/access';
 import { getInstagramAccess, instagramGraphRequest } from '@/lib/instagram/meta';
 import AppError from '@/lib/utils/AppError';
 
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    const authed = await requireAuth(req);
+    const authed = await requireInstagramService(req);
     const conversationId = req.nextUrl.searchParams.get('conversationId')?.trim();
     if (!conversationId) throw new AppError('conversationId is required', 400);
 
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
-    const authed = await requireAuth(req);
+    const authed = await requireInstagramService(req);
     const body = await req.json().catch(() => ({}));
     const recipientId = String(body?.recipientId || '').trim();
     const text = String(body?.text || '').trim();
