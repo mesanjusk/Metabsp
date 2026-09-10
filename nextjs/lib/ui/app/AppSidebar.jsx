@@ -14,24 +14,20 @@ import {
   Typography,
 } from '@mui/material';
 import BrandMark from './BrandMark';
-import { NAV_SECTIONS } from './navigation';
+import { getActiveServiceInfo, getNavSections } from './navigation';
 import { layout } from '@/lib/ui/theme';
 
 /**
- * The primary navigation.
+ * Service-aware primary navigation.
  *
- * Every destination is a link with a real href, not a tab that swaps state —
- * so middle-click, cmd-click, browser back and a pasted URL all behave the way
- * a user expects, and a support article can point someone at a screen.
- *
- * Admin-only entries are filtered out rather than rendered disabled: showing a
- * customer a greyed-out "Administration" tells them something exists that they
- * cannot have, which invites a support ticket and reveals platform structure
- * for no benefit. Server-side authorisation is what actually enforces this;
- * hiding is presentation only.
+ * The customer enters one service at a time. WhatsApp, Instagram and every
+ * future module therefore get their own menu instead of sharing one giant
+ * sidebar. "All services" is the deliberate way back to the service hub.
  */
 export default function AppSidebar({ isAdmin = false, onNavigate }) {
   const pathname = usePathname() || '';
+  const sections = getNavSections(pathname);
+  const activeService = getActiveServiceInfo(pathname);
 
   return (
     <Box
@@ -59,13 +55,13 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
           color: 'primary.main',
         }}
       >
-        <Box component={NextLink} href="/inbox" sx={{ color: 'inherit', textDecoration: 'none' }}>
+        <Box component={NextLink} href="/home" sx={{ color: 'inherit', textDecoration: 'none' }}>
           <BrandMark size={28} />
         </Box>
       </Box>
 
       <Box sx={{ flex: 1, overflowY: 'auto', px: 1.5, py: 2 }}>
-        {NAV_SECTIONS.map((section, index) => {
+        {sections.map((section, index) => {
           const items = section.items.filter((item) => !item.adminOnly || isAdmin);
           if (!items.length) return null;
 
@@ -109,13 +105,19 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
       </Box>
 
       <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Tooltip title="Messaging runs on the official WhatsApp Business Platform (Cloud API)">
+        <Tooltip
+          title={
+            activeService
+              ? `${activeService.label} uses the same business account and shared workspace data.`
+              : 'Choose a service to open its dedicated dashboard.'
+          }
+        >
           <Stack spacing={0.25}>
             <Typography variant="caption" color="text.secondary">
-              Official WhatsApp Business Platform
+              {activeService?.label || 'Small Business Digital OS'}
             </Typography>
             <Typography variant="caption" color="text.disabled">
-              Cloud API
+              {activeService ? 'Shared business workspace' : 'All services'}
             </Typography>
           </Stack>
         </Tooltip>
