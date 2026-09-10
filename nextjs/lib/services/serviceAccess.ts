@@ -18,7 +18,7 @@ export const SERVICE_SLUGS = [
 export type ServiceSlug = (typeof SERVICE_SLUGS)[number];
 
 const LEGACY_DEFAULT_SERVICES: ServiceSlug[] = ['whatsapp'];
-const ADMIN_DEFAULT_SERVICES: ServiceSlug[] = ['whatsapp', 'instagram'];
+const ADMIN_DEFAULT_SERVICES: ServiceSlug[] = ['whatsapp', 'instagram', 'marketing'];
 
 function isRuleActive(rule: any, now = new Date()) {
   if (!rule) return false;
