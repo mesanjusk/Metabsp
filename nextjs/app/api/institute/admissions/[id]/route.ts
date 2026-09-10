@@ -11,13 +11,24 @@ function idFilter(id: string) {
   return mongoose.isValidObjectId(value) ? { $or: [{ _id: value }, { admissionUuid: value }] } : { admissionUuid: value };
 }
 
+function legacyFilter(id: string) {
+  const value = String(id || '').trim();
+  const ors: any[] = [{ legacyId: value }, { 'payload.uuid': value }];
+  if (mongoose.isValidObjectId(value)) ors.unshift({ _id: value });
+  return { $or: ors };
+}
+
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
     const authed = await requireAuth(req);
     const { id } = await context.params;
     const admission: any = await InstituteAdmission.findOne({ ...instituteScope(authed), archived: { $ne: true }, ...idFilter(id) }).lean();
-    if (!admission) return NextResponse.json({ success: false, message: 'Admission not found' }, { status: 404 });
+    if (!admission) {
+      const legacy: any = await InstituteRecord.findOne({ ...instituteScope(authed), entityType: 'admissions', archived: { $ne: true }, ...legacyFilter(id) }).lean();
+      if (!legacy) return NextResponse.json({ success: false, message: 'Admission not found' }, { status: 404 });
+      return NextResponse.json({ success: true, data: { ...legacy, _id: String(legacy._id), source: legacy.source || 'legacy' } });
+    }
     const [student, fee] = await Promise.all([
       InstituteRecord.findById(admission.studentRecordId).lean(),
       InstituteFee.findOne({ admissionId: admission._id, archived: { $ne: true } }).lean(),
@@ -35,7 +46,15 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const { id } = await context.params;
     const body: any = await req.json().catch(() => ({}));
     const admission: any = await InstituteAdmission.findOne({ ...instituteScope(authed), archived: { $ne: true }, ...idFilter(id) });
-    if (!admission) return NextResponse.json({ success: false, message: 'Admission not found' }, { status: 404 });
+    if (!admission) {
+      const legacy: any = await InstituteRecord.findOne({ ...instituteScope(authed), entityType: 'admissions', archived: { $ne: true }, ...legacyFilter(id) });
+      if (!legacy) return NextResponse.json({ success: false, message: 'Admission not found' }, { status: 404 });
+      const payload = { ...(legacy.payload || {}), ...body };
+      delete payload._id; delete payload.tenantId; delete payload.ownerUserId; delete payload.entityType;
+      legacy.payload = payload;
+      await legacy.save();
+      return NextResponse.json({ success: true, data: { ...legacy.toObject(), _id: String(legacy._id), source: legacy.source || 'legacy' } });
+    }
 
     if (body.studentRecordId || body.student_uuid) {
       const student = await findInstituteStudent(authed, body.studentRecordId || body.student_uuid);
@@ -77,7 +96,13 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     const authed = await requireAuth(req);
     const { id } = await context.params;
     const admission: any = await InstituteAdmission.findOne({ ...instituteScope(authed), archived: { $ne: true }, ...idFilter(id) });
-    if (!admission) return NextResponse.json({ success: false, message: 'Admission not found' }, { status: 404 });
+    if (!admission) {
+      const legacy: any = await InstituteRecord.findOne({ ...instituteScope(authed), entityType: 'admissions', archived: { $ne: true }, ...legacyFilter(id) });
+      if (!legacy) return NextResponse.json({ success: false, message: 'Admission not found' }, { status: 404 });
+      legacy.archived = true;
+      await legacy.save();
+      return NextResponse.json({ success: true, message: 'Admission archived' });
+    }
     admission.archived = true;
     admission.updatedBy = authed.id;
     await admission.save();
