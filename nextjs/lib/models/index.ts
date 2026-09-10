@@ -12,6 +12,7 @@ export { default as ApiKey } from './ApiKey';
 export { default as WhatsAppAccount } from './WhatsAppAccount';
 export { default as InstagramAccount } from './InstagramAccount';
 export { default as ServiceEntitlement } from './ServiceEntitlement';
+export { default as InstituteRecord } from './InstituteRecord';
 export { default as Message } from './Message';
 export { default as Contact } from './Contact';
 export { default as AutoReply } from './AutoReply';
