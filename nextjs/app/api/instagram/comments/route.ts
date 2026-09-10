@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
-import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
+import { requireInstagramService } from '@/lib/instagram/access';
 import { getInstagramAccess, instagramGraphRequest } from '@/lib/instagram/meta';
 import AppError from '@/lib/utils/AppError';
 
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    const authed = await requireAuth(req);
+    const authed = await requireInstagramService(req);
     const mediaId = req.nextUrl.searchParams.get('mediaId')?.trim();
     if (!mediaId) throw new AppError('mediaId is required', 400);
 
@@ -22,12 +22,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Sends Meta's supported private reply to a commenter. The comment itself is
-// the recipient, so this is ideal for comment-to-DM workflows after App Review.
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
-    const authed = await requireAuth(req);
+    const authed = await requireInstagramService(req);
     const body = await req.json().catch(() => ({}));
     const commentId = String(body?.commentId || '').trim();
     const text = String(body?.text || '').trim();
