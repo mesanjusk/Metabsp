@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
-import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
+import { requireInstagramService } from '@/lib/instagram/access';
 import { getInstagramAccess, instagramGraphRequest } from '@/lib/instagram/meta';
 
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    const authed = await requireAuth(req);
+    const authed = await requireInstagramService(req);
     const { account, accessToken } = await getInstagramAccess(authed.id);
     const data = await instagramGraphRequest(`${account.instagramUserId}/conversations`, accessToken, {
       params: {
