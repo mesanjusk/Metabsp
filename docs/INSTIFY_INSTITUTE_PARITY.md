@@ -32,8 +32,9 @@ Port every user-facing Instify capability into MetaBSP under `/services/institut
 - Leads/enquiries — tenant CRUD, shared-contact sync
 - Add lead
 - Follow-ups
-- Admissions
-- Add admission
+- Admissions — **native model/API; tenant scoped; legacy records remain readable/editable during migration**
+- Add admission — **native 3-step Student → Course/Batch → Fees/Payment workflow**
+- Admission workflow — **creates/selects student, creates admission, creates fee plan, syncs shared Contact, can mark a source lead converted**
 - Admission report
 - Lead → admission report
 - Funnel report with hot/warm/cold counts
@@ -41,8 +42,9 @@ Port every user-facing Instify capability into MetaBSP under `/services/institut
 - Form responses
 
 ### Fees & accounts
-- Fees including fee/discount/total/paid/balance/EMI fields
-- Receipts
+- Fees — **native fee plan with fee, discount, total, paid, balance, installments and EMI schedule**
+- Receipts — **native collection endpoint updates paid/balance and allocates receipts against installments**
+- Legacy fee records remain visible and can still receive receipts during migration
 - Payments
 - Payment modes
 - Accounts
@@ -105,7 +107,7 @@ The complete source is present through the pinned submodule, but these large/sou
 - Instify desktop/Electron licensing and sync (platform-specific, not web Institute UI)
 - Greetings rich editor exact behavior
 
-These are deliberately not marked complete merely because their icons/routes exist. Their original implementation is pinned in `vendor/Instify` so each can be ported without feature loss.
+Admissions and fee collection are no longer in this specialized-pending list: their core Instify workflow has been ported natively into MetaBSP.
 
 ## Acceptance rule
 
