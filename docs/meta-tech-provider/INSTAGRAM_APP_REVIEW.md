@@ -29,8 +29,17 @@ Do not request deprecated `instagram_basic`, `instagram_manage_messages`, `insta
    `https://<YOUR-PRODUCTION-DOMAIN>/api/instagram/webhook`
 
 5. Set a strong random `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` in the deployment and enter the exact same value in Meta's webhook setup.
-6. Keep `INSTAGRAM_ENFORCE_WEBHOOK_SIGNATURE=true` in production.
-7. Subscribe the Instagram product/app to the event fields needed by the implemented features, including messages/postbacks and comments. The application also calls `/{ig-user-id}/subscribed_apps` after a successful connection.
+6. Configure the deauthorization callback:
+
+   `https://<YOUR-PRODUCTION-DOMAIN>/api/instagram/deauthorize`
+
+7. Configure the Instagram data-deletion callback:
+
+   `https://<YOUR-PRODUCTION-DOMAIN>/api/instagram/data-deletion`
+
+   Keep `/data-deletion` as the human-facing deletion instructions/status surface.
+8. Keep `INSTAGRAM_ENFORCE_WEBHOOK_SIGNATURE=true` in production.
+9. Subscribe the Instagram product/app to the event fields needed by the implemented features, including messages/postbacks and comments. The application also calls `/{ig-user-id}/subscribed_apps` after a successful connection.
 
 ## Standard Access testing before review
 
@@ -59,6 +68,8 @@ Standard Access is suitable for accounts owned/managed by the app developer and 
 - Instagram access tokens are exchanged only on the server and stored encrypted at rest.
 - The App Secret and Instagram access token are never returned to the browser.
 - Webhook POST signatures are checked with `X-Hub-Signature-256` when production enforcement is enabled.
+- Deauthorization callbacks disable the Instagram connection; they do not silently delete the dashboard user.
+- Explicit signed Instagram data-deletion requests are mapped through the stored Instagram app-scoped ID and use the existing audited deletion pipeline.
 - The webhook currently records delivery health (`lastWebhookAt`). Business automation/event persistence can be added on top without changing the Meta authorization flow.
 
 ## Implemented routes
@@ -72,3 +83,5 @@ Standard Access is suitable for accounts owned/managed by the app developer and 
 - `GET|POST /api/instagram/comments`
 - `POST /api/instagram/publish`
 - `GET|POST /api/instagram/webhook`
+- `GET|POST /api/instagram/deauthorize`
+- `GET|POST /api/instagram/data-deletion`
