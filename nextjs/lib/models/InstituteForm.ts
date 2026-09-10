@@ -16,7 +16,7 @@ const instituteFormSchema = new Schema({
   formUuid: { type: String, required: true, unique: true, index: true },
   title: { type: String, required: true, trim: true },
   description: { type: String, default: '' },
-  slug: { type: String, required: true, trim: true, lowercase: true, index: true },
+  slug: { type: String, required: true, trim: true, lowercase: true, unique: true, index: true },
   fields: { type: [fieldSchema], default: [] },
   isActive: { type: Boolean, default: true, index: true },
   successMessage: { type: String, default: 'Thank you! Your response has been recorded.' },
@@ -26,5 +26,5 @@ const instituteFormSchema = new Schema({
   archived: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
-instituteFormSchema.index({ tenantId: 1, ownerUserId: 1, slug: 1 }, { unique: true });
+instituteFormSchema.index({ tenantId: 1, ownerUserId: 1, updatedAt: -1 });
 export default (mongoose.models.InstituteForm as any) || mongoose.model('InstituteForm', instituteFormSchema);
