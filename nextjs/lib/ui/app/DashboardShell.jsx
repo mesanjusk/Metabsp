@@ -64,11 +64,17 @@ export default function DashboardShell({ children }) {
   const activeServiceInfo = getActiveServiceInfo(pathname);
   const navigationItems = getNavigationItems(pathname);
   const isWhatsAppDashboard = activeService === 'whatsapp';
+  const isServiceOpen = activeService !== 'hub';
 
   const handleLogout = useCallback(() => {
     logout();
     router.replace(ROUTES.LOGIN);
   }, [logout, router]);
+
+  const handleCloseService = useCallback(() => {
+    setDrawerOpen(false);
+    router.push('/home');
+  }, [router]);
 
   const handleManualConnect = useCallback(
     async (form) => connection.connectManually(form),
@@ -144,6 +150,9 @@ export default function DashboardShell({ children }) {
             searchPlaceholder={whatsappGate ? '' : searchPlaceholder}
             search={search}
             onSearchChange={setSearch}
+            activeService={activeService}
+            showCloseService={isServiceOpen}
+            onCloseService={handleCloseService}
             showConnection={isWhatsAppDashboard}
             connectionState={connection.connectionState}
             connectionDetail={
