@@ -17,6 +17,7 @@ import { ROUTES } from '@/lib/constants/routes';
 import AppSidebar from './AppSidebar';
 import AppTopBar from './AppTopBar';
 import ConnectGate from './ConnectGate';
+import ServiceAccessGate from './ServiceAccessGate';
 import ConsentDialog from '@/lib/ui/components/ConsentDialog';
 import ManualConnectDialog from './ManualConnectDialog';
 import { DashboardContext } from './DashboardContext';
@@ -34,9 +35,9 @@ import { layout } from '@/lib/ui/theme';
 /**
  * Shared authenticated frame with service-specific navigation.
  *
- * The shell remains shared so auth, account, theme and tenant context stay
- * consistent across modules. What changes by route is the visible service
- * dashboard: navigation, top-bar connection status and mobile destinations.
+ * Auth and tenant context stay shared across modules. Service entitlements are
+ * checked before rendering a service dashboard, while each provider API also
+ * enforces its own access server-side.
  */
 export default function DashboardShell({ children }) {
   const pathname = usePathname() || '';
@@ -102,9 +103,7 @@ export default function DashboardShell({ children }) {
     [activeService, activeServiceInfo, connection, registerSearch, search, startConnect]
   );
 
-  // Only WhatsApp screens can be blocked by WhatsApp-number state. Other
-  // services have their own connection flows and must never inherit this gate.
-  const gated =
+  const whatsappGate =
     isWhatsAppDashboard &&
     navItem?.requiresConnection &&
     !connection.isAccountConnected &&
@@ -142,7 +141,7 @@ export default function DashboardShell({ children }) {
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <AppTopBar
             title={navItem?.label || activeServiceInfo?.label || 'All services'}
-            searchPlaceholder={gated ? '' : searchPlaceholder}
+            searchPlaceholder={whatsappGate ? '' : searchPlaceholder}
             search={search}
             onSearchChange={setSearch}
             showConnection={isWhatsAppDashboard}
@@ -169,16 +168,18 @@ export default function DashboardShell({ children }) {
               pb: isMobile && mobileItems.length ? 7 : 0,
             }}
           >
-            {gated ? (
-              <ConnectGate
-                sectionLabel={navItem?.label || 'This section'}
-                onConnect={startConnect}
-                onConnectManually={() => setManualOpen(true)}
-                isBusy={connection.isBusy}
-              />
-            ) : (
-              children
-            )}
+            <ServiceAccessGate pathname={pathname}>
+              {whatsappGate ? (
+                <ConnectGate
+                  sectionLabel={navItem?.label || 'This section'}
+                  onConnect={startConnect}
+                  onConnectManually={() => setManualOpen(true)}
+                  isBusy={connection.isBusy}
+                />
+              ) : (
+                children
+              )}
+            </ServiceAccessGate>
           </Box>
 
           {isMobile && mobileItems.length ? (
