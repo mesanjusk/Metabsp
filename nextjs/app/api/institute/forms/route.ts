@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     await connectDB(); const authed=await requireAuth(req); const body:any=await req.json().catch(()=>({}));
     const title=String(body.title||'').trim(); if(!title)return NextResponse.json({success:false,message:'Form title is required'},{status:400});
     let slug=slugify(body.slug||title); if(!slug)slug=`form-${Date.now()}`;
-    const scope=instituteScope(authed); const exists=await InstituteForm.exists({...scope,slug,archived:{$ne:true}}); if(exists)slug=`${slug}-${String(Date.now()).slice(-5)}`;
+    const scope=instituteScope(authed); const exists=await InstituteForm.exists({slug,archived:{$ne:true}}); if(exists)slug=`${slug}-${randomUUID().slice(0,8)}`;
     const fields=(Array.isArray(body.fields)?body.fields:[]).map((f:any,i:number)=>({fieldUuid:f.fieldUuid||randomUUID(),label:String(f.label||`Field ${i+1}`),name:slugify(f.name||f.label||`field-${i+1}`).replaceAll('-','_'),type:['text','email','phone','number','textarea','dropdown','radio','checkbox','date'].includes(f.type)?f.type:'text',options:Array.isArray(f.options)?f.options.map(String):[],required:Boolean(f.required),order:i}));
     const row=await InstituteForm.create({...scope,ownerUserId:authed.id,formUuid:randomUUID(),title,description:String(body.description||''),slug,fields,isActive:body.isActive!==false,successMessage:String(body.successMessage||'Thank you! Your response has been recorded.'),createLead:body.createLead!==false,createdBy:authed.id});
     return NextResponse.json({success:true,data:dto(row,idCardPublicBaseUrl(req))},{status:201});
