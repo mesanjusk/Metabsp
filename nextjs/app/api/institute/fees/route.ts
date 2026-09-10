@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(url.searchParams.get('page') || 1));
     const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 50)));
 
-    const fees: any[] = await InstituteFee.find({ ...instituteScope(authed), archived: { $ne: true } }).sort({ updatedAt: -1 }).lean();
+    const [fees, legacyFees]: [any[], any[]] = await Promise.all([
+      InstituteFee.find({ ...instituteScope(authed), archived: { $ne: true } }).sort({ updatedAt: -1 }).lean(),
+      InstituteRecord.find({ ...instituteScope(authed), entityType: 'fees', archived: { $ne: true } }).sort({ updatedAt: -1 }).lean(),
+    ]);
     const studentIds = fees.map((f) => f.studentRecordId).filter(Boolean);
     const admissionIds = fees.map((f) => f.admissionId).filter(Boolean);
     const [students, admissions] = await Promise.all([
@@ -30,10 +33,13 @@ export async function GET(req: NextRequest) {
     ]);
     const studentById = new Map(students.map((s: any) => [String(s._id), s]));
     const admissionById = new Map(admissions.map((a: any) => [String(a._id), a]));
-    let data = fees.map((f) => feeApiItem(f, studentById.get(String(f.studentRecordId)), admissionById.get(String(f.admissionId))));
+    let data: any[] = [
+      ...fees.map((f) => feeApiItem(f, studentById.get(String(f.studentRecordId)), admissionById.get(String(f.admissionId)))),
+      ...legacyFees.map((item: any) => ({ ...item, _id: String(item._id), source: item.source || 'legacy' })),
+    ];
 
     if (dueDate) {
-      data = data.filter((item: any) => (item.payload.installmentPlan || []).some((row: any) => {
+      data = data.filter((item: any) => (item.payload?.installmentPlan || []).some((row: any) => {
         if (!row?.dueDate) return false;
         return new Date(row.dueDate).toISOString().slice(0, 10) === dueDate;
       }));
@@ -45,6 +51,7 @@ export async function GET(req: NextRequest) {
           .some((value) => String(value || '').toLowerCase().includes(q));
       });
     }
+    data.sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime());
 
     const total = data.length;
     return NextResponse.json({
@@ -52,9 +59,9 @@ export async function GET(req: NextRequest) {
       data: data.slice((page - 1) * limit, page * limit),
       pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
       summary: {
-        billed: normalizeMoney(data.reduce((sum: number, item: any) => sum + Number(item.payload.total || 0), 0)),
-        paid: normalizeMoney(data.reduce((sum: number, item: any) => sum + Number(item.payload.feePaid || 0), 0)),
-        outstanding: normalizeMoney(data.reduce((sum: number, item: any) => sum + Number(item.payload.balance || 0), 0)),
+        billed: normalizeMoney(data.reduce((sum: number, item: any) => sum + Number(item.payload?.total || 0), 0)),
+        paid: normalizeMoney(data.reduce((sum: number, item: any) => sum + Number(item.payload?.feePaid || 0), 0)),
+        outstanding: normalizeMoney(data.reduce((sum: number, item: any) => sum + Number(item.payload?.balance || 0), 0)),
       },
     });
   } catch (error) {
