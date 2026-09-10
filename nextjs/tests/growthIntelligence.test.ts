@@ -9,7 +9,7 @@ const base = {
   whatsappConnected: true,
   instagramConnected: true,
   marketingEnabled: true,
-  googleBusinessEnabled: true,
+  googleBusinessLive: true,
 };
 
 describe('growth intelligence', () => {
@@ -48,7 +48,7 @@ describe('growth intelligence', () => {
       ...base,
       whatsappConnected: false,
       instagramConnected: false,
-      googleBusinessEnabled: false,
+      googleBusinessLive: false,
     });
 
     expect(recommendations.map((item) => item.id)).toEqual([
@@ -66,7 +66,7 @@ describe('growth intelligence', () => {
       reactivationCandidates: 4,
       whatsappConnected: false,
       marketingEnabled: false,
-      googleBusinessEnabled: false,
+      googleBusinessLive: false,
     });
 
     expect(agents.support).toMatchObject({ status: 'setup', metric: 2 });
