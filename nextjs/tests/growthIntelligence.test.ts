@@ -58,6 +58,11 @@ describe('growth intelligence', () => {
     ]);
   });
 
+  it('does not treat basic Google Business entitlement as a live provider connection', () => {
+    const recommendations = buildGrowthRecommendations({ ...base, googleBusinessLive: false });
+    expect(recommendations.find((item) => item.id === 'google-business')).toBeTruthy();
+  });
+
   it('reports agent state from live connections and entitlements', () => {
     const agents = buildGrowthAgents({
       ...base,
