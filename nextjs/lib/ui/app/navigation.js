@@ -64,6 +64,7 @@ export const INSTAGRAM_NAV_SECTIONS = [
     items: [
       SERVICES_ITEM,
       { href: '/instagram', label: 'Instagram dashboard', icon: InstagramIcon },
+      { href: '/services/instagram/contacts', label: 'Contacts', icon: PeopleAltRoundedIcon },
     ],
   },
   {
@@ -82,6 +83,7 @@ function genericServiceSections(service) {
       items: [
         SERVICES_ITEM,
         { href: service.href, label: `${service.shortLabel || service.label} dashboard`, icon: service.icon },
+        { href: `/services/${service.slug}/contacts`, label: 'Contacts', icon: PeopleAltRoundedIcon },
       ],
     },
     {
@@ -93,10 +95,9 @@ function genericServiceSections(service) {
 }
 
 /**
- * Navigation is now service-aware. WhatsApp never shows Instagram menus and
- * Instagram never shows WhatsApp setup. The service hub is the common switcher.
- * Data separation is intentionally NOT done here: routing is isolated while
- * User/Organization/shared business models stay common across modules.
+ * Navigation is service-aware. Each service gets its own dashboard menu, but
+ * contacts and other shared business data can be mounted inside that service
+ * without duplicating the underlying collection or customer records.
  */
 export function getNavSections(pathname = '') {
   const service = getServiceForPath(pathname);
@@ -126,7 +127,7 @@ export function getMobileNavHrefs(pathname = '') {
     return ['/inbox', '/contacts', '/templates', '/broadcasts'];
   }
 
-  return ['/home', service.href];
+  return ['/home', service.href, `/services/${service.slug}/contacts`];
 }
 
 export function findNavItem(pathname = '') {
@@ -134,9 +135,5 @@ export function findNavItem(pathname = '') {
   return items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) || null;
 }
 
-// Backward-compatible export for code that still imports NAV_SECTIONS directly.
-// New shell/sidebar code should call getNavSections(pathname).
 export const NAV_SECTIONS = WHATSAPP_NAV_SECTIONS;
-
-// Registry helper used by tests and future module routers.
 export { getServiceBySlug };
