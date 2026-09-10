@@ -20,4 +20,11 @@ InstituteRecordSchema.index(
   { unique: true, partialFilterExpression: { legacyId: { $type: 'string', $gt: '' } } }
 );
 
-export default mongoose.models.InstituteRecord || mongoose.model('InstituteRecord', InstituteRecordSchema);
+// Mongoose's inferred union between an already-registered model and a newly
+// created model produces incompatible overload signatures in strict TS. Other
+// shared models in this migration are intentionally consumed dynamically, so
+// expose one stable model type here rather than leaking that registration union.
+const InstituteRecord: any =
+  (mongoose.models.InstituteRecord as any) || mongoose.model('InstituteRecord', InstituteRecordSchema);
+
+export default InstituteRecord;
