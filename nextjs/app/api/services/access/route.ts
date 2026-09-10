@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/db/mongo';
 import { requireAuth, requireAdmin } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import { ServiceEntitlement } from '@/lib/models';
-import { resolveServiceAccess, SERVICE_SLUGS } from '@/lib/services/serviceAccess';
+import { resolveServiceAccess, SERVICE_SLUGS, PRO_SERVICES } from '@/lib/services/serviceAccess';
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,11 +16,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * Admin-only entitlement writer. This is intentionally generic so the future
- * Billing/Admin screens can grant either a whole business or one staff member
- * without changing the access model again.
- */
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
@@ -32,6 +27,9 @@ export async function POST(req: NextRequest) {
     if (!(SERVICE_SLUGS as readonly string[]).includes(service)) {
       return NextResponse.json({ success: false, message: 'Unknown service' }, { status: 400 });
     }
+    if (!(PRO_SERVICES as readonly string[]).includes(service)) {
+      return NextResponse.json({ success: false, message: 'Basic services are included for every account and cannot be disabled.' }, { status: 400 });
+    }
 
     const targetUserId = body?.userId ? String(body.userId) : null;
     const targetTenantId = body?.tenantId ? String(body.tenantId) : authed.tenantId;
@@ -39,23 +37,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'tenantId or userId is required' }, { status: 400 });
     }
 
-    const filter = {
-      tenantId: targetTenantId || null,
-      userId: targetUserId || null,
-      service,
-    };
-
+    const filter = { tenantId: targetTenantId || null, userId: targetUserId || null, service };
     const entitlement = await ServiceEntitlement.findOneAndUpdate(
       filter,
-      {
-        $set: {
-          enabled: Boolean(body?.enabled),
-          source: body?.source || 'manual',
-          startsAt: body?.startsAt || null,
-          endsAt: body?.endsAt || null,
-          note: String(body?.note || ''),
-        },
-      },
+      { $set: {
+        enabled: Boolean(body?.enabled),
+        source: body?.source || 'manual',
+        startsAt: body?.startsAt || null,
+        endsAt: body?.endsAt || null,
+        note: String(body?.note || ''),
+      } },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();
 

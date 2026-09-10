@@ -17,8 +17,19 @@ export const SERVICE_SLUGS = [
 
 export type ServiceSlug = (typeof SERVICE_SLUGS)[number];
 
-const LEGACY_DEFAULT_SERVICES: ServiceSlug[] = ['whatsapp'];
-const ADMIN_DEFAULT_SERVICES: ServiceSlug[] = ['whatsapp', 'instagram', 'marketing'];
+// Basic products are included for every account. They are never blocked by an
+// entitlement row; release status is still controlled by the UI/feature itself.
+export const BASIC_SERVICES: ServiceSlug[] = [
+  'whatsapp',
+  'instagram',
+  'google-business',
+  'dialer',
+  'crm',
+  'store',
+];
+
+// Pro products are the only services controlled by tenant/user entitlements.
+export const PRO_SERVICES: ServiceSlug[] = ['institute', 'marketing', 'staff', 'payments'];
 
 function isRuleActive(rule: any, now = new Date()) {
   if (!rule) return false;
@@ -28,8 +39,9 @@ function isRuleActive(rule: any, now = new Date()) {
 }
 
 /**
- * Resolve access without changing the shared User schema.
- * Precedence: user-specific rule > tenant rule > backward-compatible default.
+ * Resolve service access without changing the shared User schema.
+ * Basic services are always enabled.
+ * Pro precedence: user-specific rule > tenant rule > admin default > disabled.
  */
 export async function resolveServiceAccess(authed: AuthedUser) {
   const query: any[] = [{ userId: authed.id }];
@@ -39,9 +51,19 @@ export async function resolveServiceAccess(authed: AuthedUser) {
   const now = new Date();
   const activeRules = rules.filter((rule) => isRuleActive(rule, now));
 
-  const result: Record<string, { enabled: boolean; source: string; reason: string }> = {};
+  const result: Record<string, { enabled: boolean; source: string; reason: string; tier: 'basic' | 'pro' }> = {};
 
   for (const service of SERVICE_SLUGS) {
+    if (BASIC_SERVICES.includes(service)) {
+      result[service] = {
+        enabled: true,
+        source: 'basic',
+        reason: 'Included for every account',
+        tier: 'basic',
+      };
+      continue;
+    }
+
     const userRule = activeRules.find(
       (rule) => String(rule.service) === service && String(rule.userId || '') === authed.id
     );
@@ -54,16 +76,17 @@ export async function resolveServiceAccess(authed: AuthedUser) {
       result[service] = {
         enabled: Boolean(chosen.enabled),
         source: userRule ? 'user' : 'tenant',
-        reason: chosen.note || (chosen.enabled ? 'Included for this account' : 'Not enabled for this account'),
+        reason: chosen.note || (chosen.enabled ? 'Pro service enabled' : 'Pro service not enabled'),
+        tier: 'pro',
       };
       continue;
     }
 
-    const defaults = authed.isAdmin ? ADMIN_DEFAULT_SERVICES : LEGACY_DEFAULT_SERVICES;
     result[service] = {
-      enabled: defaults.includes(service),
-      source: 'default',
-      reason: defaults.includes(service) ? 'Included by default' : 'Not included in your current access',
+      enabled: Boolean(authed.isAdmin),
+      source: authed.isAdmin ? 'admin' : 'default',
+      reason: authed.isAdmin ? 'Available to platform administrator' : 'Upgrade to Pro or ask your admin for access',
+      tier: 'pro',
     };
   }
 
