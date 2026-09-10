@@ -118,6 +118,7 @@ export default function GrowthIntelligence() {
           {AGENTS.map((definition) => {
             const state = data.agents?.[definition.key] || {};
             const Icon = definition.icon;
+            const unavailable = state.status === 'next' || state.status === 'locked';
             return (
               <Paper key={definition.key} variant="outlined" sx={{ p: 1.75, borderRadius: 2.5, minWidth: 0, height: '100%' }}>
                 <Stack spacing={1.2} height="100%">
@@ -136,9 +137,15 @@ export default function GrowthIntelligence() {
                       </Typography>
                     ) : null}
                   </Box>
-                  <Button component={NextLink} href={definition.href} size="small" variant="text" sx={{ alignSelf: 'flex-start', px: 0 }}>
-                    {definition.actionLabel}
-                  </Button>
+                  {unavailable ? (
+                    <Button disabled size="small" variant="text" sx={{ alignSelf: 'flex-start', px: 0 }}>
+                      {state.status === 'next' ? 'Coming soon' : 'Pro access required'}
+                    </Button>
+                  ) : (
+                    <Button component={NextLink} href={definition.href} size="small" variant="text" sx={{ alignSelf: 'flex-start', px: 0 }}>
+                      {definition.actionLabel}
+                    </Button>
+                  )}
                 </Stack>
               </Paper>
             );
@@ -169,22 +176,29 @@ export default function GrowthIntelligence() {
           </Stack>
         ) : recommendations.length ? (
           <Stack spacing={1}>
-            {recommendations.slice(0, 6).map((item) => (
-              <Box key={item.id} sx={{ p: 1.35, border: '1px solid', borderColor: 'divider', borderRadius: 2.5 }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1.25}>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.35 }}>
-                      <Chip size="small" label={priorityLabel(item.priority)} variant="outlined" />
-                      <Typography variant="subtitle2" fontWeight={800}>{item.title}</Typography>
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary">{item.detail}</Typography>
-                  </Box>
-                  <Button component={NextLink} href={item.href} size="small" variant="outlined" sx={{ flexShrink: 0 }}>
-                    {item.actionLabel}
-                  </Button>
-                </Stack>
-              </Box>
-            ))}
+            {recommendations.slice(0, 6).map((item) => {
+              const comingSoon = item.id === 'google-business';
+              return (
+                <Box key={item.id} sx={{ p: 1.35, border: '1px solid', borderColor: 'divider', borderRadius: 2.5 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1.25}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.35 }}>
+                        <Chip size="small" label={priorityLabel(item.priority)} variant="outlined" />
+                        <Typography variant="subtitle2" fontWeight={800}>{item.title}</Typography>
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">{item.detail}</Typography>
+                    </Box>
+                    {comingSoon ? (
+                      <Button disabled size="small" variant="outlined" sx={{ flexShrink: 0 }}>Coming soon</Button>
+                    ) : (
+                      <Button component={NextLink} href={item.href} size="small" variant="outlined" sx={{ flexShrink: 0 }}>
+                        {item.actionLabel}
+                      </Button>
+                    )}
+                  </Stack>
+                </Box>
+              );
+            })}
           </Stack>
         ) : (
           <Typography variant="body2" color="text.secondary">No immediate growth action is flagged from the available shared data.</Typography>
