@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
-import { requireAuth } from '@/lib/auth/session';
+import { requireInstagramService } from '@/lib/instagram/access';
 import { getJwtSecret } from '@/lib/auth/jwt';
 import { errorResponse } from '@/lib/http/errorResponse';
 import { buildInstagramAuthorizationUrl, getInstagramConfig, INSTAGRAM_SCOPES } from '@/lib/instagram/meta';
@@ -9,7 +9,7 @@ import { buildInstagramAuthorizationUrl, getInstagramConfig, INSTAGRAM_SCOPES } 
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    const authed = await requireAuth(req);
+    const authed = await requireInstagramService(req);
     const state = jwt.sign(
       { id: authed.id, purpose: 'instagram-oauth' },
       getJwtSecret(),
