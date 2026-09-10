@@ -22,6 +22,9 @@ jobs:
         working-directory: nextjs
 
     services:
+      # The queue producers and the rate limiter talk to Redis. Tests mock it,
+      # but having a real one available keeps the door open for integration
+      # tests without another CI change.
       redis:
         image: redis:7-alpine
         ports: ['6379:6379']
@@ -43,23 +46,11 @@ jobs:
       - run: npm ci
 
       - name: Typecheck (application)
-        id: app_typecheck
-        shell: bash
-        run: set -o pipefail; npm run typecheck 2>&1 | tee ../typecheck.log
-        continue-on-error: true
+        run: npm run typecheck
 
-      - name: Upload typecheck diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: typecheck-diagnostics
-          path: typecheck.log
-          if-no-files-found: warn
-
-      - name: Stop on application typecheck failure
-        if: steps.app_typecheck.outcome == 'failure'
-        run: exit 1
-
+      # Separate config: the application's tsconfig excludes tests/, because
+      # `next build` typechecks whatever it includes and a production install
+      # has no devDependencies. CI has them, so it checks both.
       - name: Typecheck (tests)
         run: npm run typecheck:tests
 
@@ -71,6 +62,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
+          # Build-time only. The real secrets live in the deployment; these
+          # exist so the build does not fail on a missing value it never uses.
           JWT_SECRET: ci-build-only
           WHATSAPP_TOKEN_ENCRYPTION_KEY: Y2ktYnVpbGQtb25seS0zMi1ieXRlLWtleS0xMjM0NQ==
 
@@ -87,5 +80,7 @@ jobs:
           cache: npm
           cache-dependency-path: nextjs/package-lock.json
       - run: npm ci
+      # Reported, not enforced: a new advisory in a transitive dependency
+      # should be visible without blocking every unrelated pull request.
       - name: Dependency audit (advisory)
         run: npm audit --omit=dev || true
