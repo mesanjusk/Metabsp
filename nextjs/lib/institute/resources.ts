@@ -1,0 +1,63 @@
+export const INSTITUTE_RESOURCES = [
+  'students',
+  'courses',
+  'course-categories',
+  'batches',
+  'education',
+  'exams',
+  'attendance',
+  'leads',
+  'followups',
+  'admissions',
+  'fees',
+  'receipts',
+  'payments',
+  'payment-modes',
+  'accounts',
+  'account-groups',
+  'transactions',
+  'employees',
+  'institutes',
+  'owners',
+  'organization-categories',
+  'forms',
+  'form-responses',
+  'designs',
+  'custom-templates',
+  'greetings',
+] as const;
+
+export type InstituteResource = (typeof INSTITUTE_RESOURCES)[number];
+
+export function isInstituteResource(value: string): value is InstituteResource {
+  return (INSTITUTE_RESOURCES as readonly string[]).includes(String(value || '').toLowerCase());
+}
+
+export const RESOURCE_LABELS: Record<InstituteResource, string> = {
+  students: 'Students',
+  courses: 'Courses',
+  'course-categories': 'Course categories',
+  batches: 'Batches',
+  education: 'Education / classes',
+  exams: 'Exams',
+  attendance: 'Attendance',
+  leads: 'Leads / enquiries',
+  followups: 'Follow-ups',
+  admissions: 'Admissions',
+  fees: 'Fees',
+  receipts: 'Receipts',
+  payments: 'Payments',
+  'payment-modes': 'Payment modes',
+  accounts: 'Accounts',
+  'account-groups': 'Account groups',
+  transactions: 'Transactions',
+  employees: 'Employees',
+  institutes: 'Institutes / centers',
+  owners: 'Owners',
+  'organization-categories': 'Organisation categories',
+  forms: 'Forms',
+  'form-responses': 'Form responses',
+  designs: 'Designs / ID cards',
+  'custom-templates': 'Custom templates',
+  greetings: 'Greetings',
+};
