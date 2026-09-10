@@ -19,12 +19,14 @@ export function getBearerToken(req: NextRequest): string | null {
 
 /**
  * Service access is enforced for authenticated provider APIs in one place.
- * Signature/state-authenticated callbacks do not call requireAuth and are
- * therefore unaffected (webhooks, OAuth callback, deauthorization, deletion).
+ * Shared CRM contacts are intentionally exempt: their legacy URL still lives
+ * below /api/whatsapp, but the Contact collection is now a platform-core
+ * resource used from every entitled service dashboard.
  */
 function serviceForApiPath(pathname: string): ServiceSlug | null {
   const path = String(pathname || '');
   if (path.startsWith('/api/instagram/')) return 'instagram';
+  if (path.startsWith('/api/whatsapp/contacts')) return null;
   if (path.startsWith('/api/whatsapp/')) return 'whatsapp';
   return null;
 }
