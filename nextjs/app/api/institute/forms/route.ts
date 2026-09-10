@@ -17,8 +17,8 @@ export async function GET(req: NextRequest) {
   try {
     await connectDB(); const authed=await requireAuth(req); const scope=instituteScope(authed);
     const rows:any[]=await InstituteForm.find({...scope,archived:{$ne:true}}).sort({updatedAt:-1}).lean();
-    const ids=rows.map(r=>r._id); const counts=await InstituteFormResponse.aggregate([{ $match:{formId:{$in:ids}} },{$group:{_id:'$formId',count:{$sum:1}}}]); const map=new Map(counts.map((x:any)=>[String(x._id),x.count]));
-    const base=idCardPublicBaseUrl(req); return NextResponse.json({success:true,data:rows.map(r=>dto(r,base,map.get(String(r._id))||0))});
+    const ids=rows.map(r=>r._id); const counts=await InstituteFormResponse.aggregate([{ $match:{formId:{$in:ids}} },{$group:{_id:'$formId',count:{$sum:1}}}]); const map=new Map<string, number>(counts.map((x:any)=>[String(x._id),Number(x.count||0)] as [string, number]));
+    const base=idCardPublicBaseUrl(req); return NextResponse.json({success:true,data:rows.map(r=>dto(r,base,Number(map.get(String(r._id))||0)))});
   } catch(error){return errorResponse(error,'Failed to load forms');}
 }
 
