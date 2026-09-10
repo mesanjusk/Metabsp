@@ -25,11 +25,8 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
-import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
-import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
-import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
-import TravelExploreRoundedIcon from '@mui/icons-material/TravelExploreRounded';
 import PageBody from '@/lib/ui/app/PageBody';
+import GrowthIntelligence from '@/lib/ui/app/GrowthIntelligence';
 import apiClient from '@/lib/api/client';
 import { SERVICES } from '@/lib/ui/app/serviceRegistry';
 
@@ -71,28 +68,6 @@ function Section({ title, subtitle, action, children }) {
         {action}
       </Stack>
       {children}
-    </Paper>
-  );
-}
-
-function GrowthAgent({ icon: Icon, title, description, status, href, actionLabel }) {
-  return (
-    <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2.5, minWidth: 0, height: '100%' }}>
-      <Stack spacing={1.2} height="100%">
-        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-          <Box sx={{ width: 38, height: 38, borderRadius: 2.25, bgcolor: 'action.hover', display: 'grid', placeItems: 'center' }}>
-            <Icon fontSize="small" />
-          </Box>
-          <Chip size="small" variant="outlined" label={status} />
-        </Stack>
-        <Box sx={{ flex: 1 }}>
-          <Typography fontWeight={800}>{title}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4 }}>{description}</Typography>
-        </Box>
-        <Button component={NextLink} href={href} size="small" variant="text" sx={{ alignSelf: 'flex-start', px: 0 }}>
-          {actionLabel}
-        </Button>
-      </Stack>
     </Paper>
   );
 }
@@ -158,46 +133,7 @@ export default function BusinessControlCenterPage() {
       </Box>
 
       <Box sx={{ mb: 2 }}>
-        <Section
-          title="AI Growth Team"
-          subtitle="Role-based assistants working on the same shared contacts and service data — not separate CRMs."
-          action={<Chip icon={<AutoAwesomeRoundedIcon />} label="Shared business brain" variant="outlined" />}
-        >
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0,1fr))', xl: 'repeat(4, minmax(0,1fr))' }, gap: 1.25 }}>
-            <GrowthAgent
-              icon={SupportAgentRoundedIcon}
-              title="Customer Support"
-              description="Handle WhatsApp conversations and customer follow-up from the existing shared inbox."
-              status={whatsapp.messagesToday !== undefined ? 'Live data' : 'Ready'}
-              href="/inbox"
-              actionLabel="Open inbox"
-            />
-            <GrowthAgent
-              icon={CampaignRoundedIcon}
-              title="Marketing"
-              description="Create once and publish through connected channels using the existing Marketing service and entitlements."
-              status="Pro"
-              href="/services/marketing"
-              actionLabel="Create campaign"
-            />
-            <GrowthAgent
-              icon={TravelExploreRoundedIcon}
-              title="Local Growth"
-              description="Google Business Profile posts, reviews and local visibility will plug into the same service layer when enabled."
-              status="Next"
-              href="/services/google-business"
-              actionLabel="View Google Business"
-            />
-            <GrowthAgent
-              icon={InsightsRoundedIcon}
-              title="Business Analyst"
-              description="Use combined channel activity, contact stages and service health to show what needs attention."
-              status="Live data"
-              href="/analytics"
-              actionLabel="Open analytics"
-            />
-          </Box>
-        </Section>
+        <GrowthIntelligence />
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.15fr 0.85fr' }, gap: 2, mb: 2 }}>
