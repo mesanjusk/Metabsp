@@ -8,6 +8,7 @@ import {
   ConversationAssignment,
   ConversationOwner,
   DataDeletionRequest,
+  InstagramAccount,
   Message,
   User,
   WebhookDestination,
@@ -20,13 +21,13 @@ import logger from '@/lib/utils/logger';
 /**
  * Honouring a deletion request from Meta, and from a person directly.
  *
- * Meta's data-deletion callback identifies a person by their Facebook user id
- * and nothing else, which is why User.facebookId has to be stored — see the
- * note in lib/models/User.ts about the field being dropped by strict mode
- * before this. Without it there is no way to answer the callback truthfully.
+ * Meta's data-deletion callback identifies a person by their provider-specific
+ * user id and nothing else. Facebook identities resolve through User.facebookId;
+ * Instagram Login identities resolve through InstagramAccount, which stores
+ * the Instagram app-scoped id returned by the authorization flow.
  *
  * Everything a person's account owns is removed, not merely detached:
- * messages, contacts, connected WhatsApp accounts (with their encrypted
+ * messages, contacts, connected WhatsApp/Instagram accounts (with encrypted
  * access tokens), API keys, webhook destinations with their signing secrets,
  * automations, conversation state, delivery statuses and the account itself.
  *
@@ -102,6 +103,7 @@ async function deleteEverythingOwnedBy(userId: mongoose.Types.ObjectId) {
   // Last, so that a failure part-way through still leaves the account
   // present and the request retryable rather than orphaning its data.
   record('whatsappAccounts', await WhatsAppAccount.deleteMany({ userId }));
+  record('instagramAccounts', await InstagramAccount.deleteMany({ userId }));
   record('user', await User.deleteOne({ _id: userId }));
 
   return counts;
@@ -118,14 +120,25 @@ export async function deleteByProviderId({
   provider,
   providerUserId,
 }: {
-  provider: 'facebook' | 'google';
+  provider: 'facebook' | 'google' | 'instagram';
   providerUserId: string;
 }): Promise<DeletionOutcome> {
   const confirmationCode = newConfirmationCode();
-  const field = provider === 'facebook' ? 'facebookId' : 'googleId';
 
   try {
-    const user: any = await User.findOne({ [field]: String(providerUserId) }).select('_id').lean();
+    let user: any = null;
+    if (provider === 'instagram') {
+      const instagramAccount: any = await InstagramAccount.findOne({
+        $or: [
+          { instagramAppScopedId: String(providerUserId) },
+          { instagramUserId: String(providerUserId) },
+        ],
+      }).select('userId').lean();
+      if (instagramAccount?.userId) user = { _id: instagramAccount.userId };
+    } else {
+      const field = provider === 'facebook' ? 'facebookId' : 'googleId';
+      user = await User.findOne({ [field]: String(providerUserId) }).select('_id').lean();
+    }
 
     if (!user) {
       await DataDeletionRequest.create({
@@ -153,7 +166,6 @@ export async function deleteByProviderId({
     // Deliberately logged without the provider id — the point of the record
     // above is that the trail lives in the database, not in log aggregation.
     logger.info({ confirmationCode, deletedCounts }, '[data-deletion] request completed');
-
     return { confirmationCode, status: 'completed', deletedCounts };
   } catch (error: any) {
     logger.error({ err: error.message, confirmationCode }, '[data-deletion] request failed');
