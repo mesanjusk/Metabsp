@@ -21,7 +21,10 @@ export async function GET(req: NextRequest) {
     if (course) filter.course = course;
     if (status) filter.confirmationStatus = status;
 
-    const admissions: any[] = await InstituteAdmission.find(filter).sort({ admissionDate: -1, createdAt: -1 }).lean();
+    const [admissions, legacyAdmissions]: [any[], any[]] = await Promise.all([
+      InstituteAdmission.find(filter).sort({ admissionDate: -1, createdAt: -1 }).lean(),
+      InstituteRecord.find({ ...instituteScope(authed), entityType: 'admissions', archived: { $ne: true } }).sort({ updatedAt: -1 }).lean(),
+    ]);
     const studentIds = admissions.map((a) => a.studentRecordId).filter(Boolean);
     const feeAdmissionIds = admissions.map((a) => a._id);
     const [students, fees] = await Promise.all([
@@ -30,8 +33,13 @@ export async function GET(req: NextRequest) {
     ]);
     const studentsById = new Map(students.map((s: any) => [String(s._id), s]));
     const feesByAdmission = new Map(fees.map((f: any) => [String(f.admissionId), f]));
-    let data = admissions.map((a) => admissionApiItem(a, studentsById.get(String(a.studentRecordId)), feesByAdmission.get(String(a._id))));
+    let data: any[] = [
+      ...admissions.map((a) => admissionApiItem(a, studentsById.get(String(a.studentRecordId)), feesByAdmission.get(String(a._id)))),
+      ...legacyAdmissions.map((item: any) => ({ ...item, _id: String(item._id), source: item.source || 'legacy' })),
+    ];
 
+    if (course) data = data.filter((item: any) => String(item?.payload?.course || '') === course);
+    if (status) data = data.filter((item: any) => String(item?.payload?.confirmationStatus || '') === status);
     if (q) {
       data = data.filter((item: any) => {
         const p = item.payload || {};
@@ -39,6 +47,7 @@ export async function GET(req: NextRequest) {
           .some((value) => String(value || '').toLowerCase().includes(q));
       });
     }
+    data.sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime());
 
     const total = data.length;
     const sliced = data.slice((page - 1) * limit, page * limit);
