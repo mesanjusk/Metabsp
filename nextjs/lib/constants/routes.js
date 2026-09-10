@@ -3,8 +3,10 @@ export const ROUTES = {
   LOGIN: '/login',
   SIGNUP: '/signup',
   FORGOT_PASSWORD: '/forgot-password',
-  // Where a successful sign-in lands. `/whatsapp` still resolves (it
-  // redirects here) so older links keep working.
-  DASHBOARD: '/inbox',
+  HOME: '/home',
+  // Successful sign-in lands on the service hub first. From there the user
+  // deliberately enters WhatsApp, Instagram, Dialer, CRM, etc.
+  DASHBOARD: '/home',
   WHATSAPP: '/inbox',
+  INSTAGRAM: '/instagram',
 };

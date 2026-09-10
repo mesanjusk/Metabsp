@@ -1,3 +1,4 @@
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
@@ -10,31 +11,33 @@ import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import CodeRoundedIcon from '@mui/icons-material/CodeRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
+import { getServiceBySlug, getServiceForPath } from './serviceRegistry';
 
-/**
- * The product's information architecture, in one list.
- *
- * What this replaces is the substance of the change, not the styling: the
- * dashboard was a single page with three top-level tabs — "Meta", "Manual"
- * and "CRM" — and a second row of sub-tabs under the first. That grouped
- * screens by which integration built them rather than by what a user is
- * trying to do, so "Chats" and "Contacts" lived two levels apart under
- * unrelated parents, and nothing had a URL of its own: no deep link, no back
- * button, no bookmark, and a reviewer following written test steps could not
- * be sent straight to a screen.
- *
- * Each entry is now a real route. `requiresConnection` marks the sections
- * that genuinely cannot function until a WhatsApp number is connected, so the
- * shell can show one honest explanation with a working Connect button rather
- * than each panel failing in its own way.
- */
-export const NAV_SECTIONS = [
+const SERVICES_ITEM = { href: '/home', label: 'All services', icon: HomeRoundedIcon };
+
+export const HUB_NAV_SECTIONS = [
   {
-    id: 'workspace',
-    label: 'Workspace',
+    id: 'hub',
+    label: 'Digital workspace',
+    items: [SERVICES_ITEM],
+  },
+  {
+    id: 'account',
+    label: 'Account',
     items: [
+      { href: '/settings', label: 'Settings', icon: SettingsRoundedIcon },
+      { href: '/admin', label: 'Administration', icon: AdminPanelSettingsRoundedIcon, adminOnly: true },
+    ],
+  },
+];
+
+export const WHATSAPP_NAV_SECTIONS = [
+  {
+    id: 'whatsapp-workspace',
+    label: 'WhatsApp',
+    items: [
+      SERVICES_ITEM,
       { href: '/inbox', label: 'Inbox', icon: ForumRoundedIcon, requiresConnection: true },
-      { href: '/instagram', label: 'Instagram', icon: InstagramIcon },
       { href: '/contacts', label: 'Contacts', icon: PeopleAltRoundedIcon },
       { href: '/templates', label: 'Templates', icon: DescriptionRoundedIcon, requiresConnection: true },
       { href: '/broadcasts', label: 'Broadcasts', icon: CampaignRoundedIcon, requiresConnection: true },
@@ -43,31 +46,94 @@ export const NAV_SECTIONS = [
     ],
   },
   {
-    id: 'platform',
-    label: 'Platform',
+    id: 'whatsapp-platform',
+    label: 'WhatsApp setup',
     items: [
       { href: '/numbers', label: 'Numbers', icon: DialpadRoundedIcon },
       { href: '/business', label: 'Business tools', icon: StorefrontRoundedIcon, requiresConnection: true },
       { href: '/developers', label: 'Developers', icon: CodeRoundedIcon },
       { href: '/settings', label: 'Settings', icon: SettingsRoundedIcon },
-      { href: '/admin', label: 'Administration', icon: AdminPanelSettingsRoundedIcon, adminOnly: true },
     ],
   },
 ];
 
-// Mobile gets the four most-used destinations in a bottom bar, plus an
-// explicit "More" that opens the drawer.
-//
-// The bar previously held five Workspace destinations and nothing else, which
-// made every Platform section — Numbers among them — invisible on a phone.
-// The drawer was the only route to them and nothing on screen said so, so a
-// customer on their phone could not find where to connect a WhatsApp number
-// at all unless they happened to try the hamburger. A bottom bar with ten
-// items is a menu; a bottom bar that hides the setup screen is a dead end.
-export const MOBILE_NAV_HREFS = ['/inbox', '/contacts', '/templates', '/broadcasts'];
+export const INSTAGRAM_NAV_SECTIONS = [
+  {
+    id: 'instagram-workspace',
+    label: 'Instagram',
+    items: [
+      SERVICES_ITEM,
+      { href: '/instagram', label: 'Instagram dashboard', icon: InstagramIcon },
+      { href: '/services/instagram/contacts', label: 'Contacts', icon: PeopleAltRoundedIcon },
+    ],
+  },
+  {
+    id: 'instagram-account',
+    label: 'Account',
+    items: [{ href: '/settings', label: 'Settings', icon: SettingsRoundedIcon }],
+  },
+];
 
-export const ALL_NAV_ITEMS = NAV_SECTIONS.flatMap((section) => section.items);
-
-export function findNavItem(pathname) {
-  return ALL_NAV_ITEMS.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+function genericServiceSections(service) {
+  if (!service) return HUB_NAV_SECTIONS;
+  return [
+    {
+      id: `${service.slug}-workspace`,
+      label: service.shortLabel || service.label,
+      items: [
+        SERVICES_ITEM,
+        { href: service.href, label: `${service.shortLabel || service.label} dashboard`, icon: service.icon },
+        { href: `/services/${service.slug}/contacts`, label: 'Contacts', icon: PeopleAltRoundedIcon },
+      ],
+    },
+    {
+      id: `${service.slug}-account`,
+      label: 'Account',
+      items: [{ href: '/settings', label: 'Settings', icon: SettingsRoundedIcon }],
+    },
+  ];
 }
+
+/**
+ * Navigation is service-aware. Each service gets its own dashboard menu, but
+ * contacts and other shared business data can be mounted inside that service
+ * without duplicating the underlying collection or customer records.
+ */
+export function getNavSections(pathname = '') {
+  const service = getServiceForPath(pathname);
+  if (!service) return HUB_NAV_SECTIONS;
+  if (service.slug === 'whatsapp') return WHATSAPP_NAV_SECTIONS;
+  if (service.slug === 'instagram') return INSTAGRAM_NAV_SECTIONS;
+  return genericServiceSections(service);
+}
+
+export function getActiveService(pathname = '') {
+  return getServiceForPath(pathname)?.slug || 'hub';
+}
+
+export function getActiveServiceInfo(pathname = '') {
+  return getServiceForPath(pathname);
+}
+
+export function getNavigationItems(pathname = '') {
+  return getNavSections(pathname).flatMap((section) => section.items);
+}
+
+export function getMobileNavHrefs(pathname = '') {
+  const service = getServiceForPath(pathname);
+  if (!service) return [];
+
+  if (service.slug === 'whatsapp') {
+    return ['/inbox', '/contacts', '/templates', '/broadcasts'];
+  }
+
+  return ['/home', service.href, `/services/${service.slug}/contacts`];
+}
+
+export function findNavItem(pathname = '') {
+  const items = getNavigationItems(pathname);
+  return items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) || null;
+}
+
+export const NAV_SECTIONS = WHATSAPP_NAV_SECTIONS;
+export { getServiceBySlug };

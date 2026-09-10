@@ -1,14 +1,9 @@
 import { NextRequest } from 'next/server';
 import { User } from '../models';
 import { verifyToken } from './jwt';
+import { requireServiceAccess, type ServiceSlug } from '../services/serviceAccess';
 import AppError from '../utils/AppError';
 
-// Ported from backend/bulk/middleware/auth.js's `protect` — re-verifies the
-// DB user on every request (no claims-only trust), same as the Express
-// version. Route Handlers call this directly instead of an Express
-// middleware chain; throws AppError on failure so callers can catch it and
-// map to the same {success:false, message} JSON shape the frontend already
-// expects.
 export interface AuthedUser {
   id: string;
   isAdmin: boolean;
@@ -20,6 +15,20 @@ export function getBearerToken(req: NextRequest): string | null {
   const authHeader = req.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   return authHeader.slice('Bearer '.length);
+}
+
+/**
+ * Service access is enforced for authenticated provider APIs in one place.
+ * Shared CRM contacts are intentionally exempt: their legacy URL still lives
+ * below /api/whatsapp, but the Contact collection is now a platform-core
+ * resource used from every entitled service dashboard.
+ */
+function serviceForApiPath(pathname: string): ServiceSlug | null {
+  const path = String(pathname || '');
+  if (path.startsWith('/api/instagram/')) return 'instagram';
+  if (path.startsWith('/api/whatsapp/contacts')) return null;
+  if (path.startsWith('/api/whatsapp/')) return 'whatsapp';
+  return null;
 }
 
 export async function requireAuth(req: NextRequest): Promise<AuthedUser> {
@@ -38,13 +47,17 @@ export async function requireAuth(req: NextRequest): Promise<AuthedUser> {
   if (!user.isActive) throw new AppError('Account is inactive', 403);
 
   const permissions: string[] = user.roleId?.permissions || [];
-
-  return {
+  const authed: AuthedUser = {
     id: String(user._id),
     isAdmin: permissions.includes('*'),
     tenantId: user.tenantId || null,
     doc: user,
   };
+
+  const service = serviceForApiPath(req.nextUrl.pathname);
+  if (service) await requireServiceAccess(authed, service);
+
+  return authed;
 }
 
 export function requireAdmin(authed: AuthedUser): void {

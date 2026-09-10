@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
-import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
+import { requireInstagramService } from '@/lib/instagram/access';
 import { getInstagramAccess, instagramGraphRequest } from '@/lib/instagram/meta';
 import AppError from '@/lib/utils/AppError';
 
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
-    const authed = await requireAuth(req);
+    const authed = await requireInstagramService(req);
     const body = await req.json().catch(() => ({}));
     const imageUrl = String(body?.imageUrl || '').trim();
     const caption = String(body?.caption || '').trim();

@@ -1,6 +1,7 @@
 import { normalizePhone } from './dispatch';
 
-// Contact helpers, ported from backend/src/controllers/whatsappController.js.
+// Contact helpers. Contacts are now a platform-core customer resource even
+// though this compatibility module still lives below lib/whatsapp.
 
 export const normalizeContactPayload = (payload: any = {}) => ({
   phone: normalizePhone(payload.phone || payload.mobile || payload.number),
@@ -24,27 +25,25 @@ export const normalizeContactPayload = (payload: any = {}) => ({
       : {},
 });
 
-// Contacts predate per-account ownership, so rows with no userId are treated as
-// shared legacy data and stay visible to everyone — matching the Express
-// behaviour rather than hiding records a customer can currently see.
-export const buildScopedContactFilter = (userId: string, accountContext: any) => ({
+/**
+ * Workspace-wide contact ownership.
+ *
+ * `accountContext` is retained in the signature for backward compatibility,
+ * but a connected WhatsApp number no longer narrows the contact list. The same
+ * user's contacts must be visible from Instagram, CRM, Dialer and every other
+ * enabled service. Provider/account ids remain useful as provenance, not as a
+ * visibility boundary.
+ *
+ * Legacy rows without userId remain visible to preserve migration behaviour.
+ */
+export const buildScopedContactFilter = (userId: string, _accountContext?: any) => ({
   $or: [
-    { userId, ...(accountContext?.account?._id ? { whatsappAccountId: accountContext.account._id } : {}) },
+    { userId },
     { userId: { $exists: false } },
     { userId: null },
   ],
 });
 
-/**
- * Combines the ownership scope with the optional filters using `$and`.
- *
- * This must never go back to an object spread. The ownership scope and the
- * search term are both `$or` expressions, so spreading them into one object
- * makes the search REPLACE the scope — which is exactly the bug this port
- * inherited: listing contacts was scoped correctly, but searching returned
- * matching contacts belonging to every user. See
- * backend/__tests__/contactSearchScoping.test.js.
- */
 export const buildContactListFilter = (
   scope: Record<string, unknown>,
   { search = '', category = '', tag = '' }: { search?: string; category?: string; tag?: string }

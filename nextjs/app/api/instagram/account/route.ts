@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
-import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import { InstagramAccount } from '@/lib/models';
+import { requireInstagramService } from '@/lib/instagram/access';
 import {
   getActiveInstagramAccount,
   getInstagramAccess,
@@ -13,7 +13,7 @@ import {
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    const authed = await requireAuth(req);
+    const authed = await requireInstagramService(req);
     const account = await getActiveInstagramAccount(authed.id);
     return NextResponse.json({ success: true, data: sanitizeInstagramAccount(account) });
   } catch (error) {
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     await connectDB();
-    const authed = await requireAuth(req);
+    const authed = await requireInstagramService(req);
     const { account, accessToken } = await getInstagramAccess(authed.id);
 
     try {

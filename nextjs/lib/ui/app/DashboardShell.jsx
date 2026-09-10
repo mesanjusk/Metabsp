@@ -17,25 +17,27 @@ import { ROUTES } from '@/lib/constants/routes';
 import AppSidebar from './AppSidebar';
 import AppTopBar from './AppTopBar';
 import ConnectGate from './ConnectGate';
+import ServiceAccessGate from './ServiceAccessGate';
 import ConsentDialog from '@/lib/ui/components/ConsentDialog';
 import ManualConnectDialog from './ManualConnectDialog';
 import { DashboardContext } from './DashboardContext';
-import { ALL_NAV_ITEMS, MOBILE_NAV_HREFS, findNavItem } from './navigation';
+import {
+  findNavItem,
+  getActiveService,
+  getActiveServiceInfo,
+  getMobileNavHrefs,
+  getNavigationItems,
+} from './navigation';
 import { EMBEDDED_SIGNUP_COMING_SOON_NOTE, EMBEDDED_SIGNUP_ENABLED } from './embeddedSignup';
 import { toast } from '@/lib/ui/components/Toast';
 import { layout } from '@/lib/ui/theme';
 
 /**
- * The application frame every signed-in screen renders inside.
+ * Shared authenticated frame with service-specific navigation.
  *
- * It owns four things so no individual page has to: navigation, the top bar,
- * the connect-a-number gate, and the manual-connect dialog. Pages become what
- * they should be — the content of one section — instead of each re-deriving
- * connection state and re-implementing its own empty state.
- *
- * The layout is a fixed-height grid rather than a scrolling document: the
- * inbox needs its conversation list and thread to scroll independently while
- * the shell stays put, which a page-level scroll cannot do.
+ * Auth and tenant context stay shared across modules. Service entitlements are
+ * checked before rendering a service dashboard, while each provider API also
+ * enforces its own access server-side.
  */
 export default function DashboardShell({ children }) {
   const pathname = usePathname() || '';
@@ -52,14 +54,16 @@ export default function DashboardShell({ children }) {
   const [search, setSearch] = useState('');
   const [searchPlaceholder, setSearchPlaceholder] = useState('');
 
-  // Identity, not just a setter: passing the raw setState down would make the
-  // registering effect in useDashboardSearch re-run on every shell render.
   const registerSearch = useCallback((placeholder) => {
     setSearchPlaceholder(placeholder || '');
     if (!placeholder) setSearch('');
   }, []);
 
   const navItem = findNavItem(pathname);
+  const activeService = getActiveService(pathname);
+  const activeServiceInfo = getActiveServiceInfo(pathname);
+  const navigationItems = getNavigationItems(pathname);
+  const isWhatsAppDashboard = activeService === 'whatsapp';
 
   const handleLogout = useCallback(() => {
     logout();
@@ -71,29 +75,11 @@ export default function DashboardShell({ children }) {
     [connection]
   );
 
-  /**
-   * Informed consent before Embedded Signup.
-   *
-   * ConsentDialog already existed — it lists exactly what the platform will be
-   * able to do with a connected WhatsApp Business Account, and links the Terms
-   * and Privacy Policy — but nothing in the application ever rendered it, so
-   * customers granted access with no disclosure at all. Meta expects a Tech
-   * Provider to obtain informed consent before taking access to a customer's
-   * WABA, and this is where that happens: nothing calls FB.login until the
-   * dialog is accepted.
-   */
   const startConnect = useCallback(() => {
-    // Every entry point routes through here, so switching Embedded Signup off
-    // closes all of them at once — including any that still render an enabled
-    // button — rather than leaving one that opens a popup that cannot finish.
     if (!EMBEDDED_SIGNUP_ENABLED) {
       toast(EMBEDDED_SIGNUP_COMING_SOON_NOTE);
       return;
     }
-    // Warm the Embedded Signup config + Facebook SDK while the consent dialog is
-    // open, so accepting it can open FB.login directly from that click instead
-    // of after a network fetch or script load (which browsers block as an
-    // unsolicited popup). Best-effort — connectWithMeta still loads on demand.
     connection.preloadConnect?.();
     setConsentOpen(true);
   }, [connection]);
@@ -110,25 +96,22 @@ export default function DashboardShell({ children }) {
       registerSearch,
       connection,
       openManualConnect: () => setManualOpen(true),
-      // Sections call this rather than connection.connectWithMeta directly, so
-      // the consent step can never be bypassed by adding a new entry point.
       startConnect,
+      activeService,
+      activeServiceInfo,
     }),
-    [connection, registerSearch, search, startConnect]
+    [activeService, activeServiceInfo, connection, registerSearch, search, startConnect]
   );
 
-  // A section that needs a connected number, on an account that has none.
-  // `isAccountLoading` matters: without it the gate flashes on every load
-  // before the account request resolves, which reads as "you were disconnected".
-  const gated =
-    navItem?.requiresConnection && !connection.isAccountConnected && !connection.isAccountLoading;
+  const whatsappGate =
+    isWhatsAppDashboard &&
+    navItem?.requiresConnection &&
+    !connection.isAccountConnected &&
+    !connection.isAccountLoading;
 
-  const mobileItems = MOBILE_NAV_HREFS.map((href) => ALL_NAV_ITEMS.find((item) => item.href === href)).filter(
-    Boolean
-  );
-  // Anything not in the bar — Numbers, Developers, Settings, Administration,
-  // Automations, Analytics — lights up "More" instead of leaving the bar with
-  // nothing selected, so the current screen always has a visible home.
+  const mobileItems = getMobileNavHrefs(pathname)
+    .map((href) => navigationItems.find((item) => item.href === href))
+    .filter(Boolean);
   const isOnMobileItem = mobileItems.some((item) => item.href === navItem?.href);
   const mobileValue = isOnMobileItem ? navItem?.href : navItem ? 'more' : false;
 
@@ -157,10 +140,11 @@ export default function DashboardShell({ children }) {
 
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <AppTopBar
-            title={navItem?.label || 'Dashboard'}
-            searchPlaceholder={gated ? '' : searchPlaceholder}
+            title={navItem?.label || activeServiceInfo?.label || 'All services'}
+            searchPlaceholder={whatsappGate ? '' : searchPlaceholder}
             search={search}
             onSearchChange={setSearch}
+            showConnection={isWhatsAppDashboard}
             connectionState={connection.connectionState}
             connectionDetail={
               connection.whatsappAccount?.display_phone_number ||
@@ -181,22 +165,24 @@ export default function DashboardShell({ children }) {
               flex: 1,
               minHeight: 0,
               overflow: 'auto',
-              pb: isMobile ? 7 : 0,
+              pb: isMobile && mobileItems.length ? 7 : 0,
             }}
           >
-            {gated ? (
-              <ConnectGate
-                sectionLabel={navItem?.label || 'This section'}
-                onConnect={startConnect}
-                onConnectManually={() => setManualOpen(true)}
-                isBusy={connection.isBusy}
-              />
-            ) : (
-              children
-            )}
+            <ServiceAccessGate pathname={pathname}>
+              {whatsappGate ? (
+                <ConnectGate
+                  sectionLabel={navItem?.label || 'This section'}
+                  onConnect={startConnect}
+                  onConnectManually={() => setManualOpen(true)}
+                  isBusy={connection.isBusy}
+                />
+              ) : (
+                children
+              )}
+            </ServiceAccessGate>
           </Box>
 
-          {isMobile ? (
+          {isMobile && mobileItems.length ? (
             <BottomNavigation
               value={mobileValue}
               showLabels
