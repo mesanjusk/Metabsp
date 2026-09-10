@@ -48,6 +48,12 @@ function normalizeMetaError(error: any, fallback: string): AppError {
   return new AppError(message || fallback, status >= 400 && status < 500 ? 400 : 502);
 }
 
+function normalizePermissions(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (typeof value === 'string') return value.split(',').map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
 export async function exchangeInstagramCode(code: string) {
   const { appId, appSecret, redirectUri } = getInstagramConfig();
   const form = new URLSearchParams();
@@ -78,6 +84,7 @@ export async function exchangeInstagramCode(code: string) {
       accessToken: String(longRes.data?.access_token || shortToken),
       expiresIn: Number(longRes.data?.expires_in || shortRes.data?.expires_in || 0) || null,
       appScopedUserId: String(shortRes.data?.user_id || ''),
+      permissions: normalizePermissions(shortRes.data?.permissions),
     };
   } catch (error) {
     if (error instanceof AppError) throw error;
