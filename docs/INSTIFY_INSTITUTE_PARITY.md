@@ -38,8 +38,10 @@ Port every user-facing Instify capability into MetaBSP under `/services/institut
 - Admission report
 - Lead → admission report
 - Funnel report with hot/warm/cold counts
-- Forms
-- Form responses
+- Forms — **native form builder with custom fields, active/inactive state and public link**
+- Public forms — **unauthenticated public URL, required-field validation and configurable success message**
+- Form responses — **native response store, dashboard view and CSV export**
+- Public form → CRM — **optional automatic lead creation and shared Contact sync**
 
 ### Fees & accounts
 - Fees — **native fee plan with fee, discount, total, paid, balance, installments and EMI schedule**
@@ -68,10 +70,12 @@ Port every user-facing Instify capability into MetaBSP under `/services/institut
 - CSV import entry
 - Academic bulk import entry
 - Bulk download/export entry
-- ID card records
-- ID card print entry
-- Student ID self-edit entry
-- Canvas/design workspace entry
+- ID Card Manager — **native project workflow, student import, class/roll tracking and status management**
+- ID-card student magic link — **7-day public verification/self-edit link**
+- ID-card approval/reject — **native review workflow**
+- ID Card Print — **renders assigned reusable design template for project students**
+- Canvas / Design Editor — **native visual template editor with reusable text/photo elements and student placeholders**
+- Template assignment — **saved ID-card templates can be assigned to projects for preview/self-edit/print**
 - Custom templates
 - Greetings
 - Institute tools entry
@@ -94,21 +98,19 @@ Port every user-facing Instify capability into MetaBSP under `/services/institut
 
 ## Specialized parity still requiring native Next.js adaptation
 
-The complete source is present through the pinned submodule, but these large/source-specific experiences must be adapted rather than executed as a second app inside MetaBSP:
+The remaining source-specific work is:
 
-- Fabric.js Canvas Editor exact editing experience
-- ID Card Manager exact project/designer/self-edit/print flows
-- Public form URL + unauthenticated form submission flow
-- Magic-link access flow
-- Razorpay/UPI checkout exact payment flow
+- Advanced Fabric-style editing parity beyond the new native visual canvas (free-drag/resize/rotate, richer object types, exact legacy canvas import)
+- Direct media upload + Cloudinary AI background-removal flow for ID-card photos; URL-based photo/self-edit flow is native now
+- UPI payment config + QR generation
+- Razorpay: **not present in the pinned Instify source baseline; this would be a new integration, not a source port**
 - Payroll calculation/payslip run behavior beyond employee records
-- Offline Dexie queue/PWA sync behavior
-- Cloudinary upload flows used by institute documents/designs
-- Instify desktop/Electron licensing and sync (platform-specific, not web Institute UI)
+- Offline queue/PWA sync behavior
 - Greetings rich editor exact behavior
+- Instify desktop/Electron licensing and sync (platform-specific, not required for the web Institute service unless explicitly desired)
 
-Admissions and fee collection are no longer in this specialized-pending list: their core Instify workflow has been ported natively into MetaBSP.
+Admissions, fee collection, ID-card project/self-edit/print workflow, native template editing, public forms and form-response/magic-link flows are no longer listed as missing.
 
 ## Acceptance rule
 
-Institute Management is only declared **full Instify parity** after every specialized item above is either ported natively or formally mapped to an equivalent shared MetaBSP capability. The current phase establishes the complete service surface, tenant-safe data layer, common CRUD/reporting shell and source-code reference without creating duplicate authentication or WhatsApp stacks.
+Institute Management is only declared **full Instify parity** after every remaining specialized item above is either ported natively or formally mapped to an equivalent shared MetaBSP capability.

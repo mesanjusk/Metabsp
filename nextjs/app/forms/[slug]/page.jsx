@@ -1,0 +1,14 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import axios from 'axios';
+import { Alert, Box, Button, Checkbox, FormControlLabel, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
+
+export default function PublicInstituteFormPage(){
+ const params=useParams();const slug=Array.isArray(params?.slug)?params.slug[0]:params?.slug;const[data,setData]=useState(null),[values,setValues]=useState({}),[error,setError]=useState(''),[success,setSuccess]=useState('');
+ useEffect(()=>{if(!slug)return;(async()=>{try{const r=await axios.get(`/api/public/forms/${slug}`);setData(r.data.data)}catch(e){setError(e?.response?.data?.message||'Form is unavailable.')}})()},[slug]);
+ const set=(name,value)=>setValues(v=>({...v,[name]:value}));
+ const submit=async()=>{try{setError('');const r=await axios.post(`/api/public/forms/${slug}`,{data:values});setSuccess(r.data?.message||'Submitted successfully.');}catch(e){setError(e?.response?.data?.message||'Could not submit form.')}};
+ return <Box sx={{minHeight:'100vh',bgcolor:'#f5f6f8',p:{xs:2,md:5}}}><Paper sx={{maxWidth:720,mx:'auto',p:{xs:2,md:4},borderRadius:4}}><Stack spacing={2.25}><Box><Typography variant="h4" fontWeight={850}>{data?.title||'Form'}</Typography>{data?.description&&<Typography color="text.secondary" sx={{mt:.5}}>{data.description}</Typography>}</Box>{error&&<Alert severity="error">{error}</Alert>}{success?<Alert severity="success">{success}</Alert>:data&&(data.fields||[]).sort((a,b)=>(a.order||0)-(b.order||0)).map(f=>f.type==='checkbox'?<Box key={f.fieldUuid}>{(f.options||[]).length?<><Typography fontWeight={650} sx={{mb:.5}}>{f.label}{f.required?' *':''}</Typography>{f.options.map(opt=><FormControlLabel key={opt} control={<Checkbox checked={Array.isArray(values[f.name])&&values[f.name].includes(opt)} onChange={e=>{const a=Array.isArray(values[f.name])?values[f.name]:[];set(f.name,e.target.checked?[...a,opt]:a.filter(x=>x!==opt))}}/>} label={opt}/>)}</>:<FormControlLabel control={<Checkbox checked={Boolean(values[f.name])} onChange={e=>set(f.name,e.target.checked)}/>} label={f.label}/>}</Box>:['dropdown','radio'].includes(f.type)?<TextField key={f.fieldUuid} select fullWidth required={f.required} label={f.label} value={values[f.name]||''} onChange={e=>set(f.name,e.target.value)}>{(f.options||[]).map(opt=><MenuItem key={opt} value={opt}>{opt}</MenuItem>)}</TextField>:<TextField key={f.fieldUuid} fullWidth required={f.required} label={f.label} type={f.type==='phone'?'tel':f.type==='textarea'?'text':f.type} multiline={f.type==='textarea'} minRows={f.type==='textarea'?4:undefined} InputLabelProps={f.type==='date'?{shrink:true}:undefined} value={values[f.name]??''} onChange={e=>set(f.name,e.target.value)}/>)}{data&&!success&&<Button variant="contained" size="large" onClick={submit}>Submit</Button>}</Stack></Paper></Box>;
+}

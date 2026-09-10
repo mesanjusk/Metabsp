@@ -1,0 +1,18 @@
+import mongoose from 'mongoose';
+import { randomUUID } from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
+import { connectDB } from '@/lib/db/mongo';
+import { requireAuth } from '@/lib/auth/session';
+import { errorResponse } from '@/lib/http/errorResponse';
+import { InstituteForm, InstituteFormResponse } from '@/lib/models';
+import { instituteScope, idCardPublicBaseUrl } from '@/lib/institute/idCards';
+
+function refFilter(id:string){const v=String(id||'').trim();return mongoose.isValidObjectId(v)?{$or:[{_id:v},{formUuid:v}]}:{formUuid:v};}
+function slugify(v:string){return String(v||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80);}
+function dto(r:any,base=''){return{_id:String(r._id),form_uuid:r.formUuid,title:r.title,description:r.description||'',slug:r.slug,fields:r.fields||[],isActive:Boolean(r.isActive),successMessage:r.successMessage,createLead:Boolean(r.createLead),publicUrl:base?`${base}/forms/${r.slug}`:'',createdAt:r.createdAt,updatedAt:r.updatedAt};}
+
+export async function GET(req:NextRequest,context:{params:Promise<{id:string}>}){try{await connectDB();const authed=await requireAuth(req);const{id}=await context.params;const r:any=await InstituteForm.findOne({...instituteScope(authed),archived:{$ne:true},...refFilter(id)}).lean();if(!r)return NextResponse.json({success:false,message:'Form not found'},{status:404});const responses=await InstituteFormResponse.countDocuments({formId:r._id});return NextResponse.json({success:true,data:{...dto(r,idCardPublicBaseUrl(req)),responseCount:responses}});}catch(error){return errorResponse(error,'Failed to load form');}}
+
+export async function PATCH(req:NextRequest,context:{params:Promise<{id:string}>}){try{await connectDB();const authed=await requireAuth(req);const{id}=await context.params;const body:any=await req.json().catch(()=>({}));const r:any=await InstituteForm.findOne({...instituteScope(authed),archived:{$ne:true},...refFilter(id)});if(!r)return NextResponse.json({success:false,message:'Form not found'},{status:404});if(body.title!==undefined)r.title=String(body.title||'').trim()||r.title;if(body.description!==undefined)r.description=String(body.description||'');if(body.slug!==undefined){const s=slugify(body.slug);if(s)r.slug=s;}if(body.isActive!==undefined)r.isActive=Boolean(body.isActive);if(body.successMessage!==undefined)r.successMessage=String(body.successMessage||'');if(body.createLead!==undefined)r.createLead=Boolean(body.createLead);if(Array.isArray(body.fields))r.fields=body.fields.map((f:any,i:number)=>({fieldUuid:f.fieldUuid||randomUUID(),label:String(f.label||`Field ${i+1}`),name:slugify(f.name||f.label||`field-${i+1}`).replaceAll('-','_'),type:['text','email','phone','number','textarea','dropdown','radio','checkbox','date'].includes(f.type)?f.type:'text',options:Array.isArray(f.options)?f.options.map(String):[],required:Boolean(f.required),order:i}));r.updatedBy=authed.id;await r.save();return NextResponse.json({success:true,data:dto(r,idCardPublicBaseUrl(req))});}catch(error){return errorResponse(error,'Failed to update form');}}
+
+export async function DELETE(req:NextRequest,context:{params:Promise<{id:string}>}){try{await connectDB();const authed=await requireAuth(req);const{id}=await context.params;const r:any=await InstituteForm.findOne({...instituteScope(authed),archived:{$ne:true},...refFilter(id)});if(!r)return NextResponse.json({success:false,message:'Form not found'},{status:404});r.archived=true;r.updatedBy=authed.id;await r.save();return NextResponse.json({success:true});}catch(error){return errorResponse(error,'Failed to delete form');}}
