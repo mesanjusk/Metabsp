@@ -5,6 +5,7 @@ import AppError from '@/lib/utils/AppError';
 import {
   findWorkspaceUserByEmployeeCode,
   getAttendanceSettings,
+  getWorkspaceRoster,
   recordAttendanceEntry,
 } from '@/lib/services/attendanceService';
 import { authenticateAttendanceDevice } from '@/lib/services/attendanceDeviceService';
@@ -55,6 +56,13 @@ export async function POST(req: NextRequest) {
 
     const user: any = await findWorkspaceUserByEmployeeCode(device.ownerUserId, employeeCode);
     if (!user) throw new AppError('No active workspace user is mapped to this employee code', 404);
+
+    // A profile can outlive team membership. Re-check the current WhatsApp
+    // owner/team roster on every device punch so a removed team member cannot
+    // keep clocking in with a stale terminal code.
+    const roster: any[] = await getWorkspaceRoster(account);
+    const isCurrentMember = roster.some((member: any) => String(member._id) === String(user._id));
+    if (!isCurrentMember) throw new AppError('Employee code is not active in this workspace', 403);
 
     const timestamp = body.timestamp ? new Date(body.timestamp) : new Date();
     if (Number.isNaN(timestamp.getTime())) throw new AppError('Invalid attendance timestamp', 400);
