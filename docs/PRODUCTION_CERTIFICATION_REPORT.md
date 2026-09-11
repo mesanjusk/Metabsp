@@ -1,9 +1,100 @@
 # Metabsp — Production & Meta Tech Provider Certification Report
 
-> **Superseded on the Baileys question.** The unofficial WhatsApp Web
-> transport described below has since been removed entirely — see
-> [`docs/BAILEYS_REMOVAL.md`](./BAILEYS_REMOVAL.md). This document is
-> retained as a point-in-time record and is not updated.
+> **This report is a point-in-time historical record. Everything below the
+> "Current status" refresh describes an earlier architecture that no longer
+> exists in this repository** — it predates the consolidation into a single
+> Next.js application and the complete removal of the unofficial WhatsApp Web
+> (Baileys) transport. It cites an Express `backend/`, a Vite `frontend/`,
+> `.js` test files, a `140/149` test count, and dependencies (`xlsx`,
+> `jspdf`) that are no longer present. It is kept for provenance only; the
+> **Current status** section immediately below supersedes it and is the
+> authoritative statement of where the code stands today. See
+> [`docs/BAILEYS_REMOVAL.md`](./BAILEYS_REMOVAL.md) and
+> [`docs/CONSOLIDATION.md`](./CONSOLIDATION.md) for what moved and what was
+> deleted.
+
+---
+
+## Current status (2026-09-11 refresh)
+
+**Method:** every claim in this section was verified by running the checks in
+this environment against commit `d635961`, not carried over from the historical
+report below.
+
+### Verified quality gates
+
+| Gate | Command | Result |
+|---|---|---|
+| Typecheck (application) | `npm run typecheck` | ✅ 0 errors |
+| Typecheck (tests) | `npm run typecheck:tests` | ✅ 0 errors |
+| Test suite | `npm test` | ✅ **346 tests across 40 files, all pass** |
+| Production build | `npm run build` | ✅ succeeds |
+| Dependency audit (deployed lockfile, prod deps) | `npm audit --omit=dev` | ⚠️ 2 findings (1 high, 1 moderate) — see below |
+
+### What the architecture actually is now
+
+The three-codebase arrangement the historical report describes (Express
+`backend/`, Vite `frontend/`, and a mid-migration Next.js app) is **gone**.
+There is one application: `nextjs/`, an App Router codebase that runs as a
+single persistent Node process hosting the dashboard, the REST API, the Meta
+webhook, Socket.IO, the BullMQ workers, and the leader-elected schedulers
+together. The unofficial WhatsApp Web (Baileys) transport referenced
+throughout the historical report **has been removed entirely** — every message
+in and out goes through the official Cloud API, so the "Baileys session
+coordination" scaling caveat and the App-Review Platform-Terms risk it created
+no longer exist. Approximate size: ~20k LOC of TypeScript, 127 API route
+handlers, 47 pages, 34 Mongoose models, 36 services.
+
+### Corrections to the historical scorecard
+
+- **Automated testing** is now **346 tests / 40 suites, all passing** (the
+  historical "140/149, 2 failing on a sandboxed `mongodb-memory-server`" no
+  longer applies). Tests are TypeScript (`.test.ts`) under `nextjs/tests/`.
+- **Vulnerable components (A06):** the historical `xlsx` prototype-pollution
+  action item is **moot** — the spreadsheet-import path uses `read-excel-file`,
+  and PDF export uses `pdfkit`, not `jspdf`. Neither `xlsx` nor `jspdf` is a
+  dependency. A fresh `npm audit --omit=dev` against the **deployed** lockfile
+  (`nextjs/package-lock.json`, the only lockfile Docker/Render install from)
+  found 3 findings, all transitive through `next`:
+  - `sharp` / libvips (1 critical + high image-decode CVEs) — **fixed** this
+    round by bumping the locked `sharp` 0.34.5 → 0.35.4 (and its
+    `@img/sharp-libvips-*` binaries 1.2.4 → 1.3.3); `npm ci` + `npm run build`
+    re-verified against the updated lockfile.
+  - `postcss` (high + moderate, source-map path traversal / stringify XSS) —
+    **not fixed:** `next` pins `postcss@8.4.31` exactly as a transitive
+    dependency, so clearing it requires a `next@16` major upgrade. Deferred as
+    a deliberate, tracked decision rather than a forced breaking change; it is
+    a build-time transform, not on the request path.
+- **Frontend build/performance** — the historical "Vite `manualChunks`" note
+  is obsolete; bundling is now Next.js's own, and the build output reports a
+  ~103 kB shared First-Load JS baseline.
+- Historical file citations ending in `.js` under `backend/` (e.g.
+  `crypto.test.js`, `activateAccountRace.test.js`, `backend/src/instrument.js`)
+  refer to files that no longer exist; the live equivalents are under
+  `nextjs/lib/**` and `nextjs/tests/**`.
+
+### What still stands from the historical report
+
+The substance of the security posture, Meta Tech Provider readiness, and legal
+gaps below remains broadly accurate and worth reading — AES-256-GCM token
+encryption with key rotation, HMAC-verified webhooks both directions, the SSRF
+guard, Redis-backed rate limiting, leader-elected schedulers, and the honest
+legal/compliance gap list (attorney review still outstanding). The **Meta-side
+paperwork** (business verification, App Review) and **legal sign-off** remain
+the real non-code blockers.
+
+### Bottom line
+
+Production readiness is **higher** than the historical ~92%, chiefly because
+the two structural caveats that capped it — Baileys coordination and the
+`xlsx`/dependency findings — are gone or resolved. The remaining material gaps
+are non-code: attorney review of `docs/legal/`, live Sentry verification, and
+the Meta-side onboarding paperwork, plus the one deferred `postcss`/`next@16`
+upgrade decision.
+
+---
+
+## Historical record (pre-consolidation — retained for provenance)
 
 **Date:** 2026-07-10 (updated)
 **Scope:** Final certification following the completion of Phases 0-6 (see `docs/AUDIT_REPORT.md` for the original pre-work audit baseline), the Meta Tech Provider Certification effort (Parts A-G: code hardening, `/docs/meta-tech-provider/`, `/docs/api/`, `/docs/deployment/`, `/docs/videos/`, `/docs/legal/`), and a follow-up round that (1) disabled Baileys/WhatsApp-Web features by default with a per-organization admin toggle, (2) implemented leader election for the in-process schedulers, and (3) fixed the outstanding `npm audit` findings.
