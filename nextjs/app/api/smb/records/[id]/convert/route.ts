@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import Contact from '@/lib/models/Contact';
 import SmbRecord from '@/lib/models/SmbRecord';
+import { requireSmbKindAccess } from '@/lib/services/smbAccess';
 
 const TRANSITIONS: Record<string, string[]> = {
   lead: ['followup', 'quotation'],
@@ -32,9 +33,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const targetKind = String(body?.targetKind || '').trim().toLowerCase();
     const source: any = await SmbRecord.findOne({ _id: id, userId: authed.doc._id });
     if (!source) return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
+    await requireSmbKindAccess(authed, source.kind);
+
     if (!(TRANSITIONS[source.kind] || []).includes(targetKind)) {
       return NextResponse.json({ success: false, message: `Cannot convert ${source.kind} to ${targetKind}` }, { status: 400 });
     }
+    await requireSmbKindAccess(authed, targetKind);
 
     const targetStatus = targetKind === 'payment' ? 'received' : 'open';
     const created: any = await SmbRecord.create({
@@ -54,6 +58,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     source.status = 'completed';
     source.completedAt = new Date();
+    if (source.kind === 'order' && targetKind === 'payment') source.balanceInPaise = 0;
     source.data = { ...(source.data || {}), convertedTo: targetKind };
     await source.save();
 
