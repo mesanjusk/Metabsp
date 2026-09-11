@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import Contact from '@/lib/models/Contact';
 import SmbRecord from '@/lib/models/SmbRecord';
+import { requireSmbKindAccess } from '@/lib/services/smbAccess';
 
 const EDITABLE = new Set([
   'title', 'status', 'stage', 'source', 'reference', 'assignedTo', 'amountInPaise',
@@ -26,6 +27,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const { id } = await context.params;
     if (!mongoose.isValidObjectId(id)) return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
 
+    const existing: any = await SmbRecord.findOne({ _id: id, userId: authed.doc._id }).select('kind').lean();
+    if (!existing) return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
+    await requireSmbKindAccess(authed, existing.kind);
+
     const body = await req.json();
     const update: any = {};
     for (const [key, value] of Object.entries(body || {})) if (EDITABLE.has(key)) update[key] = value;
@@ -37,7 +42,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (Object.prototype.hasOwnProperty.call(update, 'parentId')) {
       if (!update.parentId || !mongoose.isValidObjectId(update.parentId)) update.parentId = null;
       else {
-        const ownedParent = await SmbRecord.findOne({ _id: update.parentId, userId: authed.doc._id }).select('_id').lean();
+        const ownedParent: any = await SmbRecord.findOne({ _id: update.parentId, userId: authed.doc._id }).select('_id kind').lean();
+        if (ownedParent) await requireSmbKindAccess(authed, ownedParent.kind);
         update.parentId = ownedParent?._id || null;
       }
     }
@@ -45,7 +51,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (['completed', 'paid', 'done', 'closed'].includes(update.status)) update.completedAt = new Date();
     if (['open', 'pending', 'new', 'active'].includes(update.status)) update.completedAt = null;
 
-    const record = await SmbRecord.findOneAndUpdate(
+    const record: any = await SmbRecord.findOneAndUpdate(
       { _id: id, userId: authed.doc._id },
       { $set: update },
       { new: true, runValidators: true }
@@ -77,6 +83,9 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     const authed = await requireAuth(req);
     const { id } = await context.params;
     if (!mongoose.isValidObjectId(id)) return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
+    const existing: any = await SmbRecord.findOne({ _id: id, userId: authed.doc._id }).select('kind').lean();
+    if (!existing) return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
+    await requireSmbKindAccess(authed, existing.kind);
     const deleted = await SmbRecord.findOneAndDelete({ _id: id, userId: authed.doc._id });
     if (!deleted) return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
     return NextResponse.json({ success: true });
