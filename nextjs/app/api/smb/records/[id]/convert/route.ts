@@ -24,7 +24,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     await connectDB();
     const authed = await requireAuth(req);
     const { id } = await context.params;
-    if (!mongoose.isValidObjectId(id)) return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
+    if (!mongoose.isValidObjectId(id)) {
+      return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
+    }
 
     const body = await req.json();
     const targetKind = String(body?.targetKind || '').trim().toLowerCase();
@@ -50,15 +52,21 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       data: { ...(source.data || {}), convertedFrom: source.kind },
     });
 
-    source.status = source.kind === 'quotation' ? 'accepted' : 'completed';
+    source.status = 'completed';
     source.completedAt = new Date();
+    source.data = { ...(source.data || {}), convertedTo: targetKind };
     await source.save();
 
     if (source.contactId && CATEGORY[targetKind]) {
-      await Contact.updateOne({ _id: source.contactId, userId: authed.doc._id }, { $set: { category: CATEGORY[targetKind] } });
+      await Contact.updateOne(
+        { _id: source.contactId, userId: authed.doc._id },
+        { $set: { category: CATEGORY[targetKind] } }
+      );
     }
 
-    const populated = await SmbRecord.findById(created._id).populate('contactId', 'name phone email company category assignedAgent').lean();
+    const populated = await SmbRecord.findById(created._id)
+      .populate('contactId', 'name phone email company category assignedAgent')
+      .lean();
     return NextResponse.json({ success: true, data: populated }, { status: 201 });
   } catch (error) {
     return errorResponse(error, 'Failed to convert business record');
