@@ -5,6 +5,8 @@ import { errorResponse } from '@/lib/http/errorResponse';
 import { Contact, InstagramAccount, Message, WhatsAppAccount } from '@/lib/models';
 import { resolveServiceAccess, SERVICE_SLUGS } from '@/lib/services/serviceAccess';
 
+const PLANNED_PROVIDER_SERVICES = new Set(['google-business', 'dialer']);
+
 const START_OF_TODAY = () => {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -85,7 +87,9 @@ export async function GET(req: NextRequest) {
       funnel[stage] += Number(row?.count || 0);
     }
 
-    const availableTools = SERVICE_SLUGS.filter((slug) => access?.[slug]?.enabled).length;
+    const availableTools = SERVICE_SLUGS.filter(
+      (slug) => access?.[slug]?.enabled && !PLANNED_PROVIDER_SERVICES.has(slug)
+    ).length;
 
     const serviceHealth = SERVICE_SLUGS.map((slug) => {
       const enabled = Boolean(access?.[slug]?.enabled);
@@ -103,6 +107,14 @@ export async function GET(req: NextRequest) {
           enabled,
           connection: instagram?.status === 'active' ? 'connected' : instagram ? instagram.status : 'not_connected',
           detail: instagram?.username ? `@${instagram.username}` : instagram?.name || '',
+        };
+      }
+      if (PLANNED_PROVIDER_SERVICES.has(slug)) {
+        return {
+          service: slug,
+          enabled: false,
+          connection: 'planned',
+          detail: 'Provider connection required before this service can be used',
         };
       }
       return {
