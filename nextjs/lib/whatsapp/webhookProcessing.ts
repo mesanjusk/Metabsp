@@ -2,8 +2,11 @@ import axios from 'axios';
 import crypto from 'crypto';
 import WebhookDestination from '../models/WebhookDestination';
 import ConversationOwner from '../models/ConversationOwner';
+import WhatsAppAccount from '../models/WhatsAppAccount';
 import logger from '../utils/logger';
 import { normalizePhone } from './dispatch';
+import { handleWhatsAppAttendanceMessage } from '../services/attendanceService';
+import { enqueueDelayedReply } from '../queues/whatsappSendQueue';
 
 // Ported from backend/src/controllers/whatsappController.js's webhook
 // section (parseIncoming, postToWebhookDestination, forward/deliver,
@@ -109,6 +112,41 @@ export async function forwardToWebhookDestinations(whatsappAccountId: unknown, p
 }
 
 export async function resolveInboundRouting(whatsappAccountId: unknown, payload: any) {
+  // Attendance is checked before customer routing, workflows and auto-replies.
+  // The handler itself verifies that the sender belongs to the existing
+  // owner/team roster, so a customer who sends "IN" or "OUT" is untouched.
+  if (payload?.type === 'text') {
+    try {
+      const account: any = await WhatsAppAccount.findById(whatsappAccountId).lean();
+      if (account) {
+        const attendance = await handleWhatsAppAttendanceMessage({ account, payload });
+        if (attendance.handled) {
+          // webhookHandler checks payload.type === 'text' before workflows and
+          // auto-replies. Marking this in-memory payload as consumed prevents a
+          // staff attendance command from also triggering customer automation.
+          payload.type = 'attendance';
+          if (attendance.reply) {
+            await enqueueDelayedReply({
+              accountId: String(account._id),
+              userId: String(account.userId),
+              to: payload.from,
+              messageType: 'text',
+              body: attendance.reply,
+              templateName: '',
+              language: 'en_US',
+            }, 0).catch((err: any) => logger.error('[attendance] reply enqueue failed:', err.message));
+          }
+          return [];
+        }
+      }
+    } catch (error: any) {
+      // Attendance must never break the BSP inbound pipeline. Unexpected
+      // attendance errors are logged and the message continues as a normal
+      // customer/team message rather than being dropped.
+      logger.error('[attendance] inbound command processing failed:', error.message);
+    }
+  }
+
   const phone = normalizePhone(payload.from);
   const text = payload.type === 'text' ? String(payload.message || '').trim() : '';
   const upperText = text.toUpperCase();
