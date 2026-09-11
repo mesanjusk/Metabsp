@@ -24,20 +24,24 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     await connectDB();
     const authed = await requireAuth(req);
     const { id } = await context.params;
-    if (!mongoose.isValidObjectId(id)) {
-      return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
-    }
+    if (!mongoose.isValidObjectId(id)) return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
 
     const body = await req.json();
     const update: any = {};
-    for (const [key, value] of Object.entries(body || {})) {
-      if (EDITABLE.has(key)) update[key] = value;
-    }
+    for (const [key, value] of Object.entries(body || {})) if (EDITABLE.has(key)) update[key] = value;
     if (typeof update.status === 'string') update.status = update.status.trim().toLowerCase();
     if (typeof update.stage === 'string') update.stage = update.stage.trim().toLowerCase();
     if (typeof update.source === 'string') update.source = update.source.trim().toLowerCase();
     if (update.dueAt === '') update.dueAt = null;
-    if (update.parentId && !mongoose.isValidObjectId(update.parentId)) update.parentId = null;
+
+    if (Object.prototype.hasOwnProperty.call(update, 'parentId')) {
+      if (!update.parentId || !mongoose.isValidObjectId(update.parentId)) update.parentId = null;
+      else {
+        const ownedParent = await SmbRecord.findOne({ _id: update.parentId, userId: authed.doc._id }).select('_id').lean();
+        update.parentId = ownedParent?._id || null;
+      }
+    }
+
     if (['completed', 'paid', 'done', 'closed'].includes(update.status)) update.completedAt = new Date();
     if (['open', 'pending', 'new', 'active'].includes(update.status)) update.completedAt = null;
 
@@ -72,9 +76,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     await connectDB();
     const authed = await requireAuth(req);
     const { id } = await context.params;
-    if (!mongoose.isValidObjectId(id)) {
-      return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
-    }
+    if (!mongoose.isValidObjectId(id)) return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
     const deleted = await SmbRecord.findOneAndDelete({ _id: id, userId: authed.doc._id });
     if (!deleted) return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
     return NextResponse.json({ success: true });
