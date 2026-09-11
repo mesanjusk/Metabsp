@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import SmbRecord from '@/lib/models/SmbRecord';
+import { requireSmbKindAccess } from '@/lib/services/smbAccess';
 
 const PRINTABLE_KINDS = new Set(['quotation', 'order', 'invoice', 'payment', 'expense']);
 
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     .lean();
 
   if (!record) return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
+  await requireSmbKindAccess(authed, record.kind);
   if (!PRINTABLE_KINDS.has(record.kind)) {
     return NextResponse.json({ success: false, message: 'This record does not have a printable business document' }, { status: 400 });
   }
