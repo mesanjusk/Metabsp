@@ -1,3 +1,6 @@
 [submodule "vendor/Instify"]
 	path = vendor/Instify
 	url = https://github.com/mesanjusk/Instify.git
+[submodule "vendor/BusinessCallManager"]
+	path = vendor/BusinessCallManager
+	url = https://github.com/mesanjusk/BusinessCallManager.git

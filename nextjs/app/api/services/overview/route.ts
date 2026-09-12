@@ -5,7 +5,7 @@ import { errorResponse } from '@/lib/http/errorResponse';
 import { Contact, InstagramAccount, Message, WhatsAppAccount } from '@/lib/models';
 import { resolveServiceAccess, SERVICE_SLUGS } from '@/lib/services/serviceAccess';
 
-const PLANNED_PROVIDER_SERVICES = new Set(['google-business', 'dialer']);
+const PLANNED_PROVIDER_SERVICES = new Set(['google-business']);
 
 const START_OF_TODAY = () => {
   const now = new Date();
@@ -107,6 +107,17 @@ export async function GET(req: NextRequest) {
           enabled,
           connection: instagram?.status === 'active' ? 'connected' : instagram ? instagram.status : 'not_connected',
           detail: instagram?.username ? `@${instagram.username}` : instagram?.name || '',
+        };
+      }
+      if (slug === 'dialer') {
+        const connected = Boolean(String(process.env.BUSINESS_CALL_MANAGER_API_URL || '').trim());
+        return {
+          service: slug,
+          enabled: true,
+          connection: connected ? 'connected' : 'available',
+          detail: connected
+            ? 'Business Call Manager connected'
+            : 'Dial leads now; connect Business Call Manager to sync call history',
         };
       }
       if (PLANNED_PROVIDER_SERVICES.has(slug)) {
