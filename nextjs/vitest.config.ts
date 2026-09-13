@@ -15,7 +15,11 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    // The studio's tests travel with its code: they sit next to what they cover under lib/video,
+    // the way they did in its own repository, so a port that breaks one fails this deploy gate
+    // rather than arriving silently. 330-odd of them cover the queue, the provider routing, the
+    // browser engine and the Google Flow adapters.
+    include: ['tests/**/*.test.ts', 'lib/video/**/*.test.ts'],
     setupFiles: ['./tests/setup.ts'],
     // Redis- and Mongo-backed modules are mocked per test; running serially
     // keeps module-level singletons (the Redis connection cached on `global`)

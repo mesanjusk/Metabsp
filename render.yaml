@@ -154,6 +154,54 @@ services:
       - key: META_REVIEW_CONTACT_EMAIL
         sync: false
 
+
+      # ── Video Studio ────────────────────────────────────────────────────
+      # The ported studio (services/video) shares this service's Mongo and
+      # Redis — see nextjs/lib/video/core/db/mongoose.ts, which delegates to
+      # lib/db/mongo.ts rather than opening a second pool on MONGODB_URI.
+      # What it needs of its own:
+      #
+      # Story and image generation. The studio treats a connected Google
+      # account in its own Accounts screen as the primary credential and this
+      # key as the fallback, so a deployment can run on either.
+      - key: GEMINI_API_KEY
+        sync: false
+      # Image generation has no free tier on any Gemini model: a key without
+      # billing is refused outright rather than rate-limited, and the studio
+      # reports that as a billing fact rather than a quota to wait out. Leave
+      # unset to route images through Google Flow in a browser instead.
+      - key: GEMINI_IMAGE_MODEL
+        value: gemini-2.5-flash-image
+
+      # Encrypts the studio's own stored secrets — pooled Google account API
+      # keys and Flow browser sessions. Separate from
+      # WHATSAPP_TOKEN_ENCRYPTION_KEY above on purpose: one key per trust
+      # domain, so rotating either does not invalidate the other's data.
+      # Changing it does not error; it silently fails to decrypt everything
+      # already stored.
+      - key: ENCRYPTION_KEY
+        sync: false
+
+      # The Chrome extension that draws images in Google Flow authenticates
+      # with this. Unset, every one of its three endpoints answers 401, the
+      # extension cannot report itself connected, and every image job parks —
+      # with nothing in the UI saying why, which is why Settings → System
+      # status now shows this row. Any long random string; the same value goes
+      # into the extension's side panel.
+      - key: BROWSER_EXTENSION_TOKEN
+        sync: false
+
+      # Storage for generated assets reuses the CLOUDINARY_* values above.
+      - key: STORAGE_PROVIDER
+        value: cloudinary
+
+      # Video generation drives Google Flow through Playwright, which needs a
+      # Chromium this image does not carry (node:20-alpine). Off until that is
+      # settled — see docs/VIDEO-STUDIO-PORT.md. Images are unaffected: they
+      # run in the operator's own browser through the extension.
+      - key: ENABLE_BROWSER_FALLBACK
+        value: "false"
+
   - type: redis
     name: metabsp-redis
     ipAllowList: []
