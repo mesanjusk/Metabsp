@@ -55,6 +55,31 @@ const nextConfig = {
         source: '/api/:path*',
         headers: [{ key: 'Cache-Control', value: 'no-store' }],
       },
+      {
+        // A cached service worker is a deploy that cannot be replaced. Browsers already bypass the
+        // HTTP cache for the worker script on most update checks, but a CDN in front of the origin
+        // does not, and a stale worker can pin every installed client to an old build until its
+        // cache entry expires — which on a PWA is measured in days of support tickets.
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          // Must be served from the root for `scope: '/'` to be allowed at all.
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+      {
+        // The manifest changes with the product (name, shortcuts, icons); the icons it points at
+        // are content-stable and worth caching hard.
+        source: '/manifest.webmanifest',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=3600' },
+          { key: 'Content-Type', value: 'application/manifest+json' },
+        ],
+      },
+      {
+        source: '/icons/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, immutable' }],
+      },
     ];
   },
 

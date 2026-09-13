@@ -8,7 +8,7 @@ import { Schema, model, models, type InferSchemaType, type Model } from "mongoos
 const instagramMessageSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
-    instagramAccountId: { type: Schema.Types.ObjectId, ref: "InstagramAccount", required: true, index: true },
+    instagramAccountId: { type: Schema.Types.ObjectId, ref: "VideoInstagramAccount", required: true, index: true },
     senderId: { type: String, required: true }, // the customer's IG-scoped id, not their username
     incomingText: { type: String, required: true },
     replyText: { type: String },
@@ -21,5 +21,5 @@ const instagramMessageSchema = new Schema(
 export type InstagramMessageDoc = InferSchemaType<typeof instagramMessageSchema>;
 
 export const InstagramMessage: Model<InstagramMessageDoc> =
-  (models.InstagramMessage as Model<InstagramMessageDoc>) ??
-  model<InstagramMessageDoc>("InstagramMessage", instagramMessageSchema);
+  (models.VideoInstagramMessage as Model<InstagramMessageDoc>) ??
+  model<InstagramMessageDoc>("VideoInstagramMessage", instagramMessageSchema, "video_instagram_messages");

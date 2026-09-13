@@ -111,11 +111,18 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Everything except Next's own build output and the favicon. Pages are
-     * included deliberately — the nonce has to reach the HTML document, not
-     * just the API — while _next/static assets carry no inline script and
+     * Everything except Next's own build output and the static PWA files.
+     * Pages are included deliberately — the nonce has to reach the HTML
+     * document, not just the API — while these carry no inline script and
      * would only add work per request.
+     *
+     * sw.js, the manifest and offline.html are excluded for a second reason:
+     * they are the files the browser fetches to decide whether this is an
+     * installable app, and a per-request nonce on them means a new response
+     * body hash every time, which is exactly the kind of churn an install
+     * check does not need. offline.html in particular has to render with no
+     * network and no nonce at all.
      */
-    '/((?!_next/static|_next/image|favicon.ico|icon.svg|robots.txt).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icon.svg|icons/|robots.txt|sw.js|manifest.webmanifest|offline.html).*)',
   ],
 };

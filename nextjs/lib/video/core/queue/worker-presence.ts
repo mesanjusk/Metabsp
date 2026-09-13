@@ -3,16 +3,17 @@ import { getRedisConnection } from "./connection";
 /**
  * Whether a standalone worker process is actually running right now.
  *
- * Three job types — `scene_video_auto`, `browser_task`, `automation_workflow` — are registered only
- * in `worker-only-processors.ts`, because they reach Playwright and nothing reachable from a Vercel
- * function may. The comment there calls a deployment with no worker "an honest degrade": the job
- * stays queued and visible until a worker exists.
+ * Two job types — `scene_video_auto` and `browser_task` — are registered only in
+ * `worker-only-processors.ts`, because they reach Playwright and so need a host with a real browser
+ * binary. The comment there calls a deployment with no such worker "an honest degrade": the job
+ * stays queued and visible until one exists.
  *
  * It is not honest if the code that enqueues it never checks. A `scene_video` job that diverts to
  * `scene_video_auto` reports itself *completed*, so a deployment with no worker shows a project
  * that is making a video, forever, with nothing failed and nothing to press. Confirmed live: this
- * repo's `render.yaml` describes a worker that was never deployed, and every video diverted into a
- * queue nothing was draining.
+ * repo's `render.yaml` described a worker that was never deployed, and every video diverted into a
+ * queue nothing was draining. The studio's queue now runs inside the web process
+ * (lib/runtime/backgroundJobs.ts); this check still decides whether the *browser* half is there.
  *
  * So presence is a fact to be checked, not assumed. The worker refreshes a key that expires on its
  * own; anything that would hand work to a worker asks first, and takes the route that still works
@@ -39,7 +40,7 @@ async function beat(workerId: string, queues: string[]): Promise<void> {
 }
 
 /**
- * Starts announcing this process. Called by worker.ts; returns the timer so shutdown can clear it.
+ * Starts announcing this process. Called at boot; returns the timer so shutdown can clear it.
  *
  * Failures are logged, never thrown: a worker that cannot reach Redis has bigger problems than its
  * heartbeat, and crashing the process over a missed announcement would turn a blip into an outage.

@@ -13,13 +13,33 @@ import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import { getServiceBySlug, getServiceForPath } from './serviceRegistry';
 
-const SERVICES_ITEM = { href: '/home', label: 'All services', icon: HomeRoundedIcon };
+/**
+ * `shortLabel` is what the mobile tab bar uses.
+ *
+ * A tab is about 64px wide on a 320px phone. "All services" and "Instagram dashboard" are correct
+ * in a sidebar and unreadable in a tab, so the items that need a shorter name carry one, and
+ * everything else falls back to its full label.
+ */
+const SERVICES_ITEM = { href: '/home', label: 'All services', shortLabel: 'Home', icon: HomeRoundedIcon };
 
+/**
+ * The hub's own menu.
+ *
+ * Contacts and Inbox are listed here, not only inside WhatsApp: they are the two things a small
+ * business opens the app to do, and reaching them used to mean opening a service first. They are
+ * also what gives the hub a mobile tab bar — `getMobileNavHrefs` returns a row per *service*, and
+ * on the hub it returned nothing at all, so /home was the one screen in the product with no
+ * bottom navigation on a phone. An app whose home screen has no tab bar reads as a website.
+ */
 export const HUB_NAV_SECTIONS = [
   {
     id: 'hub',
     label: 'Digital workspace',
-    items: [SERVICES_ITEM],
+    items: [
+      SERVICES_ITEM,
+      { href: '/inbox', label: 'Inbox', icon: ForumRoundedIcon, requiresConnection: true },
+      { href: '/contacts', label: 'Contacts', icon: PeopleAltRoundedIcon },
+    ],
   },
   {
     id: 'account',
@@ -63,7 +83,7 @@ export const INSTAGRAM_NAV_SECTIONS = [
     label: 'Instagram',
     items: [
       SERVICES_ITEM,
-      { href: '/instagram', label: 'Instagram dashboard', icon: InstagramIcon },
+      { href: '/instagram', label: 'Instagram dashboard', shortLabel: 'Instagram', icon: InstagramIcon },
       { href: '/services/instagram/contacts', label: 'Contacts', icon: PeopleAltRoundedIcon },
     ],
   },
@@ -82,7 +102,12 @@ function genericServiceSections(service) {
       label: service.shortLabel || service.label,
       items: [
         SERVICES_ITEM,
-        { href: service.href, label: `${service.shortLabel || service.label} dashboard`, icon: service.icon },
+        {
+          href: service.href,
+          label: `${service.shortLabel || service.label} dashboard`,
+          shortLabel: service.shortLabel || service.label,
+          icon: service.icon,
+        },
         { href: `/services/${service.slug}/contacts`, label: 'Contacts', icon: PeopleAltRoundedIcon },
       ],
     },
@@ -119,9 +144,18 @@ export function getNavigationItems(pathname = '') {
   return getNavSections(pathname).flatMap((section) => section.items);
 }
 
+/**
+ * The tab bar, per context. At most four, because the shell adds a fifth ("More").
+ *
+ * Five tabs is the limit a 320px phone can show with readable labels, and the shell's own "More"
+ * always occupies one of them — so anything longer than four here starts truncating names rather
+ * than adding destinations.
+ */
 export function getMobileNavHrefs(pathname = '') {
   const service = getServiceForPath(pathname);
-  if (!service) return [];
+
+  // The hub had no tab bar at all, which made /home the one screen that did not look like an app.
+  if (!service) return ['/home', '/inbox', '/contacts', '/settings'];
 
   if (service.slug === 'whatsapp') {
     return ['/inbox', '/contacts', '/templates', '/broadcasts'];

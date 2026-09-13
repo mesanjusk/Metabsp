@@ -90,13 +90,17 @@ export default function AppTopBar({
         <IconButton
           onClick={onOpenNav}
           aria-label="Open navigation"
-          sx={{ display: { lg: 'none' } }}
-          size="small"
+          sx={{ display: { lg: 'none' }, flexShrink: 0 }}
+          // 44px is the smallest target a thumb hits reliably, and this is the control that opens
+          // every other screen on a phone.
+          size="medium"
         >
           <MenuRoundedIcon />
         </IconButton>
 
-        <Typography variant="h6" noWrap sx={{ fontWeight: 700, minWidth: 0 }}>
+        {/* flexShrink is what keeps this from squeezing the actions to nothing on a narrow phone:
+            the title is the one element here that can afford an ellipsis. */}
+        <Typography variant="h6" noWrap sx={{ fontWeight: 700, minWidth: 0, flexShrink: 1 }}>
           {title}
         </Typography>
 
@@ -108,6 +112,7 @@ export default function AppTopBar({
               size="small"
               sx={{
                 ml: { xs: 'auto', sm: 0 },
+                flexShrink: 0,
                 border: '1px solid',
                 borderColor: 'divider',
                 bgcolor: 'background.default',
@@ -125,7 +130,15 @@ export default function AppTopBar({
             onChange={(event) => onSearchChange?.(event.target.value)}
             placeholder={searchPlaceholder}
             inputProps={{ 'aria-label': searchPlaceholder }}
-            sx={{ ml: showCloseService ? { xs: 0, sm: 'auto' } : 'auto', width: { xs: 130, sm: 240, md: 320 } }}
+            sx={{
+              ml: showCloseService ? { xs: 0, sm: 'auto' } : 'auto',
+              // Was a fixed 130px on a phone, which left room for about two characters after the
+              // search icon. Letting it take the slack instead means it is as wide as whatever the
+              // title and the actions leave over, and never wider than it needs to be.
+              width: { xs: 'auto', sm: 240, md: 320 },
+              flex: { xs: 1, sm: '0 0 auto' },
+              minWidth: { xs: 96, sm: 240 },
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">

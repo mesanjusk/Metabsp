@@ -68,6 +68,13 @@ function buildCsp(nonce, { isDev = process.env.NODE_ENV !== 'production' } = {})
     `img-src 'self' data: blob: ${CLOUDINARY} https://*.fbcdn.net https://scontent.whatsapp.net`,
     `connect-src 'self' ws: wss: ${META_API} ${CLOUDINARY}`,
     `frame-src 'self' ${META_FRAMES}`,
+    // Without this the service worker is blocked outright and there is no PWA, no installable
+    // app, and therefore no APK or Windows package either. `worker-src` falls back to `script-src`,
+    // which carries 'strict-dynamic' — and under strict-dynamic the 'self' in script-src is
+    // ignored, so a worker script loaded by URL has nothing allowing it. It has to be said here.
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+    // The installed app is its own top-level browsing context; nothing here is ever an iframe host.
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

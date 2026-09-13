@@ -8,14 +8,9 @@ describe("per-job-type retry policy", () => {
     }
   });
 
-  it("gives workflow runs a single attempt, because the engine retries per node", () => {
+  it("gives browser sessions a single attempt, because the engine retries per step", () => {
     // A whole-job retry would re-run steps that already succeeded — logging in again,
     // re-submitting a form. See the comment in queues.ts.
-    expect(__jobOptionsFor("automation_workflow").attempts).toBe(1);
     expect(__jobOptionsFor("browser_task").attempts).toBe(1);
-  });
-
-  it("retries webhook delivery harder than anything else", () => {
-    expect(__jobOptionsFor("automation_webhook").attempts).toBe(5);
   });
 });

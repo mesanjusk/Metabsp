@@ -103,4 +103,25 @@ export const layout = {
   sidebarCollapsedWidth: 72,
   topBarHeight: 60,
   contentMaxWidth: 1440,
+
+  /**
+   * The mobile tab bar's own height, before the phone's gesture inset.
+   *
+   * 60 rather than MUI's default 56: the bar carries an icon over a label, and at 56 with a
+   * 0.75rem label the two are 2px apart, which is what "the text is overlapping" looks like on a
+   * 360px phone. It is also the number the main scroll area pads itself by, so the two are read
+   * from here rather than guessed in two places — they were previously 56 and `pb: 7` (also 56),
+   * which left the last line of a page sitting exactly under the bar with nothing between them.
+   */
+  mobileTabBarHeight: 60,
+
+  /**
+   * Bottom chrome plus the phone's own inset.
+   *
+   * `env(safe-area-inset-bottom)` is 34px on a gesture-navigation Android or a notched iPhone and
+   * 0 everywhere else, and it only reports a real number because the viewport is declared
+   * `viewport-fit=cover` (app/layout.tsx). Without adding it, the tab bar sits *under* the system
+   * gesture pill: the labels are half-covered and the last row of any list is unreachable.
+   */
+  mobileTabBarTotal: 'calc(60px + env(safe-area-inset-bottom, 0px))',
 };
