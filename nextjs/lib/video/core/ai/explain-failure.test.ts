@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { explainJobFailure } from "./explain-failure";
+import { describeJobFailure, explainJobFailure } from "./explain-failure";
 import { isOverloaded } from "./providers/google/gemini-client";
 
 /** Verbatim from the studio screen a customer photographed. */
@@ -56,5 +56,46 @@ describe("explainJobFailure", () => {
     expect(explainJobFailure(undefined)).toBeUndefined();
     expect(explainJobFailure(null)).toBeUndefined();
     expect(explainJobFailure("")).toBeUndefined();
+  });
+});
+
+describe("describeJobFailure decides whether a retry could possibly work", () => {
+  it("marks an overload retryable, because waiting is exactly what fixes it", () => {
+    const described = describeJobFailure(LIVE_503);
+    expect(described?.retryable).toBe(true);
+    expect(described?.title).not.toMatch(/something went wrong/i);
+  });
+
+  it("marks a zero allowance unretryable and sends the customer to the accounts screen", () => {
+    // The screen used to headline this "Something went wrong", offer "Try again", and print
+    // "waiting will not change that" underneath — three statements, two of them wrong.
+    const described = describeJobFailure(ZERO_ALLOWANCE);
+    expect(described?.retryable).toBe(false);
+    expect(described?.target).toBe("accounts");
+    expect(described?.message).toMatch(/waiting will not change that/i);
+  });
+
+  it.each([
+    ["a spent allowance", 'got status: 429. {"status":"RESOURCE_EXHAUSTED"}'],
+    ["a missing credential", "No Gemini credential available: connect a Google account"],
+    ["a revoked key", "got status: 403 PERMISSION_DENIED: API key not valid"],
+  ])("sends %s to the accounts screen rather than offering a pointless retry", (_label, raw) => {
+    const described = describeJobFailure(raw);
+    expect(described?.retryable).toBe(false);
+    expect(described?.target).toBe("accounts");
+  });
+
+  it("assumes an unclassified error is retryable, because that is the cheaper mistake", () => {
+    // Offering a retry that cannot work costs one click. Withholding one that would have worked
+    // strands the video with nothing to press.
+    const described = describeJobFailure("Scene 4 render exited with code 137");
+    expect(described?.retryable).toBe(true);
+    expect(described?.message).toBe("Scene 4 render exited with code 137");
+  });
+
+  it("never leaves the card without a headline", () => {
+    for (const raw of [LIVE_503, ZERO_ALLOWANCE, "something nobody has classified"]) {
+      expect(describeJobFailure(raw)?.title).toBeTruthy();
+    }
   });
 });
