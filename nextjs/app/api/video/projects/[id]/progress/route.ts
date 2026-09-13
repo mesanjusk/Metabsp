@@ -6,6 +6,7 @@ import { Scene } from "@/lib/video/modules/scenes/models/Scene";
 import { Job } from "@/lib/video/modules/jobs/models/Job";
 import { Asset } from "@/lib/video/modules/assets/models/Asset";
 import { findAccountWithFlowSession } from "@/lib/video/modules/accounts/service";
+import { isExtensionConnected } from "@/lib/video/core/browser/extension-presence";
 import { computeProgress } from "@/lib/video/core/production/progress";
 import { checkStalled, describeStall } from "@/lib/video/modules/jobs/stall";
 
@@ -29,11 +30,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .lean();
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const [scenes, jobs, flowAccount] = await Promise.all([
+    const [scenes, jobs, flowAccount, extensionConnected] = await Promise.all([
       Scene.find({ userId, projectId: id }).select("status").lean(),
       Job.find({ userId, projectId: id }).select("status type error updatedAt").lean(),
       // Cheap and cached upstream; this is what turns "waiting" into the one actionable setup step.
       findAccountWithFlowSession(userId).catch(() => null),
+      // The other way a clip can get made, and on this deployment the only one. A stored Flow
+      // session belongs to a Playwright runner on a worker host; there is no worker host here, so
+      // asking only that question reported "Connect Google Flow" at a user whose extension was
+      // connected and working. Either answer means a clip can be produced.
+      isExtensionConnected().catch(() => false),
     ]);
 
     // A step nothing is processing any more is a stop, not progress. Without this the page reports
@@ -52,7 +58,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       hasFinalVideo: !!project.finalVideoAssetId,
       sceneStatuses: scenes.map((s) => s.status ?? "pending"),
       jobStatuses: jobs.map((j) => j.status),
-      canMakeVideo: !!flowAccount,
+      canMakeVideo: !!flowAccount || extensionConnected,
       stalled: !!stopped,
     });
 
@@ -69,7 +75,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       title: project.storyJson?.title || project.title,
       progress: {
         ...progress,
-        href: progress.action?.target === "accounts" ? "/accounts" : `/projects/${id}/scenes`,
+        // Mounted under /services/video here, not at the studio's own root. Left unchanged these
+        // were two dead links on the one screen whose whole job is telling someone what to do next.
+        // Mounted under /services/video here, not at the studio's own root.
+        href: progress.action?.target === "accounts" ? "/services/video" : `/services/video/${id}`,
       },
       videoUrl: video?.url ?? null,
       thumbnailUrl: thumbnail?.url ?? null,
