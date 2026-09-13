@@ -13,6 +13,7 @@ export const SERVICE_SLUGS = [
   'marketing',
   'staff',
   'payments',
+  'video',
 ] as const;
 
 export type ServiceSlug = (typeof SERVICE_SLUGS)[number];
@@ -26,6 +27,12 @@ export const BASIC_SERVICES: ServiceSlug[] = [
   'dialer',
   'crm',
   'store',
+  // The Video Studio has no per-seat cost to this platform: its clips are
+  // generated in the operator's own browser against their own Flow account, so
+  // there is nothing here to meter. It was absent from this list entirely,
+  // which the gate read as "not entitled" rather than "unknown service" — the
+  // nav card said `tier: 'basic'` while the server had never heard of the slug.
+  'video',
 ];
 
 // Pro products are the only services controlled by tenant/user entitlements.
