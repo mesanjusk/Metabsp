@@ -2,9 +2,22 @@ import { headers } from 'next/headers';
 import ThemeRegistry from '@/lib/ui/ThemeRegistry';
 import { AuthProvider } from '@/lib/ui/AuthContext';
 import { ToastContainer } from '@/lib/ui/components/Toast';
+import PwaProvider from '@/lib/ui/app/PwaProvider';
 
 export const metadata = {
   title: 'SanjuSK — WhatsApp Business Solution Provider',
+  applicationName: 'SanjuSK',
+  manifest: '/manifest.webmanifest',
+  // Names the installed app on an iOS home screen and keeps it in standalone mode; iOS reads none
+  // of this from the web manifest.
+  appleWebApp: { capable: true, title: 'SanjuSK', statusBarStyle: 'default' as const },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
+  },
   description:
     'A WhatsApp Business Solution Provider on Meta’s official Cloud API: shared inbox, message templates, broadcasts, automations and a REST API.',
   // Meta reads this from the home page to prove we control the domain, which
@@ -16,6 +29,31 @@ export const metadata = {
   other: {
     'facebook-domain-verification': '6yo212xlow0dqvwuhh3tl9tup31bzk',
   },
+};
+
+/**
+ * Viewport, separately from metadata because Next requires it that way since 14.
+ *
+ * `viewportFit: 'cover'` is the piece that makes the rest of the mobile layout possible: without
+ * it the page is laid out inside the safe area and `env(safe-area-inset-*)` reports 0 everywhere,
+ * so the tab bar cannot be lifted clear of a phone's gesture pill. With it, the page owns the full
+ * screen and every inset is honoured explicitly — see DashboardShell.
+ *
+ * `maximumScale` is deliberately absent. Locking zoom is the single most common accessibility
+ * failure in an app that wants to feel native, and it is not needed: every tap target here already
+ * clears 44px.
+ *
+ * themeColor paints the Android status bar and the desktop title bar the brand teal, in both
+ * schemes, which is most of what separates an installed app from a browser tab.
+ */
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover' as const,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#0B7C64' },
+    { media: '(prefers-color-scheme: dark)', color: '#0D1017' },
+  ],
 };
 
 /**
@@ -109,6 +147,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {/* Mounted once at the root so any component can call toast()
                 without threading a prop through the tree. */}
             <ToastContainer />
+            {/* Registers the service worker and offers the install prompt. Rendering it at the
+                root rather than inside the dashboard matters: a visitor who lands on the marketing
+                page should be able to install the app from there too. */}
+            <PwaProvider />
           </AuthProvider>
         </ThemeRegistry>
       </body>

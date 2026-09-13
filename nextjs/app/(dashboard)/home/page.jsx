@@ -40,16 +40,41 @@ const emptyOverview = {
 
 const compact = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
 
+/**
+ * One KPI.
+ *
+ * The text column carries `minWidth: 0` and the icon `flexShrink: 0`, which is the pair that stops
+ * them colliding. Without it the label's longest word ("MESSAGES") sets a floor on the column's
+ * width that a 320px phone cannot afford once the icon is added, so the row overflowed its own card
+ * and the icon sat on top of the text. Two cards per row on a small phone is the whole point of
+ * this grid, so the fix belongs here rather than in the breakpoint.
+ *
+ * The icon is also hidden below 360px: at that size it is decoration competing with the number,
+ * and the number is why anyone looks at the card.
+ */
 function MetricCard({ icon: Icon, label, value, helper }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, minWidth: 0 }}>
+    <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3, minWidth: 0 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-        <Box>
-          <Typography variant="caption" color="text.secondary" fontWeight={700}>{label}</Typography>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block' }}>
+            {label}
+          </Typography>
           <Typography variant="h4" fontWeight={800} sx={{ mt: 0.35 }}>{compact.format(Number(value || 0))}</Typography>
-          <Typography variant="caption" color="text.secondary">{helper}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{helper}</Typography>
         </Box>
-        <Box sx={{ width: 42, height: 42, borderRadius: 2.5, bgcolor: 'action.hover', display: 'grid', placeItems: 'center' }}>
+        <Box
+          sx={{
+            width: 42,
+            height: 42,
+            borderRadius: 2.5,
+            bgcolor: 'action.hover',
+            display: { xs: 'none', sm: 'grid' },
+            placeItems: 'center',
+            flexShrink: 0,
+            color: 'text.secondary',
+          }}
+        >
           <Icon />
         </Box>
       </Stack>
@@ -60,12 +85,16 @@ function MetricCard({ icon: Icon, label, value, helper }) {
 function Section({ title, subtitle, action, children }) {
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 3, minWidth: 0 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2} sx={{ mb: 2 }}>
-        <Box>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1.5} sx={{ mb: 2 }}>
+        {/* minWidth:0 on the text and flexShrink:0 on the action: without both, a long subtitle
+            pushes the button off the card rather than wrapping. */}
+        <Box sx={{ minWidth: 0 }}>
           <Typography variant="h6" fontWeight={800}>{title}</Typography>
-          {subtitle ? <Typography variant="caption" color="text.secondary">{subtitle}</Typography> : null}
+          {subtitle ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{subtitle}</Typography>
+          ) : null}
         </Box>
-        {action}
+        {action ? <Box sx={{ flexShrink: 0 }}>{action}</Box> : null}
       </Stack>
       {children}
     </Paper>

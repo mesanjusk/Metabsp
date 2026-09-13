@@ -19,7 +19,7 @@ import { connectToDatabase } from "@/lib/video/core/db/mongoose";
  * ## Why the registry, and not all of it
  *
  * The studio ships two registries. `processorRegistry` is the portable set: an LLM call, an HTTP
- * fetch, an ffmpeg invocation. `workerOnlyProcessorRegistry` is the three job types that reach
+ * fetch, an ffmpeg invocation. `workerOnlyProcessorRegistry` is the two job types that reach
  * Playwright, and those stay out of this process deliberately — there is no Chromium on this
  * instance, and a job that needs one would fail on every attempt rather than wait for a host that
  * can serve it.

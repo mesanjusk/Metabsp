@@ -85,8 +85,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         ...progress,
         // Mounted under /services/video here, not at the studio's own root. Left unchanged these
         // were two dead links on the one screen whose whole job is telling someone what to do next.
-        // Mounted under /services/video here, not at the studio's own root.
-        href: progress.action?.target === "accounts" ? "/services/video" : `/services/video/${id}`,
+        //
+        // "Connect an account" now lands on the screen that can actually connect one. It pointed at
+        // the project list, which is a page with no way to add an account on it — so the one button
+        // the studio offers when a clip cannot be made automatically sent people somewhere that
+        // could not help them.
+        href: progress.action?.target === "accounts" ? "/services/video/accounts" : `/services/video/${id}`,
       },
       videoUrl: video?.url ?? null,
       thumbnailUrl: thumbnail?.url ?? null,

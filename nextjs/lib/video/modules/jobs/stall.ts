@@ -30,14 +30,14 @@ import type { JobStatus, JobType } from "./models/Job";
 const NON_TERMINAL: JobStatus[] = ["queued", "running", "retrying", "manual_pending"];
 
 /** Jobs that drive a browser or push pixels through FFmpeg legitimately run for many minutes. */
-const SLOW_JOB_TYPES: JobType[] = ["render", "scene_video", "scene_video_auto", "browser_task", "automation_workflow"];
+const SLOW_JOB_TYPES: JobType[] = ["render", "scene_video", "scene_video_auto", "browser_task"];
 
 /**
  * Jobs that are one API call and nothing else. These take seconds; ten minutes of silence from one
  * is not lateness, it is a job nothing is running — and waiting ten minutes to say so is most of
  * the reason "nothing happened" felt like the app was broken rather than stuck.
  */
-const FAST_JOB_TYPES: JobType[] = ["production_plan", "story", "voice", "instagram_reply", "automation_webhook"];
+const FAST_JOB_TYPES: JobType[] = ["production_plan", "story", "voice", "instagram_reply"];
 
 export const FAST_STALL_AFTER_MS = 3 * 60 * 1000;
 export const STALL_AFTER_MS = 10 * 60 * 1000;

@@ -28,9 +28,7 @@ export const JOB_TYPES = [
   // Runs one AutomationTask through the workflow engine. Playwright-backed, so worker-only.
   // Note its BullMQ attempts are 1, not 3 (see core/queue/queues.ts): the workflow engine retries
   // per node, and a second layer of whole-job retries would re-run steps that already succeeded.
-  "automation_workflow",
   // Delivers one outbound webhook. HTTP only — safe in the shared registry.
-  "automation_webhook",
   // Storage/DB sweep for expired screenshots and stale run evidence. HTTP/DB only.
   "system_cleanup",
 

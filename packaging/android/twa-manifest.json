@@ -1,0 +1,40 @@
+{
+  "packageId": "in.sanjusk.business",
+  "host": "REPLACE_WITH_PRODUCTION_HOST",
+  "name": "SanjuSK Business Suite",
+  "launcherName": "SanjuSK",
+  "display": "standalone",
+  "themeColor": "#0B7C64",
+  "themeColorDark": "#0D1017",
+  "navigationColor": "#0B7C64",
+  "navigationColorDark": "#0D1017",
+  "navigationDividerColor": "#0B7C64",
+  "navigationDividerColorDark": "#0D1017",
+  "backgroundColor": "#F1F3F7",
+  "enableNotifications": false,
+  "startUrl": "/home",
+  "iconUrl": "https://REPLACE_WITH_PRODUCTION_HOST/icons/icon-512.png",
+  "maskableIconUrl": "https://REPLACE_WITH_PRODUCTION_HOST/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "sanjusk"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    { "name": "Inbox", "shortName": "Inbox", "url": "/inbox", "chosenIconUrl": "https://REPLACE_WITH_PRODUCTION_HOST/icons/icon-192.png" },
+    { "name": "Contacts", "shortName": "Contacts", "url": "/contacts", "chosenIconUrl": "https://REPLACE_WITH_PRODUCTION_HOST/icons/icon-192.png" }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://REPLACE_WITH_PRODUCTION_HOST/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://REPLACE_WITH_PRODUCTION_HOST/",
+  "minSdkVersion": 23,
+  "orientation": "default"
+}

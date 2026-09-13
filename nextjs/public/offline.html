@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>You're offline — SanjuSK</title>
+    <!--
+      Served by the service worker when a navigation cannot reach the network at all.
+
+      Entirely self-contained: no stylesheet, no script, no font and no image beyond the inline SVG.
+      A page whose job is to appear when the network is gone cannot have a dependency that needs the
+      network to render, and the app's own CSS is neither cached nor usable here.
+    -->
+    <style>
+      :root {
+        --bg: #f1f3f7;
+        --fg: #161a24;
+        --muted: #4e5668;
+        --brand: #0b7c64;
+        --card: #ffffff;
+        --border: #e4e7ee;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1017;
+          --fg: #f1f3f7;
+          --muted: #9aa2b6;
+          --brand: #33ba97;
+          --card: #161a24;
+          --border: rgba(207, 212, 224, 0.14);
+          color-scheme: dark;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+        background: var(--bg);
+        color: var(--fg);
+        font: 400 15px/1.6 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        width: 100%;
+        max-width: 420px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 32px 26px;
+        text-align: center;
+      }
+      .mark {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 20px;
+        display: block;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 1.3125rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 22px;
+        color: var(--muted);
+      }
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 10px;
+        background: var(--brand);
+        color: #ffffff;
+        font: 600 15px/1 inherit;
+        font-family: inherit;
+        padding: 13px 24px;
+        min-height: 46px;
+        width: 100%;
+        cursor: pointer;
+      }
+      button:active {
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="9" fill="#0B7C64" />
+        <path
+          d="M8 12.5A4.5 4.5 0 0 1 12.5 8h7A4.5 4.5 0 0 1 24 12.5v5a4.5 4.5 0 0 1-4.5 4.5H14l-4.4 3.3A1 1 0 0 1 8 24.5Z"
+          fill="#ECFDF7"
+          opacity="0.95"
+        />
+        <g stroke="#0B7C64" stroke-width="2" stroke-linecap="round">
+          <line x1="13" y1="18" x2="13" y2="15.5" />
+          <line x1="16" y1="18" x2="16" y2="13" />
+          <line x1="19" y1="18" x2="19" y2="11" />
+        </g>
+      </svg>
+      <h1>You're offline</h1>
+      <p>
+        SanjuSK needs a connection to load your inbox, contacts and services. Nothing has been lost — everything is
+        waiting on the server.
+      </p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

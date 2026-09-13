@@ -45,7 +45,7 @@ export function startBackgroundJobs(): void {
   startWhatsAppSendWorker();
   startWebhookWorker();
 
-  // The Video Studio's eleven queues. Ported with the studio but never started, which made every
+  // The Video Studio's queues. Ported with the studio but never started, which made every
   // video job a write to Mongo that nothing would ever pick up — see lib/video/core/queue/video-workers.ts.
   startVideoWorkers();
 

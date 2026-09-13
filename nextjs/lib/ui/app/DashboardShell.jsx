@@ -121,6 +121,35 @@ export default function DashboardShell({ children }) {
   const isOnMobileItem = mobileItems.some((item) => item.href === navItem?.href);
   const mobileValue = isOnMobileItem ? navItem?.href : navItem ? 'more' : false;
 
+  /**
+   * One tab, sized so five of them fit a 320px phone without the labels running together.
+   *
+   * MUI's default action reserves 80px minimum and lets the label size itself, so "Broadcasts" next
+   * to "Templates" next to "Automations" overflowed the row and the text of adjacent tabs touched.
+   * `minWidth: 0` lets flex do the dividing, and the ellipsis is what makes a long label degrade
+   * into something readable rather than something that collides with its neighbour.
+   */
+  const tabSx = {
+    minWidth: 0,
+    maxWidth: 'none',
+    px: 0.5,
+    pt: 1,
+    pb: 0.75,
+    gap: 0.25,
+    '& .MuiBottomNavigationAction-label': {
+      fontSize: '0.6875rem',
+      lineHeight: 1.3,
+      fontWeight: 600,
+      maxWidth: '100%',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+      // MUI shrinks the label when the tab is not selected and grows it back on selection, which
+      // makes the whole row twitch as you navigate. One size, always.
+      '&.Mui-selected': { fontSize: '0.6875rem' },
+    },
+  };
+
   return (
     <DashboardContext.Provider value={contextValue}>
       <Box
@@ -129,6 +158,13 @@ export default function DashboardShell({ children }) {
           display: 'flex',
           overflow: 'hidden',
           bgcolor: 'background.default',
+          // The viewport is declared `viewport-fit=cover`, so the app owns the area behind a
+          // notch and a status bar rather than being laid out inside it. That is what makes the
+          // insets below report real numbers — and it means the top one has to be paid back
+          // explicitly, or the first row of chrome renders under the status bar.
+          pt: 'env(safe-area-inset-top, 0px)',
+          pl: 'env(safe-area-inset-left, 0px)',
+          pr: 'env(safe-area-inset-right, 0px)',
         }}
       >
         {isDesktop ? (
@@ -174,7 +210,12 @@ export default function DashboardShell({ children }) {
               flex: 1,
               minHeight: 0,
               overflow: 'auto',
-              pb: isMobile && mobileItems.length ? 7 : 0,
+              // Clears the fixed tab bar AND the gesture inset underneath it. `pb: 7` used to be
+              // exactly the bar's height, which left the last line of every page tucked behind it.
+              pb: isMobile && mobileItems.length ? `calc(${layout.mobileTabBarTotal} + 8px)` : 0,
+              // Momentum scrolling, and no rubber-banding the whole app when a list hits its end.
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehaviorY: 'contain',
             }}
           >
             <ServiceAccessGate pathname={pathname}>
@@ -204,6 +245,13 @@ export default function DashboardShell({ children }) {
                 borderTop: '1px solid',
                 borderColor: 'divider',
                 bgcolor: 'background.paper',
+                // Height is the bar; the inset is padding *inside* it, so the bar's own background
+                // runs all the way to the bottom of the screen (an installed app with a gap of page
+                // colour under the tab bar looks broken) while the touch targets sit above the
+                // phone's gesture pill.
+                height: layout.mobileTabBarTotal,
+                pb: 'env(safe-area-inset-bottom, 0px)',
+                alignItems: 'stretch',
               }}
             >
               {mobileItems.map((item) => {
@@ -214,8 +262,9 @@ export default function DashboardShell({ children }) {
                     component={NextLink}
                     href={item.href}
                     value={item.href}
-                    label={item.label}
+                    label={item.shortLabel || item.label}
                     icon={<Icon fontSize="small" />}
+                    sx={tabSx}
                   />
                 );
               })}
@@ -224,6 +273,7 @@ export default function DashboardShell({ children }) {
                 label="More"
                 icon={<MoreHorizRoundedIcon fontSize="small" />}
                 onClick={() => setDrawerOpen(true)}
+                sx={tabSx}
               />
             </BottomNavigation>
           ) : null}

@@ -7,6 +7,24 @@ import { Schema, model, models, type InferSchemaType, type Model } from "mongoos
  * generation-quota pool, and Instagram isn't a Google product — this module is the one deliberate
  * exception to this app's "Google tools only" scope, kept narrow (official Meta API only, no
  * browser automation, no unsolicited outreach — see ARCHITECTURE.md §18).
+ *
+ * Registered as "VideoInstagramAccount", in `video_instagram_accounts`, and NOT as
+ * "InstagramAccount".
+ *
+ * The platform has carried its own `InstagramAccount` (lib/models/InstagramAccount.ts) since long
+ * before the studio was ported, and the two are not the same record: that one keys `userId` as an
+ * ObjectId ref and requires `accessTokenEncrypted`; this one keys it as a string and requires a
+ * Page id, a Page name and `credentials.pageAccessTokenEnc`. Sharing a model name in Mongoose is
+ * not a merge — `models.X ?? model("X", schema)` means whichever module imports first defines the
+ * schema for both, and the loser silently gets the other's. Every video route authenticates
+ * through lib/auth/session, which pulls in lib/models, so the platform always won: connecting an
+ * account here wrote through a schema with no `pageId` and no `credentials`, into the same
+ * `instagramaccounts` collection the real Instagram integration reads.
+ *
+ * The distinct name and the explicit collection are what keep the two apart. Both are load-bearing:
+ * Mongoose would otherwise derive `videoinstagramaccounts` from the name, and the name alone is
+ * what prevents a future third `InstagramAccount` from doing this again — see
+ * tests/modelRegistry.test.ts, which fails the build if any two schemas claim one name.
  */
 const instagramAccountSchema = new Schema(
   {
@@ -46,5 +64,5 @@ instagramAccountSchema.index({ instagramUserId: 1 });
 export type InstagramAccountDoc = InferSchemaType<typeof instagramAccountSchema>;
 
 export const InstagramAccount: Model<InstagramAccountDoc> =
-  (models.InstagramAccount as Model<InstagramAccountDoc>) ??
-  model<InstagramAccountDoc>("InstagramAccount", instagramAccountSchema);
+  (models.VideoInstagramAccount as Model<InstagramAccountDoc>) ??
+  model<InstagramAccountDoc>("VideoInstagramAccount", instagramAccountSchema, "video_instagram_accounts");
