@@ -73,6 +73,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json({
       title: project.storyJson?.title || project.title,
+      // Whether this project has ever been started, which is not a question `progress` can answer.
+      // `computeProgress` maps a draft project to phase "writing" with busy: true — reasonable for a
+      // project whose story job is in flight, and indistinguishable from one nobody has pressed
+      // start on, since neither has scenes and both are status "draft". A page that branches on
+      // `busy` therefore renders "Writing the story, 5%" over a project with no jobs at all, and
+      // hides the one button that would create one. The job rows are already loaded here and say it
+      // outright.
+      started: jobs.length > 0,
       progress: {
         ...progress,
         // Mounted under /services/video here, not at the studio's own root. Left unchanged these

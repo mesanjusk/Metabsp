@@ -51,6 +51,7 @@ export default function VideoProjectPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [acting, setActing] = useState(false);
+  const [optimisticStart, setOptimisticStart] = useState(false);
   const timer = useRef(null);
   const cancelled = useRef(false);
 
@@ -60,7 +61,11 @@ export default function VideoProjectPage() {
       if (cancelled.current) return;
       setData(response?.data || null);
       setError('');
-      if (response?.data?.progress?.busy) timer.current = setTimeout(poll, POLL_BUSY_MS);
+      // Only while something is actually running. A project nobody has started also reports
+      // busy: true (see `started` below), and polling that every four seconds forever asks a
+      // question whose answer cannot change until someone presses a button.
+      const payload = response?.data;
+      if (payload?.progress?.busy && payload?.started) timer.current = setTimeout(poll, POLL_BUSY_MS);
     } catch (err) {
       if (cancelled.current) return;
       setError(err?.response?.data?.error || 'Could not check on your video.');
@@ -88,19 +93,22 @@ export default function VideoProjectPage() {
     };
   }, [projectId, poll]);
 
-  // Whether the story exists is what separates "not started" from "working" — a draft project and a
-  // project mid-write both report phase "writing", because nothing in the progress payload can tell
-  // an idle queue from a busy one. The project's own scene list can.
+  // "Not started" cannot be read off `progress`. A draft project reports phase "writing" with
+  // busy: true whether its story job is running or was never created, so branching on `busy` hides
+  // the Start button behind a progress bar that will never move. `started` is the progress
+  // endpoint's count of this project's jobs, which is the actual question; `optimisticStart` covers
+  // the seconds between pressing the button and the first poll that sees the new job row.
   const hasStory = (project?.storyJson?.scenes?.length ?? 0) > 0;
+  const started = data?.started === true || optimisticStart || hasStory;
 
   async function start() {
     setActing(true);
     setError('');
     try {
       await apiClient.post(`/api/video/projects/${projectId}/story`);
-      // Optimistic: the story job is queued now, so the poll loop has something to watch. Re-reading
-      // the project is what makes `hasStory` true once it lands.
-      setProject((p) => (p ? { ...p, status: 'story' } : p));
+      // The job row exists now; the next poll will report started: true on its own. This just keeps
+      // the button from reappearing in the meantime.
+      setOptimisticStart(true);
       poll();
     } catch (err) {
       setError(err?.response?.data?.error || 'Could not start your video.');
@@ -148,7 +156,7 @@ export default function VideoProjectPage() {
           </Stack>
         ) : null}
 
-        {project && !hasStory && progress && !progress.busy ? (
+        {project && data && !started ? (
           <Card variant="outlined">
             <CardContent>
               <Stack spacing={2} alignItems="flex-start">
@@ -171,7 +179,7 @@ export default function VideoProjectPage() {
           </Card>
         ) : null}
 
-        {progress && (hasStory || progress.busy) ? (
+        {progress && started ? (
           <Card variant="outlined">
             <CardContent>
               <Stack spacing={2}>
