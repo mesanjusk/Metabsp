@@ -118,4 +118,25 @@ describe("computeProgress", () => {
       expect(computeProgress(c).title.split(" ").length).toBeLessThanOrEqual(4);
     }
   });
+  it("cannot tell a project nobody started from one whose story job is running", () => {
+    // Both are status "draft" with no scenes, and both come back busy. That is not a defect in this
+    // function — it reports what the pipeline recorded, and nothing was recorded either way — but it
+    // is a trap for any caller that reads `busy` as "work is happening". A page that hid its Start
+    // button behind `!busy` showed a permanent "Writing the story, 5%" over a project with no jobs
+    // at all, and no way to create one.
+    //
+    // Callers must decide "started" from the job rows instead; /api/video/projects/[id]/progress
+    // returns `started` for exactly this reason. This test exists so the ambiguity stays deliberate
+    // and documented rather than being rediscovered from a stuck screen.
+    const untouched = computeProgress(input({ projectStatus: "draft", jobStatuses: [] }));
+    const working = computeProgress(input({ projectStatus: "draft", jobStatuses: ["running"] }));
+
+    expect(untouched.busy).toBe(true);
+    expect(untouched.phase).toBe("writing");
+    expect({ phase: untouched.phase, busy: untouched.busy, percent: untouched.percent }).toEqual({
+      phase: working.phase,
+      busy: working.busy,
+      percent: working.percent,
+    });
+  });
 });
