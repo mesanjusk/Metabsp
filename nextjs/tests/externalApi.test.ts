@@ -5,7 +5,13 @@ const requireApiKey = vi.fn();
 const loadActiveWhatsAppAccountForUser = vi.fn();
 const checkUserRateLimit = vi.fn(async () => true);
 const dispatchTextMessage = vi.fn(async (_args: any): Promise<any> => ({ messages: [{ id: 'wamid.1' }] }));
-const checkWhatsApp24hWindow = vi.fn(async () => ({ allowed: true, isInsideWindow: true, lastUserMessageAt: new Date() }));
+// Typed from the real guard rather than inferred from this first implementation: inference pins
+// `lastUserMessageAt` to `Date`, and the test below deliberately returns `null` for it — which the
+// guard's own signature allows (lib/whatsapp/twentyFourHourGuard.ts) and strictNullChecks enforces.
+type Window24h = { allowed: boolean; isInsideWindow: boolean; lastUserMessageAt: Date | null };
+const checkWhatsApp24hWindow = vi.fn(
+  async (): Promise<Window24h> => ({ allowed: true, isInsideWindow: true, lastUserMessageAt: new Date() }),
+);
 
 vi.mock('@/lib/auth/apiKey', () => ({ requireApiKey }));
 vi.mock('@/lib/services/whatsappAccountService', () => ({ loadActiveWhatsAppAccountForUser }));
