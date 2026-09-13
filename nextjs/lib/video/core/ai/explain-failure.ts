@@ -19,47 +19,99 @@ import { isOverloaded } from "./providers/google/gemini-client";
  * classified yet is still more useful reported exactly than reported as nothing, and it is what
  * someone will paste into a support message.
  */
-export function explainJobFailure(rawError: string | undefined | null): string | undefined {
+export interface FailureDescription {
+  /** What to show the customer. */
+  message: string;
+  /**
+   * Whether pressing the same button again could possibly work.
+   *
+   * This is the field that decides what the screen *says*, not just what it explains. A failure
+   * offering "Try again" above a sentence that reads "waiting will not change that" is the studio
+   * arguing with itself, and the customer follows the button.
+   */
+  retryable: boolean;
+  /** Where a person has to go when retrying is not the answer. */
+  target?: "accounts";
+  /** Headline for the card. Replaces the generic "Something went wrong". */
+  title: string;
+}
+
+const ACCOUNTS_HINT = "under Generation accounts";
+
+export function describeJobFailure(rawError: string | undefined | null): FailureDescription | undefined {
   if (!rawError) return undefined;
   const message = String(rawError);
 
   if (isOverloaded(message)) {
-    return (
-      "The AI service is busy right now and asked us to try again shortly. This usually clears on " +
-      "its own within a few minutes — your video keeps its place and the rest of it is safe."
-    );
+    return {
+      title: "The AI service is busy",
+      message:
+        "The AI service is busy right now and asked us to try again shortly. This usually clears on " +
+        "its own within a few minutes — your video keeps its place and the rest of it is safe.",
+      retryable: true,
+    };
   }
 
   // An allowance of zero is a billing fact, not a rate limit: waiting never fixes it. The wording
   // has to say so, or someone waits all day for a tomorrow that never comes.
   if (/allows no free-tier requests|limit:\s*0,/i.test(message)) {
-    return (
-      "This Google account has no free allowance for the model this step needs. Waiting will not " +
-      "change that — enable billing on the key, or connect a different account under Generation accounts."
-    );
+    return {
+      title: "This account cannot generate yet",
+      message:
+        "This Google account has no free allowance for the model this step needs. Waiting will not " +
+        `change that — enable billing on the key, or connect a different account ${ACCOUNTS_HINT}.`,
+      retryable: false,
+      target: "accounts",
+    };
   }
 
   if (/quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(message)) {
-    return (
-      "Today's generation allowance on the connected Google account is used up. It resets on " +
-      "Google's own schedule — connect another account under Generation accounts to carry on now."
-    );
+    return {
+      title: "Today's allowance is used up",
+      message:
+        "Today's generation allowance on the connected Google account is used up. It resets on " +
+        `Google's own schedule — connect another account ${ACCOUNTS_HINT} to carry on now.`,
+      retryable: false,
+      target: "accounts",
+    };
   }
 
   if (/No Gemini credential available|NoAvailableGoogleAccount/i.test(message)) {
-    return "No Google account is connected to generate with. Add one under Generation accounts and run this step again.";
+    return {
+      title: "No account to generate with",
+      message: `No Google account is connected to generate with. Add one ${ACCOUNTS_HINT} and run this step again.`,
+      retryable: false,
+      target: "accounts",
+    };
   }
 
   if (/\b40[13]\b|API key not valid|PERMISSION_DENIED|UNAUTHENTICATED/i.test(message)) {
-    return (
-      "The connected Google account was refused by the AI service. Its API key is likely expired or " +
-      "revoked — reconnect it under Generation accounts."
-    );
+    return {
+      title: "The account was refused",
+      message:
+        "The connected Google account was refused by the AI service. Its API key is likely expired or " +
+        `revoked — reconnect it ${ACCOUNTS_HINT}.`,
+      retryable: false,
+      target: "accounts",
+    };
   }
 
   if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|socket hang up|network/i.test(message)) {
-    return "We could not reach the AI service. This is almost always temporary — running the step again usually works.";
+    return {
+      title: "We could not reach the AI service",
+      message:
+        "We could not reach the AI service. This is almost always temporary — running the step again usually works.",
+      retryable: true,
+    };
   }
 
-  return message;
+  // Unclassified: reported exactly, and assumed retryable, because that is the cheaper mistake.
+  // Offering a retry that cannot work costs one click; withholding one that would have worked
+  // strands the video.
+  return { title: "Something went wrong", message, retryable: true };
+}
+
+/** The message alone, for callers that only render text. */
+export function explainJobFailure(rawError: string | undefined | null): string | undefined {
+  return describeJobFailure(rawError)?.message;
 }

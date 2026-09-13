@@ -9,7 +9,7 @@ import { findAccountWithFlowSession } from "@/lib/video/modules/accounts/service
 import { isExtensionConnected } from "@/lib/video/core/browser/extension-presence";
 import { computeProgress } from "@/lib/video/core/production/progress";
 import { checkStalled, describeStall } from "@/lib/video/modules/jobs/stall";
-import { explainJobFailure } from "@/lib/video/core/ai/explain-failure";
+import { describeJobFailure } from "@/lib/video/core/ai/explain-failure";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +71,26 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     ]);
 
     const failedJob = jobs.find((j) => j.status === "failed");
+    const described = describeJobFailure(failedJob?.error);
+
+    /**
+     * A failure that retrying cannot fix must not be dressed as one that can.
+     *
+     * The generic "problem" phase says "Something went wrong / Running it again is usually enough"
+     * and offers Try again. That is right for a transient step and directly contradicted by the
+     * explanation printed underneath it when the real cause is an account with no allowance — the
+     * card argued with itself, and the button was the half that was wrong.
+     */
+    const unretryableOverride =
+      described && !described.retryable
+        ? {
+            title: described.title,
+            detail: described.message,
+            action: { label: "Open Generation accounts", target: described.target ?? ("accounts" as const) },
+          }
+        : undefined;
+
+    const effectiveAction = unretryableOverride?.action ?? progress.action;
 
     return NextResponse.json({
       title: project.storyJson?.title || project.title,
@@ -84,14 +104,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       started: jobs.length > 0,
       progress: {
         ...progress,
-        // Mounted under /services/video here, not at the studio's own root. Left unchanged these
-        // were two dead links on the one screen whose whole job is telling someone what to do next.
+        ...unretryableOverride,
+        // Derived from the *effective* action, not from `progress.action` — the override above can
+        // replace it, and reading the original here sent a "Open Generation accounts" button to the
+        // project page.
         //
-        // "Connect an account" now lands on the screen that can actually connect one. It pointed at
-        // the project list, which is a page with no way to add an account on it — so the one button
-        // the studio offers when a clip cannot be made automatically sent people somewhere that
-        // could not help them.
-        href: progress.action?.target === "accounts" ? "/services/video/accounts" : `/services/video/${id}`,
+        // Mounted under /services/video, not at the studio's own root: these were two dead links on
+        // the one screen whose whole job is telling someone what to do next. "accounts" pointed at
+        // the project list, which has no way to add an account on it.
+        href: effectiveAction?.target === "accounts" ? "/services/video/accounts" : `/services/video/${id}`,
       },
       videoUrl: video?.url ?? null,
       thumbnailUrl: thumbnail?.url ?? null,
@@ -99,8 +120,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       // and acted on here, rather than sending someone to a history page to find out what broke and
       // giving them nothing to do about it when they get there.
       // Translated, not passed through: Job.error holds the provider's raw SDK text, which is right
-      // to store and wrong to show. See explainJobFailure.
-      failure: explainJobFailure(failedJob?.error) ?? (stopped ? describeStall(stopped.job, stopped.report) : null) ?? null,
+      // to store and wrong to show. See describeJobFailure.
+      //
+      // Omitted when it has already been promoted into the card's own detail above, so a permanent
+      // failure states its cause once rather than printing the same paragraph twice.
+      failure: described
+        ? described.retryable
+          ? described.message
+          : null
+        : (stopped ? describeStall(stopped.job, stopped.report) : null) ?? null,
       // Both are re-runnable, and retryJob accepts either (modules/jobs/service.ts).
       failedJobId: (failedJob ?? stopped?.job)?._id.toString() ?? null,
     });
