@@ -8,6 +8,7 @@ import { startKeepAliveScheduler } from '../services/keepAliveService';
 import { startRetentionScheduler } from '../services/dataRetentionService';
 import { runPreflightOnBoot } from '../services/preflightCheckService';
 import { runBootSelfCheck } from '../services/bootSelfCheck';
+import { startVideoWorkers } from '../video/core/queue/video-workers';
 
 /**
  * Everything that must keep running between requests, started once per process.
@@ -43,6 +44,10 @@ export function startBackgroundJobs(): void {
   // mode this whole module exists to prevent.
   startWhatsAppSendWorker();
   startWebhookWorker();
+
+  // The Video Studio's eleven queues. Ported with the studio but never started, which made every
+  // video job a write to Mongo that nothing would ever pick up — see lib/video/core/queue/video-workers.ts.
+  startVideoWorkers();
 
   // Refreshes Meta long-lived tokens before they expire. Without this every
   // connected number silently stops sending about 60 days after onboarding.
