@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { GenerationAccountContext } from "../../types";
-import { ProviderQuotaExceededError } from "../../types";
+import { ProviderOverloadedError, ProviderQuotaExceededError } from "../../types";
 
 /**
  * Resolves a Gemini SDK client for the given call.
@@ -36,11 +36,39 @@ function requireServerKey(): string {
  */
 export function wrapGeminiError(providerId: string, err: unknown): never {
   const message = err instanceof Error ? err.message : String(err);
+
+  // Checked before the quota branch because the two are genuinely different events and only one of
+  // them is about this key. See ProviderOverloadedError for why conflating them is expensive.
+  if (isOverloaded(message)) {
+    console.error(`[gemini] ${providerId} is overloaded, raw SDK message: ${message}`);
+    throw new ProviderOverloadedError(providerId, message);
+  }
+
   if (/quota|rate.?limit|429|RESOURCE_EXHAUSTED/i.test(message)) {
     console.error(`[gemini] ${providerId} call rejected, raw SDK message: ${message}`);
     throw new ProviderQuotaExceededError(providerId, undefined, readQuotaDetail(message));
   }
   throw err instanceof Error ? err : new Error(message);
+}
+
+/**
+ * Whether the provider said "busy, come back later".
+ *
+ * Deliberately narrow, unlike the quota regex above. "unavailable" and "overloaded" are words that
+ * appear in plenty of errors that are nothing of the kind, so each alternative here is anchored to
+ * something Gemini actually emits: the HTTP status line, the gRPC status enum, or Google's own
+ * phrasing for a demand spike. A false positive costs real time — it would sit on a permanent
+ * failure for minutes before reporting it.
+ */
+export function isOverloaded(message: string): boolean {
+  return (
+    /\bstatus:\s*503\b/i.test(message) ||
+    /"code"\s*:\s*503\b/.test(message) ||
+    /"status"\s*:\s*"UNAVAILABLE"/i.test(message) ||
+    /\b503 Service Unavailable\b/i.test(message) ||
+    /experiencing high demand/i.test(message) ||
+    /\bmodel is overloaded\b/i.test(message)
+  );
 }
 
 /**

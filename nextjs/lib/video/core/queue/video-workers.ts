@@ -1,5 +1,6 @@
 import { Worker } from "bullmq";
 import { getRedisConnection } from "./connection";
+import { backoffStrategy } from "./backoff";
 import { processorRegistry } from "./processors";
 import { sweepAbandonedMissions } from "./worker-runtime";
 import { reactivateExpiredQuotas } from "@/lib/video/modules/accounts/selector";
@@ -68,7 +69,7 @@ export function startVideoWorkers(): void {
   connectToDatabase().catch((err) => console.error("[video-queue] initial DB connect failed:", err));
 
   workers = entries.map(([type, processor]) => {
-    const worker = new Worker(type, processor, { connection, concurrency: CONCURRENCY });
+    const worker = new Worker(type, processor, { connection, concurrency: CONCURRENCY , settings: { backoffStrategy } });
     worker.on("failed", (job, err) =>
       console.error(`[video-queue] ${type} job ${job?.id} (mongo ${job?.data?.jobId}) failed:`, err?.message),
     );

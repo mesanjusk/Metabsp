@@ -4,9 +4,21 @@ import type { JobType } from "@/lib/video/modules/jobs/models/Job";
 
 const queues = new Map<JobType, Queue>();
 
+/**
+ * Five attempts, not three, and the delay between them decided per error rather than per queue.
+ *
+ * `backoff: { type: "custom" }` hands that decision to core/queue/backoff.ts, which waits seconds
+ * on an ordinary failure and minutes on a provider overload. Three attempts on a flat 5s
+ * exponential gave up 15 seconds after the first failure — long enough for a bug, nowhere near
+ * long enough for the demand spike Gemini reports as a 503 and describes as temporary.
+ *
+ * Five attempts on the overload schedule (30s, 60s, 120s, 240s, plus jitter) is a little over
+ * seven minutes of patience. A real failure still surfaces in about a minute, because it takes the
+ * fast schedule.
+ */
 const DEFAULT_JOB_OPTIONS: JobsOptions = {
-  attempts: 3,
-  backoff: { type: "exponential", delay: 5000 },
+  attempts: 5,
+  backoff: { type: "custom" },
   removeOnComplete: { age: 60 * 60 * 24 * 7 }, // 7 days
   removeOnFail: { age: 60 * 60 * 24 * 30 }, // 30 days
 };
@@ -20,9 +32,8 @@ const DEFAULT_JOB_OPTIONS: JobsOptions = {
  * in again, re-submitting a form, re-downloading a file — which is both wasteful and, for anything
  * non-idempotent, wrong.
  *
- * Every other job type keeps the 3-attempt exponential backoff the studio has always used: a
- * single-shot image or voice generation has nothing internal to retry, so the queue is the right
- * place for it.
+ * Every other job type keeps the shared policy above: a single-shot image or voice generation has
+ * nothing internal to retry, so the queue is the right place for it.
  */
 const ENGINE_RETRIES_ITSELF: Partial<Record<JobType, JobsOptions>> = {
   browser_task: { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
