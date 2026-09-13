@@ -47,6 +47,36 @@ export class ProviderQuotaExceededError extends Error {
   }
 }
 
+/**
+ * The provider is up, but too busy to serve this call right now.
+ *
+ * Distinct from ProviderQuotaExceededError, and the distinction decides what the system does next.
+ * A quota is about *this key*: rotating to another account fixes it, waiting for the same one does
+ * not. An overload is about *the provider*, and it is the opposite — every account hits the same
+ * wall, and the only thing that helps is waiting. Rotating accounts on an overload just burns
+ * through the pool to arrive at the same 503.
+ *
+ * Gemini reports it as HTTP 503 with `"status":"UNAVAILABLE"` and a body that says, in its own
+ * words, "Spikes in demand are usually temporary. Please try again later." The queue used to
+ * believe the first half of that sentence and ignore the second: a generic error on the default
+ * policy of three attempts at a 5s exponential backoff, which spends the entire retry budget
+ * 15 seconds after the first failure. A demand spike outlasts that comfortably, so a customer got
+ * "Something went wrong" for a condition Google had just told us would pass on its own.
+ *
+ * Carrying a real type is what lets the backoff strategy (core/queue/backoff.ts) wait on the scale
+ * the outage actually has.
+ */
+export class ProviderOverloadedError extends Error {
+  constructor(
+    public readonly providerId: string,
+    /** The provider's own words, kept for the log — never shown to a customer verbatim. */
+    public readonly providerMessage?: string,
+  ) {
+    super(`Provider "${providerId}" is overloaded and asked us to retry later`);
+    this.name = "ProviderOverloadedError";
+  }
+}
+
 // ── Story ────────────────────────────────────────────────────────────────
 
 export interface StoryScene {

@@ -9,6 +9,7 @@ import { findAccountWithFlowSession } from "@/lib/video/modules/accounts/service
 import { isExtensionConnected } from "@/lib/video/core/browser/extension-presence";
 import { computeProgress } from "@/lib/video/core/production/progress";
 import { checkStalled, describeStall } from "@/lib/video/modules/jobs/stall";
+import { explainJobFailure } from "@/lib/video/core/ai/explain-failure";
 
 export const dynamic = "force-dynamic";
 
@@ -97,7 +98,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       // The first failure's own message and id, so "something went wrong" can be both explained
       // and acted on here, rather than sending someone to a history page to find out what broke and
       // giving them nothing to do about it when they get there.
-      failure: failedJob?.error ?? (stopped ? describeStall(stopped.job, stopped.report) : null) ?? null,
+      // Translated, not passed through: Job.error holds the provider's raw SDK text, which is right
+      // to store and wrong to show. See explainJobFailure.
+      failure: explainJobFailure(failedJob?.error) ?? (stopped ? describeStall(stopped.job, stopped.report) : null) ?? null,
       // Both are re-runnable, and retryJob accepts either (modules/jobs/service.ts).
       failedJobId: (failedJob ?? stopped?.job)?._id.toString() ?? null,
     });

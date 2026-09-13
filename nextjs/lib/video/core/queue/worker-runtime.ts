@@ -1,5 +1,6 @@
 import { Worker } from "bullmq";
 import { getRedisConnection } from "./connection";
+import { backoffStrategy } from "./backoff";
 import { processorRegistry } from "./processors";
 import { getQueue } from "./queues";
 import { reactivateExpiredQuotas } from "@/lib/video/modules/accounts/selector";
@@ -59,7 +60,7 @@ export async function runQueueTick(budgetMs: number = DEFAULT_BUDGET_MS): Promis
   };
 
   const workers = entries.map(([type, processor]) => {
-    const worker = new Worker(type, processor, { connection, autorun: false, concurrency: 2 });
+    const worker = new Worker(type, processor, { connection, autorun: false, concurrency: 2, settings: { backoffStrategy } });
     worker.on("completed", (job) => console.log(`[queue] ${type} job ${job.id} (mongo ${job.data.jobId}) completed`));
     worker.on("failed", (job, err) =>
       console.error(`[queue] ${type} job ${job?.id} (mongo ${job?.data.jobId}) failed:`, err),
