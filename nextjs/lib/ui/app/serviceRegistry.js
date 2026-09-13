@@ -7,6 +7,7 @@ import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
+import MovieCreationRoundedIcon from '@mui/icons-material/MovieCreationRounded';
 
 /** One registry for every customer-facing service in the SMB Digital OS. */
 export const SERVICES = [
@@ -19,6 +20,7 @@ export const SERVICES = [
   { slug: 'institute', label: 'Institute Management', shortLabel: 'Institute', description: 'Admissions, academics, fees, attendance, accounts, staff, forms and institute tools.', href: '/services/institute', icon: SchoolRoundedIcon, status: 'beta', tier: 'pro' },
   { slug: 'marketing', label: 'Marketing & Publisher', shortLabel: 'Marketing', description: 'Create once and publish to connected social/local channels.', href: '/services/marketing', icon: CampaignRoundedIcon, status: 'beta', tier: 'pro' },
   { slug: 'staff', label: 'Staff & Tasks', shortLabel: 'Staff', description: 'Tasks, attendance, vendor responsibility and accountability.', href: '/services/staff', icon: TaskAltRoundedIcon, status: 'beta', tier: 'pro' },
+  { slug: 'video', label: 'Video Studio', shortLabel: 'Video', description: 'Turn one idea into a finished short: script, characters, scene stills, clips, voice-over and the final cut.', href: '/services/video', icon: MovieCreationRoundedIcon, status: 'beta', tier: 'pro' },
   { slug: 'payments', label: 'Payments & Documents', shortLabel: 'Payments', description: 'Quotations, customer invoices, orders, collections, balances and expenses.', href: '/services/payments', icon: PaymentsRoundedIcon, status: 'beta', tier: 'pro' },
 ];
 

@@ -1,0 +1,86 @@
+import type { Job as BullJob } from "bullmq";
+import { connectToDatabase } from "@/lib/video/core/db/mongoose";
+import { Job, type JobDoc } from "@/lib/video/modules/jobs/models/Job";
+import { markAccountQuotaExceeded } from "@/lib/video/modules/accounts/selector";
+import { ProviderQuotaExceededError } from "@/lib/video/core/ai/types";
+import { FlowMissionPendingError } from "@/lib/video/core/production/flow-image-step";
+import type { HydratedDocument } from "mongoose";
+
+export type BullJobData = { jobId: string };
+
+export interface ProcessorResult extends Record<string, unknown> {
+  /**
+   * Defaults to "completed". A processor sets "manual_pending" when the work genuinely can't finish
+   * automatically — today only the Google Flow video hand-off (ARCHITECTURE.md §2): the job stays
+   * open until a separate endpoint (the manual-upload completion) marks it completed.
+   */
+  status?: "completed" | "manual_pending";
+}
+
+/**
+ * Shared lifecycle around every processor: loads the Mongo `Job` doc, flips it to `running`, runs
+ * the work, and records the outcome. On a `ProviderQuotaExceededError` it marks the pooled Google
+ * account exhausted so the *next* attempt (BullMQ's own retry/backoff) picks a different account via
+ * `resolveGenerationAccount` — the rotation described in ARCHITECTURE.md §3 happens for free just by
+ * retrying, no special-cased retry logic needed here. `Job.status` only flips to `failed` once BullMQ
+ * has exhausted its attempts; a non-final failure flips it to `retrying` (with the transient error
+ * recorded) instead of leaving it stuck on `running`, so the Scene Queue can show a job that's
+ * backing off before its next attempt as what it actually is, not as still in progress.
+ */
+export async function withJobLifecycle(
+  bullJob: BullJob<BullJobData>,
+  run: (jobDoc: HydratedDocument<JobDoc>) => Promise<ProcessorResult>,
+): Promise<ProcessorResult> {
+  await connectToDatabase();
+  const jobDoc = await Job.findById(bullJob.data.jobId);
+  if (!jobDoc) throw new Error(`Job ${bullJob.data.jobId} not found`);
+
+  jobDoc.status = "running";
+  jobDoc.attempts = (jobDoc.attempts ?? 0) + 1;
+  await jobDoc.save();
+
+  try {
+    const result = await run(jobDoc);
+    const finalStatus = result.status ?? "completed";
+    jobDoc.status = finalStatus;
+    jobDoc.result = result;
+    jobDoc.progress = finalStatus === "completed" ? 100 : jobDoc.progress;
+    await jobDoc.save();
+    return result;
+  } catch (err) {
+    // Waiting on a browser mission is not a failure and must not be retried: BullMQ starting the
+    // job again would enqueue a second set of Flow missions for images already being drawn. The
+    // job parks, and the mission's own completion is what wakes it (see extension-service.ts).
+    if (err instanceof FlowMissionPendingError) {
+      jobDoc.status = "manual_pending";
+      jobDoc.error = undefined;
+      await jobDoc.save().catch((saveErr) => console.error(`[queue] could not park job ${jobDoc._id}:`, saveErr));
+      return { status: "manual_pending", waitingOnFlowRuns: err.runIds };
+    }
+
+    // Benching the account is a cool-down, so it is only right for a quota that will come back. An
+    // allowance of zero never does — the model simply is not on this key's free tier — and taking
+    // the account out of rotation for it disables every *other* model the key can still serve.
+    // Live, that is exactly what happened: an image model with no free tier benched a Gemini
+    // credential whose text calls were succeeding, and every step afterwards reported no account.
+    if (err instanceof ProviderQuotaExceededError && jobDoc.googleAccountId && !err.detail?.allowanceIsZero) {
+      const resetsAt = err.retryAfterSeconds ? new Date(Date.now() + err.retryAfterSeconds * 1000) : undefined;
+      await markAccountQuotaExceeded(jobDoc.googleAccountId.toString(), resetsAt);
+    }
+
+    const maxAttempts = bullJob.opts.attempts ?? 1;
+    const isFinalAttempt = bullJob.attemptsMade + 1 >= maxAttempts;
+    jobDoc.status = isFinalAttempt ? "failed" : "retrying";
+    jobDoc.error = err instanceof Error ? err.message : String(err);
+    try {
+      await jobDoc.save();
+    } catch (saveErr) {
+      // If persisting the status itself throws (e.g. a schema bug — this exact scenario happened
+      // live with a wrongly `required` payload field), the job doc would otherwise stay stuck at
+      // "queued"/"running" forever with no trace of why, since the original `err` below still gets
+      // thrown but nothing ever recorded it against the job the UI is polling. Log it loudly instead.
+      console.error(`[queue] failed to persist "${jobDoc.status}" status for job ${jobDoc._id}:`, saveErr);
+    }
+    throw err; // rethrow so BullMQ's own attempts/backoff bookkeeping still applies
+  }
+}

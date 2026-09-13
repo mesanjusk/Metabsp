@@ -1,0 +1,143 @@
+import type { Job as BullJob } from "bullmq";
+import { withJobLifecycle, type BullJobData } from "./helpers";
+import { Project } from "@/lib/video/modules/projects/models/Project";
+import { Character } from "@/lib/video/modules/characters/models/Character";
+import { Asset } from "@/lib/video/modules/assets/models/Asset";
+import { resolveGenerationAccountOrEnvKey } from "@/lib/video/modules/accounts/service";
+import { recordAccountUsage } from "@/lib/video/modules/accounts/selector";
+import { getImageProvider } from "@/lib/video/core/ai/registry";
+import { uploadImageAsset, toBuffer } from "@/lib/video/core/storage/cloudinary";
+import type { Types } from "mongoose";
+import type { CharacterPose } from "@/lib/video/core/ai/types";
+import { resolveActiveTemplate } from "@/lib/video/modules/prompt-templates/service";
+import { getProviderOverride } from "@/lib/video/modules/settings/service";
+import { onCharacterOrBackgroundReady } from "@/lib/video/core/queue/orchestrator";
+import { checkImageResolution } from "@/lib/video/core/quality/checks";
+import { QualityCheckFailedError } from "@/lib/video/core/quality/errors";
+import { computeDHash, dHashSimilarity } from "@/lib/video/core/quality/perceptual-hash";
+import type { QualityIssue } from "@/lib/video/core/quality/types";
+import { resolveQualityTargets } from "@/lib/video/core/production-engine/resolve-quality-targets";
+import { routeImages } from "@/lib/video/core/production/image-route";
+import { characterBasePrompt, posePrompt } from "@/lib/video/core/ai/providers/image-prompts";
+import type { GeneratedImage } from "@/lib/video/core/ai/types";
+
+// The Character Library's "Expressions" set — front view plus the emotions/poses a producer
+// needs across scenes, so a new character is reuse-ready without a second generation pass.
+const DEFAULT_POSES: CharacterPose[] = ["front-view", "happy", "sad", "angry", "walking-pose", "running-pose"];
+
+/** PDF Step 2 — Create Characters (character turnaround sheet), a subset of poses per generation. */
+export async function processCharacterImageJob(bullJob: BullJob<BullJobData>) {
+  return withJobLifecycle(bullJob, async (jobDoc) => {
+    if (!jobDoc.characterId) throw new Error("Job is missing characterId");
+    const [character, project] = await Promise.all([
+      Character.findOne({ _id: jobDoc.characterId, userId: jobDoc.userId }),
+      Project.findOne({ _id: jobDoc.projectId, userId: jobDoc.userId }),
+    ]);
+    if (!character) throw new Error("Character not found");
+    if (!project) throw new Error("Project not found");
+
+    // Null when no pooled account is available but GEMINI_API_KEY is — the providers take an
+    // optional context and fall back to that key themselves.
+    const account = await resolveGenerationAccountOrEnvKey(jobDoc.userId);
+    const context = account?.context;
+    if (account) jobDoc.set("googleAccountId", account.accountId);
+    await jobDoc.save();
+
+    const poses = (jobDoc.payload?.poses as CharacterPose[] | undefined) ?? DEFAULT_POSES;
+    const providerId = await getProviderOverride(jobDoc.userId, "image");
+    const style = project.style === "Custom" ? (project.customStyleDescription ?? "Custom") : project.style;
+    const promptTemplateOverrides = project.promptTemplateOverrides as Record<string, string> | undefined;
+    const templateOverride = await resolveActiveTemplate(jobDoc.userId, "character", promptTemplateOverrides?.character);
+
+    const sheetInput = {
+      spec: {
+        name: character.name,
+        style,
+        age: character.spec?.age ?? undefined,
+        bodyType: character.spec?.bodyType ?? undefined,
+        face: character.spec?.face ?? undefined,
+        eyes: character.spec?.eyes ?? undefined,
+        hair: character.spec?.hair ?? undefined,
+        clothes: character.spec?.clothes ?? undefined,
+        shoes: character.spec?.shoes ?? undefined,
+        accessories: character.spec?.accessories ?? undefined,
+        personality: character.spec?.personality ?? undefined,
+      },
+      poses,
+      aspectRatio: "4:5" as const,
+      templateOverride,
+    };
+
+    // One request per pose, not one for the sheet: on the browser route that means a run which
+    // stumbles on pose seven costs pose seven, not all ten. The API route composes the same poses
+    // from the same base description, so the two draw the same character either way.
+    const images = (await routeImages(jobDoc, {
+      preferredProviderId: providerId,
+      prompts: poses.map((pose) => ({ key: pose, prompt: posePrompt(characterBasePrompt(sheetInput), pose) })),
+      viaApi: (provider) => provider.generateCharacterSheet(sheetInput, context),
+      flow: {
+        projectId: jobDoc.projectId?.toString(),
+        aspectRatio: "9:16",
+        imageTarget: { kind: "character", characterId: character._id.toString() },
+      },
+    })) as Record<CharacterPose, GeneratedImage>;
+    if (account) await recordAccountUsage(account.accountId);
+
+    const qualityTargets = await resolveQualityTargets(project.activeProfileId, jobDoc.userId);
+
+    const sheetAssets: { pose: CharacterPose; assetId: Types.ObjectId }[] = [];
+    const poseHashes: Partial<Record<CharacterPose, string>> = {};
+    for (const pose of poses) {
+      const image = images[pose];
+      if (!image) continue;
+      const uploaded = await uploadImageAsset(image.data, {
+        folder: `projects/${jobDoc.projectId}/characters/${character._id.toString()}`,
+        publicId: pose,
+      });
+      const resolutionIssues = checkImageResolution(uploaded, qualityTargets.imageTarget);
+      if (resolutionIssues.length > 0) {
+        throw new QualityCheckFailedError(resolutionIssues.map((i) => ({ ...i, message: `[${pose}] ${i.message}` })));
+      }
+
+      poseHashes[pose] = await computeDHash(await toBuffer(image.data)).catch(() => undefined);
+
+      const asset = await Asset.create({
+        userId: jobDoc.userId,
+        projectId: jobDoc.projectId,
+        kind: "image",
+        cloudinaryPublicId: uploaded.publicId,
+        url: uploaded.url,
+        width: uploaded.width,
+        height: uploaded.height,
+        bytes: uploaded.bytes,
+      });
+      sheetAssets.push({ pose, assetId: asset._id });
+    }
+
+    character.set("sheetAssets", sheetAssets);
+    await character.save();
+
+    await onCharacterOrBackgroundReady(jobDoc.userId, jobDoc.projectId!.toString());
+
+    // Within-batch consistency: every non-front-view pose compared to front-view, all generated in
+    // this same call. Advisory only — threshold resolved from the project's Production Profile
+    // when one is set (Module 6), else the same 0.45 default this always used.
+    const qualityIssues: QualityIssue[] = [];
+    const frontHash = poseHashes["front-view"];
+    if (frontHash) {
+      for (const [pose, hash] of Object.entries(poseHashes) as [CharacterPose, string][]) {
+        if (pose === "front-view" || !hash) continue;
+        const similarity = dHashSimilarity(frontHash, hash);
+        if (similarity < qualityTargets.characterConsistencyThreshold) {
+          qualityIssues.push({
+            severity: "warning",
+            check: "character-consistency",
+            message: `"${pose}" looks quite different from "front-view" (${Math.round(similarity * 100)}% similar) — worth a visual check.`,
+          });
+        }
+      }
+    }
+
+    return { poseCount: sheetAssets.length, qualityIssues };
+  });
+}

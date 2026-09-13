@@ -1,0 +1,160 @@
+import { readFile } from "node:fs/promises";
+import type { Job as BullJob } from "bullmq";
+import { withJobLifecycle, type BullJobData, type ProcessorResult } from "./helpers";
+import { Project } from "@/lib/video/modules/projects/models/Project";
+import { Scene } from "@/lib/video/modules/scenes/models/Scene";
+import { Asset } from "@/lib/video/modules/assets/models/Asset";
+import { getRenderProvider } from "@/lib/video/core/render";
+import { ProductionProfile } from "@/lib/video/modules/production-profiles/models/ProductionProfile";
+import { uploadVideoAsset } from "@/lib/video/core/storage/cloudinary";
+import { onRenderCompleted } from "@/lib/video/core/queue/orchestrator";
+import {
+  checkImageResolution,
+  checkFileIntegrity,
+  checkVideoStream,
+  checkAudio,
+  checkFrameContent,
+  checkSceneOrdering,
+  TARGET_FINAL_VIDEO,
+} from "@/lib/video/core/quality/checks";
+import { probeMedia, detectFrameAnomalies } from "@/lib/video/core/quality/media-probe";
+import { decideRetry } from "@/lib/video/core/quality/retry";
+import { QualityCheckFailedError } from "@/lib/video/core/quality/errors";
+
+/** PDF Step 9 — Editing. Joins every scene with a generated video clip into the final export. */
+export async function processRenderJob(bullJob: BullJob<BullJobData>): Promise<ProcessorResult> {
+  return withJobLifecycle(bullJob, async (jobDoc) => {
+    const project = await Project.findOne({ _id: jobDoc.projectId, userId: jobDoc.userId });
+    if (!project) throw new Error("Project not found");
+
+    const scenes = await Scene.find({ projectId: jobDoc.projectId, userId: jobDoc.userId })
+      .sort({ index: 1 })
+      .populate("videoAssetId")
+      .populate("voiceAssetId")
+      .populate("lipSyncAssetId")
+      .lean();
+
+    const renderable = scenes.filter(
+      (s) => (s.lipSyncAssetId && typeof s.lipSyncAssetId === "object") || (s.videoAssetId && typeof s.videoAssetId === "object"),
+    );
+    if (renderable.length === 0) {
+      throw new Error("No scenes have a generated video yet — generate at least one scene's video first.");
+    }
+
+    const musicAsset = project.musicAssetId
+      ? await Asset.findOne({ _id: project.musicAssetId, userId: jobDoc.userId }).lean()
+      : null;
+
+    project.status = "rendering";
+    await project.save();
+
+    // Which renderer this production wants. Defaults to FFmpeg — the renderer every project has
+    // always used — and degrades back to it if the requested one is unavailable, so an existing
+    // project's render is byte-for-byte the same path it was before the merge.
+    const profile = project.activeProfileId
+      ? await ProductionProfile.findOne({ _id: project.activeProfileId, userId: jobDoc.userId }).select("render.renderer").lean()
+      : null;
+    const renderer = getRenderProvider((profile?.render as { renderer?: string } | undefined)?.renderer);
+
+    const compose = await renderer.render({
+      scenes: renderable.map((s) => {
+        // Prefer the lip-synced clip when one exists — its own audio track already has the
+        // narration baked in, so the separate voice track (if any) is intentionally left unused.
+        const lipSynced = !!(s.lipSyncAssetId && typeof s.lipSyncAssetId === "object");
+        return {
+          index: s.index,
+          videoUrl: lipSynced
+            ? (s.lipSyncAssetId as unknown as { url: string }).url
+            : (s.videoAssetId as unknown as { url: string }).url,
+          voiceUrl:
+            !lipSynced && s.voiceAssetId && typeof s.voiceAssetId === "object"
+              ? (s.voiceAssetId as unknown as { url: string }).url
+              : undefined,
+          useEmbeddedAudio: lipSynced,
+          dialogue: s.dialogue,
+        };
+      }),
+      musicUrl: musicAsset?.url,
+      watermarkUrl: project.watermarkImageUrl ?? undefined,
+    });
+
+    // Inspect the file before uploading it. Catching a black or silent render here means not
+    // paying to store it and not marking the project done around it — and the probe runs against
+    // the local file, which is the only point in the pipeline where that is cheap.
+    const [probe, anomalies] = await Promise.all([
+      probeMedia(compose.filePath),
+      detectFrameAnomalies(compose.filePath),
+    ]);
+
+    const scenesWithDialogue = scenes.filter((s) => s.dialogue?.trim()).length;
+    const mediaIssues = [
+      ...checkFileIntegrity(probe),
+      ...checkVideoStream(probe, { expectedFps: 30, fpsTolerance: 2, allowedVideoCodecs: ["h264"] }),
+      ...checkAudio(probe, { requireAudio: scenesWithDialogue > 0 }),
+      ...checkFrameContent(anomalies, probe.durationSeconds),
+      ...checkSceneOrdering(scenes.map((s) => s.index)),
+    ];
+
+    const retry = decideRetry(mediaIssues);
+    if (retry.stage) {
+      // Thrown the same way every other quality failure is, so it flows through withJobLifecycle
+      // into BullMQ's existing attempts/backoff — this is the established validation-triggered
+      // retry, not a second retry system. `retry.reason` records which stage actually owns the
+      // fault so the operator is not left re-running the whole production to find out.
+      await compose.cleanup();
+      console.error(`[quality] render for project ${jobDoc.projectId} failed: ${retry.reason}`);
+      throw new QualityCheckFailedError(retry.issues);
+    }
+
+    try {
+      const fileBuffer = await readFile(compose.filePath);
+      const uploaded = await uploadVideoAsset(fileBuffer, {
+        folder: `projects/${jobDoc.projectId}/final`,
+        publicId: "final",
+      });
+
+      const asset = await Asset.create({
+        userId: jobDoc.userId,
+        projectId: jobDoc.projectId,
+        kind: "final_video",
+        cloudinaryPublicId: uploaded.publicId,
+        url: uploaded.url,
+        durationSeconds: uploaded.durationSeconds ?? compose.durationSeconds,
+        bytes: uploaded.bytes,
+      });
+
+      project.set("finalVideoAssetId", asset._id);
+      project.status = "done";
+      project.completionPercent = 100;
+      await project.save();
+
+      await onRenderCompleted(jobDoc.userId, jobDoc.projectId!.toString());
+
+      // Warning-only: compose.ts's own ffmpeg filter graph deterministically forces this
+      // resolution, so a mismatch here would mean a pipeline bug, not a re-runnable generation
+      // issue — surfaced for visibility, never auto-retried (re-rendering is the most expensive
+      // job type in the app).
+      const qualityIssues = [
+        ...checkImageResolution(uploaded, TARGET_FINAL_VIDEO).map((i) => ({ ...i, severity: "warning" as const })),
+        // Media-level warnings survived the retry gate above — recorded and surfaced, never
+        // auto-retried, because re-rendering costs more than any of them do.
+        ...mediaIssues,
+      ];
+      if (qualityIssues.length > 0) console.error(`[quality] final render for project ${jobDoc.projectId}:`, qualityIssues);
+
+      // Anything the renderer declined to do is reported, never dropped silently — an overlay that
+      // did not composite is something the operator needs to know about even though the video is fine.
+      if (compose.warnings.length > 0) console.warn(`[render] project ${jobDoc.projectId}:`, compose.warnings);
+
+      return {
+        assetId: asset._id.toString(),
+        durationSeconds: compose.durationSeconds,
+        renderer: compose.renderer,
+        renderWarnings: compose.warnings,
+        qualityIssues,
+      };
+    } finally {
+      await compose.cleanup();
+    }
+  });
+}

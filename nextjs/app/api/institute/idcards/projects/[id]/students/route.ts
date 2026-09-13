@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const students = Array.isArray(body.students) ? body.students : [];
     if (!students.length) return NextResponse.json({ success: false, message: 'students array is required' }, { status: 400 });
 
-    const docs = [];
+    const docs: any[] = [];
     for (const raw of students.slice(0, 2000)) {
       const n = normalizeImportedStudent(raw);
       let studentRecordId: any = null;
