@@ -3,6 +3,7 @@ import ThemeRegistry from '@/lib/ui/ThemeRegistry';
 import { AuthProvider } from '@/lib/ui/AuthContext';
 import { ToastContainer } from '@/lib/ui/components/Toast';
 import PwaProvider from '@/lib/ui/app/PwaProvider';
+import { inter } from '@/lib/ui/fonts';
 
 export const metadata = {
   title: 'SanjuSK — WhatsApp Business Solution Provider',
@@ -135,7 +136,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const nonce = (await headers()).get('x-nonce') || undefined;
 
   return (
-    <html lang="en" style={{ height: '100%' }} suppressHydrationWarning>
+    <html lang="en" className={inter.variable} style={{ height: '100%' }} suppressHydrationWarning>
       <head>
         <style dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_CSS }} />
         {nonce ? <script nonce={nonce} dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_SCRIPT }} /> : null}

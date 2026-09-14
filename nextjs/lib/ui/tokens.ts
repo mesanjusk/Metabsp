@@ -98,6 +98,44 @@ export const radius = {
   pill: 999,
 };
 
+/**
+ * Spacing and surface rules from the premium-dashboard guide, as tokens.
+ *
+ * The guide's numbers are opinions worth holding to: a 24px gutter, 24px of padding inside every
+ * card, and — the one this design system was missing — three background tiers rather than two.
+ * "Never flat white-on-white" is the rule, and a card sitting on `paper` inside a section that is
+ * also `paper` is exactly that: two surfaces with no edge between them but a border.
+ */
+export const surface = {
+  /** The page itself. */
+  base: { light: neutral[100], dark: neutral[950] },
+  /** Cards and panels on top of the page. */
+  card: { light: '#FFFFFF', dark: neutral[900] },
+  /** A tier above a card — a nested block, a table header, a highlighted row. */
+  elevated: { light: neutral[50], dark: neutral[800] },
+};
+
+/**
+ * Sizes the MUI variants do not cover.
+ *
+ * The guide puts hero KPI numbers at 28–36px; MUI's h4 is 21px here, and it is already the page
+ * title. A KPI that shares a size with the heading above it is not a hero number, it is another
+ * line of text — so this is its own step rather than a variant override that would resize every
+ * heading in the product.
+ */
+export const typeScale = {
+  kpi: '2rem',
+};
+
+export const spacing = {
+  /** Between cards in a grid. The guide's 12-column gutter. */
+  gutter: 24,
+  /** Inside a card, equal on all four sides. */
+  cardPadding: 24,
+  /** The same, on a phone, where 24 on both sides costs a seventh of the width. */
+  cardPaddingCompact: 16,
+};
+
 export const layout = {
   sidebarWidth: 248,
   sidebarCollapsedWidth: 72,
