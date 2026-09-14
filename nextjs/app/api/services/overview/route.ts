@@ -19,6 +19,39 @@ const START_OF_WEEK = () => {
   return now;
 };
 
+/**
+ * The same-length window immediately before the current one, so a KPI can say which way it moved.
+ *
+ * A number on its own is a fact; a number next to the last one is information. "412 contacts" tells
+ * a shop owner nothing they can act on — "412, up 8% on last week" tells them whether what they did
+ * last week worked. Every card now carries the comparison, which means the API has to count both
+ * windows rather than just the live one.
+ */
+const START_OF_YESTERDAY = () => {
+  const now = START_OF_TODAY();
+  now.setDate(now.getDate() - 1);
+  return now;
+};
+
+const START_OF_PREVIOUS_WEEK = () => {
+  const now = new Date();
+  now.setDate(now.getDate() - 14);
+  return now;
+};
+
+/**
+ * Percentage change, or null when there is nothing honest to say.
+ *
+ * Growth from zero is not "+100%", it is undefined — and rendering a number there is the quickest
+ * way to make a dashboard look made up on a brand-new account, where every previous window is zero.
+ * The card shows "no comparison yet" instead, which is both true and self-explaining.
+ */
+function deltaPercent(current: number, previous: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
+  if (previous <= 0) return null;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
 function stageFor(category = '') {
   const value = String(category || '').trim().toLowerCase();
   if (!value) return 'new';
@@ -37,6 +70,8 @@ export async function GET(req: NextRequest) {
     const userId = authed.id;
     const today = START_OF_TODAY();
     const weekAgo = START_OF_WEEK();
+    const yesterday = START_OF_YESTERDAY();
+    const twoWeeksAgo = START_OF_PREVIOUS_WEEK();
 
     const [
       access,
@@ -51,6 +86,14 @@ export async function GET(req: NextRequest) {
       categories,
       whatsapp,
       instagram,
+      // Previous-window counts, for the delta on each card. In the same Promise.all deliberately:
+      // they are independent of everything above, so they add latency only if the database is the
+      // bottleneck, not a second round trip.
+      contactsBeforeThisWeek,
+      newContactsPrev7d,
+      messagesYesterday,
+      incomingYesterday,
+      outgoingYesterday,
     ] = await Promise.all([
       resolveServiceAccess(authed),
       Contact.countDocuments({ userId }),
@@ -79,6 +122,32 @@ export async function GET(req: NextRequest) {
       ]),
       WhatsAppAccount.findOne({ userId, isActive: true }).select('status displayPhoneNumber verifiedName webhookSubscribed lastSyncAt').lean(),
       InstagramAccount.findOne({ userId, isActive: true }).select('status username name webhookSubscribed lastSyncAt').lean(),
+
+      // ── Previous window, for the deltas ───────────────────────────────────────────────────
+      // Total contacts as of a week ago, so "total" can show growth rather than only a count.
+      Contact.countDocuments({ userId, createdAt: { $lt: weekAgo } }),
+      Contact.countDocuments({ userId, createdAt: { $gte: twoWeeksAgo, $lt: weekAgo } }),
+      Message.countDocuments({
+        userId,
+        $or: [
+          { timestamp: { $gte: yesterday, $lt: today } },
+          { createdAt: { $gte: yesterday, $lt: today } },
+        ],
+      }),
+      Message.countDocuments({
+        userId,
+        $and: [
+          { $or: [{ timestamp: { $gte: yesterday, $lt: today } }, { createdAt: { $gte: yesterday, $lt: today } }] },
+          { $or: [{ direction: 'incoming' }, { fromMe: false }] },
+        ],
+      }),
+      Message.countDocuments({
+        userId,
+        $and: [
+          { $or: [{ timestamp: { $gte: yesterday, $lt: today } }, { createdAt: { $gte: yesterday, $lt: today } }] },
+          { $or: [{ direction: 'outgoing' }, { fromMe: true }] },
+        ],
+      }),
     ]);
 
     const funnel = { new: 0, interested: 0, followUp: 0, quotation: 0, converted: 0, lost: 0 };
@@ -168,6 +237,22 @@ export async function GET(req: NextRequest) {
           activeChats,
           availableTools,
           connectedChannels: Number(whatsapp?.status === 'active') + Number(instagram?.status === 'active'),
+        },
+        /**
+         * Change against the equivalent previous window, per KPI.
+         *
+         * `null` where there is no honest comparison — a previous window of zero makes every
+         * percentage either undefined or a meaningless "+100%", which is exactly how a dashboard
+         * on a new account ends up looking invented. The card renders the absence rather than a
+         * number. `activeChats`, `availableTools` and `connectedChannels` are states rather than
+         * flows and have no previous-window equivalent, so they are absent on purpose.
+         */
+        deltas: {
+          totalContacts: deltaPercent(totalContacts, contactsBeforeThisWeek),
+          newContacts7d: deltaPercent(newContacts7d, newContactsPrev7d),
+          messagesToday: deltaPercent(messagesToday, messagesYesterday),
+          incomingToday: deltaPercent(incomingToday, incomingYesterday),
+          outgoingToday: deltaPercent(outgoingToday, outgoingYesterday),
         },
         channelPerformance: {
           whatsapp: {

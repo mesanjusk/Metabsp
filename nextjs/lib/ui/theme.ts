@@ -14,6 +14,10 @@ import { accent, brand, layout, neutral, radius, semantic, shadows } from './tok
  */
 
 const fontStack = [
+  // The CSS variable next/font/google defines (lib/ui/fonts.ts), with the literal name after it so
+  // the stack still reads correctly anywhere the variable is not in scope — a Storybook frame, an
+  // email preview, a component rendered outside <html>.
+  'var(--font-inter)',
   'Inter',
   '-apple-system',
   'BlinkMacSystemFont',
