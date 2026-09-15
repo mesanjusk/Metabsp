@@ -34,6 +34,16 @@ const googleBusinessAccountSchema = new Schema(
     mapsUri: { type: String, default: '', trim: true },
     newReviewUri: { type: String, default: '', trim: true },
 
+    // The OAuth client this authorization was issued to.
+    //
+    // A Google refresh token is bound to the client that obtained it: redeeming
+    // it needs the same client_id and secret, and any other pair is rejected.
+    // So if an operator rotates the platform client, every connection made
+    // against the old one stops refreshing about an hour later. Recording the
+    // issuer is what lets that be reported as "reconnect, the platform client
+    // changed" instead of an unexplained authorization failure.
+    issuedByClientId: { type: String, default: '', trim: true, index: true },
+
     refreshTokenEncrypted: { type: String, required: true },
     accessTokenEncrypted: { type: String, default: '' },
     accessTokenExpiresAt: { type: Date, default: null },

@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/db/mongo';
 import { requireAdmin, requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import AppError from '@/lib/utils/AppError';
-import { AuditLog, PlatformCredential } from '@/lib/models';
+import { AuditLog, GoogleBusinessAccount, PlatformCredential } from '@/lib/models';
 import { encryptSensitiveValue } from '@/lib/utils/crypto';
 import {
   GOOGLE_BUSINESS_PROVIDER,
@@ -28,6 +28,32 @@ import {
  */
 
 const lastFour = (value: string) => (value.length > 4 ? value.slice(-4) : '••••');
+
+/**
+ * Connections that were authorised against some *other* client and therefore
+ * cannot be refreshed any more.
+ *
+ * Spelled out clause by clause rather than as a single `$nin: ['', null, id]`.
+ * Whether `$nin` matches a document that lacks the field altogether is a corner
+ * of MongoDB's null handling that reasonable references describe in opposite
+ * ways, and the answer decides whether every connection made before
+ * `issuedByClientId` existed gets counted as broken. A filter whose correctness
+ * turns on that is a filter waiting to be misread, so each condition is stated:
+ * the field is present, it is not empty, and it is not the client in force.
+ * An absent or empty issuer means unknown, which the refresh path also treats
+ * as "leave alone".
+ */
+function staleIssuerFilter(currentClientId: string) {
+  return {
+    isActive: true,
+    $and: [
+      { issuedByClientId: { $exists: true } },
+      { issuedByClientId: { $ne: null } },
+      { issuedByClientId: { $ne: '' } },
+      { issuedByClientId: { $ne: currentClientId } },
+    ],
+  };
+}
 
 function auditIp(req: NextRequest) {
   return String(req.headers.get('x-forwarded-for') || '').split(',')[0].trim();
@@ -54,11 +80,22 @@ export async function GET(req: NextRequest) {
       resolved = null;
     }
 
+    // What a client change would cost, in merchants. A refresh token only works
+    // for the client that issued it, so this is the number of people who would
+    // have to reconnect.
+    const [connectedCount, mismatchedCount] = await Promise.all([
+      GoogleBusinessAccount.countDocuments({ isActive: true }),
+      resolved?.clientId
+        ? GoogleBusinessAccount.countDocuments(staleIssuerFilter(resolved.clientId))
+        : Promise.resolve(0),
+    ]);
+
     return NextResponse.json({
       success: true,
       data: {
         configured: Boolean(resolved),
         source: resolved?.source || 'none',
+        connections: { total: connectedCount, needingReconnect: mismatchedCount },
         clientId: resolved?.clientId || '',
         clientSecretLastFour: resolved ? lastFour(resolved.clientSecret) : '',
         redirectUri: resolved?.redirectUri || '',
@@ -100,8 +137,25 @@ export async function PUT(req: NextRequest) {
     const clientSecret = String(body?.clientSecret || '').trim();
     const redirectUri = String(body?.redirectUri || '').trim();
 
-    if (!clientId || !clientSecret) {
-      throw new AppError('Both the client ID and the client secret are required', 400);
+    const existing: any = await PlatformCredential.findOne({ provider: GOOGLE_BUSINESS_PROVIDER }).lean();
+
+    if (!clientId) throw new AppError('The client ID is required', 400);
+    // The secret is write-only, so the screen cannot pre-fill it and an admin
+    // correcting a typo in the client ID or the redirect URI has no way to
+    // supply it again. An omitted secret therefore means "keep the stored one",
+    // and is only an error when there is nothing stored to keep.
+    if (!clientSecret && !existing?.clientSecretEncrypted) {
+      throw new AppError('The client secret is required the first time a client is saved', 400);
+    }
+    // Keeping the stored secret is only safe while the client ID it belongs to
+    // is unchanged. Carrying it across a rotation would save a mismatched pair
+    // that fails every code exchange and every refresh — the precise breakage
+    // this endpoint exists to make visible.
+    if (!clientSecret && existing?.clientId && existing.clientId !== clientId) {
+      throw new AppError(
+        'Changing the client ID needs that client’s own secret. A secret belongs to one client ID, so keeping the stored one would save a pair Google rejects.',
+        400
+      );
     }
     // Google web-application client IDs always carry this suffix. Catching it
     // here turns the commonest paste error — the project number, or an API key
@@ -118,7 +172,7 @@ export async function PUT(req: NextRequest) {
       {
         $set: {
           clientId,
-          clientSecretEncrypted: encryptSensitiveValue(clientSecret),
+          ...(clientSecret ? { clientSecretEncrypted: encryptSensitiveValue(clientSecret) } : {}),
           redirectUri,
           isActive: true,
           updatedBy: authed.id,
@@ -127,6 +181,11 @@ export async function PUT(req: NextRequest) {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
+
+    // Saving a different client invalidates every authorization issued to the
+    // previous one. The count is reported back so the confirmation says how
+    // many merchants have to reconnect rather than leaving it to be discovered.
+    const strandedConnections = await GoogleBusinessAccount.countDocuments(staleIssuerFilter(clientId));
 
     await AuditLog.create({
       userId: authed.id,
@@ -139,10 +198,16 @@ export async function PUT(req: NextRequest) {
       userAgent: String(req.headers.get('user-agent') || ''),
       // The client ID is public; the secret is not recorded anywhere but the
       // encrypted column.
-      metadata: { clientId, redirectUri },
+      metadata: { clientId, redirectUri, secretChanged: Boolean(clientSecret), strandedConnections },
     });
 
-    return NextResponse.json({ success: true, message: 'Google client saved. Merchants can now connect their profiles.' });
+    return NextResponse.json({
+      success: true,
+      message: strandedConnections
+        ? `Google client saved. ${strandedConnections} connected ${strandedConnections === 1 ? 'profile was' : 'profiles were'} authorised against a different client and must reconnect.`
+        : 'Google client saved. Merchants can now connect their profiles.',
+      data: { strandedConnections },
+    });
   } catch (error) {
     return errorResponse(error, 'Failed to save the Google client configuration');
   }

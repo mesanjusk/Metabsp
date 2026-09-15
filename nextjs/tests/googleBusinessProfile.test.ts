@@ -308,6 +308,44 @@ describe('platform credential precedence', () => {
     });
   });
 
+  /**
+   * The rotation hazard, as a rule rather than a comment: a refresh token is
+   * redeemable only by the client that issued it, so a connection whose
+   * recorded issuer is not the client now in force cannot be refreshed and has
+   * to be reported as needing reconnection. An unrecorded issuer (a connection
+   * made before the field existed) means unknown, not mismatched.
+   */
+  it('treats a recorded issuer that differs from the live client as stale', () => {
+    const live = getGoogleBusinessConfig({
+      clientId: 'current-client.apps.googleusercontent.com',
+      clientSecret: 'current-secret',
+    }).clientId;
+
+    const isStale = (issuedByClientId: string) => Boolean(issuedByClientId && issuedByClientId !== live);
+
+    expect(isStale('older-client.apps.googleusercontent.com')).toBe(true);
+    expect(isStale('current-client.apps.googleusercontent.com')).toBe(false);
+    expect(isStale('')).toBe(false);
+  });
+
+  /**
+   * Keeping the stored secret is only safe while the client ID it belongs to is
+   * unchanged — a secret is issued for one client, so carrying it across a
+   * rotation stores a pair Google rejects.
+   */
+  it('only allows an omitted secret while the client ID stays the same', () => {
+    const mayKeepStoredSecret = (storedClientId: string, nextClientId: string, hasStoredSecret: boolean) =>
+      hasStoredSecret && (!storedClientId || storedClientId === nextClientId);
+
+    const a = 'a.apps.googleusercontent.com';
+    const b = 'b.apps.googleusercontent.com';
+
+    expect(mayKeepStoredSecret(a, a, true)).toBe(true);
+    expect(mayKeepStoredSecret(a, b, true)).toBe(false);
+    // Nothing stored yet: the secret has to be supplied.
+    expect(mayKeepStoredSecret('', a, false)).toBe(false);
+  });
+
   it('lets a stored redirect URI override the derived one', () => {
     expect(
       getGoogleBusinessConfig({

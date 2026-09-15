@@ -10,6 +10,7 @@ import {
   GOOGLE_HOSTS,
   googleRequest,
   refreshGoogleAccessToken,
+  resolveGoogleBusinessConfig,
 } from '@/lib/googleBusiness/google';
 import { listGoogleAccounts, listGoogleLocations } from '@/lib/googleBusiness/profile';
 
@@ -40,6 +41,9 @@ export async function GET(req: NextRequest) {
     const user: any = await User.findById(decoded.id);
     if (!user || !user.isActive) return dashboardRedirect(req, { error: 'Dashboard user is unavailable.' });
 
+    // Recorded against the connection so a later client rotation can be
+    // reported as "reconnect" rather than surfacing as a broken refresh.
+    const { clientId: issuedByClientId } = await resolveGoogleBusinessConfig();
     const exchanged = await exchangeGoogleCode(code);
     const accessToken =
       exchanged.accessToken || (await refreshGoogleAccessToken(exchanged.refreshToken)).accessToken;
@@ -89,6 +93,7 @@ export async function GET(req: NextRequest) {
       locationWebsite: location?.website || '',
       mapsUri: location?.mapsUri || '',
       newReviewUri: location?.newReviewUri || '',
+      issuedByClientId,
       refreshTokenEncrypted: encryptSensitiveValue(exchanged.refreshToken),
       accessTokenEncrypted: encryptSensitiveValue(accessToken),
       accessTokenExpiresAt: new Date(Date.now() + exchanged.expiresIn * 1000),
