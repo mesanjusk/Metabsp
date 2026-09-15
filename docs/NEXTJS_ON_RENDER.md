@@ -46,7 +46,8 @@ Booted locally against the production build:
 [socket.io] Server attached
 [server] Ready on http://0.0.0.0:3998 (dev=false)
 
-/api/health          -> 503   (correct: no MONGO_URI in the sandbox)
+/api/health          -> 200   (liveness: the process is serving; `db` in the body)
+/api/health?strict=1 -> 503   (readiness: no MONGO_URI in the sandbox)
 /socket.io handshake -> 200   (websockets live on the same port)
 /webhook  (bad token)-> 403   (Meta's verification handshake rejecting correctly)
 ```

@@ -30,6 +30,17 @@ export async function connectDB(): Promise<typeof mongoose> {
   // not introduce a second index-management path.
   global.__metabspMongoosePromise = mongoose.connect(mongoURI, {
     autoIndex: false,
+    // Fail in ten seconds rather than mongoose's default thirty. Anything that
+    // waits on a connection — a route, a worker, the health check — inherits
+    // this window, and a thirty-second stall reads to a caller as a hung app
+    // rather than an unreachable database. Ten is long enough to ride out an
+    // Atlas primary election and short enough to answer within a request.
+    serverSelectionTimeoutMS: 10_000,
+    // Well under mongoose's default of 100. This database is a shared Atlas
+    // tier (see the autoIndex note above), and a zero-downtime deploy runs the
+    // outgoing and incoming instances at once — so the cap has to leave room
+    // for two pools plus whatever else holds a connection.
+    maxPoolSize: 10,
   });
 
   return global.__metabspMongoosePromise;
