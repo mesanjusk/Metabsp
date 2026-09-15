@@ -11,6 +11,7 @@ export { default as Organization } from './Organization';
 export { default as ApiKey } from './ApiKey';
 export { default as WhatsAppAccount } from './WhatsAppAccount';
 export { default as InstagramAccount } from './InstagramAccount';
+export { default as GoogleBusinessAccount } from './GoogleBusinessAccount';
 export { default as ServiceEntitlement } from './ServiceEntitlement';
 export { default as InstituteRecord } from './InstituteRecord';
 export { default as InstituteAdmission } from './InstituteAdmission';

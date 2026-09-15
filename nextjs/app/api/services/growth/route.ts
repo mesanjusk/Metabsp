@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
-import { Contact, InstagramAccount, Message, WhatsAppAccount } from '@/lib/models';
+import { Contact, GoogleBusinessAccount, InstagramAccount, Message, WhatsAppAccount } from '@/lib/models';
 import { resolveServiceAccess } from '@/lib/services/serviceAccess';
 import { buildGrowthAgents, buildGrowthRecommendations } from '@/lib/services/growthIntelligence';
 
@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       reactivationCandidates,
       whatsapp,
       instagram,
+      googleBusiness,
     ] = await Promise.all([
       resolveServiceAccess(authed),
       Contact.countDocuments({ userId, createdAt: { $gte: sevenDaysAgo } }),
@@ -89,6 +90,7 @@ export async function GET(req: NextRequest) {
       }),
       WhatsAppAccount.findOne({ userId, isActive: true }).select('status displayPhoneNumber verifiedName').lean(),
       InstagramAccount.findOne({ userId, isActive: true }).select('status username name').lean(),
+      GoogleBusinessAccount.findOne({ userId, isActive: true }).select('status locationName locationTitle').lean(),
     ]);
 
     const unansweredConversations = Number(unansweredRows?.[0]?.count || 0);
@@ -101,9 +103,11 @@ export async function GET(req: NextRequest) {
       whatsappConnected: whatsapp?.status === 'active',
       instagramConnected: instagram?.status === 'active',
       marketingEnabled: Boolean(access?.marketing?.enabled),
-      // Google Business is a basic entitlement, but there is no provider/account
-      // connection model yet. Entitlement must never be reported as a live channel.
-      googleBusinessLive: false,
+      // Live means an authorised Google account *and* a chosen location: a
+      // connection with nothing selected can neither read reviews nor post, so
+      // reporting it as a live channel would be the same lie the entitlement
+      // used to tell.
+      googleBusinessLive: googleBusiness?.status === 'active' && Boolean(googleBusiness?.locationName),
     };
 
     const recommendations = buildGrowthRecommendations(inputs);
