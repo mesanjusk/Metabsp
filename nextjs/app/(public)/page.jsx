@@ -5,47 +5,120 @@ import { useRouter } from 'next/navigation';
 import NextLink from 'next/link';
 import { Box, Button, Chip, Container, Grid, Paper, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
-import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import InstagramIcon from '@mui/icons-material/Instagram';
+import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
+import PhoneInTalkRoundedIcon from '@mui/icons-material/PhoneInTalkRounded';
+import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
+import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
+import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
+import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
+import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
+import MovieCreationRoundedIcon from '@mui/icons-material/MovieCreationRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import HubRoundedIcon from '@mui/icons-material/HubRounded';
 import CodeRoundedIcon from '@mui/icons-material/CodeRounded';
 import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/ui/AuthContext';
+import { ROUTES } from '@/lib/constants/routes';
 import BrandMark from '@/lib/ui/app/BrandMark';
 
 /**
  * The landing page.
  *
- * Rebuilt on the theme rather than on hardcoded WhatsApp colours. The previous
- * version painted its hero in `linear-gradient(#111b21 … #0b3d2e)` with a
- * #25d366 call to action and WhatsApp's own icon beside the wordmark — the
- * consumer app's exact identity, on the front page a Meta reviewer opens
- * first. It also linked "Get started" at `/signup`, a route that did not
- * exist, so the primary conversion path on the site was a 404.
+ * It used to sell one product: the WhatsApp Cloud API. Every feature card, both
+ * calls to action and the headline itself were about connecting a number — which
+ * was accurate when the dashboard had a single service, and became a steadily
+ * worse description of the product as ten more shipped behind it. A visitor
+ * comparing us against a WhatsApp-only vendor had no way to learn that the
+ * reviews, the CRM, the invoices and the staff tasks were in the same box.
+ *
+ * So the page now leads with the workspace and treats WhatsApp as the first and
+ * busiest channel in it. What has *not* changed is the compliance statement: the
+ * Meta-review surface depends on this page saying plainly that messaging runs on
+ * the official WhatsApp Business Platform, so that claim stays, in its own right
+ * rather than as the whole identity.
+ *
+ * Nothing here is aspirational. Every card below maps to a service that exists
+ * in lib/ui/app/serviceRegistry.js and is reachable today; the ones gated behind
+ * a Pro entitlement say so rather than implying every account gets them.
  */
 
-const FEATURES = [
+/** The three places a customer can reach the business. */
+const CHANNELS = [
   {
-    icon: ForumRoundedIcon,
-    title: 'Shared inbox',
+    icon: WhatsAppIcon,
+    title: 'WhatsApp',
     description:
-      'Every conversation in one place, with delivery and read receipts, media, and assignment so two people never answer the same customer.',
+      'A shared inbox on Meta’s official Cloud API — delivery and read receipts, media, assignment so two people never answer the same customer, approved templates and broadcasts that retry on their own.',
   },
   {
-    icon: DescriptionRoundedIcon,
-    title: 'Templates and broadcasts',
+    icon: InstagramIcon,
+    title: 'Instagram',
     description:
-      'Submit templates for Meta review, then send to thousands. Each recipient is a queued job that retries on its own and respects rate limits.',
+      'Direct messages, comments and private replies from the same dashboard, against the same contact record. Publish a post without leaving it.',
   },
+  {
+    icon: StorefrontRoundedIcon,
+    title: 'Google Business Profile',
+    description:
+      'The reviews and Search/Maps performance behind your listing, with AI-drafted replies and profile posts you approve before anything goes public.',
+  },
+];
+
+/** The business the channels feed into. */
+const WORKSPACE = [
   {
     icon: PeopleAltRoundedIcon,
-    title: 'Contacts',
+    title: 'Customers and leads',
     description:
-      'Tag and segment everyone who has messaged you, import from a spreadsheet, and send to a segment without leaving the dashboard.',
+      'One contact record per customer, shared by every channel. Tag and segment, import from a spreadsheet, and track a lead from first message to follow-up to quotation.',
   },
+  {
+    icon: Inventory2RoundedIcon,
+    title: 'Products and stock',
+    description: 'A catalogue, inventory movements and review requests, linked to the same customers and orders.',
+  },
+  {
+    icon: PaymentsRoundedIcon,
+    title: 'Quotations, invoices and payments',
+    description: 'Quotations that become orders, customer invoices, collections, outstanding balances and expenses.',
+    tier: 'Pro',
+  },
+  {
+    icon: TaskAltRoundedIcon,
+    title: 'Staff, tasks and attendance',
+    description: 'Who is responsible for what, biometric and WhatsApp attendance, and the tasks that came out of a conversation.',
+    tier: 'Pro',
+  },
+  {
+    icon: PhoneInTalkRoundedIcon,
+    title: 'Business dialer',
+    description: 'Click-to-dial your leads and sync the call history back against the contact it belongs to.',
+  },
+  {
+    icon: CampaignRoundedIcon,
+    title: 'Marketing and publishing',
+    description: 'Write once and publish to the connected social and local channels, from the shared customer base.',
+    tier: 'Pro',
+  },
+  {
+    icon: MovieCreationRoundedIcon,
+    title: 'Video studio',
+    description: 'Turn one idea into a finished short — script, characters, scene stills, clips, voice-over and the final cut.',
+  },
+  {
+    icon: SchoolRoundedIcon,
+    title: 'Institute management',
+    description: 'Admissions, academics, fees, attendance, ID cards and forms, for a coaching class or school on the same workspace.',
+    tier: 'Pro',
+  },
+];
+
+/** What makes it a platform rather than a set of screens. */
+const PLATFORM = [
   {
     icon: BoltRoundedIcon,
     title: 'Automations',
@@ -69,20 +142,20 @@ const FEATURES = [
 const STEPS = [
   {
     title: 'Create an account',
-    description: 'Sign up with your mobile number. You do not need a WhatsApp Business Account to start.',
+    description: 'Sign up with your mobile number. Nothing else is required to get in and look around.',
   },
   {
-    title: 'Connect a number',
+    title: 'Connect your channels',
     description:
-      'Connect with an access token from your Meta Business Manager. One-click Embedded Signup is coming soon.',
+      'Connect WhatsApp through Meta’s Embedded Signup or your own access token, then add Instagram and your Google Business Profile when you want them.',
   },
   {
-    title: 'Send and automate',
-    description: 'Reply from the shared inbox, broadcast a template, and route events into your own systems.',
+    title: 'Run the business from one place',
+    description: 'Answer customers, chase leads, raise an invoice, post to your listing and see what it all did.',
   },
 ];
 
-function FeatureCard({ icon: Icon, title, description }) {
+function FeatureCard({ icon: Icon, title, description, tier }) {
   return (
     <Paper
       variant="outlined"
@@ -91,24 +164,48 @@ function FeatureCard({ icon: Icon, title, description }) {
       transition={{ duration: 0.2 }}
       sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', gap: 1.5 }}
     >
-      <Box
-        sx={(theme) => ({
-          width: 40,
-          height: 40,
-          borderRadius: 2,
-          display: 'grid',
-          placeItems: 'center',
-          bgcolor: alpha(theme.palette.primary.main, 0.1),
-          color: 'primary.main',
-        })}
-      >
-        <Icon fontSize="small" />
-      </Box>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+        <Box
+          sx={(theme) => ({
+            width: 40,
+            height: 40,
+            borderRadius: 2,
+            display: 'grid',
+            placeItems: 'center',
+            bgcolor: alpha(theme.palette.primary.main, 0.1),
+            color: 'primary.main',
+          })}
+        >
+          <Icon fontSize="small" />
+        </Box>
+        {/* Said out loud rather than discovered at the lock screen. */}
+        {tier ? <Chip label={tier} size="small" variant="outlined" sx={{ fontWeight: 700 }} /> : null}
+      </Stack>
       <Typography variant="h6">{title}</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
         {description}
       </Typography>
     </Paper>
+  );
+}
+
+function Section({ title, subtitle, items, columns = 4 }) {
+  return (
+    <>
+      <Stack spacing={1.5} sx={{ textAlign: 'center', mb: 6 }}>
+        <Typography variant="h3">{title}</Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 680, mx: 'auto' }}>
+          {subtitle}
+        </Typography>
+      </Stack>
+      <Grid container spacing={3}>
+        {items.map((item) => (
+          <Grid item xs={12} sm={6} md={12 / columns} key={item.title}>
+            <FeatureCard {...item} />
+          </Grid>
+        ))}
+      </Grid>
+    </>
   );
 }
 
@@ -120,8 +217,12 @@ export default function LandingPage() {
   // isAuthenticated is always false because the session lives in localStorage.
   // An effect keeps this a client-only decision, with the marketing page as
   // the server-rendered default.
+  //
+  // The hub, not the inbox: a signed-in owner may be coming back for the
+  // reviews or the invoices, and sending everyone to WhatsApp made the other
+  // ten services something you had to already know were there.
   useEffect(() => {
-    if (!isSessionLoading && isAuthenticated) router.replace('/inbox');
+    if (!isSessionLoading && isAuthenticated) router.replace(ROUTES.DASHBOARD);
   }, [isAuthenticated, isSessionLoading, router]);
 
   return (
@@ -154,7 +255,7 @@ export default function LandingPage() {
             <Stack alignItems="center" spacing={3}>
               <Chip
                 icon={<VerifiedRoundedIcon />}
-                label="Built on the official WhatsApp Business Platform"
+                label="Messaging on the official WhatsApp Business Platform"
                 variant="outlined"
                 color="primary"
                 sx={{ fontWeight: 600 }}
@@ -164,14 +265,14 @@ export default function LandingPage() {
                 <BrandMark size={44} wordmarkVariant="h3" />
               </Box>
 
-              <Typography variant="h2" sx={{ maxWidth: 720 }}>
-                Run your customer conversations on WhatsApp, properly
+              <Typography variant="h2" sx={{ maxWidth: 760 }}>
+                Run the whole business, not just the chat
               </Typography>
 
-              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 620, lineHeight: 1.8 }}>
-                A shared inbox, approved templates, broadcasts, automations and a REST API — all on
-                Meta&apos;s Cloud API, with your own number connected using your Meta access token.
-                One-click Embedded Signup is coming soon.
+              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 660, lineHeight: 1.8 }}>
+                WhatsApp, Instagram and your Google Business Profile in one shared inbox — on top of the
+                CRM, catalogue, invoices, staff tasks and automations they feed. One customer record
+                across every channel, not a separate tool for each.
               </Typography>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ pt: 1 }}>
@@ -184,36 +285,53 @@ export default function LandingPage() {
               </Stack>
 
               <Typography variant="caption" color="text.secondary">
-                No credit card required to connect your first number.
+                No credit card required to create an account and connect your first channel.
               </Typography>
             </Stack>
           </motion.div>
         </Container>
       </Box>
 
-      {/* Features */}
+      {/* Channels */}
       <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
-        <Stack spacing={1.5} sx={{ textAlign: 'center', mb: 6 }}>
-          <Typography variant="h3">Everything the platform gives you</Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 640, mx: 'auto' }}>
-            One dashboard for the Cloud API — connect a number through Meta and start sending in minutes.
-          </Typography>
-        </Stack>
+        <Section
+          title="Every channel, one inbox"
+          subtitle="Wherever the customer starts the conversation, it lands against the same contact and the same history."
+          items={CHANNELS}
+          columns={3}
+        />
+      </Container>
 
-        <Grid container spacing={3}>
-          {FEATURES.map((feature) => (
-            <Grid item xs={12} sm={6} md={4} key={feature.title}>
-              <FeatureCard {...feature} />
-            </Grid>
-          ))}
-        </Grid>
+      {/* Workspace */}
+      <Box sx={{ bgcolor: 'background.paper', borderBlock: '1px solid', borderColor: 'divider' }}>
+        <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
+          <Section
+            title="And the business behind them"
+            subtitle="The conversation is the start of the work, not the end of it. Everything below shares one customer record — no second database, no re-typing a name."
+            items={WORKSPACE}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 4 }}>
+            Services marked Pro are included on the Pro plan or enabled by your administrator. Everything else
+            comes with the account.
+          </Typography>
+        </Container>
+      </Box>
+
+      {/* Platform */}
+      <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
+        <Section
+          title="Built to connect to what you already run"
+          subtitle="Your own backend, your own endpoints, and rules that answer customers while you are asleep."
+          items={PLATFORM}
+          columns={3}
+        />
       </Container>
 
       {/* How it works */}
       <Box sx={{ bgcolor: 'background.paper', borderBlock: '1px solid', borderColor: 'divider' }}>
         <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
           <Stack spacing={1.5} sx={{ textAlign: 'center', mb: 6 }}>
-            <Typography variant="h3">From signup to first message</Typography>
+            <Typography variant="h3">From signup to running</Typography>
             <Typography variant="body1" color="text.secondary">
               Three steps, and none of them involve sending us a screenshot.
             </Typography>
@@ -264,10 +382,9 @@ export default function LandingPage() {
           })}
         >
           <Stack spacing={2.5} alignItems="center">
-            <Typography variant="h3">Ready to connect your number?</Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 520 }}>
-              Create an account and connect your number with your Meta access token — it takes a few
-              minutes. One-click Embedded Signup is coming soon.
+            <Typography variant="h3">Ready to put it all in one place?</Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560 }}>
+              Create an account, connect your first channel, and bring the rest across whenever you are ready.
             </Typography>
             <Button component={NextLink} href="/signup" variant="contained" size="large" sx={{ px: 5 }}>
               Get started
