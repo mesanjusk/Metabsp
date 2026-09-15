@@ -41,9 +41,13 @@ import BrandMark from '@/lib/ui/app/BrandMark';
  * the official WhatsApp Business Platform, so that claim stays, in its own right
  * rather than as the whole identity.
  *
- * Nothing here is aspirational. Every card below maps to a service that exists
- * in lib/ui/app/serviceRegistry.js and is reachable today; the ones gated behind
- * a Pro entitlement say so rather than implying every account gets them.
+ * Nothing here is aspirational, and that is a standard this page has already
+ * failed once: the first version of it claimed one customer record across every
+ * channel, which is true of WhatsApp and not of Instagram, whose conversations
+ * are read straight from the Graph API and never persisted against a Contact.
+ * A claim about a service belongs here only once the code behind it is real —
+ * so each card says what its own service does, the Pro ones say they are Pro,
+ * and the two that are still partial say which part.
  */
 
 /** The three places a customer can reach the business. */
@@ -52,13 +56,13 @@ const CHANNELS = [
     icon: WhatsAppIcon,
     title: 'WhatsApp',
     description:
-      'A shared inbox on Meta’s official Cloud API — delivery and read receipts, media, assignment so two people never answer the same customer, approved templates and broadcasts that retry on their own.',
+      'A shared inbox on Meta’s official Cloud API, on the same contact record as the CRM — delivery and read receipts, media, assignment so two people never answer the same customer, approved templates and broadcasts that retry on their own.',
   },
   {
     icon: InstagramIcon,
     title: 'Instagram',
     description:
-      'Direct messages, comments and private replies from the same dashboard, against the same contact record. Publish a post without leaving it.',
+      'Direct messages, comments and private replies from the same dashboard, and publishing without leaving it. Instagram conversations are not yet written to the shared contact record.',
   },
   {
     icon: StorefrontRoundedIcon,
@@ -74,7 +78,7 @@ const WORKSPACE = [
     icon: PeopleAltRoundedIcon,
     title: 'Customers and leads',
     description:
-      'One contact record per customer, shared by every channel. Tag and segment, import from a spreadsheet, and track a lead from first message to follow-up to quotation.',
+      'One contact record per customer, shared by WhatsApp and every business tool here. Tag and segment, import from a spreadsheet, and track a lead from first message to follow-up to quotation.',
   },
   {
     icon: Inventory2RoundedIcon,
@@ -101,7 +105,7 @@ const WORKSPACE = [
   {
     icon: CampaignRoundedIcon,
     title: 'Marketing and publishing',
-    description: 'Write once and publish to the connected social and local channels, from the shared customer base.',
+    description: 'Compose a post and publish it to Instagram from the shared workspace. Facebook Pages and Google Business Profile are in the publisher but stay locked until their connections are added.',
     tier: 'Pro',
   },
   {
@@ -270,9 +274,9 @@ export default function LandingPage() {
               </Typography>
 
               <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 660, lineHeight: 1.8 }}>
-                WhatsApp, Instagram and your Google Business Profile in one shared inbox — on top of the
-                CRM, catalogue, invoices, staff tasks and automations they feed. One customer record
-                across every channel, not a separate tool for each.
+                WhatsApp, Instagram and your Google Business Profile in one dashboard — on top of the
+                CRM, catalogue, invoices, staff tasks and automations behind them. One workspace and one
+                bill, instead of a separate tool for each.
               </Typography>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ pt: 1 }}>
@@ -295,8 +299,8 @@ export default function LandingPage() {
       {/* Channels */}
       <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
         <Section
-          title="Every channel, one inbox"
-          subtitle="Wherever the customer starts the conversation, it lands against the same contact and the same history."
+          title="Every channel, one dashboard"
+          subtitle="Answer customers wherever they find you, without a browser tab and a login for each one."
           items={CHANNELS}
           columns={3}
         />
@@ -307,7 +311,7 @@ export default function LandingPage() {
         <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
           <Section
             title="And the business behind them"
-            subtitle="The conversation is the start of the work, not the end of it. Everything below shares one customer record — no second database, no re-typing a name."
+            subtitle="The conversation is the start of the work, not the end of it. WhatsApp, the CRM, the catalogue and the invoices all share one customer record — no second database, no re-typing a name."
             items={WORKSPACE}
           />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 4 }}>

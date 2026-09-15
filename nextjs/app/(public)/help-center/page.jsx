@@ -18,7 +18,7 @@ const FAQ_DATA = [
     items: [
       {
         q: 'What is SanjuSK and how does it work?',
-        a: 'SanjuSK is one workspace for running a small business. Customers reach you on WhatsApp, Instagram or your Google Business Profile, and every conversation lands against the same contact record — alongside the CRM, product catalogue, quotations and invoices, staff tasks and automations that follow from it. WhatsApp messaging runs on Meta\'s official WhatsApp Business Platform (Cloud API): you connect your own WhatsApp Business Account and keep ownership of it, and we handle the API infrastructure, authentication and delivery.',
+        a: 'SanjuSK is one workspace for running a small business. Customers reach you on WhatsApp, Instagram or your Google Business Profile, and you answer all three from one dashboard — alongside the CRM, product catalogue, quotations and invoices, staff tasks and automations that follow from a conversation. WhatsApp shares the contact record with the CRM, so a lead answered there is the same customer you invoice; Instagram is answered in the same dashboard but is not yet written to that record. WhatsApp messaging runs on Meta\'s official WhatsApp Business Platform (Cloud API): you connect your own WhatsApp Business Account and keep ownership of it, and we handle the API infrastructure, authentication and delivery.',
       },
       {
         q: 'How do I create an account?',
@@ -30,7 +30,7 @@ const FAQ_DATA = [
       },
       {
         q: 'What phone number can I use for WhatsApp Business?',
-        a: 'You can use any phone number that can receive a verification code (SMS or voice call) and is not already registered with WhatsApp personal or WhatsApp Business app. This can be a mobile, landline, or VoIP number. Once used for the API, the number cannot simultaneously be used on the WhatsApp app.',
+        a: 'Any number that can receive a verification code by SMS or voice call — mobile, landline or VoIP. Which numbers are eligible depends on the path you take. Ordinary Cloud API onboarding needs a number that is not registered on the WhatsApp personal or Business app, and once it moves to the API it cannot also be used on the app. Coexistence is the exception: a number already running on the WhatsApp Business app can join the platform and keep working there, by scanning a QR code in the app rather than being moved. Do not remove a number from the Business app before checking whether coexistence covers it.',
       },
       {
         q: 'What is the difference between SanjuSK plans?',

@@ -55,7 +55,7 @@ export default function AboutPage() {
               </Typography>
               <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.75)', maxWidth: 620, mx: 'auto', lineHeight: 1.8 }}>
                 SanjuSK brings WhatsApp, Instagram and your Google Business Profile together with the CRM,
-                catalogue, invoices and staff tools behind them — one customer record across every channel.
+                catalogue, invoices and staff tools behind them — one workspace instead of a tool for each.
                 Messaging runs on Meta&apos;s official WhatsApp Business Platform.
               </Typography>
               <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ mt: 3 }} flexWrap="wrap" useFlexGap>
@@ -86,7 +86,7 @@ export default function AboutPage() {
                 {
                   icon: <WhatsAppIcon sx={{ fontSize: 32 }} />,
                   title: 'Shared inbox',
-                  description: 'WhatsApp on Meta\'s Cloud API, Instagram DMs and comments, and one contact record behind both — with templates, broadcasts and assignment so two people never answer the same customer.',
+                  description: 'WhatsApp on Meta\'s Cloud API with templates, broadcasts and assignment so two people never answer the same customer, plus Instagram DMs and comments in the same dashboard.',
                 },
                 {
                   icon: <StorefrontRoundedIcon sx={{ fontSize: 32 }} />,
