@@ -1,7 +1,8 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import AppError from '@/lib/utils/AppError';
 import { decryptSensitiveValue, encryptSensitiveValue } from '@/lib/utils/crypto';
-import { GoogleBusinessAccount } from '@/lib/models';
+import logger from '@/lib/utils/logger';
+import { GoogleBusinessAccount, PlatformCredential } from '@/lib/models';
 
 /**
  * Google Business Profile — the provider connection itself.
@@ -32,15 +33,51 @@ export const GOOGLE_HOSTS = {
   performance: 'https://businessprofileperformance.googleapis.com/v1',
 } as const;
 
-export function getGoogleBusinessConfig() {
+export const GOOGLE_BUSINESS_PROVIDER = 'google-business';
+
+export type StoredGoogleCredential = {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+};
+
+export type ResolvedGoogleConfig = StoredGoogleCredential & {
+  /** Where the credential came from, so the admin screen can say so. */
+  source: 'database' | 'environment';
+};
+
+/**
+ * Merge a stored credential with the environment, and say which won.
+ *
+ * Deliberately pure and synchronous: it is the piece with the precedence rule
+ * in it, so it is the piece worth testing, and a database read inside it would
+ * make every test that touches configuration need a live Mongo. The read lives
+ * in `loadStoredGoogleCredential` and the two are joined by
+ * `resolveGoogleBusinessConfig`.
+ *
+ * The stored credential wins because it is the one an operator can change
+ * without a redeploy — an environment value left behind from an earlier setup
+ * should not silently override what the admin screen shows as current.
+ */
+export function getGoogleBusinessConfig(stored?: Partial<StoredGoogleCredential> | null): ResolvedGoogleConfig {
+  const storedId = String(stored?.clientId || '').trim();
+  const storedSecret = String(stored?.clientSecret || '').trim();
+  const fromDatabase = Boolean(storedId && storedSecret);
+
   // A deployment that already runs Google sign-in has a client in the same
   // Cloud project; the dedicated variables let it use a separate one without
   // disturbing that. Sign-in needs no secret, so the secret is only ever read
   // from these paths.
-  const clientId = String(process.env.GOOGLE_BUSINESS_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim();
-  const clientSecret = String(process.env.GOOGLE_BUSINESS_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  const clientId = fromDatabase
+    ? storedId
+    : String(process.env.GOOGLE_BUSINESS_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '').trim();
+  const clientSecret = fromDatabase
+    ? storedSecret
+    : String(process.env.GOOGLE_BUSINESS_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '').trim();
+
   const publicOrigin = String(process.env.FRONTEND_URL || '').replace(/\/$/, '');
   const redirectUri =
+    String(stored?.redirectUri || '').trim() ||
     String(process.env.GOOGLE_BUSINESS_REDIRECT_URI || '').trim() ||
     (publicOrigin ? `${publicOrigin}/api/google-business/oauth/callback` : '');
 
@@ -51,21 +88,51 @@ export function getGoogleBusinessConfig() {
     throw new AppError('GOOGLE_BUSINESS_REDIRECT_URI or FRONTEND_URL must be configured', 503);
   }
 
-  return { clientId, clientSecret, redirectUri };
+  return { clientId, clientSecret, redirectUri, source: fromDatabase ? 'database' : 'environment' };
+}
+
+/**
+ * The credential an administrator saved, or null.
+ *
+ * Never throws: a database that is unreachable, or a secret that will not
+ * decrypt because the encryption key rotated, must fall through to the
+ * environment rather than take the whole connection down with it.
+ */
+export async function loadStoredGoogleCredential(): Promise<StoredGoogleCredential | null> {
+  try {
+    const row: any = await PlatformCredential.findOne({
+      provider: GOOGLE_BUSINESS_PROVIDER,
+      isActive: true,
+    }).lean();
+    if (!row?.clientId || !row?.clientSecretEncrypted) return null;
+
+    return {
+      clientId: String(row.clientId),
+      clientSecret: decryptSensitiveValue(row.clientSecretEncrypted),
+      redirectUri: String(row.redirectUri || ''),
+    };
+  } catch (error: any) {
+    logger.warn('[google-business] Stored credential unreadable, falling back to environment:', error?.message || error);
+    return null;
+  }
+}
+
+export async function resolveGoogleBusinessConfig(): Promise<ResolvedGoogleConfig> {
+  return getGoogleBusinessConfig(await loadStoredGoogleCredential());
 }
 
 /** Whether this deployment can offer the connection at all, without throwing. */
-export function isGoogleBusinessConfigured(): boolean {
+export async function isGoogleBusinessConfigured(): Promise<boolean> {
   try {
-    getGoogleBusinessConfig();
+    await resolveGoogleBusinessConfig();
     return true;
   } catch (_error) {
     return false;
   }
 }
 
-export function buildGoogleAuthorizationUrl(state: string) {
-  const { clientId, redirectUri } = getGoogleBusinessConfig();
+export function buildGoogleAuthorizationUrl(state: string, config: ResolvedGoogleConfig) {
+  const { clientId, redirectUri } = config;
   const url = new URL(GOOGLE_HOSTS.oauthAuthorize);
   url.searchParams.set('client_id', clientId);
   url.searchParams.set('redirect_uri', redirectUri);
@@ -102,7 +169,7 @@ function normalizeGoogleError(error: any, fallback: string): AppError {
 }
 
 export async function exchangeGoogleCode(code: string) {
-  const { clientId, clientSecret, redirectUri } = getGoogleBusinessConfig();
+  const { clientId, clientSecret, redirectUri } = await resolveGoogleBusinessConfig();
   const form = new URLSearchParams({
     code,
     client_id: clientId,
@@ -138,7 +205,7 @@ export async function exchangeGoogleCode(code: string) {
 }
 
 export async function refreshGoogleAccessToken(refreshToken: string) {
-  const { clientId, clientSecret } = getGoogleBusinessConfig();
+  const { clientId, clientSecret } = await resolveGoogleBusinessConfig();
   const form = new URLSearchParams({
     refresh_token: refreshToken,
     client_id: clientId,

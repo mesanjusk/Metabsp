@@ -14,12 +14,14 @@ const AdminServiceAccessPanel = dynamic(() => import('@/lib/ui/app/AdminServiceA
 const MetaWebhookConfigPanel = dynamic(() => import('@/lib/ui/whatsappCloud/MetaWebhookConfigPanel'), { ssr: false, loading: () => <LoadingSkeleton /> });
 const WebhookDeliveryPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WebhookDeliveryPanel'), { ssr: false, loading: () => <LoadingSkeleton /> });
 const WhatsAppAccountsAdminPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WhatsAppAccountsAdminPanel'), { ssr: false, loading: () => <LoadingSkeleton /> });
+const AdminGoogleCredentialsPanel = dynamic(() => import('@/lib/ui/app/AdminGoogleCredentialsPanel'), { ssr: false, loading: () => <LoadingSkeleton /> });
 
 const TABS = [
   { value: 'overview', label: 'Platform overview' },
   { value: 'users', label: 'Users' },
   { value: 'services', label: 'Service access' },
   { value: 'meta', label: 'Meta configuration' },
+  { value: 'google', label: 'Google configuration' },
 ];
 
 export default function AdminPage() {
@@ -37,7 +39,7 @@ export default function AdminPage() {
   if (!isAdmin) return null;
 
   return (
-    <PageBody title="Administration" description="Manage customers, service access, platform health and Meta configuration.">
+    <PageBody title="Administration" description="Manage customers, service access, platform health, and the Meta and Google provider configuration.">
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, overflowX: 'auto' }}>
         <Tabs value={tab} onChange={(_event, next) => setTab(next)} aria-label="Administration section" variant="scrollable" scrollButtons="auto">
           {TABS.map((entry) => <Tab key={entry.value} value={entry.value} label={entry.label} />)}
@@ -54,6 +56,7 @@ export default function AdminPage() {
           <WhatsAppAccountsAdminPanel />
         </Stack>
       ) : null}
+      {tab === 'google' ? <AdminGoogleCredentialsPanel /> : null}
     </PageBody>
   );
 }

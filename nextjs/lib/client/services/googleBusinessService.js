@@ -25,3 +25,9 @@ export const draftGoogleContent = (payload) => apiClient.post('/api/google-busin
 
 export const sendGoogleReviewRequest = (to, message) =>
   apiClient.post('/api/google-business/review-requests', { to, message });
+
+// Admin-only: the platform's own OAuth client, not a merchant's connection.
+export const fetchGooglePlatformCredential = () => apiClient.get('/api/google-business/admin/credentials');
+export const saveGooglePlatformCredential = (payload) =>
+  apiClient.put('/api/google-business/admin/credentials', payload);
+export const removeGooglePlatformCredential = () => apiClient.delete('/api/google-business/admin/credentials');

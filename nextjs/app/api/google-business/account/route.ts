@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         // The dashboard has to tell "nobody has connected yet" apart from "this
         // deployment has no Google client configured", because only one of them
         // is something the shop owner can fix.
-        configured: isGoogleBusinessConfigured(),
+        configured: await isGoogleBusinessConfigured(),
         aiConfigured: isAiDraftingConfigured(),
       },
     });

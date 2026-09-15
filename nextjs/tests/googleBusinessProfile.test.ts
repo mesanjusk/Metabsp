@@ -11,7 +11,7 @@ import {
   summarizePerformance,
   summarizeReviews,
 } from '@/lib/googleBusiness/profile';
-import { buildGoogleAuthorizationUrl, isGoogleBusinessConfigured } from '@/lib/googleBusiness/google';
+import { buildGoogleAuthorizationUrl, getGoogleBusinessConfig } from '@/lib/googleBusiness/google';
 
 describe('google business resource names', () => {
   it('reduces a resource name to its id and leaves a bare id alone', () => {
@@ -229,7 +229,7 @@ describe('authorization url', () => {
    * visible cause. This is the test that keeps both on the URL.
    */
   it('always asks for offline access and a fresh consent', () => {
-    const url = new URL(buildGoogleAuthorizationUrl('state-token'));
+    const url = new URL(buildGoogleAuthorizationUrl('state-token', getGoogleBusinessConfig()));
     expect(url.origin + url.pathname).toBe('https://accounts.google.com/o/oauth2/v2/auth');
     expect(url.searchParams.get('access_type')).toBe('offline');
     expect(url.searchParams.get('prompt')).toBe('consent');
@@ -238,17 +238,83 @@ describe('authorization url', () => {
   });
 
   it('requests the one scope the Business Profile APIs accept', () => {
-    const scopes = new URL(buildGoogleAuthorizationUrl('s')).searchParams.get('scope') || '';
+    const scopes = new URL(buildGoogleAuthorizationUrl('s', getGoogleBusinessConfig())).searchParams.get('scope') || '';
     expect(scopes.split(' ')).toContain('https://www.googleapis.com/auth/business.manage');
     // The deprecated alias must never be requested.
     expect(scopes).not.toContain('plus.business.manage');
   });
 
-  it('reports the service as unconfigured instead of throwing when no client is set', () => {
+  it('refuses to build a config when no client is set anywhere', () => {
     delete process.env.GOOGLE_BUSINESS_CLIENT_ID;
     delete process.env.GOOGLE_BUSINESS_CLIENT_SECRET;
     delete process.env.GOOGLE_CLIENT_ID;
     delete process.env.GOOGLE_CLIENT_SECRET;
-    expect(isGoogleBusinessConfigured()).toBe(false);
+    expect(() => getGoogleBusinessConfig()).toThrowError(/client ID\/secret are not configured/);
+  });
+});
+
+/**
+ * The precedence rule is the whole point of the admin screen: an operator who
+ * saves a client there must see it take effect, even on a deployment that still
+ * carries an older value in its environment.
+ */
+describe('platform credential precedence', () => {
+  const previous = { ...process.env };
+
+  beforeEach(() => {
+    process.env.GOOGLE_BUSINESS_CLIENT_ID = 'env-client.apps.googleusercontent.com';
+    process.env.GOOGLE_BUSINESS_CLIENT_SECRET = 'env-secret';
+    process.env.FRONTEND_URL = 'https://meta.example.in';
+    delete process.env.GOOGLE_BUSINESS_REDIRECT_URI;
+  });
+
+  afterEach(() => {
+    process.env = { ...previous };
+  });
+
+  it('prefers a stored client over the environment and says so', () => {
+    const config = getGoogleBusinessConfig({
+      clientId: 'saved-client.apps.googleusercontent.com',
+      clientSecret: 'saved-secret',
+    });
+
+    expect(config).toMatchObject({
+      clientId: 'saved-client.apps.googleusercontent.com',
+      clientSecret: 'saved-secret',
+      source: 'database',
+    });
+  });
+
+  it('falls back to the environment when nothing is stored', () => {
+    expect(getGoogleBusinessConfig(null)).toMatchObject({
+      clientId: 'env-client.apps.googleusercontent.com',
+      source: 'environment',
+    });
+  });
+
+  /**
+   * Half a credential is not a credential. A row carrying a client id whose
+   * secret failed to decrypt must not be allowed to shadow a working
+   * environment pair with an unusable one.
+   */
+  it('ignores a stored row that is missing either half', () => {
+    expect(getGoogleBusinessConfig({ clientId: 'saved-client.apps.googleusercontent.com' })).toMatchObject({
+      clientId: 'env-client.apps.googleusercontent.com',
+      source: 'environment',
+    });
+    expect(getGoogleBusinessConfig({ clientSecret: 'saved-secret' })).toMatchObject({
+      clientId: 'env-client.apps.googleusercontent.com',
+      source: 'environment',
+    });
+  });
+
+  it('lets a stored redirect URI override the derived one', () => {
+    expect(
+      getGoogleBusinessConfig({
+        clientId: 'saved-client.apps.googleusercontent.com',
+        clientSecret: 'saved-secret',
+        redirectUri: 'https://other.example/api/google-business/oauth/callback',
+      }).redirectUri
+    ).toBe('https://other.example/api/google-business/oauth/callback');
   });
 });

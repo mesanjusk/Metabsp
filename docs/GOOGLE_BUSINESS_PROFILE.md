@@ -39,12 +39,46 @@ rest of the conversation.
    project has a quota of **0** until Google approves — every call 429s before then.
 3. Create an OAuth 2.0 **Web application** client. Add the redirect URI
    `<FRONTEND_URL>/api/google-business/oauth/callback`.
-4. Set `GOOGLE_BUSINESS_CLIENT_ID` / `GOOGLE_BUSINESS_CLIENT_SECRET` (or reuse
-   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from the same project) and, for
-   drafting, `ANTHROPIC_API_KEY`.
+4. Give the client to the platform, either way round:
+   - **Administration → Google configuration** in the dashboard (admin only). The
+     secret is encrypted with the same key as every other provider secret and
+     can be rotated without a redeploy.
+   - or `GOOGLE_BUSINESS_CLIENT_ID` / `GOOGLE_BUSINESS_CLIENT_SECRET` in the
+     environment (or `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` from the same
+     project).
+5. For AI drafting, set `ANTHROPIC_API_KEY`.
 
 Scope requested: `https://www.googleapis.com/auth/business.manage` — the only scope
 these APIs accept. The deprecated `plus.business.manage` alias is not requested.
+
+## Whose credential is whose
+
+Two different things are called a credential here and confusing them is the easy
+mistake:
+
+| | Platform OAuth client | Merchant authorization |
+| --- | --- | --- |
+| Model | `PlatformCredential` (one row for the deployment) | `GoogleBusinessAccount` (one row per user) |
+| Set by | A platform administrator, once | The merchant, by pressing Connect |
+| Equivalent to | `META_APP_ID` / `META_APP_SECRET` | A connected WhatsApp number |
+
+A merchant must never be asked for the client ID and secret. Per-merchant clients
+would mean every shop running its own Google Cloud project and winning its own
+Business Profile API approval — weeks of waiting for something only the platform
+needs once. The merchant-facing flow is Google's consent screen, which is the
+Google equivalent of Meta's Embedded Signup and is already what the Connect
+button does.
+
+**Precedence:** a stored client beats the environment, and the resolver reports
+which one won so the admin screen can say so. The rule lives in the pure
+`getGoogleBusinessConfig(stored?)`; the database read is separate
+(`loadStoredGoogleCredential`, which never throws — an unreachable database or a
+secret that will not decrypt falls through to the environment rather than taking
+the connection down). Half a stored credential is not a credential: a row whose
+secret failed to decrypt does not shadow a working environment pair.
+
+The secret is write-only. No endpoint returns it, including to the admin who set
+it; the screen confirms with the last four characters instead.
 
 ## Connection model
 
@@ -78,6 +112,7 @@ never as connected.
 | `/api/google-business/performance` | GET | Daily Search/Maps metrics, rolled up |
 | `/api/google-business/ai/draft` | POST | Draft a review reply, a post, or a review request |
 | `/api/google-business/review-requests` | POST | Send a review request over WhatsApp |
+| `/api/google-business/admin/credentials` | GET / PUT / DELETE | Admin-only: the platform's own OAuth client. Audit-logged; never returns the secret |
 
 All routes authenticate through the shared session and resolve the `google-business`
 entitlement, which is a basic service included with every account.

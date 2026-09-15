@@ -6,7 +6,7 @@ import { getJwtSecret } from '@/lib/auth/jwt';
 import { errorResponse } from '@/lib/http/errorResponse';
 import {
   buildGoogleAuthorizationUrl,
-  getGoogleBusinessConfig,
+  resolveGoogleBusinessConfig,
   GOOGLE_BUSINESS_SCOPES,
 } from '@/lib/googleBusiness/google';
 
@@ -20,12 +20,14 @@ export async function GET(req: NextRequest) {
       expiresIn: '10m',
     });
 
-    const { redirectUri } = getGoogleBusinessConfig();
+    // Resolved once: the admin-stored client wins over the environment, and
+    // both halves of the response have to describe the same client.
+    const config = await resolveGoogleBusinessConfig();
     return NextResponse.json({
       success: true,
       data: {
-        authorizationUrl: buildGoogleAuthorizationUrl(state),
-        redirectUri,
+        authorizationUrl: buildGoogleAuthorizationUrl(state, config),
+        redirectUri: config.redirectUri,
         scopes: [...GOOGLE_BUSINESS_SCOPES],
       },
     });
