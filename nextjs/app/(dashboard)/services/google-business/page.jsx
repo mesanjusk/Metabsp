@@ -151,10 +151,18 @@ export default function GoogleBusinessPage() {
     if (connected && locationSelected) loadWorkspace();
   }, [connected, locationSelected, loadWorkspace]);
 
-  const loadLocations = useCallback(async () => {
+  /**
+   * `accountName` is optional and omitted on the first load, where the server
+   * falls back to the account stored at connect time. It is passed when the
+   * merchant picks a different one: a Google identity can manage several
+   * Business accounts (an agency, or a brand split across entities), and the
+   * profile they want is not always under the first.
+   */
+  const loadLocations = useCallback(async (accountName) => {
     setBusy(true);
     try {
-      setLocationOptions(payload(await fetchGoogleBusinessLocations()) || { accounts: [], locations: [] });
+      const data = payload(await fetchGoogleBusinessLocations(accountName)) || { accounts: [], locations: [] };
+      setLocationOptions(data);
     } catch (requestError) {
       setError(errorText(requestError, 'Could not load Google Business locations.'));
     } finally {
@@ -401,9 +409,28 @@ export default function GoogleBusinessPage() {
                 <CardContent>
                   <Typography variant="h6" fontWeight={700} gutterBottom>Choose the location to manage</Typography>
                   <Typography color="text.secondary" sx={{ mb: 2 }}>
-                    This Google account manages more than one profile. Reviews, posts and performance all belong to
-                    a single location.
+                    Reviews, posts and performance all belong to a single location.
                   </Typography>
+
+                  {(locationOptions.accounts || []).length > 1 ? (
+                    <FormControl size="small" fullWidth sx={{ mb: 2, maxWidth: 420 }}>
+                      <InputLabel id="google-account-picker">Google account</InputLabel>
+                      <Select
+                        labelId="google-account-picker"
+                        label="Google account"
+                        value={locationOptions.activeAccount || ''}
+                        onChange={(event) => loadLocations(event.target.value)}
+                        disabled={busy}
+                      >
+                        {(locationOptions.accounts || []).map((googleAccount) => (
+                          <MenuItem key={googleAccount.name} value={googleAccount.name}>
+                            {googleAccount.accountName || googleAccount.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  ) : null}
+
                   {busy ? <CircularProgress size={22} /> : null}
                   <Stack spacing={1.25}>
                     {(locationOptions.locations || []).map((location) => (
@@ -433,8 +460,10 @@ export default function GoogleBusinessPage() {
                     ))}
                     {!busy && !(locationOptions.locations || []).length ? (
                       <Alert severity="warning">
-                        No locations were returned for this Google account. Check that the account you signed in with
-                        owns or manages the business profile.
+                        No locations were returned for this Google account.
+                        {(locationOptions.accounts || []).length > 1
+                          ? ' Try another account above.'
+                          : ' Check that the account you signed in with owns or manages the business profile.'}
                       </Alert>
                     ) : null}
                   </Stack>
