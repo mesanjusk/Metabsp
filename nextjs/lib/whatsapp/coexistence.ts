@@ -11,7 +11,10 @@
 
 import WhatsAppAccount from '../models/WhatsAppAccount';
 import Contact from '../models/Contact';
+import Message from '../models/Message';
+import { getGraphApiVersion } from '../config/graphApi';
 import { loadWhatsAppAccountFromWebhookIdentifiers } from '../services/whatsappAccountService';
+import { uploadWhatsAppMediaToCloudinary } from '../services/whatsappMediaService';
 import { parseIncoming, forwardToWebhookDestinations } from './webhookProcessing';
 import { saveAndEmitMessage } from './dispatch';
 import { emitHistorySyncProgress } from '../socket/emitter';
@@ -91,7 +94,15 @@ export const extractCoexistenceEvents = (entries: any): CoexistenceEvents => {
   return { echoes, historyChunks, stateSyncs };
 };
 
-const resolveAccount = async (ids: Identifiers) => {
+/**
+ * The whole webhook context, not just the account row.
+ *
+ * This used to return `context.account` and drop the rest, which threw away
+ * the decrypted `accessToken` — the one thing needed to fetch media from the
+ * Graph API. Media sent from the WhatsApp Business app therefore had no way to
+ * be resolved here, however much the rest of the pipeline wanted it.
+ */
+const resolveAccountContext = async (ids: Identifiers) => {
   try {
     const context: any = await loadWhatsAppAccountFromWebhookIdentifiers(
       {
@@ -102,9 +113,53 @@ const resolveAccount = async (ids: Identifiers) => {
       },
       { requireAccount: false }
     );
-    return context?.account || null;
+    return context || null;
   } catch (_error) {
     return null;
+  }
+};
+
+/**
+ * Mirrors an echoed media file to Cloudinary and records the URL on the saved
+ * message.
+ *
+ * An echo carries a media id, never the file: the picture lives behind the
+ * Graph API and needs the account's token to fetch. The inbound path already
+ * does this (see webhookHandler), so a photo a customer sends renders
+ * everywhere. A photo the business sends from the WhatsApp Business app or
+ * WhatsApp Web took the echo path instead, which stored the id and stopped —
+ * leaving `mediaUrl` empty forever. Every consumer then had nothing to render:
+ * the shared inbox and the /api/v1/messages API both fall back to the message
+ * body, which for an uncaptioned image is the raw media id (see parseIncoming).
+ *
+ * Best-effort, like the inbound path: the row is already saved and on screen,
+ * so a media failure must never turn a delivered message into a lost one.
+ */
+const mirrorEchoMedia = async ({
+  messageDocId,
+  mediaId,
+  accessToken,
+}: {
+  messageDocId: unknown;
+  mediaId: string;
+  accessToken: string;
+}) => {
+  try {
+    const uploaded = await uploadWhatsAppMediaToCloudinary({
+      mediaId,
+      accessToken,
+      graphVersion: getGraphApiVersion(),
+    });
+    await Message.findByIdAndUpdate(messageDocId, {
+      $set: {
+        mediaUrl: uploaded.mediaUrl,
+        mimeType: uploaded.mimeType,
+        mediaPublicId: uploaded.mediaPublicId,
+        mediaResourceType: uploaded.mediaResourceType,
+      },
+    });
+  } catch (error: any) {
+    logger.error('[coexistence] echo media mirroring failed:', error.message);
   }
 };
 
@@ -153,6 +208,7 @@ const touchContact = async ({
 
 const saveCoexistenceMessage = async ({
   account,
+  accessToken = '',
   ids,
   msg,
   direction,
@@ -160,6 +216,7 @@ const saveCoexistenceMessage = async ({
   isHistorical,
 }: {
   account: any;
+  accessToken?: string;
   ids: Identifiers;
   msg: any;
   direction: 'incoming' | 'outgoing';
@@ -176,7 +233,7 @@ const saveCoexistenceMessage = async ({
   // saveAndEmitMessage de-duplicates on messageId, so an echo of a message this
   // platform itself sent (same wamid) is a no-op and re-delivered history
   // chunks are idempotent.
-  const { isDuplicate } = await saveAndEmitMessage({
+  const { message: savedMessage, isDuplicate } = await saveAndEmitMessage({
     userId: account?.userId,
     whatsappAccountId: account?._id,
     fromMe: outgoing,
@@ -197,6 +254,18 @@ const saveCoexistenceMessage = async ({
     isHistorical,
   });
 
+  // Live echoes only. A history backfill is already-delivered chat from up to
+  // 180 days back: Meta has long since expired those media ids, and fetching
+  // one per message would turn a bulk import into thousands of Graph calls —
+  // which is why history has always skipped media downloads.
+  if (!isDuplicate && !isHistorical && parsed.mediaId && accessToken) {
+    await mirrorEchoMedia({
+      messageDocId: (savedMessage as any)?._id,
+      mediaId: parsed.mediaId,
+      accessToken,
+    });
+  }
+
   return { saved: true as const, isDuplicate, parsed, at };
 };
 
@@ -208,9 +277,11 @@ const saveCoexistenceMessage = async ({
 export const processEchoes = async (echoes: CoexistenceEvents['echoes']) => {
   for (const echo of echoes) {
     try {
-      const account = await resolveAccount(echo);
+      const context = await resolveAccountContext(echo);
+      const account = context?.account || null;
       const result = await saveCoexistenceMessage({
         account,
+        accessToken: context?.accessToken || '',
         ids: echo,
         msg: echo.message,
         direction: 'outgoing',
@@ -272,7 +343,7 @@ export const processEchoes = async (echoes: CoexistenceEvents['echoes']) => {
 export const processHistoryChunks = async (chunks: CoexistenceEvents['historyChunks']) => {
   for (const chunk of chunks) {
     try {
-      const account = await resolveAccount(chunk);
+      const account = (await resolveAccountContext(chunk))?.account || null;
       const businessPhone = normalizePhone(chunk.displayPhoneNumber || chunk.phoneNumberId);
       let imported = 0;
 
@@ -357,7 +428,7 @@ export const processStateSyncs = async (stateSyncs: CoexistenceEvents['stateSync
       const phone = normalizePhone(contact.phone_number || contact.phone || contact.wa_id);
       if (!phone) continue;
 
-      const account = await resolveAccount(sync);
+      const account = (await resolveAccountContext(sync))?.account || null;
       const action = String(item.action || 'add').toLowerCase();
       const name = String(contact.full_name || contact.first_name || '').trim();
 
