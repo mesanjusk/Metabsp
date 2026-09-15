@@ -190,9 +190,11 @@ export default function AdminGoogleCredentialsPanel() {
                 type={secretVisible ? 'text' : 'password'}
                 placeholder={state?.clientSecretLastFour ? `•••••••••••••${state.clientSecretLastFour}` : ''}
                 helperText={
-                  state?.saved
-                    ? 'Write-only. Leave blank to keep the stored secret — it is never sent back to this screen.'
-                    : 'Write-only. Required the first time a client is saved; never sent back afterwards.'
+                  changesClient
+                    ? 'Required: you are changing the client ID, and a secret belongs to one client ID.'
+                    : state?.saved
+                      ? 'Write-only. Leave blank to keep the stored secret — it is never sent back to this screen.'
+                      : 'Write-only. Required the first time a client is saved; never sent back afterwards.'
                 }
                 InputProps={{
                   endAdornment: (
@@ -236,7 +238,7 @@ export default function AdminGoogleCredentialsPanel() {
               <Button
                 variant="contained"
                 onClick={save}
-                disabled={saving || !clientId.trim() || (!clientSecret.trim() && !state?.saved)}
+                disabled={saving || !clientId.trim() || (!clientSecret.trim() && (!state?.saved || changesClient))}
               >
                 Save client
               </Button>

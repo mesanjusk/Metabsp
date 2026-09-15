@@ -29,6 +29,32 @@ import {
 
 const lastFour = (value: string) => (value.length > 4 ? value.slice(-4) : '••••');
 
+/**
+ * Connections that were authorised against some *other* client and therefore
+ * cannot be refreshed any more.
+ *
+ * Spelled out clause by clause rather than as a single `$nin: ['', null, id]`.
+ * Whether `$nin` matches a document that lacks the field altogether is a corner
+ * of MongoDB's null handling that reasonable references describe in opposite
+ * ways, and the answer decides whether every connection made before
+ * `issuedByClientId` existed gets counted as broken. A filter whose correctness
+ * turns on that is a filter waiting to be misread, so each condition is stated:
+ * the field is present, it is not empty, and it is not the client in force.
+ * An absent or empty issuer means unknown, which the refresh path also treats
+ * as "leave alone".
+ */
+function staleIssuerFilter(currentClientId: string) {
+  return {
+    isActive: true,
+    $and: [
+      { issuedByClientId: { $exists: true } },
+      { issuedByClientId: { $ne: null } },
+      { issuedByClientId: { $ne: '' } },
+      { issuedByClientId: { $ne: currentClientId } },
+    ],
+  };
+}
+
 function auditIp(req: NextRequest) {
   return String(req.headers.get('x-forwarded-for') || '').split(',')[0].trim();
 }
@@ -60,10 +86,7 @@ export async function GET(req: NextRequest) {
     const [connectedCount, mismatchedCount] = await Promise.all([
       GoogleBusinessAccount.countDocuments({ isActive: true }),
       resolved?.clientId
-        ? GoogleBusinessAccount.countDocuments({
-            isActive: true,
-            issuedByClientId: { $nin: ['', null, resolved.clientId] },
-          })
+        ? GoogleBusinessAccount.countDocuments(staleIssuerFilter(resolved.clientId))
         : Promise.resolve(0),
     ]);
 
@@ -124,6 +147,16 @@ export async function PUT(req: NextRequest) {
     if (!clientSecret && !existing?.clientSecretEncrypted) {
       throw new AppError('The client secret is required the first time a client is saved', 400);
     }
+    // Keeping the stored secret is only safe while the client ID it belongs to
+    // is unchanged. Carrying it across a rotation would save a mismatched pair
+    // that fails every code exchange and every refresh — the precise breakage
+    // this endpoint exists to make visible.
+    if (!clientSecret && existing?.clientId && existing.clientId !== clientId) {
+      throw new AppError(
+        'Changing the client ID needs that client’s own secret. A secret belongs to one client ID, so keeping the stored one would save a pair Google rejects.',
+        400
+      );
+    }
     // Google web-application client IDs always carry this suffix. Catching it
     // here turns the commonest paste error — the project number, or an API key
     // — into a message now rather than an opaque 401 from Google later.
@@ -152,10 +185,7 @@ export async function PUT(req: NextRequest) {
     // Saving a different client invalidates every authorization issued to the
     // previous one. The count is reported back so the confirmation says how
     // many merchants have to reconnect rather than leaving it to be discovered.
-    const strandedConnections = await GoogleBusinessAccount.countDocuments({
-      isActive: true,
-      issuedByClientId: { $nin: ['', null, clientId] },
-    });
+    const strandedConnections = await GoogleBusinessAccount.countDocuments(staleIssuerFilter(clientId));
 
     await AuditLog.create({
       userId: authed.id,

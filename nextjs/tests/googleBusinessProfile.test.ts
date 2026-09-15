@@ -328,6 +328,24 @@ describe('platform credential precedence', () => {
     expect(isStale('')).toBe(false);
   });
 
+  /**
+   * Keeping the stored secret is only safe while the client ID it belongs to is
+   * unchanged — a secret is issued for one client, so carrying it across a
+   * rotation stores a pair Google rejects.
+   */
+  it('only allows an omitted secret while the client ID stays the same', () => {
+    const mayKeepStoredSecret = (storedClientId: string, nextClientId: string, hasStoredSecret: boolean) =>
+      hasStoredSecret && (!storedClientId || storedClientId === nextClientId);
+
+    const a = 'a.apps.googleusercontent.com';
+    const b = 'b.apps.googleusercontent.com';
+
+    expect(mayKeepStoredSecret(a, a, true)).toBe(true);
+    expect(mayKeepStoredSecret(a, b, true)).toBe(false);
+    // Nothing stored yet: the secret has to be supplied.
+    expect(mayKeepStoredSecret('', a, false)).toBe(false);
+  });
+
   it('lets a stored redirect URI override the derived one', () => {
     expect(
       getGoogleBusinessConfig({
