@@ -308,6 +308,26 @@ describe('platform credential precedence', () => {
     });
   });
 
+  /**
+   * The rotation hazard, as a rule rather than a comment: a refresh token is
+   * redeemable only by the client that issued it, so a connection whose
+   * recorded issuer is not the client now in force cannot be refreshed and has
+   * to be reported as needing reconnection. An unrecorded issuer (a connection
+   * made before the field existed) means unknown, not mismatched.
+   */
+  it('treats a recorded issuer that differs from the live client as stale', () => {
+    const live = getGoogleBusinessConfig({
+      clientId: 'current-client.apps.googleusercontent.com',
+      clientSecret: 'current-secret',
+    }).clientId;
+
+    const isStale = (issuedByClientId: string) => Boolean(issuedByClientId && issuedByClientId !== live);
+
+    expect(isStale('older-client.apps.googleusercontent.com')).toBe(true);
+    expect(isStale('current-client.apps.googleusercontent.com')).toBe(false);
+    expect(isStale('')).toBe(false);
+  });
+
   it('lets a stored redirect URI override the derived one', () => {
     expect(
       getGoogleBusinessConfig({

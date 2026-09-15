@@ -109,6 +109,12 @@ export default function AdminGoogleCredentialsPanel() {
     }
   };
 
+  // A different client ID in the box than the one in force: the difference
+  // between editing a redirect URI and stranding every connected merchant.
+  const changesClient = Boolean(
+    state?.clientId && clientId.trim() && clientId.trim() !== state.clientId
+  );
+
   const source = state?.source || 'none';
   const sourceChip =
     source === 'database'
@@ -183,7 +189,11 @@ export default function AdminGoogleCredentialsPanel() {
                 onChange={(event) => setClientSecret(event.target.value)}
                 type={secretVisible ? 'text' : 'password'}
                 placeholder={state?.clientSecretLastFour ? `•••••••••••••${state.clientSecretLastFour}` : ''}
-                helperText="Write-only. It is never sent back to this screen, so leave it blank unless you are changing it."
+                helperText={
+                  state?.saved
+                    ? 'Write-only. Leave blank to keep the stored secret — it is never sent back to this screen.'
+                    : 'Write-only. Required the first time a client is saved; never sent back afterwards.'
+                }
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -209,11 +219,24 @@ export default function AdminGoogleCredentialsPanel() {
               />
             </Stack>
 
+            {state?.connections?.total ? (
+              <Alert severity={changesClient ? 'warning' : 'info'}>
+                {state.connections.total} merchant {state.connections.total === 1 ? 'profile is' : 'profiles are'}{' '}
+                connected against the current client.
+                {changesClient
+                  ? ' Saving a different client ID will invalidate their authorizations — a Google refresh token only works for the client that issued it, so each of them will have to reconnect.'
+                  : ''}
+                {state.connections.needingReconnect
+                  ? ` ${state.connections.needingReconnect} already need to reconnect after an earlier change.`
+                  : ''}
+              </Alert>
+            ) : null}
+
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button
                 variant="contained"
                 onClick={save}
-                disabled={saving || !clientId.trim() || !clientSecret.trim()}
+                disabled={saving || !clientId.trim() || (!clientSecret.trim() && !state?.saved)}
               >
                 Save client
               </Button>

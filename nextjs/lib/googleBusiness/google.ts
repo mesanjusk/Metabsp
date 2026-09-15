@@ -279,6 +279,24 @@ export async function getGoogleBusinessAccess(userId: string) {
     return { account, accessToken: decryptSensitiveValue(account.accessTokenEncrypted) };
   }
 
+  // A refresh token can only be redeemed by the client that issued it. When the
+  // platform client has been rotated since this merchant connected, the refresh
+  // is going to fail whatever we do — so say why, here, rather than letting
+  // Google's `invalid_client` reach the merchant as an unexplained expiry.
+  //
+  // Connections made before this field existed have no issuer recorded and are
+  // left alone: an empty value means unknown, not mismatched.
+  const currentClientId = (await resolveGoogleBusinessConfig()).clientId;
+  if (account.issuedByClientId && account.issuedByClientId !== currentClientId) {
+    await GoogleBusinessAccount.findByIdAndUpdate(account._id, {
+      $set: { status: 'error', lastError: 'Platform Google client changed since this profile was connected' },
+    });
+    throw new AppError(
+      'This workspace now uses a different Google client, so the existing authorization can no longer be refreshed. Reconnect the Business Profile.',
+      401
+    );
+  }
+
   const refreshToken = decryptSensitiveValue(account.refreshTokenEncrypted);
   try {
     const refreshed = await refreshGoogleAccessToken(refreshToken);
