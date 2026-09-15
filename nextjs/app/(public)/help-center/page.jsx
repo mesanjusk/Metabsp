@@ -18,15 +18,15 @@ const FAQ_DATA = [
     items: [
       {
         q: 'What is SanjuSK and how does it work?',
-        a: 'SanjuSK is a messaging platform built on Meta\'s official WhatsApp Business Platform (Cloud API). It lets your business send and receive WhatsApp messages at scale. You connect your own WhatsApp Business Account to our platform — you keep ownership of it — and we handle the API infrastructure, authentication, and message delivery.',
+        a: 'SanjuSK is one workspace for running a small business. Customers reach you on WhatsApp, Instagram or your Google Business Profile, and every conversation lands against the same contact record — alongside the CRM, product catalogue, quotations and invoices, staff tasks and automations that follow from it. WhatsApp messaging runs on Meta\'s official WhatsApp Business Platform (Cloud API): you connect your own WhatsApp Business Account and keep ownership of it, and we handle the API infrastructure, authentication and delivery.',
       },
       {
         q: 'How do I create an account?',
-        a: 'Click "Sign Up" in the top navigation, enter your business email and create a password. You\'ll receive a verification email. After verifying, connect your WhatsApp Business Account by pasting an access token, phone number ID and business account ID from Meta Business Manager — this takes about 5-10 minutes. One-click Embedded Signup is coming soon.',
+        a: 'Click "Sign Up" in the top navigation and enter your mobile number. You will receive a one-time code to confirm it, and you are in — no WhatsApp Business Account is needed to create the account or look around. From the services hub you then connect whichever channels you want: WhatsApp through Meta\'s Embedded Signup (or your own access token), Instagram, and your Google Business Profile.',
       },
       {
         q: 'Do I need an existing WhatsApp Business Account?',
-        a: 'For now, yes — connecting requires a WhatsApp Business Account you can generate an access token for in Meta Business Manager. Creating one directly through SanjuSK\'s Embedded Signup flow is coming soon.',
+        a: 'No. Meta\'s Embedded Signup will create or connect one for you inside the flow. If you already have a WhatsApp Business Account you can connect it that way too, or paste an access token from Meta Business Manager instead. You also do not need WhatsApp at all to use the CRM, store, Google Business Profile or the other services.',
       },
       {
         q: 'What phone number can I use for WhatsApp Business?',
@@ -48,7 +48,7 @@ const FAQ_DATA = [
     items: [
       {
         q: 'What is the Embedded Signup process?',
-        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a platform like SanjuSK: you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize SanjuSK to send messages on your behalf. It is coming soon here — until then, connect your number with an access token from Meta Business Manager.',
+        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a platform like SanjuSK: you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize SanjuSK to send messages on your behalf. It runs here in a Meta-hosted window, so no credentials are typed into our site. Connecting with an access token from Meta Business Manager remains available if your administrator prefers it.',
       },
       {
         q: 'How long does business verification take?',
@@ -64,7 +64,7 @@ const FAQ_DATA = [
       },
       {
         q: 'Can I use the same number on the WhatsApp app and the API?',
-        a: 'No. A phone number can only be registered in one of: the WhatsApp personal app, the WhatsApp Business app, or the WhatsApp Business API. If you want to use a number on the API, you must first delete it from any existing WhatsApp app installation.',
+        a: 'Yes, through coexistence. Scan a QR code in the WhatsApp Business app and the same number joins the platform while continuing to work on your phone, with recent chats imported into the shared inbox. Without coexistence a number can only be registered in one place — the personal app, the Business app, or the Business API — and moving it to the API means removing it from the app first.',
       },
     ],
   },

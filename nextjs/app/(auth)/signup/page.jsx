@@ -94,7 +94,10 @@ export default function Signup() {
       });
 
       toast.success('Account created successfully.');
-      router.replace(ROUTES.WHATSAPP);
+      // The hub, not the WhatsApp inbox. A new account has no number connected
+      // yet, so /inbox is the one screen that can only show an empty state —
+      // and WhatsApp is now one service of eleven rather than the product.
+      router.replace(ROUTES.DASHBOARD);
     } catch (error) {
       setErrorText(error?.response?.data?.message || 'Failed to verify OTP.');
     } finally {
