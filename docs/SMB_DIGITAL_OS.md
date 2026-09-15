@@ -78,9 +78,11 @@ The Mini Store workspace now provides the shared internal data layer for:
 
 Existing Marketing & Publisher and Instagram features remain separate channel tools that can write activity back into the shared workspace.
 
+Google Business Profile is now connected rather than planned — see
+[GOOGLE_BUSINESS_PROFILE.md](./GOOGLE_BUSINESS_PROFILE.md).
+
 Still provider-gated / intentionally not faked:
 
-- Google Business Profile connection and review/post APIs
 - business dialer / cloud telephony provider
 - public checkout/storefront and payment gateway
 - statutory accounting/GST integrations
@@ -117,4 +119,6 @@ All routes require the existing authenticated session and scope queries to the a
 
 ## Product status rules
 
-A service should only be marked active/beta when it has a real usable workspace. External services stay `planned` until a real provider connection exists. This is why Google Business Profile and Business Dialer remain planned while CRM, Store, Staff and Payments are promoted to beta.
+A service should only be marked active/beta when it has a real usable workspace. External services stay `planned` until a real provider connection exists. Google Business Profile moved from `planned` to `beta` when it gained a real Google OAuth connection and live review/post/performance calls; the same rule still keeps anything without a provider connection out of `beta`.
+
+"Connected" is also held to that standard inside a service. A Google connection with no location selected reports as `pending`, not `connected`, because it can neither read reviews nor publish a post.

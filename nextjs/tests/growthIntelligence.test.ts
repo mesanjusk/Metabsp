@@ -63,6 +63,25 @@ describe('growth intelligence', () => {
     expect(recommendations.find((item) => item.id === 'google-business')).toBeTruthy();
   });
 
+  /**
+   * The Google recommendation used to be a dead "Coming soon" button, because
+   * there was no provider connection behind it. There is one now, so the card
+   * has to send the owner at the screen that connects it.
+   */
+  it('points an unconnected Google Business profile at the connect screen', () => {
+    const recommendation = buildGrowthRecommendations({ ...base, googleBusinessLive: false }).find(
+      (item) => item.id === 'google-business'
+    );
+
+    expect(recommendation).toMatchObject({ href: '/services/google-business', actionLabel: 'Connect Google' });
+  });
+
+  it('drops the Google recommendation once a profile and location are connected', () => {
+    const recommendations = buildGrowthRecommendations({ ...base, googleBusinessLive: true });
+    expect(recommendations.find((item) => item.id === 'google-business')).toBeUndefined();
+    expect(buildGrowthAgents({ ...base, googleBusinessLive: true }).localGrowth.status).toBe('live');
+  });
+
   it('reports agent state from live connections and entitlements', () => {
     const agents = buildGrowthAgents({
       ...base,

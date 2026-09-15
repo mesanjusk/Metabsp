@@ -47,7 +47,7 @@ const AGENTS = [
     key: 'localGrowth',
     title: 'Local Growth',
     icon: TravelExploreRoundedIcon,
-    description: 'Keeps Google Business Profile inside the same service architecture and marks it live only after a real provider connection exists.',
+    description: 'Answers Google reviews, posts to the profile and reports Search/Maps performance — live once the merchant signs in with Google.',
     href: '/services/google-business',
     actionLabel: 'Google Business',
   },
@@ -65,7 +65,7 @@ function statusLabel(value) {
   if (value === 'live') return 'Live';
   if (value === 'locked') return 'Pro';
   if (value === 'setup') return 'Setup';
-  if (value === 'next') return 'Next';
+  if (value === 'next') return 'Connect';
   return 'Ready';
 }
 
@@ -118,7 +118,10 @@ export default function GrowthIntelligence() {
           {AGENTS.map((definition) => {
             const state = data.agents?.[definition.key] || {};
             const Icon = definition.icon;
-            const unavailable = state.status === 'next' || state.status === 'locked';
+            // Only a Pro entitlement can make an agent genuinely unreachable.
+            // `next` means "not connected yet", which is a link to the screen
+            // that connects it — not a dead button.
+            const unavailable = state.status === 'locked';
             return (
               <Paper key={definition.key} variant="outlined" sx={{ p: 1.75, borderRadius: 2.5, minWidth: 0, height: '100%' }}>
                 <Stack spacing={1.2} height="100%">
@@ -139,7 +142,7 @@ export default function GrowthIntelligence() {
                   </Box>
                   {unavailable ? (
                     <Button disabled size="small" variant="text" sx={{ alignSelf: 'flex-start', px: 0 }}>
-                      {state.status === 'next' ? 'Coming soon' : 'Pro access required'}
+                      Pro access required
                     </Button>
                   ) : (
                     <Button component={NextLink} href={definition.href} size="small" variant="text" sx={{ alignSelf: 'flex-start', px: 0 }}>
@@ -177,7 +180,6 @@ export default function GrowthIntelligence() {
         ) : recommendations.length ? (
           <Stack spacing={1}>
             {recommendations.slice(0, 6).map((item) => {
-              const comingSoon = item.id === 'google-business';
               return (
                 <Box key={item.id} sx={{ p: 1.35, border: '1px solid', borderColor: 'divider', borderRadius: 2.5 }}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1.25}>
@@ -188,13 +190,9 @@ export default function GrowthIntelligence() {
                       </Stack>
                       <Typography variant="body2" color="text.secondary">{item.detail}</Typography>
                     </Box>
-                    {comingSoon ? (
-                      <Button disabled size="small" variant="outlined" sx={{ flexShrink: 0 }}>Coming soon</Button>
-                    ) : (
-                      <Button component={NextLink} href={item.href} size="small" variant="outlined" sx={{ flexShrink: 0 }}>
-                        {item.actionLabel}
-                      </Button>
-                    )}
+                    <Button component={NextLink} href={item.href} size="small" variant="outlined" sx={{ flexShrink: 0 }}>
+                      {item.actionLabel}
+                    </Button>
                   </Stack>
                 </Box>
               );

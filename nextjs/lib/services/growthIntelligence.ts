@@ -95,11 +95,11 @@ export function buildGrowthRecommendations(input: GrowthInputs): GrowthRecommend
       id: 'google-business',
       agent: 'local-growth',
       priority: 'low',
-      title: 'Google Business Profile is the next local-growth channel',
-      detail: 'The service stays marked as upcoming until a real provider connection exists; access entitlement alone never counts as connected.',
+      title: 'Connect Google Business Profile to win local search',
+      detail: 'Reviews, profile posts and Search/Maps performance run from this workspace once the merchant signs in with Google. Entitlement alone never counts as connected.',
       count: 0,
       href: '/services/google-business',
-      actionLabel: 'View service',
+      actionLabel: 'Connect Google',
     });
   }
 
@@ -121,7 +121,7 @@ export function buildGrowthAgents(input: GrowthInputs) {
     localGrowth: {
       status: input.googleBusinessLive ? 'live' : 'next',
       metric: 0,
-      metricLabel: input.googleBusinessLive ? 'service connected' : 'Google Business next',
+      metricLabel: input.googleBusinessLive ? 'profile connected' : 'Google Business not connected',
     },
     analyst: {
       status: 'live',

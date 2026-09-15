@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
-import { Contact, InstagramAccount, Message, WhatsAppAccount } from '@/lib/models';
+import { Contact, GoogleBusinessAccount, InstagramAccount, Message, WhatsAppAccount } from '@/lib/models';
 import { resolveServiceAccess, SERVICE_SLUGS } from '@/lib/services/serviceAccess';
-
-const PLANNED_PROVIDER_SERVICES = new Set(['google-business']);
 
 const START_OF_TODAY = () => {
   const now = new Date();
@@ -86,6 +84,7 @@ export async function GET(req: NextRequest) {
       categories,
       whatsapp,
       instagram,
+      googleBusiness,
       // Previous-window counts, for the delta on each card. In the same Promise.all deliberately:
       // they are independent of everything above, so they add latency only if the database is the
       // bottleneck, not a second round trip.
@@ -122,6 +121,7 @@ export async function GET(req: NextRequest) {
       ]),
       WhatsAppAccount.findOne({ userId, isActive: true }).select('status displayPhoneNumber verifiedName webhookSubscribed lastSyncAt').lean(),
       InstagramAccount.findOne({ userId, isActive: true }).select('status username name webhookSubscribed lastSyncAt').lean(),
+      GoogleBusinessAccount.findOne({ userId, isActive: true }).select('status locationName locationTitle lastSyncAt').lean(),
 
       // ── Previous window, for the deltas ───────────────────────────────────────────────────
       // Total contacts as of a week ago, so "total" can show growth rather than only a count.
@@ -156,9 +156,7 @@ export async function GET(req: NextRequest) {
       funnel[stage] += Number(row?.count || 0);
     }
 
-    const availableTools = SERVICE_SLUGS.filter(
-      (slug) => access?.[slug]?.enabled && !PLANNED_PROVIDER_SERVICES.has(slug)
-    ).length;
+    const availableTools = SERVICE_SLUGS.filter((slug) => access?.[slug]?.enabled).length;
 
     const serviceHealth = SERVICE_SLUGS.map((slug) => {
       const enabled = Boolean(access?.[slug]?.enabled);
@@ -189,12 +187,19 @@ export async function GET(req: NextRequest) {
             : 'Dial leads now; connect Business Call Manager to sync call history',
         };
       }
-      if (PLANNED_PROVIDER_SERVICES.has(slug)) {
+      if (slug === 'google-business') {
+        const live = googleBusiness?.status === 'active' && Boolean(googleBusiness?.locationName);
         return {
           service: slug,
-          enabled: false,
-          connection: 'planned',
-          detail: 'Provider connection required before this service can be used',
+          enabled,
+          // A connection with no location chosen is half-done, and saying
+          // "connected" there would promise reviews and posts that cannot run.
+          connection: live ? 'connected' : googleBusiness ? 'pending' : 'available',
+          detail: live
+            ? googleBusiness?.locationTitle || 'Google Business Profile connected'
+            : googleBusiness
+              ? 'Choose which Google location this workspace manages'
+              : 'Sign in with Google to manage reviews, posts and local performance',
         };
       }
       return {
