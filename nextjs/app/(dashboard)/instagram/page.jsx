@@ -11,6 +11,7 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  Paper,
   Stack,
   Tab,
   Tabs,
@@ -30,6 +31,7 @@ import {
   fetchInstagramConversations,
   fetchInstagramMedia,
   fetchInstagramMessages,
+  fetchInstagramInsights,
   fetchInstagramOAuthUrl,
   publishInstagramImage,
   sendInstagramCommentPrivateReply,
@@ -52,7 +54,8 @@ export default function InstagramPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [tab, setTab] = useState('messages');
+  const [tab, setTab] = useState('overview');
+  const [insights, setInsights] = useState(null);
 
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -80,6 +83,17 @@ export default function InstagramPage() {
     }
   };
 
+  const loadInsights = async () => {
+    try {
+      const response = await fetchInstagramInsights();
+      setInsights(payload(response));
+    } catch (_requestError) {
+      // The overview degrades to the connection card on its own; a failed
+      // insights call is not worth an error banner over the whole page.
+      setInsights(null);
+    }
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const oauthError = params.get('error');
@@ -87,6 +101,11 @@ export default function InstagramPage() {
     if (params.get('connected') === '1') setNotice('Instagram professional account connected successfully.');
     loadAccount();
   }, []);
+
+  useEffect(() => {
+    if (account?.status === 'active') loadInsights();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account?.status]);
 
   const granted = useMemo(() => new Set(account?.permissions || []), [account]);
 
@@ -295,12 +314,54 @@ export default function InstagramPage() {
 
             <Card variant="outlined">
               <Tabs value={tab} onChange={(_event, next) => setTab(next)} variant="scrollable" scrollButtons="auto">
+                <Tab value="overview" label="Overview" />
                 <Tab value="messages" label="Messages" />
                 <Tab value="comments" label="Comments" />
                 <Tab value="publish" label="Publish" />
               </Tabs>
               <Divider />
               <CardContent>
+                {tab === 'overview' ? (
+                  <Stack spacing={2.5}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', md: 'repeat(4, minmax(0,1fr))' }, gap: 1.5 }}>
+                      {[
+                        ['Followers', insights?.profileAvailable ? insights.followersCount : null],
+                        ['Following', insights?.profileAvailable ? insights.followsCount : null],
+                        ['Posts', insights?.profileAvailable ? insights.mediaCount : null],
+                        ['Open conversations', insights?.conversationsAvailable ? insights.openConversations : null],
+                      ].map(([label, value]) => (
+                        <Paper key={label} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={700}>{label}</Typography>
+                          {/* A dash, not a zero: an unavailable number and a
+                              real zero are different facts. */}
+                          <Typography variant="h5" fontWeight={800} sx={{ mt: 0.5 }}>
+                            {value === null || value === undefined ? '—' : Number(value).toLocaleString('en-IN')}
+                          </Typography>
+                        </Paper>
+                      ))}
+                    </Box>
+
+                    <Stack spacing={1}>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                        <Chip size="small" label={account.accountType || 'Professional account'} variant="outlined" />
+                        <Chip
+                          size="small"
+                          color={account.webhookSubscribed ? 'success' : 'warning'}
+                          label={account.webhookSubscribed ? 'Webhooks subscribed' : 'Webhook subscription pending'}
+                        />
+                        {account.connectedAt ? (
+                          <Chip size="small" variant="outlined" label={`Connected ${new Date(account.connectedAt).toLocaleDateString()}`} />
+                        ) : null}
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Followers, following and post counts come from Instagram directly. There is no volume history
+                        here the way there is for WhatsApp: the Instagram webhook stores no message bodies, so there
+                        is nothing to chart over time.
+                      </Typography>
+                    </Stack>
+                  </Stack>
+                ) : null}
+
                 {tab === 'messages' ? (
                   <Stack spacing={2}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
