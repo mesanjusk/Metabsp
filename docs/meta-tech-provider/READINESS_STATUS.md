@@ -245,8 +245,13 @@ Still outstanding from this move, and each of them external to the code:
     was specific to `schedule` and gave no signal — the service was simply
     unpinged until someone looked. An external pinger that emails on failure
     is the right shape for this job; a silent cron is not.
-  - `/api/health` returns 503 when MongoDB is unreachable, so the pinger
-    doubles as uptime alerting if failure notifications are enabled.
+  - `/api/health?strict=1` returns 503 when MongoDB is unreachable, so the
+    pinger doubles as uptime alerting if failure notifications are enabled.
+    **The external pinger must use `?strict=1`.** Plain `/api/health` is
+    Render's rollout gate and answers 200 whenever the process is serving,
+    whatever the database is doing — gating the gate on a third party turned
+    an Atlas outage into a permanent deploy freeze on 2026-09-15, because the
+    fix had to pass through the check the outage was holding shut.
   - `render.yaml` still declares `plan: starter`, which remains the correct
     recommendation for a blueprint deploy and does *not* describe the live
     service.

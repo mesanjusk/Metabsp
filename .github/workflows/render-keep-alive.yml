@@ -25,7 +25,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          URL="${CONFIGURED_URL:-https://metabsp.onrender.com/api/health}"
+          # ?strict=1 keeps this ping meaning "the app can reach its database".
+          # Plain /api/health is now a liveness probe for Render's rollout gate
+          # and answers 200 while the process is serving, which would make this
+          # job pass through a total database outage without a word.
+          URL="${CONFIGURED_URL:-https://metabsp.onrender.com/api/health?strict=1}"
           echo "Pinging Render health endpoint..."
 
           # Allow enough time for a sleeping free instance to wake up.
