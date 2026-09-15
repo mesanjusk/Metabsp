@@ -6,6 +6,7 @@ import { alpha } from '@mui/material/styles';
 import {
   Alert,
   Box,
+  ButtonBase,
   Button,
   Chip,
   CircularProgress,
@@ -28,6 +29,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded';
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
+import ArrowOutwardRoundedIcon from '@mui/icons-material/ArrowOutwardRounded';
 import PageBody from '@/lib/ui/app/PageBody';
 import GrowthIntelligence from '@/lib/ui/app/GrowthIntelligence';
 import apiClient from '@/lib/api/client';
@@ -61,8 +63,8 @@ const compact = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFra
  * longest word sets a floor the card cannot afford at two-up on a 320px phone, and the icon lands
  * on top of the text.
  */
-function MetricCard({ icon: Icon, label, value, helper, delta }) {
-  const hasDelta = typeof delta === 'number' && Number.isFinite(delta);
+function MetricCard({ icon: Icon, label, value, helper, delta, unavailable }) {
+  const hasDelta = !unavailable && typeof delta === 'number' && Number.isFinite(delta);
   const rising = hasDelta && delta >= 0;
 
   return (
@@ -103,8 +105,8 @@ function MetricCard({ icon: Icon, label, value, helper, delta }) {
             borderRadius: 2,
             display: 'grid',
             placeItems: 'center',
-            bgcolor: 'action.hover',
-            color: 'text.secondary',
+            bgcolor: 'action.selected',
+            color: 'primary.main',
             flexShrink: 0,
           }}
         >
@@ -122,7 +124,7 @@ function MetricCard({ icon: Icon, label, value, helper, delta }) {
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        {compact.format(Number(value || 0))}
+        {unavailable ? '—' : compact.format(Number(value || 0))}
       </Typography>
 
       <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0, flexWrap: 'wrap' }}>
@@ -153,7 +155,7 @@ function MetricCard({ icon: Icon, label, value, helper, delta }) {
           </Stack>
         ) : null}
         <Typography variant="caption" color="text.secondary" sx={{ minWidth: 0 }}>
-          {hasDelta ? helper : helper || 'No comparison yet'}
+          {unavailable ? 'Awaiting activity data' : hasDelta ? helper : helper || 'No comparison yet'}
         </Typography>
       </Stack>
     </Paper>
@@ -220,9 +222,25 @@ export default function BusinessControlCenterPage() {
 
   return (
     <PageBody
-      title="Business Control Center"
-      description="One business brain for customers, conversations, marketing and every connected service. Open any product from the service strip above."
+      title="Workspace overview"
+      description="Your customers, conversations and next steps, all in one place."
+      actions={<Button component={NextLink} href="/inbox" variant="contained" startIcon={<ForumRoundedIcon />}>Open inbox</Button>}
     >
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.6fr 1fr' }, mb: 3, borderRadius: 3, overflow: 'hidden', bgcolor: '#183E35', color: '#F2FFF6' }}>
+        <Box sx={{ p: { xs: 3, md: 4 } }}>
+          <Typography variant="overline" sx={{ color: '#B3D8C7' }}>A LITTLE CLARITY. A LOT MORE POSSIBILITY.</Typography>
+          <Typography component="h2" sx={{ fontSize: { xs: '1.875rem', md: '2.5rem' }, lineHeight: 1.15, fontWeight: 650, letterSpacing: '-0.04em', mt: 1, mb: 1.5 }}>Make room for<br />your next big idea.</Typography>
+          <Typography variant="body2" sx={{ color: '#C4DED1', maxWidth: 440 }}>Keep the everyday work moving. Connect with customers, follow up on leads and bring your team together.</Typography>
+        </Box>
+        <Stack spacing={1.5} sx={{ p: { xs: 3, md: 4 }, justifyContent: 'center', bgcolor: 'rgba(255,255,255,0.045)', borderLeft: { md: '1px solid rgba(255,255,255,0.1)' } }}>
+          <Typography variant="overline" sx={{ color: '#B3D8C7' }}>PICK UP WHERE IT MATTERS</Typography>
+          {[[PeopleAltRoundedIcon, 'Manage your customers', '/contacts'], [CampaignRoundedIcon, 'Plan your next campaign', '/broadcasts']].map(([Icon, label, href]) => (
+            <ButtonBase component={NextLink} href={href} key={href} sx={{ p: 1.75, borderRadius: 2, textAlign: 'left', justifyContent: 'space-between', gap: 1, color: '#F2FFF6', border: '1px solid rgba(255,255,255,0.18)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' } }}>
+              <Icon fontSize="small" /><Typography variant="body2" sx={{ flex: 1 }}>{label}</Typography><ArrowOutwardRoundedIcon sx={{ fontSize: 17 }} />
+            </ButtonBase>
+          ))}
+        </Stack>
+      </Box>
       {loading ? (
         <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2 }}>
           <CircularProgress size={18} />
@@ -231,16 +249,42 @@ export default function BusinessControlCenterPage() {
       ) : null}
       {error ? <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert> : null}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', xl: 'repeat(6, minmax(0, 1fr))' }, gap: `${spacing.gutter}px`, mb: `${spacing.gutter}px` }}>
-        <MetricCard icon={PeopleAltRoundedIcon} label="Contacts" value={kpis.totalContacts} delta={deltas.totalContacts} helper={`${kpis.newContacts7d || 0} new in 7 days`} />
-        <MetricCard icon={ForumRoundedIcon} label="Messages today" value={kpis.messagesToday} delta={deltas.messagesToday} helper="vs yesterday" />
-        <MetricCard icon={ChatBubbleOutlineRoundedIcon} label="Active chats" value={kpis.activeChats} helper="Open customer windows" />
-        <MetricCard icon={AppsRoundedIcon} label="Available tools" value={kpis.availableTools} helper="Enabled for this account" />
-        <MetricCard icon={CheckCircleRoundedIcon} label="Connected" value={kpis.connectedChannels} helper="Live channels" />
-        <MetricCard icon={TrendingUpRoundedIcon} label="Outgoing today" value={kpis.outgoingToday} delta={deltas.outgoingToday} helper="vs yesterday" />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' }, gap: { xs: 1.5, md: `${spacing.gutter}px` }, mb: `${spacing.gutter}px` }}>
+        <MetricCard unavailable={loading || Boolean(error)} icon={PeopleAltRoundedIcon} label="Contacts" value={kpis.totalContacts} delta={deltas.totalContacts} helper={`${kpis.newContacts7d || 0} new in 7 days`} />
+        <MetricCard unavailable={loading || Boolean(error)} icon={ForumRoundedIcon} label="Messages today" value={kpis.messagesToday} delta={deltas.messagesToday} helper="vs yesterday" />
+        <MetricCard unavailable={loading || Boolean(error)} icon={ChatBubbleOutlineRoundedIcon} label="Active chats" value={kpis.activeChats} helper="Open customer windows" />
+        <MetricCard unavailable={loading || Boolean(error)} icon={AppsRoundedIcon} label="Available tools" value={kpis.availableTools} helper="Enabled for this account" />
+        <MetricCard unavailable={loading || Boolean(error)} icon={CheckCircleRoundedIcon} label="Connected" value={kpis.connectedChannels} helper="Live channels" />
+        <MetricCard unavailable={loading || Boolean(error)} icon={TrendingUpRoundedIcon} label="Outgoing today" value={kpis.outgoingToday} delta={deltas.outgoingToday} helper="vs yesterday" />
       </Box>
 
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 3 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+          <Typography component="h2" variant="h5" fontWeight={750}>Your business toolkit</Typography>
+          <Typography variant="caption" color="text.secondary">One connected workspace</Typography>
+        </Stack>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
+          {SERVICES.map((service) => {
+            const Icon = service.icon;
+            const released = service.status === 'active' || service.status === 'beta';
+            const connected = healthBySlug[service.slug]?.connection === 'connected';
+            return (
+              <Paper key={service.slug} variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', minWidth: 0 }}>
+                <ButtonBase component={released ? NextLink : 'div'} href={released ? service.href : undefined} disabled={!released} sx={{ display: 'flex', width: '100%', height: '100%', textAlign: 'left', alignItems: 'flex-start', p: 2.5, gap: 2, '&:hover': { bgcolor: 'action.hover' } }}>
+                  <Box sx={{ width: 44, height: 44, flexShrink: 0, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'action.selected', color: 'primary.main' }}><Icon /></Box>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="subtitle2" fontWeight={750}>{service.label}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', my: 0.75 }}>{service.description}</Typography>
+                    <Typography variant="caption" sx={{ color: connected ? 'success.main' : 'text.secondary', fontWeight: 650 }}>{!released ? 'Coming soon' : connected ? 'Connected' : service.tier === 'pro' ? 'Explore Pro service' : 'Open workspace'}</Typography>
+                  </Box>
+                  {released ? <ArrowOutwardRoundedIcon sx={{ fontSize: 17, color: 'text.secondary' }} /> : null}
+                </ButtonBase>
+              </Paper>
+            );
+          })}
+        </Box>
+      </Box>
+      <Box sx={{ mb: 3 }}>
         <GrowthIntelligence />
       </Box>
 
@@ -274,7 +318,7 @@ export default function BusinessControlCenterPage() {
           </Stack>
         </Section>
 
-        <Section title="Lead funnel" subtitle="One funnel based on the shared Contact category.">
+        <Section title="Lead funnel" subtitle="See where your next customers are in their journey.">
           <Stack spacing={1.35}>
             {funnelRows.map(([label, value]) => (
               <Box key={label}>
@@ -285,7 +329,7 @@ export default function BusinessControlCenterPage() {
                 <LinearProgress variant="determinate" value={(Number(value || 0) / funnelMax) * 100} sx={{ height: 7, borderRadius: 5 }} />
               </Box>
             ))}
-            <Typography variant="caption" color="text.secondary">Existing custom categories are mapped to the closest funnel stage; no duplicate lead database is introduced.</Typography>
+            <Typography variant="caption" color="text.secondary">Keep customer categories up to date to track progress from first enquiry to conversion.</Typography>
           </Stack>
         </Section>
       </Box>
@@ -319,7 +363,7 @@ export default function BusinessControlCenterPage() {
         </Section>
       </Box>
 
-      <Section title="Service health" subtitle="All products stay visible; actual access continues to follow release status and account entitlements.">
+      <Section title="Service health" subtitle="Connection and availability across your business tools.">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, gap: 1 }}>
           {SERVICES.map((service) => {
             const item = healthBySlug[service.slug] || {};

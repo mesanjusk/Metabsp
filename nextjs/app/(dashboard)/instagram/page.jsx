@@ -328,14 +328,14 @@ export default function InstagramPage() {
                         ['Followers', insights?.profileAvailable ? insights.followersCount : null],
                         ['Following', insights?.profileAvailable ? insights.followsCount : null],
                         ['Posts', insights?.profileAvailable ? insights.mediaCount : null],
-                        ['Open conversations', insights?.conversationsAvailable ? insights.openConversations : null],
+                        ['Conversations', insights?.conversationsAvailable ? insights.openConversations : null],
                       ].map(([label, value]) => (
                         <Paper key={label} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
                           <Typography variant="caption" color="text.secondary" fontWeight={700}>{label}</Typography>
                           {/* A dash, not a zero: an unavailable number and a
                               real zero are different facts. */}
                           <Typography variant="h5" fontWeight={800} sx={{ mt: 0.5 }}>
-                            {value === null || value === undefined ? '—' : Number(value).toLocaleString('en-IN')}
+                            {value === null || value === undefined ? '—' : `${Number(value).toLocaleString('en-IN')}${label === 'Conversations' && insights?.conversationsHasMore ? '+' : ''}`}
                           </Typography>
                         </Paper>
                       ))}
@@ -354,9 +354,7 @@ export default function InstagramPage() {
                         ) : null}
                       </Stack>
                       <Typography variant="caption" color="text.secondary">
-                        Followers, following and post counts come from Instagram directly. There is no volume history
-                        here the way there is for WhatsApp: the Instagram webhook stores no message bodies, so there
-                        is nothing to chart over time.
+                        Counts come from Instagram. A + means more conversations are available in your inbox. Refresh to see the latest account activity.
                       </Typography>
                     </Stack>
                   </Stack>

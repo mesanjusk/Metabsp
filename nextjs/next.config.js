@@ -107,8 +107,8 @@ const nextConfig = {
       // A config redirect rather than a redirect() in a page component: the
       // page variant prerenders to a 200 with a client-side hop, which is not
       // a redirect any crawler, curl or Meta reviewer would recognise.
-      { source: '/whatsapp', destination: '/inbox', permanent: true },
-      { source: '/whatsapp/:path*', destination: '/inbox', permanent: true },
+      // /whatsapp is now a real overview. Redirect only legacy nested tabs.
+      { source: '/whatsapp/:path+', destination: '/inbox', permanent: true },
     ];
   },
 };

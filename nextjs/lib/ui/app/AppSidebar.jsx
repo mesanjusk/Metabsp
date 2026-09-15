@@ -39,9 +39,11 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: 'background.paper',
+        bgcolor: '#122B2A',
+        color: '#CADAD5',
+        '& .MuiDivider-root': { borderColor: 'rgba(255,255,255,0.09)' },
         borderRight: '1px solid',
-        borderColor: 'divider',
+        borderColor: 'rgba(255,255,255,0.09)',
       }}
     >
       <Box
@@ -51,8 +53,8 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
           display: 'flex',
           alignItems: 'center',
           borderBottom: '1px solid',
-          borderColor: 'divider',
-          color: 'primary.main',
+          borderColor: 'rgba(255,255,255,0.09)',
+          color: '#EDFFF7',
         }}
       >
         <Box component={NextLink} href="/home" sx={{ color: 'inherit', textDecoration: 'none' }}>
@@ -70,11 +72,11 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
               {index > 0 ? <Divider sx={{ mb: 2, mx: 0.5 }} /> : null}
               <Typography
                 variant="overline"
-                sx={{ px: 1.5, color: 'text.secondary', display: 'block', mb: 0.75 }}
+                sx={{ px: 1.5, color: '#9FB9AF', display: 'block', mb: 0.75 }}
               >
                 {section.label}
               </Typography>
-              <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+              <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {items.map((item) => {
                   const Icon = item.icon;
                   const selected = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -86,7 +88,7 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
                       selected={selected}
                       onClick={onNavigate}
                       aria-current={selected ? 'page' : undefined}
-                      sx={{ py: 0.9, px: 1.5 }}
+                      sx={{ minHeight: 44, py: 1, px: 1.5, color: '#CADAD5', '&:hover': { bgcolor: 'rgba(255,255,255,0.07)' }, '&.Mui-selected': { bgcolor: '#D6F5E5', color: '#153E32', boxShadow: '0 3px 12px rgba(0,0,0,0.08)', '&:hover': { bgcolor: '#C1ECD5' } } }}
                     >
                       <ListItemIcon sx={{ minWidth: 34, color: 'inherit' }}>
                         <Icon fontSize="small" />
@@ -104,7 +106,7 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
         })}
       </Box>
 
-      <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'rgba(255,255,255,0.09)' }}>
         <Tooltip
           title={
             activeService
@@ -113,10 +115,10 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
           }
         >
           <Stack spacing={0.25}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ color: "#BDD0C8" }}>
               {activeService?.label || 'Small Business Digital OS'}
             </Typography>
-            <Typography variant="caption" color="text.disabled">
+            <Typography variant="caption" sx={{ color: "#9FB9AF" }}>
               {activeService ? 'Shared business workspace' : 'All services'}
             </Typography>
           </Stack>

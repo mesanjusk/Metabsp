@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { alpha } from '@mui/material/styles';
 import NextLink from 'next/link';
 import {
   Alert,
@@ -55,12 +56,12 @@ const SHORTCUTS = [
 
 function Metric({ icon: Icon, label, value, helper }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
         <Icon fontSize="small" color="action" />
-        <Typography variant="caption" color="text.secondary" fontWeight={700} noWrap>{label}</Typography>
+        <Typography variant="caption" color="text.secondary" fontWeight={700}>{label}</Typography>
       </Stack>
-      <Typography variant="h5" fontWeight={800}>{value}</Typography>
+      <Typography sx={{ fontSize: { xs: '1.75rem', sm: '2.25rem' }, letterSpacing: '-0.04em', fontWeight: 750, color: 'primary.main', my: 1 }}>{value}</Typography>
       {helper ? <Typography variant="caption" color="text.secondary">{helper}</Typography> : null}
     </Paper>
   );
@@ -130,10 +131,10 @@ export default function WhatsAppOverviewPage() {
       <Stack spacing={2.5}>
         {error ? <Alert severity="warning" onClose={() => setError('')}>{error}</Alert> : null}
 
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3 }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: 'center' }}>
             <Stack direction="row" spacing={1.5} alignItems="center">
-              <Box sx={{ width: 40, height: 40, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'action.hover' }}>
+              <Box sx={{ width: 48, height: 48, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'action.selected', color: 'primary.main' }}>
                 <WhatsAppIcon fontSize="small" />
               </Box>
               <Box>
@@ -157,20 +158,20 @@ export default function WhatsAppOverviewPage() {
           </Stack>
         </Paper>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', md: 'repeat(3, minmax(0,1fr))', xl: 'repeat(5, minmax(0,1fr))' }, gap: 1.5 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', md: 'repeat(3, minmax(0,1fr))', xl: 'repeat(5, minmax(0,1fr))' }, gap: { xs: 1.5, md: 2 } }}>
           <Metric icon={ForumRoundedIcon} label="Messages today" value={compact.format(Number(kpis.messagesToday || 0))} helper={`${kpis.incomingToday || 0} in · ${kpis.outgoingToday || 0} out`} />
           <Metric icon={ChatBubbleOutlineRoundedIcon} label="Active chats" value={compact.format(Number(kpis.activeChats || 0))} helper="Open 24-hour windows" />
           <Metric icon={PeopleAltRoundedIcon} label="Contacts" value={compact.format(Number(kpis.totalContacts || 0))} helper={`${kpis.newContacts7d || 0} new in 7 days`} />
-          <Metric icon={TrendingUpRoundedIcon} label="Campaign messages" value={compact.format(Number(analytics?.totalSent || 0))} helper="Tracked deliveries" />
-          <Metric icon={InsightsRoundedIcon} label="Delivered" value={`${analytics?.deliveredPercentage ?? 0}%`} helper="Of tracked sends" />
+          <Metric icon={TrendingUpRoundedIcon} label="Campaign messages" value={analytics ? compact.format(Number(analytics.totalSent || 0)) : '—'} helper="Tracked deliveries" />
+          <Metric icon={InsightsRoundedIcon} label="Delivered" value={analytics ? `${analytics.deliveredPercentage ?? 0}%` : '—'} helper="Of tracked sends" />
         </Box>
 
         <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
           <Typography variant="h6" fontWeight={800} sx={{ mb: 0.5 }}>Delivery quality</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Measured across campaign messages, counted once per message rather than once per status update.
+            Track how reliably your campaigns reach customers.
           </Typography>
-          {analytics?.totalSent ? (
+          {!analytics ? <Alert severity="info">Delivery data is unavailable. Connect a number or refresh to try again.</Alert> : analytics.totalSent ? (
             <Stack spacing={1.75}>
               <Rate label="Delivered" value={analytics.deliveredPercentage} color="success" />
               <Rate label="Read" value={analytics.readPercentage} color="primary" />
@@ -193,13 +194,14 @@ export default function WhatsAppOverviewPage() {
                 href={href}
                 variant="outlined"
                 sx={{
-                  p: 1.75,
+                  p: 2.5,
                   borderRadius: 3,
                   textDecoration: 'none',
                   color: 'inherit',
                   display: 'block',
+                  borderTop: (theme) => `3px solid ${alpha(theme.palette.primary.main, 0.5)}`,
                   transition: 'background-color 120ms ease',
-                  '&:hover': { bgcolor: 'action.hover' },
+                  '&:hover': { bgcolor: 'action.selected', color: 'primary.main' },
                 }}
               >
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.25 }}>

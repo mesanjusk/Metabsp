@@ -14,10 +14,11 @@ export default function EmptyState({ title = 'No data', description = '' }) {
     >
       <Box
         sx={{
-          width: 56,
-          height: 56,
-          borderRadius: '50%',
-          bgcolor: 'grey.100',
+          width: 72,
+          height: 72,
+          borderRadius: 3,
+          bgcolor: 'action.selected',
+          color: 'primary.main',
           display: 'grid',
           placeItems: 'center',
         }}
@@ -27,7 +28,7 @@ export default function EmptyState({ title = 'No data', description = '' }) {
       <Typography variant="subtitle1" fontWeight={700} color="text.primary">
         {title}
       </Typography>
-      {description ? <Typography variant="body2">{description}</Typography> : null}
+      {description ? <Typography variant="body2" sx={{ maxWidth: 360 }}>{description}</Typography> : null}
     </Stack>
   );
 }

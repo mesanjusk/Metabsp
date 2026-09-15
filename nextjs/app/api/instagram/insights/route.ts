@@ -41,6 +41,8 @@ export async function GET(req: NextRequest) {
         followsCount: Number(profile?.follows_count ?? 0),
         mediaCount: Number(profile?.media_count ?? 0),
         openConversations: Array.isArray(conversations?.data) ? conversations.data.length : 0,
+        // Report the page boundary instead of presenting a capped count as a total.
+        conversationsHasMore: Boolean(conversations?.paging?.next),
         // Said plainly so the panel can show a dash rather than a zero that
         // looks like a real measurement of nothing.
         profileAvailable: profileResult.status === 'fulfilled',
