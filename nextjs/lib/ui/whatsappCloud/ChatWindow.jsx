@@ -58,8 +58,8 @@ export default function ChatWindow({
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
-          px: { xs: 1, md: 2 },
-          py: 1.25,
+          px: { xs: 1.5, md: 3 },
+          py: 2,
         }}
       >
         {messages.length === 0 ? (
@@ -83,9 +83,10 @@ export default function ChatWindow({
                     label={dateLabel}
                     size="small"
                     sx={{
-                      bgcolor: '#e1f2fb',
-                      color: '#54656f',
-                      border: '1px solid #d1e8f5',
+                      bgcolor: 'background.paper',
+                      color: 'text.secondary',
+                      border: '1px solid',
+                      borderColor: 'divider',
                     }}
                   />
                 </Box>

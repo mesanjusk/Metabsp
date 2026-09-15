@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { SERVICES, getServiceForPath } from '@/lib/ui/app/serviceRegistry';
 import { getMobileNavHrefs, getNavSections } from '@/lib/ui/app/navigation';
@@ -62,4 +63,15 @@ describe('service landing pages', () => {
     expect(getServiceForPath('/home')).toBeNull();
     expect(getServiceForPath('/instagram')?.slug).toBe('instagram');
   });
+});
+
+// Use the same matcher as Next: a configured redirect wins over the page file.
+it('serves the WhatsApp overview while retaining legacy nested redirects', async () => {
+  const require = createRequire(import.meta.url);
+  const config = require('../next.config.js');
+  const { getPathMatch } = require('next/dist/shared/lib/router/utils/path-match');
+  const redirects = await config.redirects();
+  const matches = (path: string) => redirects.filter((rule: { source: string }) => getPathMatch(rule.source)(path));
+  expect(matches('/whatsapp')).toHaveLength(0);
+  expect(matches('/whatsapp/messages')[0]?.destination).toBe('/inbox');
 });

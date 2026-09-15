@@ -1,7 +1,7 @@
 'use client';
 
 import PropTypes from 'prop-types';
-import { Alert, Box, Button, Card, CardContent, CardHeader, CircularProgress, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, CardHeader, CircularProgress, Chip, Paper, Stack, Typography } from '@mui/material';
 
 export function PageContainer({ title, subtitle, actions, children }) {
   return (
@@ -22,7 +22,7 @@ export function PageContainer({ title, subtitle, actions, children }) {
             bgcolor: 'background.paper',
           }}
         >
-          <CardContent sx={{ p: 1.25, '&:last-child': { pb: 1.25 } }}>
+          <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: 2.5 } }}>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               justifyContent="space-between"
@@ -30,7 +30,7 @@ export function PageContainer({ title, subtitle, actions, children }) {
               spacing={1}
             >
               <Box sx={{ minWidth: 0 }}>
-                {title ? <Typography variant="h5" noWrap>{title}</Typography> : null}
+                {title ? <Typography variant="h5">{title}</Typography> : null}
                 {subtitle ? <Typography variant="body2" color="text.secondary">{subtitle}</Typography> : null}
               </Box>
               {actions ? <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>{actions}</Stack> : null}
@@ -48,13 +48,13 @@ export function SectionCard({ title, subtitle, action, children, contentSx }) {
     <Card elevation={0} sx={{ minWidth: 0 }}>
       {(title || subtitle || action) ? (
         <CardHeader
-          sx={{ py: 1, px: 1.25 }}
+          sx={{ py: 2, px: { xs: 2, sm: 2.5 }, borderBottom: '1px solid', borderColor: 'divider', '& .MuiCardHeader-content': { minWidth: 0 }, '& .MuiCardHeader-action': { m: 0 } }}
           title={title ? <Typography variant="subtitle1">{title}</Typography> : null}
           subheader={subtitle ? <Typography variant="caption">{subtitle}</Typography> : null}
           action={action}
         />
       ) : null}
-      <CardContent sx={{ p: 1, '&:last-child': { pb: 1 }, minWidth: 0, ...contentSx }}>{children}</CardContent>
+      <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: 2.5 }, minWidth: 0, ...contentSx }}>{children}</CardContent>
     </Card>
   );
 }
@@ -89,7 +89,7 @@ export function FilterToolbar({ children }) {
     <Stack
       direction={{ xs: 'column', md: 'row' }}
       spacing={1}
-      sx={{ p: 1, borderBottom: (theme) => `1px solid ${theme.palette.divider}`, minWidth: 0 }}
+      sx={{ p: 2, gap: 1, flexWrap: 'wrap', bgcolor: 'background.paper', borderBottom: (theme) => `1px solid ${theme.palette.divider}`, minWidth: 0 }}
     >
       {children}
     </Stack>
@@ -102,9 +102,7 @@ export function DataTableWrapper({ children }) {
 
 export function StatusChip({ label, color = 'default' }) {
   return (
-    <Button size="small" variant="outlined" color={color} sx={{ borderRadius: 999, px: 1.25, minWidth: 0, pointerEvents: 'none' }}>
-      {label}
-    </Button>
+    <Chip size="small" variant="outlined" color={color} label={label} />
   );
 }
 
@@ -119,7 +117,7 @@ export function LoadingState({ label = 'Loading...' }) {
 
 export function EmptyState({ title = 'No data available', description }) {
   return (
-    <Stack alignItems="center" spacing={0.5} py={3}>
+    <Stack alignItems="center" spacing={1} sx={{ py: 6, px: 2, textAlign: 'center', borderRadius: 3, bgcolor: 'action.hover' }}>
       <Typography variant="subtitle2">{title}</Typography>
       {description ? <Typography variant="caption" color="text.secondary">{description}</Typography> : null}
     </Stack>

@@ -48,10 +48,10 @@ export default function ChatBubble({ message, isOutgoing, timestamp, onRetry }) 
           maxWidth: { xs: '92%', sm: '75%' },
           px: 1.5,
           py: 1,
-          borderRadius: 2,
+          borderRadius: isOutgoing ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
           borderBottomRightRadius: isOutgoing ? 6 : 16,
           borderBottomLeftRadius: isOutgoing ? 16 : 6,
-          bgcolor: isOutgoing ? '#DCF8C6' : 'background.paper',
+          bgcolor: isOutgoing ? 'action.selected' : 'background.paper',
           boxShadow: '0 1px 2px rgba(0,0,0,0.14)',
         }}
       >

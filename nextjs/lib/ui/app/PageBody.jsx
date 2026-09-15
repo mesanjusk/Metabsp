@@ -17,7 +17,7 @@ export default function PageBody({ title, description, actions, children, bleed 
   }
 
   return (
-    <Box sx={{ px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
+    <Box sx={{ px: { xs: 2, md: 3, xl: 4 }, py: { xs: 2.5, md: 3.5 }, minWidth: 0 }}>
       <Box sx={{ maxWidth: maxWidth ?? layout.contentMaxWidth, mx: 'auto' }}>
         {title || description || actions ? (
           <Stack
@@ -25,11 +25,11 @@ export default function PageBody({ title, description, actions, children, bleed 
             spacing={2}
             alignItems={{ sm: 'flex-start' }}
             justifyContent="space-between"
-            sx={{ mb: 3 }}
+            sx={{ mb: 3, pb: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}
           >
             <Box sx={{ minWidth: 0 }}>
               {title ? (
-                <Typography variant="h4" sx={{ mb: description ? 0.75 : 0 }}>
+                <Typography component="h1" variant="h4" sx={{ mb: description ? 0.75 : 0, fontSize: { xs: '1.5rem', md: '1.875rem' }, letterSpacing: '-0.035em', fontWeight: 750 }}>
                   {title}
                 </Typography>
               ) : null}
@@ -40,7 +40,7 @@ export default function PageBody({ title, description, actions, children, bleed 
               ) : null}
             </Box>
             {actions ? (
-              <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexShrink: { sm: 0 }, flexWrap: 'wrap', maxWidth: '100%' }}>
                 {actions}
               </Stack>
             ) : null}

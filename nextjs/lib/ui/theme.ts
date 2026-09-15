@@ -38,9 +38,9 @@ const typography = {
   h1: { fontSize: '2.75rem', fontWeight: 800, lineHeight: 1.12, letterSpacing: '-0.022em' },
   h2: { fontSize: '2.125rem', fontWeight: 750, lineHeight: 1.18, letterSpacing: '-0.019em' },
   h3: { fontSize: '1.625rem', fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.014em' },
-  h4: { fontSize: '1.3125rem', fontWeight: 700, lineHeight: 1.32, letterSpacing: '-0.01em' },
-  h5: { fontSize: '1.0625rem', fontWeight: 650, lineHeight: 1.4, letterSpacing: '-0.005em' },
-  h6: { fontSize: '0.9375rem', fontWeight: 650, lineHeight: 1.45 },
+  h4: { fontSize: '1.625rem', fontWeight: 700, lineHeight: 1.32, letterSpacing: '-0.01em' },
+  h5: { fontSize: '1.1875rem', fontWeight: 650, lineHeight: 1.4, letterSpacing: '-0.005em' },
+  h6: { fontSize: '1rem', fontWeight: 650, lineHeight: 1.45 },
   subtitle1: { fontSize: '0.9375rem', fontWeight: 600, lineHeight: 1.5 },
   subtitle2: { fontSize: '0.8125rem', fontWeight: 600, lineHeight: 1.5 },
   body1: { fontSize: '0.9375rem', lineHeight: 1.6 },
@@ -103,6 +103,15 @@ function buildComponents(mode: 'light' | 'dark'): Theme['components'] {
       styleOverrides: {
         html: { height: '100%', WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale' },
         body: { height: '100%' },
+        '*, *::before, *::after': { boxSizing: 'border-box' },
+        '@media (prefers-reduced-motion: reduce)': {
+          '*, *::before, *::after': { animationDuration: '0.01ms !important', transitionDuration: '0.01ms !important', scrollBehavior: 'auto !important' },
+        },
+        '@media (max-width: 599px)': {
+          '.MuiInputBase-input': { fontSize: '16px' },
+          '.MuiButton-root, .MuiIconButton-root': { minHeight: 44 },
+          '.MuiIconButton-root': { minWidth: 44 },
+        },
         // A visible, consistent focus ring everywhere. Browsers' defaults vary
         // and MUI removes several of them; keyboard navigation through a
         // dashboard this large is unusable without one, and it is the single
@@ -134,18 +143,18 @@ function buildComponents(mode: 'light' | 'dark'): Theme['components'] {
     MuiCard: {
       defaultProps: { elevation: 0, variant: 'outlined' },
       styleOverrides: {
-        root: { borderRadius: radius.lg, overflow: 'hidden' },
+        root: { borderRadius: radius.lg, overflow: 'hidden', boxShadow: isLight ? '0 3px 16px rgba(22, 26, 36, 0.035)' : 'none' },
       },
     },
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
-        root: { borderRadius: radius.md, paddingInline: 16, minHeight: 38 },
-        sizeSmall: { minHeight: 32, paddingInline: 12 },
+        root: { borderRadius: radius.md, paddingInline: 18, minHeight: 42, fontWeight: 650, '@media (max-width: 599px)': { minHeight: 44 } },
+        sizeSmall: { minHeight: 36, paddingInline: 12, '@media (max-width: 599px)': { minHeight: 44 } },
         sizeLarge: { minHeight: 46, paddingInline: 24, fontSize: '0.9375rem' },
         containedPrimary: {
-          boxShadow: 'none',
-          '&:hover': { boxShadow: resting },
+          boxShadow: `0 3px 8px ${alpha(brand[600], 0.18)}`,
+          '&:hover': { boxShadow: raised },
         },
         // A text button that only changes colour on hover gives no feedback on
         // a dense toolbar; a background does.
@@ -153,7 +162,7 @@ function buildComponents(mode: 'light' | 'dark'): Theme['components'] {
       },
     },
     MuiIconButton: {
-      styleOverrides: { root: { borderRadius: radius.md } },
+      styleOverrides: { root: { borderRadius: radius.md, '@media (max-width: 599px)': { minWidth: 44, minHeight: 44 } } },
     },
     MuiChip: {
       styleOverrides: {
@@ -170,7 +179,7 @@ function buildComponents(mode: 'light' | 'dark'): Theme['components'] {
           '& .MuiOutlinedInput-notchedOutline': { borderColor: isLight ? neutral[300] : alpha(neutral[300], 0.18) },
           '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: isLight ? neutral[400] : alpha(neutral[300], 0.3) },
         },
-        input: { paddingBlock: 11 },
+        input: { paddingBlock: 11, '@media (max-width: 599px)': { fontSize: '16px' } },
       },
     },
     MuiInputLabel: { styleOverrides: { root: { fontWeight: 500 } } },
@@ -209,14 +218,14 @@ function buildComponents(mode: 'light' | 'dark'): Theme['components'] {
       },
     },
     MuiDialog: {
-      styleOverrides: { paper: { borderRadius: radius.xl, boxShadow: overlay } },
+      styleOverrides: { paper: { borderRadius: radius.xl, boxShadow: overlay, '@media (max-width: 599px)': { margin: 12, width: 'calc(100% - 24px)', maxWidth: 'calc(100% - 24px)', maxHeight: 'calc(100% - 24px)' }, '&.MuiDialog-paperFullScreen': { margin: 0, width: '100%', maxWidth: '100%', maxHeight: '100%', borderRadius: 0 } } },
     },
     MuiDialogTitle: {
       styleOverrides: { root: { fontSize: '1.0625rem', fontWeight: 700, paddingBottom: 8 } },
     },
     MuiTableCell: {
       styleOverrides: {
-        root: { borderBottomColor: isLight ? neutral[200] : alpha(neutral[300], 0.12) },
+        root: { borderBottomColor: isLight ? neutral[200] : alpha(neutral[300], 0.12), padding: '14px 16px', fontVariantNumeric: 'tabular-nums' },
         head: {
           fontWeight: 650,
           fontSize: '0.75rem',
@@ -227,6 +236,9 @@ function buildComponents(mode: 'light' | 'dark'): Theme['components'] {
         },
       },
     },
+    MuiTableContainer: { styleOverrides: { root: { overflowX: 'auto' } } },
+    MuiTableRow: { styleOverrides: { root: { '&:last-child td': { borderBottom: 0 }, '&.MuiTableRow-hover:hover': { backgroundColor: isLight ? neutral[50] : alpha('#FFFFFF', 0.03) } } } },
+    MuiLinearProgress: { styleOverrides: { root: { height: 6, borderRadius: radius.pill }, bar: { borderRadius: radius.pill } } },
     MuiAlert: {
       styleOverrides: { root: { borderRadius: radius.md, alignItems: 'flex-start' } },
     },

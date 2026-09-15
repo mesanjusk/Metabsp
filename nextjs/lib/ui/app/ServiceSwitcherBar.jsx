@@ -6,15 +6,7 @@ import { Box, ButtonBase, Chip, CircularProgress, Stack, Tooltip, Typography } f
 import apiClient from '@/lib/api/client';
 import { SERVICES } from './serviceRegistry';
 
-/**
- * The horizontal product strip.
- *
- * Two tiles sizes, not one. At 70px tall plus its own padding this bar took 86px off the top of
- * every screen, which on a 640px phone is a seventh of the display given to navigation the user
- * has already used — on top of a 60px title bar and a 60px tab bar. The compact variant halves it
- * by dropping to an icon row with the active service named underneath, and the full tiles return
- * at `sm` where the space exists.
- */
+/** Compact, labelled service navigation. Entitlements still determine which links are enabled. */
 export default function ServiceSwitcherBar({ activeService = 'hub' }) {
   const [access, setAccess] = useState({});
   const [loading, setLoading] = useState(true);
@@ -43,7 +35,7 @@ export default function ServiceSwitcherBar({ activeService = 'hub' }) {
     <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 1, sm: 1.5, md: 2 }, py: { xs: 0.75, sm: 1 } }}>
       <Stack direction="row" spacing={{ xs: 0.75, sm: 1.1 }} sx={{ overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', scrollSnapType: 'x proximity', '&::-webkit-scrollbar': { display: 'none' } }}>
         {loading ? (
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ minHeight: { xs: 48, sm: 68 }, px: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ minHeight: 44, px: 1 }}>
             <CircularProgress size={16} />
             <Typography variant="caption" color="text.secondary" noWrap>Loading services…</Typography>
           </Stack>
@@ -59,29 +51,26 @@ export default function ServiceSwitcherBar({ activeService = 'hub' }) {
               disabled={!enabled}
               aria-label={`${service.label}${enabled ? '' : ` - ${reason}`}`}
               sx={{
-                width: { xs: 52, sm: 82 }, minWidth: { xs: 52, sm: 82 }, height: { xs: 48, sm: 70 },
+                width: 'auto', minWidth: 'max-content', height: 44, flexShrink: 0,
                 // A 20px radius on a 52x48 tile is a circle, not a squircle — app icons read as
                 // rounded squares, and the difference is most of what makes a row of them look
                 // like an app rather than a row of buttons.
-                borderRadius: { xs: 1.75, sm: 2.5 }, scrollSnapAlign: 'start', display: 'flex', flexDirection: 'column',
-                justifyContent: 'center', gap: { xs: 0, sm: 0.45 }, border: '1px solid',
-                borderColor: selected ? 'primary.main' : 'divider',
-                bgcolor: selected ? 'action.selected' : 'background.default',
-                opacity: enabled ? 1 : 0.58, position: 'relative', px: 0.75,
+                borderRadius: 2, scrollSnapAlign: 'start', display: 'flex', flexDirection: 'row',
+                justifyContent: 'center', gap: 0.75, border: '1px solid',
+                borderColor: selected ? 'primary.main' : 'transparent',
+                bgcolor: selected ? 'action.selected' : 'transparent',
+                opacity: enabled ? 1 : 0.58, position: 'relative', px: 1.25,
                 transition: 'transform 120ms ease, border-color 120ms ease, background-color 120ms ease',
                 '&:hover': enabled ? { bgcolor: selected ? 'action.selected' : 'action.hover', transform: 'translateY(-1px)' } : undefined,
               }}
             >
-              <Box sx={{ width: { xs: 26, sm: 32 }, height: { xs: 26, sm: 32 }, display: 'grid', placeItems: 'center', borderRadius: 1.5, color: selected ? 'primary.main' : 'text.primary' }}>
-                <Icon fontSize="small" sx={{ fontSize: { xs: 22, sm: 24 } }} />
+              <Box sx={{ width: 24, height: 24, display: 'grid', placeItems: 'center', borderRadius: 1.5, color: selected ? 'primary.main' : 'text.primary' }}>
+                <Icon fontSize="small" sx={{ fontSize: 19 }} />
               </Box>
-              {/* Hidden rather than shrunk on a phone: at 52px wide every label but "CRM" would be
-                  an ellipsis, and a row of ellipses is noise. The title bar below already names
-                  wherever you are. */}
               <Typography
                 variant="caption"
                 noWrap
-                sx={{ display: { xs: 'none', sm: 'block' }, width: '100%', fontWeight: selected ? 750 : 650, fontSize: '0.68rem', lineHeight: 1.15 }}
+                sx={{ display: 'block', fontWeight: selected ? 700 : 550, fontSize: '0.75rem', lineHeight: 1.4 }}
               >
                 {service.shortLabel || service.label}
               </Typography>
@@ -91,11 +80,9 @@ export default function ServiceSwitcherBar({ activeService = 'hub' }) {
                   size="small"
                   variant="outlined"
                   sx={{
-                    position: 'absolute',
-                    top: { xs: 1, sm: 3 },
-                    right: { xs: 1, sm: 3 },
-                    height: { xs: 12, sm: 15 },
-                    fontSize: { xs: '0.44rem', sm: '0.5rem' },
+                    position: 'static',
+                    height: 18,
+                    fontSize: '0.55rem',
                     '& .MuiChip-label': { px: 0.45 },
                     // Purely a marker at phone size — it must never be what the eye lands on, and
                     // at 12px tall over a 26px icon it would otherwise touch it.

@@ -135,7 +135,8 @@ export default function DashboardShell({ children }) {
     px: 0.5,
     pt: 1,
     pb: 0.75,
-    gap: 0.25,
+    gap: 0.5,
+    '&.Mui-selected': { bgcolor: 'action.selected' },
     '& .MuiBottomNavigationAction-label': {
       fontSize: '0.6875rem',
       lineHeight: 1.3,
@@ -152,6 +153,7 @@ export default function DashboardShell({ children }) {
 
   return (
     <DashboardContext.Provider value={contextValue}>
+      <Box component="a" href="#main-content" sx={{ position: 'fixed', top: -100, left: 16, zIndex: 2000, p: 1.5, borderRadius: 2, bgcolor: 'background.paper', color: 'primary.main', '&:focus': { top: 12 } }}>Skip to content</Box>
       <Box
         sx={{
           height: '100dvh',
@@ -206,6 +208,8 @@ export default function DashboardShell({ children }) {
 
           <Box
             component="main"
+            id="main-content"
+            tabIndex={-1}
             sx={{
               flex: 1,
               minHeight: 0,

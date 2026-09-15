@@ -1,4 +1,5 @@
 'use client';
+import AuthBrandPanel from '@/lib/ui/app/AuthBrandPanel';
 
 import { useState } from 'react';
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
@@ -110,38 +111,21 @@ export default function Signup() {
       sx={{
         minHeight: '100dvh',
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', lg: '1fr minmax(420px, 520px)' },
-        bgcolor: '#111b21',
+        gridTemplateColumns: { xs: '1fr', lg: '1.1fr 1fr' },
+        bgcolor: 'background.default',
       }}
     >
-      <Stack
-        sx={{
-          display: { xs: 'none', lg: 'flex' },
-          justifyContent: 'center',
-          p: 6,
-          color: '#e9edef',
-          background: 'linear-gradient(160deg, #0b141a 0%, #111b21 50%, #10352f 100%)',
-        }}
-        spacing={2}
-      >
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <ChatRoundedIcon sx={{ color: '#25d366', fontSize: 32 }} />
-          <Typography variant="h4" fontWeight={700}>SanjuSK</Typography>
-        </Stack>
-        <Typography variant="h6" sx={{ maxWidth: 540 }}>
-          Create your workspace account to manage conversations, broadcast campaigns, and templates.
-        </Typography>
-      </Stack>
+      <AuthBrandPanel />
 
-      <Box sx={{ display: 'grid', placeItems: 'center', p: { xs: 2, md: 3 } }}>
-        <Paper sx={{ width: '100%', maxWidth: 460, p: { xs: 3, sm: 4 }, borderRadius: 4 }}>
+      <Box sx={{ display: 'grid', placeItems: 'center', p: { xs: 2, sm: 4, lg: 6 } }}>
+        <Paper variant="outlined" sx={{ width: '100%', maxWidth: 460, p: { xs: 3, sm: 4 }, borderRadius: 4 }}>
           <Stack
             spacing={3}
             component="form"
             onSubmit={step === 0 ? requestOtp : verifyAndCreate}
           >
             <Box>
-              <Typography variant="h5" fontWeight={700} gutterBottom>
+              <Typography component="h1" variant="h4" fontWeight={750} gutterBottom>
                 Create account
               </Typography>
               <Typography color="text.secondary">

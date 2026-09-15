@@ -73,11 +73,12 @@ export default function AppTopBar({
 
   return (
     <Box component="header" sx={{ flexShrink: 0, bgcolor: 'background.paper' }}>
-      <ServiceSwitcherBar activeService={activeService} />
 
       <Box
         sx={{
-          height: layout.topBarHeight,
+          minHeight: layout.topBarHeight,
+          py: 1,
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
           px: { xs: 1.25, sm: 1.5, md: 3 },
           display: 'flex',
           alignItems: 'center',
@@ -135,8 +136,9 @@ export default function AppTopBar({
               // Was a fixed 130px on a phone, which left room for about two characters after the
               // search icon. Letting it take the slack instead means it is as wide as whatever the
               // title and the actions leave over, and never wider than it needs to be.
-              width: { xs: 'auto', sm: 240, md: 320 },
-              flex: { xs: 1, sm: '0 0 auto' },
+              width: { xs: '100%', sm: 240, md: 320 },
+              order: { xs: 3, sm: 0 },
+              flex: { xs: '1 0 100%', sm: '0 0 auto' },
               minWidth: { xs: 96, sm: 240 },
             }}
             InputProps={{
@@ -151,7 +153,7 @@ export default function AppTopBar({
           <Box sx={{ ml: showCloseService ? { xs: 0, sm: 'auto' } : 'auto' }} />
         )}
 
-        <Stack direction="row" alignItems="center" spacing={1.25} sx={{ flexShrink: 0 }}>
+        <Stack direction="row" alignItems="center" spacing={1.25} sx={{ flexShrink: 0, ml: { xs: 'auto', sm: 0 } }}>
           {showConnection ? (
             <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
               <ConnectionBadge state={connectionState} detail={connectionDetail} lastCheckedAt={lastCheckedAt} />
@@ -226,6 +228,7 @@ export default function AppTopBar({
           </MenuItem>
         </Menu>
       </Box>
+      <ServiceSwitcherBar activeService={activeService} />
     </Box>
   );
 }

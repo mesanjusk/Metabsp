@@ -1,5 +1,6 @@
 'use client';
 
+import AuthBrandPanel from '@/lib/ui/app/AuthBrandPanel';
 import { useEffect, useState } from 'react';
 import LoginRoundedIcon from '@mui/icons-material/LoginRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
@@ -89,34 +90,17 @@ export default function Login() {
       sx={{
         minHeight: '100dvh',
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', lg: '1fr minmax(420px, 520px)' },
-        bgcolor: '#111b21',
+        gridTemplateColumns: { xs: '1fr', lg: '1.1fr 1fr' },
+        bgcolor: 'background.default',
       }}
     >
-      <Stack
-        sx={{
-          display: { xs: 'none', lg: 'flex' },
-          justifyContent: 'center',
-          p: 6,
-          color: '#e9edef',
-          background: 'linear-gradient(160deg, #0b141a 0%, #111b21 50%, #10352f 100%)',
-        }}
-        spacing={2}
-      >
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <AppsRoundedIcon sx={{ color: '#25d366', fontSize: 32 }} />
-          <Typography variant="h4" fontWeight={700}>SanjuSK</Typography>
-        </Stack>
-        <Typography variant="h6" sx={{ maxWidth: 540 }}>
-          One digital workspace for WhatsApp, Instagram, customer management and the everyday tools a small business needs.
-        </Typography>
-      </Stack>
+      <AuthBrandPanel />
 
-      <Box sx={{ display: 'grid', placeItems: 'center', p: { xs: 2, md: 3 } }}>
-        <Paper sx={{ width: '100%', maxWidth: 460, p: { xs: 3, sm: 4 }, borderRadius: 4 }}>
+      <Box sx={{ display: 'grid', placeItems: 'center', p: { xs: 2, sm: 4, lg: 6 } }}>
+        <Paper variant="outlined" sx={{ width: '100%', maxWidth: 460, p: { xs: 3, sm: 4 }, borderRadius: 4 }}>
           <Stack spacing={3} component="form" onSubmit={submit}>
             <Box>
-              <Typography variant="h5" fontWeight={700} gutterBottom>
+              <Typography component="h1" variant="h4" fontWeight={750} gutterBottom>
                 Sign in
               </Typography>
               <Typography color="text.secondary">

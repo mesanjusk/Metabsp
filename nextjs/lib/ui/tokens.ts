@@ -93,8 +93,8 @@ export const shadows = {
 export const radius = {
   sm: 8,
   md: 10,
-  lg: 14,
-  xl: 20,
+  lg: 16,
+  xl: 24,
   pill: 999,
 };
 
@@ -137,9 +137,9 @@ export const spacing = {
 };
 
 export const layout = {
-  sidebarWidth: 248,
+  sidebarWidth: 256,
   sidebarCollapsedWidth: 72,
-  topBarHeight: 60,
+  topBarHeight: 68,
   contentMaxWidth: 1440,
 
   /**
