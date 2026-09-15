@@ -6,6 +6,7 @@ import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import InstagramIcon from '@mui/icons-material/Instagram';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import DialpadRoundedIcon from '@mui/icons-material/DialpadRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import CodeRoundedIcon from '@mui/icons-material/CodeRounded';
@@ -57,6 +58,7 @@ export const WHATSAPP_NAV_SECTIONS = [
     label: 'WhatsApp',
     items: [
       SERVICES_ITEM,
+      { href: '/whatsapp', label: 'WhatsApp dashboard', shortLabel: 'WhatsApp', icon: WhatsAppIcon },
       { href: '/inbox', label: 'Inbox', icon: ForumRoundedIcon, requiresConnection: true },
       { href: '/contacts', label: 'Contacts', icon: PeopleAltRoundedIcon },
       { href: '/templates', label: 'Templates', icon: DescriptionRoundedIcon, requiresConnection: true },
@@ -158,7 +160,9 @@ export function getMobileNavHrefs(pathname = '') {
   if (!service) return ['/home', '/inbox', '/contacts', '/settings'];
 
   if (service.slug === 'whatsapp') {
-    return ['/inbox', '/contacts', '/templates', '/broadcasts'];
+    // The dashboard leads, as it does for every other service, but the inbox
+    // keeps a tab of its own — it is what most people open the app to do.
+    return ['/whatsapp', '/inbox', '/contacts', '/broadcasts'];
   }
 
   return ['/home', service.href, `/services/${service.slug}/contacts`];

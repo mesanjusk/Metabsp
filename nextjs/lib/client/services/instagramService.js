@@ -1,6 +1,7 @@
 import apiClient from '@/lib/api/client';
 
 export const fetchInstagramAccount = () => apiClient.get('/api/instagram/account');
+export const fetchInstagramInsights = () => apiClient.get('/api/instagram/insights');
 export const fetchInstagramOAuthUrl = () => apiClient.get('/api/instagram/oauth/url');
 export const disconnectInstagram = () => apiClient.delete('/api/instagram/account');
 

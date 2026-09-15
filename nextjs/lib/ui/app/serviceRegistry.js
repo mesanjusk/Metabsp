@@ -11,7 +11,7 @@ import MovieCreationRoundedIcon from '@mui/icons-material/MovieCreationRounded';
 
 /** One registry for every customer-facing service in the SMB Digital OS. */
 export const SERVICES = [
-  { slug: 'whatsapp', label: 'WhatsApp', shortLabel: 'WhatsApp', description: 'Inbox, contacts, templates, campaigns and automation.', href: '/inbox', icon: WhatsAppIcon, status: 'active', tier: 'basic' },
+  { slug: 'whatsapp', label: 'WhatsApp', shortLabel: 'WhatsApp', description: 'Inbox, contacts, templates, campaigns and automation.', href: '/whatsapp', icon: WhatsAppIcon, status: 'active', tier: 'basic' },
   { slug: 'instagram', label: 'Instagram', shortLabel: 'Instagram', description: 'Messages, comments, private replies and publishing.', href: '/instagram', icon: InstagramIcon, status: 'beta', tier: 'basic' },
   { slug: 'google-business', label: 'Google Business Profile', shortLabel: 'Google', description: 'Reviews, AI replies, profile posts and Search/Maps performance for your Google listing.', href: '/services/google-business', icon: StorefrontRoundedIcon, status: 'beta', tier: 'basic' },
   { slug: 'dialer', label: 'Business Dialer', shortLabel: 'Dialer', description: 'Lead calling, click-to-dial and synced call history via the Business Call Manager app.', href: '/services/dialer', icon: PhoneInTalkRoundedIcon, status: 'beta', tier: 'basic' },
@@ -30,7 +30,7 @@ export function getServiceForPath(pathname = '') {
   const path = String(pathname || '');
   if (path === '/instagram' || path.startsWith('/instagram/')) return SERVICE_BY_SLUG.instagram;
   if (path.startsWith('/services/')) return getServiceBySlug(path.split('/').filter(Boolean)[1] || '');
-  const whatsappPaths = ['/inbox','/contacts','/templates','/broadcasts','/automations','/analytics','/numbers','/business','/developers'];
+  const whatsappPaths = ['/whatsapp','/inbox','/contacts','/templates','/broadcasts','/automations','/analytics','/numbers','/business','/developers'];
   if (whatsappPaths.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return SERVICE_BY_SLUG.whatsapp;
   return null;
 }
