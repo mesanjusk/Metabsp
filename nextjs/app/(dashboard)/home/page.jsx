@@ -34,7 +34,7 @@ import PageBody from '@/lib/ui/app/PageBody';
 import GrowthIntelligence from '@/lib/ui/app/GrowthIntelligence';
 import apiClient from '@/lib/api/client';
 import { SERVICES } from '@/lib/ui/app/serviceRegistry';
-import { spacing, typeScale } from '@/lib/ui/tokens';
+import { brand, spacing, typeScale } from '@/lib/ui/tokens';
 
 const emptyOverview = {
   kpis: {},
@@ -226,16 +226,16 @@ export default function BusinessControlCenterPage() {
       description="Your customers, conversations and next steps, all in one place."
       actions={<Button component={NextLink} href="/inbox" variant="contained" startIcon={<ForumRoundedIcon />}>Open inbox</Button>}
     >
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.6fr 1fr' }, mb: 3, borderRadius: 3, overflow: 'hidden', bgcolor: '#183E35', color: '#F2FFF6' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.6fr 1fr' }, mb: 3, borderRadius: 3, overflow: 'hidden', bgcolor: brand[900], color: brand[50] }}>
         <Box sx={{ p: { xs: 3, md: 4 } }}>
-          <Typography variant="overline" sx={{ color: '#B3D8C7' }}>A LITTLE CLARITY. A LOT MORE POSSIBILITY.</Typography>
+          <Typography variant="overline" sx={{ color: brand[300] }}>A LITTLE CLARITY. A LOT MORE POSSIBILITY.</Typography>
           <Typography component="h2" sx={{ fontSize: { xs: '1.875rem', md: '2.5rem' }, lineHeight: 1.15, fontWeight: 650, letterSpacing: '-0.04em', mt: 1, mb: 1.5 }}>Make room for<br />your next big idea.</Typography>
-          <Typography variant="body2" sx={{ color: '#C4DED1', maxWidth: 440 }}>Keep the everyday work moving. Connect with customers, follow up on leads and bring your team together.</Typography>
+          <Typography variant="body2" sx={{ color: brand[100], maxWidth: 440 }}>Keep the everyday work moving. Connect with customers, follow up on leads and bring your team together.</Typography>
         </Box>
         <Stack spacing={1.5} sx={{ p: { xs: 3, md: 4 }, justifyContent: 'center', bgcolor: 'rgba(255,255,255,0.045)', borderLeft: { md: '1px solid rgba(255,255,255,0.1)' } }}>
-          <Typography variant="overline" sx={{ color: '#B3D8C7' }}>PICK UP WHERE IT MATTERS</Typography>
+          <Typography variant="overline" sx={{ color: brand[300] }}>PICK UP WHERE IT MATTERS</Typography>
           {[[PeopleAltRoundedIcon, 'Manage your customers', '/contacts'], [CampaignRoundedIcon, 'Plan your next campaign', '/broadcasts']].map(([Icon, label, href]) => (
-            <ButtonBase component={NextLink} href={href} key={href} sx={{ p: 1.75, borderRadius: 2, textAlign: 'left', justifyContent: 'space-between', gap: 1, color: '#F2FFF6', border: '1px solid rgba(255,255,255,0.18)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' } }}>
+            <ButtonBase component={NextLink} href={href} key={href} sx={{ p: 1.75, borderRadius: 2, textAlign: 'left', justifyContent: 'space-between', gap: 1, color: brand[50], border: '1px solid rgba(255,255,255,0.18)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' } }}>
               <Icon fontSize="small" /><Typography variant="body2" sx={{ flex: 1 }}>{label}</Typography><ArrowOutwardRoundedIcon sx={{ fontSize: 17 }} />
             </ButtonBase>
           ))}

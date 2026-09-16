@@ -8,59 +8,71 @@
  * look like a reskin of the app it integrates with and made any change to the
  * look a find-and-replace across the codebase.
  *
- * ── Why the palette is not WhatsApp green ──────────────────────────────────
+ * ── The palette is lavender on a true greyscale ─────────────────────────────
+ * One hue carries the brand and nothing else competes with it: lavender for
+ * everything the product owns — chrome, primary actions, focus, charts — on a
+ * neutral ramp that runs white to black with no tint at all. The palette was
+ * previously a deep teal on a warm grey with an amber accent. Teal reads as an
+ * adjacent shade of the WhatsApp green this product integrates with, and a
+ * second decorative hue meant two colours were always arguing about which one
+ * the eye should go to.
+ *
  * A Business Solution Provider is a distinct company operating on top of
  * WhatsApp, not WhatsApp. Meta's brand guidelines are explicit that partners
  * must not present WhatsApp's marks or visual identity as their own, and a
  * dashboard painted in #25D366 on #111B21 reads as exactly that to a reviewer.
- * The palette below is deliberately its own: a deep teal that sits in the same
- * family as messaging products without borrowing anyone's identity, on a warm
- * neutral grey. WhatsApp green survives in one place only — the status dot
- * that means "this number is connected to WhatsApp" — where it is being used
- * as information, not as branding.
+ * Lavender cannot be mistaken for it.
+ *
+ * ── What is still allowed to be another colour ──────────────────────────────
+ * `semantic` below, and `WHATSAPP_CONNECTED`. Those are not brand: a red error
+ * and a green "this number is connected" carry information, and a monochrome
+ * error state is a state the eye stops finding. They appear as an alert, a
+ * badge or a status dot — never as chrome, a surface or a chart series.
  *
  * Every foreground/background pair below was chosen to clear WCAG AA (4.5:1
  * for body text, 3:1 for large text and UI boundaries) in both schemes.
  */
 
-// Warm neutral ramp. Grey with a trace of blue reads cold and clinical at
-// scale; this one keeps long working sessions comfortable.
+// True greyscale, white through black. A grey with a trace of any hue muddies
+// the one brand colour doing all of this product's signalling.
 export const neutral = {
-  25: '#FCFCFD',
-  50: '#F8F9FB',
-  100: '#F1F3F7',
-  200: '#E4E7EE',
-  300: '#CFD4E0',
-  400: '#9AA2B6',
-  500: '#6B7488',
-  600: '#4E5668',
-  700: '#3A4152',
-  800: '#252B38',
-  900: '#161A24',
-  950: '#0D1017',
+  25: '#FCFCFC',
+  50: '#F8F8F8',
+  100: '#F2F2F2',
+  200: '#E6E6E6',
+  300: '#D0D0D0',
+  400: '#9B9B9B',
+  500: '#6E6E6E',
+  600: '#525252',
+  700: '#3D3D3D',
+  800: '#272727',
+  900: '#171717',
+  950: '#0A0A0A',
 };
 
-// Primary: deep teal. Distinctive against both the WhatsApp green everyone
-// else in this category defaults to, and the generic SaaS indigo.
+// Primary: lavender. The only hue the product owns, so every step earns its
+// place — 600 is the action colour on light, 400 on dark, 900 the nav rail.
 export const brand = {
-  50: '#ECFDF7',
-  100: '#D0F5E7',
-  200: '#A3E9D2',
-  300: '#6BD5B6',
-  400: '#33BA97',
-  500: '#149C7C',
-  600: '#0B7C64',
-  700: '#0A6252',
-  800: '#0B4E42',
-  900: '#0A4038',
+  50: '#F6F4FE',
+  100: '#EDE9FD',
+  200: '#DCD5FB',
+  300: '#C3B6F7',
+  400: '#A48EF0',
+  500: '#8B6FE8',
+  600: '#7551D8',
+  700: '#6040B8',
+  800: '#4E3495',
+  900: '#3E2A77',
 };
 
-// Accent, used sparingly: the one thing on a screen that should be looked at
-// first, and never more than one of them at a time.
+// There is no second decorative hue any more. `accent` keeps its name so the
+// theme and its callers go on working, and points at the deep end of the same
+// lavender: a secondary action is now a darker step of the primary rather than
+// a different colour competing with it for the eye.
 export const accent = {
-  400: '#F0A742',
-  500: '#DE8A16',
-  600: '#B96C0C',
+  400: brand[400],
+  500: brand[500],
+  600: brand[700],
 };
 
 export const semantic = {
@@ -80,9 +92,9 @@ export const WHATSAPP_CONNECTED = '#25D366';
  * component picks its own; two forces a real decision about hierarchy.
  */
 export const shadows = {
-  resting: '0 1px 2px rgba(13, 16, 23, 0.06), 0 1px 3px rgba(13, 16, 23, 0.04)',
-  raised: '0 8px 24px rgba(13, 16, 23, 0.10), 0 2px 6px rgba(13, 16, 23, 0.05)',
-  overlay: '0 24px 48px rgba(13, 16, 23, 0.18), 0 8px 16px rgba(13, 16, 23, 0.08)',
+  resting: '0 1px 2px rgba(10, 10, 10, 0.06), 0 1px 3px rgba(10, 10, 10, 0.04)',
+  raised: '0 8px 24px rgba(10, 10, 10, 0.10), 0 2px 6px rgba(10, 10, 10, 0.05)',
+  overlay: '0 24px 48px rgba(10, 10, 10, 0.18), 0 8px 16px rgba(10, 10, 10, 0.08)',
   restingDark: '0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3)',
   raisedDark: '0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35)',
   overlayDark: '0 24px 48px rgba(0, 0, 0, 0.6), 0 8px 16px rgba(0, 0, 0, 0.4)',
@@ -168,25 +180,30 @@ export const layout = {
  * Chart colours, per scheme.
  *
  * Charts cannot borrow the UI palette wholesale: a series colour has to clear the same surface in
- * both schemes, and two adjacent series have to stay apart for a colour-blind reader, which is a
- * stricter test than "looks fine next to a button". These steps were checked against the chart
- * surface of each scheme (white, and `neutral[900]`) for lightness, chroma, contrast and
- * colour-vision-deficiency separation, so they are listed here rather than derived at the call
- * site from `palette.primary.main`.
+ * both schemes, and two marks in one figure have to stay apart for a reader who cannot separate
+ * them by hue — which is a stricter test than "looks fine next to a button".
  *
- * `series` is a fixed order, never cycled: the first measure in a figure takes `series[0]`, the
- * second `series[1]`. A figure that would need a third is the wrong figure.
+ * With one brand hue there is no categorical palette to build, and there should not be one: a
+ * second hue invented for "series 2" would be the decorative colour this palette just removed. So
+ * `series` is an ordinal pair — two steps of the same lavender, far enough apart in lightness to
+ * read as two things, each clearing its own surface. It is checked for monotonic lightness, step
+ * size, single hue and light-end contrast rather than for categorical hue separation, and a figure
+ * using it always labels both marks: a lightness step alone is not identity.
+ *
+ * A figure that would need a genuinely categorical third colour is the wrong figure — split it
+ * into small multiples instead.
  */
 export const chart = {
   light: {
-    series: ['#149C7C', '#B96C0C'],
+    // Dark step first: a lone series, and the larger half of a part-to-whole, take the strong one.
+    series: [brand[700], brand[400]],
     grid: neutral[200],
     axis: neutral[500],
     track: neutral[200],
     surface: '#FFFFFF',
   },
   dark: {
-    series: ['#149C7C', '#C98214'],
+    series: [brand[300], brand[700]],
     grid: neutral[800],
     axis: neutral[400],
     track: neutral[800],

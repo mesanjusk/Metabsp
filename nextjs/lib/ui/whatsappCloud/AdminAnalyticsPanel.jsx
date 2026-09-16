@@ -5,6 +5,8 @@ import { Alert, Box, CircularProgress, Grid, Paper, Stack, Typography } from '@m
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { parseApiError } from '@/lib/api/parseApiError';
 import apiClient from '@/lib/api/client';
+import { useTheme } from '@mui/material';
+import { chartPalette } from '@/lib/ui/tokens';
 
 const formatRupees = (paise) => `₹${((paise || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
@@ -20,6 +22,7 @@ const StatTile = ({ label, value }) => (
 // count) per tenant needs no legend or multi-hue palette; the WhatsApp-brand
 // teal here matches the existing AnalyticsDashboard.jsx convention.
 export default function AdminAnalyticsPanel() {
+  const palette = chartPalette(useTheme().palette.mode);
   const [overview, setOverview] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -79,11 +82,11 @@ export default function AdminAnalyticsPanel() {
           <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>Top tenants by messages sent</Typography>
           <ResponsiveContainer width="100%" height={Math.max(160, chartData.length * 36)}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} horizontal={false} />
               <XAxis type="number" allowDecimals={false} />
               <YAxis type="category" dataKey="name" width={140} />
               <Tooltip />
-              <Bar dataKey="messages" fill="#075e54" radius={[0, 4, 4, 0]} name="Messages" />
+              <Bar dataKey="messages" fill={palette.series[0]} radius={[0, 4, 4, 0]} name="Messages" />
             </BarChart>
           </ResponsiveContainer>
         </Paper>

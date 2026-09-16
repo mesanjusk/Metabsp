@@ -6,6 +6,7 @@ import {
   ListItemButton, ListItemText, Chip, Stack, useTheme, useMediaQuery
 } from '@mui/material';
 import { motion } from 'framer-motion';
+import { brand } from '@/lib/ui/tokens';
 
 const CodeBlock = ({ code, language = 'javascript' }) => (
   <Box
@@ -88,7 +89,7 @@ export default function DeveloperDocsPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
-        <Box sx={{ bgcolor: '#111b21', color: 'white', py: { xs: 6, md: 8 }, textAlign: 'center' }}>
+        <Box sx={{ bgcolor: brand[900], color: 'common.white', py: { xs: 6, md: 8 }, textAlign: 'center' }}>
           <Container maxWidth="md">
             <Chip label="API v1" color="primary" size="small" sx={{ mb: 2 }} />
             <Typography variant="h3" fontWeight={800} sx={{ mb: 1.5, color: 'white' }}>Developer Documentation</Typography>

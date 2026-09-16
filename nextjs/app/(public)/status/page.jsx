@@ -118,7 +118,7 @@ export default function StatusPage() {
           <Container maxWidth="md">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1 }}>
               {allOperational ? (
-                <CheckCircleIcon sx={{ fontSize: 64, color: '#25d366', mb: 2 }} />
+                <CheckCircleIcon sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
               ) : (
                 <WarningAmberIcon sx={{ fontSize: 64, color: '#ffb74d', mb: 2 }} />
               )}

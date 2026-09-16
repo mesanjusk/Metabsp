@@ -27,27 +27,27 @@ import DeleteForeverIcon   from '@mui/icons-material/DeleteForever';
 
 const PERMISSIONS_LIST = [
   {
-    icon: <MessageIcon sx={{ color: '#25D366' }} />,
+    icon: <MessageIcon sx={{ color: 'primary.main' }} />,
     primary: 'Read and send messages on your behalf',
     secondary: 'Access incoming messages and send outbound messages through your WhatsApp Business account',
   },
   {
-    icon: <PhoneIcon sx={{ color: '#128C7E' }} />,
+    icon: <PhoneIcon sx={{ color: 'primary.dark' }} />,
     primary: 'Access your WhatsApp Business phone numbers',
     secondary: 'View and use the phone numbers registered to your Meta Business account',
   },
   {
-    icon: <DescriptionIcon sx={{ color: '#2196F3' }} />,
+    icon: <DescriptionIcon sx={{ color: 'primary.main' }} />,
     primary: 'Create and manage message templates',
     secondary: 'Submit, edit, and delete message templates for approval through the Meta API',
   },
   {
-    icon: <BarChartIcon sx={{ color: '#FF9800' }} />,
+    icon: <BarChartIcon sx={{ color: 'primary.main' }} />,
     primary: 'Access message delivery reports',
     secondary: 'Receive delivery receipts, read receipts, and failure notifications for sent messages',
   },
   {
-    icon: <WebhookIcon sx={{ color: '#9C27B0' }} />,
+    icon: <WebhookIcon sx={{ color: 'primary.main' }} />,
     primary: 'Configure webhooks for your account',
     secondary: 'Register webhook endpoints to receive real-time notifications from Meta',
   },
@@ -128,7 +128,7 @@ export default function ConsentDialog({ open, onAccept, onDecline }) {
       {/* Header */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #075E54 0%, #128C7E 50%, #25D366 100%)',
+          background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
           px: 3,
           py: 2.5,
           display: 'flex',
@@ -213,7 +213,7 @@ export default function ConsentDialog({ open, onAccept, onDecline }) {
             </IconButton>
           </Stack>
           <Collapse in={dataExpanded}>
-            <Box sx={{ px: 2, pb: 2, bgcolor: alpha('#1976d2', 0.03) }}>
+            <Box sx={{ px: 2, pb: 2, bgcolor: 'action.hover' }}>
               <List disablePadding dense>
                 {DATA_ACCESS_ITEMS.map((item, i) => (
                   <ListItem key={i} disablePadding sx={{ mb: 0.5 }}>
@@ -252,7 +252,7 @@ export default function ConsentDialog({ open, onAccept, onDecline }) {
             </IconButton>
           </Stack>
           <Collapse in={usageExpanded}>
-            <Box sx={{ px: 2, pb: 2, bgcolor: alpha('#4CAF50', 0.03) }}>
+            <Box sx={{ px: 2, pb: 2, bgcolor: 'action.hover' }}>
               <List disablePadding dense>
                 {DATA_USAGE_ITEMS.map((item, i) => (
                   <ListItem key={i} disablePadding sx={{ mb: 0.5 }}>
@@ -324,9 +324,7 @@ export default function ConsentDialog({ open, onAccept, onDecline }) {
           startIcon={<WhatsAppIcon />}
           sx={{
             flex: 2,
-            background: canAccept
-              ? 'linear-gradient(135deg, #075E54, #25D366)'
-              : undefined,
+
             '&:not(:disabled)': { color: '#fff' },
           }}
         >

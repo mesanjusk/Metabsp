@@ -91,12 +91,12 @@ export default function MessageInput({
       square
       elevation={0}
       sx={{
-        borderTop: '1px solid #d1d7db',
+        borderTop: '1px solid', borderColor: 'divider',
         p: 1,
         position: 'sticky',
         bottom: 0,
         zIndex: 3,
-        bgcolor: '#f0f2f5',
+        bgcolor: 'background.default',
       }}
     >
       {canSendTemplateOnly ? (
@@ -150,7 +150,7 @@ export default function MessageInput({
         sx={{
           '& .MuiOutlinedInput-root': {
             borderRadius: 999,
-            bgcolor: '#ffffff',
+            bgcolor: 'background.paper',
             pr: 0.5,
           },
         }}

@@ -20,9 +20,20 @@ import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import BrandMark from './BrandMark';
 import { findNavItem, getActiveServiceInfo, getNavSections } from './navigation';
 import { layout } from '@/lib/ui/theme';
+import { brand } from '@/lib/ui/tokens';
 
-const MUTED = '#9FB9AF';
-const INK = '#CADAD5';
+/**
+ * The rail is the one place in the product that is brand-coloured all over, so it reads from the
+ * lavender ramp rather than repeating hexes. Each pair below clears WCAG AA against the rail.
+ */
+const RAIL = brand[900];
+const INK = brand[100];
+const MUTED = brand[300];
+const HEADING = brand[50];
+const SELECTED_BG = brand[200];
+const SELECTED_INK = brand[900];
+const SELECTED_HOVER = brand[300];
+const HAIRLINE = 'rgba(255,255,255,0.12)';
 
 /**
  * Service-aware primary navigation.
@@ -65,11 +76,11 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: '#122B2A',
+        bgcolor: RAIL,
         color: INK,
-        '& .MuiDivider-root': { borderColor: 'rgba(255,255,255,0.09)' },
+        '& .MuiDivider-root': { borderColor: HAIRLINE },
         borderRight: '1px solid',
-        borderColor: 'rgba(255,255,255,0.09)',
+        borderColor: HAIRLINE,
       }}
     >
       <Box
@@ -79,8 +90,8 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
           display: 'flex',
           alignItems: 'center',
           borderBottom: '1px solid',
-          borderColor: 'rgba(255,255,255,0.09)',
-          color: '#EDFFF7',
+          borderColor: HAIRLINE,
+          color: HEADING,
         }}
       >
         <Box component={NextLink} href="/home" sx={{ color: 'inherit', textDecoration: 'none' }}>
@@ -109,7 +120,7 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
                     selected={selected}
                     onClick={onNavigate}
                     aria-current={selected ? 'page' : undefined}
-                    sx={{ minHeight: 44, py: 1, px: 1.5, color: INK, '&:hover': { bgcolor: 'rgba(255,255,255,0.07)' }, '&.Mui-selected': { bgcolor: '#D6F5E5', color: '#153E32', boxShadow: '0 3px 12px rgba(0,0,0,0.08)', '&:hover': { bgcolor: '#C1ECD5' } } }}
+                    sx={{ minHeight: 44, py: 1, px: 1.5, color: INK, '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' }, '&.Mui-selected': { bgcolor: SELECTED_BG, color: SELECTED_INK, boxShadow: '0 3px 12px rgba(0,0,0,0.12)', '&:hover': { bgcolor: SELECTED_HOVER } } }}
                   >
                     <ListItemIcon sx={{ minWidth: 34, color: 'inherit' }}>
                       <Icon fontSize="small" />
@@ -164,7 +175,7 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
         })}
       </Box>
 
-      <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'rgba(255,255,255,0.09)' }}>
+      <Box sx={{ p: 2, borderTop: '1px solid', borderColor: HAIRLINE }}>
         <Tooltip
           title={
             activeService
@@ -173,7 +184,7 @@ export default function AppSidebar({ isAdmin = false, onNavigate }) {
           }
         >
           <Stack spacing={0.25}>
-            <Typography variant="caption" sx={{ color: '#BDD0C8' }}>
+            <Typography variant="caption" sx={{ color: INK }}>
               {activeService?.label || 'Small Business Digital OS'}
             </Typography>
             <Typography variant="caption" sx={{ color: MUTED }}>
