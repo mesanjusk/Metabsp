@@ -10,6 +10,11 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Fab,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   LinearProgress,
   Paper,
   Stack,
@@ -34,13 +39,12 @@ import PageBody from '@/lib/ui/app/PageBody';
 import GrowthIntelligence from '@/lib/ui/app/GrowthIntelligence';
 import apiClient from '@/lib/api/client';
 import { SERVICES } from '@/lib/ui/app/serviceRegistry';
-import { brand, neutral, spacing, typeScale } from '@/lib/ui/tokens';
+import { brand, layout, neutral, spacing, typeScale } from '@/lib/ui/tokens';
 
 const emptyOverview = {
   kpis: {},
   channelPerformance: {},
   funnel: {},
-  activity: [],
   serviceHealth: [],
 };
 
@@ -182,6 +186,9 @@ function Section({ title, subtitle, action, children }) {
 }
 
 export default function BusinessControlCenterPage() {
+  const [quickActionsAnchor, setQuickActionsAnchor] = useState(null);
+  const quickActionsOpen = Boolean(quickActionsAnchor);
+  const closeQuickActions = () => setQuickActionsAnchor(null);
   const [overview, setOverview] = useState(emptyOverview);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -349,34 +356,53 @@ export default function BusinessControlCenterPage() {
         </Section>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2, mb: 2 }}>
-        <Section title="Recent activity" action={<Button component={NextLink} href="/inbox" size="small">Open inbox</Button>}>
-          <Stack spacing={0.5}>
-            {(overview.activity || []).length ? overview.activity.map((item) => (
-              <Stack key={item.id} direction="row" spacing={1.25} alignItems="flex-start" sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 0 } }}>
-                <Box sx={{ width: 32, height: 32, borderRadius: 2, bgcolor: 'action.hover', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                  {item.type === 'message' ? <ForumRoundedIcon fontSize="small" /> : <PeopleAltRoundedIcon fontSize="small" />}
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="body2" fontWeight={750} noWrap>{item.title}</Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>{item.detail || 'Activity recorded'}</Typography>
-                </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>{item.at ? new Date(item.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''}</Typography>
-              </Stack>
-            )) : <Typography variant="body2" color="text.secondary">No recent activity yet.</Typography>}
-          </Stack>
-        </Section>
-
-        <Section title="Quick actions">
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1 }}>
-            <Button component={NextLink} href="/contacts" variant="outlined" startIcon={<AddRoundedIcon />} sx={{ minHeight: 56 }}>Contacts</Button>
-            <Button component={NextLink} href="/inbox" variant="outlined" startIcon={<WhatsAppIcon />} sx={{ minHeight: 56 }}>Inbox</Button>
-            <Button component={NextLink} href="/services/marketing" variant="outlined" startIcon={<CampaignRoundedIcon />} sx={{ minHeight: 56 }}>Create post</Button>
-            <Button component={NextLink} href="/instagram" variant="outlined" startIcon={<InstagramIcon />} sx={{ minHeight: 56 }}>Instagram</Button>
-            <Button component={NextLink} href="/settings" variant="outlined" startIcon={<SettingsRoundedIcon />} sx={{ minHeight: 56 }}>Settings</Button>
-          </Box>
-        </Section>
-      </Box>
+      {/* Leave room to scroll the final card clear of the floating action. */}
+      <Box sx={{ height: 80 }} />
+      <Fab
+        id="home-quick-actions-button"
+        color="primary"
+        variant="extended"
+        aria-label="Quick actions"
+        aria-haspopup="menu"
+        aria-controls={quickActionsOpen ? 'home-quick-actions-menu' : undefined}
+        aria-expanded={quickActionsOpen}
+        onClick={(event) => setQuickActionsAnchor(event.currentTarget)}
+        sx={{
+          position: 'fixed',
+          right: { xs: 16, md: 24 },
+          bottom: { xs: `calc(${layout.mobileTabBarTotal} + 16px)`, sm: 24 },
+          zIndex: (theme) => theme.zIndex.appBar + 1,
+          gap: 1,
+          px: 2.5,
+          minHeight: 56,
+        }}
+      >
+        <AddRoundedIcon />
+        Quick actions
+      </Fab>
+      <Menu
+        id="home-quick-actions-menu"
+        anchorEl={quickActionsAnchor}
+        open={quickActionsOpen}
+        onClose={closeQuickActions}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        MenuListProps={{ 'aria-labelledby': 'home-quick-actions-button' }}
+        PaperProps={{ sx: { mb: 1, width: 240, maxWidth: 'calc(100vw - 32px)', borderRadius: 3 } }}
+      >
+        {[
+          [AddRoundedIcon, 'Contacts', '/contacts'],
+          [WhatsAppIcon, 'Inbox', '/inbox'],
+          [CampaignRoundedIcon, 'Create post', '/services/marketing'],
+          [InstagramIcon, 'Instagram', '/instagram'],
+          [SettingsRoundedIcon, 'Settings', '/settings'],
+        ].map(([Icon, label, href]) => (
+          <MenuItem key={href} component={NextLink} href={href} onClick={closeQuickActions} sx={{ minHeight: 48, py: 1.25 }}>
+            <ListItemIcon><Icon fontSize="small" /></ListItemIcon>
+            <ListItemText>{label}</ListItemText>
+          </MenuItem>
+        ))}
+      </Menu>
 
     </PageBody>
   );
