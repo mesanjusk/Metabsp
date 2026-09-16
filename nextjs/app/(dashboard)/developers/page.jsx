@@ -12,6 +12,10 @@ const ApiKeysPanel = dynamic(() => import('@/lib/ui/whatsappCloud/ApiKeysPanel')
   ssr: false,
   loading: () => <LoadingSkeleton />,
 });
+const BusyIntegrationPanel = dynamic(() => import('@/lib/ui/whatsappCloud/BusyIntegrationPanel'), {
+  ssr: false,
+  loading: () => <LoadingSkeleton />,
+});
 const WebhookDestinationsPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WebhookDestinationsPanel'), {
   ssr: false,
   loading: () => <LoadingSkeleton />,
@@ -34,6 +38,7 @@ const ApiReferencePanel = dynamic(() => import('@/lib/ui/whatsappCloud/ApiRefere
 const TABS = [
   { value: 'reference', label: 'API reference' },
   { value: 'keys', label: 'API keys' },
+  { value: 'busy', label: 'BUSY Accounting' },
   { value: 'webhooks', label: 'Webhook destinations' },
 ];
 
@@ -82,6 +87,7 @@ export default function DevelopersPage() {
             the reader to go and find it. */}
         {tab === 'reference' ? <ApiReferencePanel onOpenTab={setTab} /> : null}
         {tab === 'keys' ? <ApiKeysPanel /> : null}
+        {tab === 'busy' ? <BusyIntegrationPanel /> : null}
         {tab === 'webhooks' ? <WebhookDestinationsPanel /> : null}
       </Stack>
     </PageBody>

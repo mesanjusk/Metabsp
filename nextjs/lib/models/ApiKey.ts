@@ -37,6 +37,10 @@ const apiKeySchema = new Schema(
     keyPrefix: { type: String, default: '' },
     userId: { type: String, required: true, index: true },
     name: { type: String, default: 'Default', trim: true },
+    // BUSY's URL-only client gets a separate, send-only credential. It must
+    // never authenticate the general API, even when supplied in a header.
+    scope: { type: String, enum: ['api', 'busy'], default: 'api' },
+    busyConfig: { type: Schema.Types.Mixed, default: undefined },
     isActive: { type: Boolean, default: true, index: true },
     lastUsedAt: { type: Date, default: null },
   },
@@ -71,6 +75,15 @@ apiKeySchema.statics.generate = async function generate(userId: string, name = '
     name,
   });
   // The only moment the plaintext exists. Callers must surface it now or lose it.
+  return { doc, rawKey };
+};
+
+apiKeySchema.statics.generateBusy = async function generateBusy(userId: string, name: string, busyConfig: unknown) {
+  const rawKey = 'busy_' + crypto.randomBytes(28).toString('hex');
+  const doc = await this.create({
+    key: makeRetiredApiKeyMarker(), keyHash: hashApiKey(rawKey), keyPrefix: rawKey.slice(0, 12),
+    userId, name, scope: 'busy', busyConfig,
+  });
   return { doc, rawKey };
 };
 

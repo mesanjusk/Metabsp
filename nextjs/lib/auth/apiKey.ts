@@ -63,6 +63,7 @@ export async function requireApiKey(req: NextRequest): Promise<ApiKeyPrincipal> 
   }
 
   if (!record) throw new AppError('Invalid or revoked API key', 401);
+  if (record.scope === 'busy') throw new AppError('This token is only valid for the BUSY connector.', 403);
 
   // Resolve the owner so downstream tenant gates behave the same as on the
   // JWT path. A lookup problem here means "no tenant", never a failed request.
