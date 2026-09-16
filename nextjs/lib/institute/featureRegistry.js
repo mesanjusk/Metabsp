@@ -125,3 +125,15 @@ export const INSTITUTE_FEATURE_BY_SLUG = Object.fromEntries(INSTITUTE_FEATURES.m
 export function getInstituteFeature(slug) {
   return INSTITUTE_FEATURE_BY_SLUG[String(slug || '')] || null;
 }
+
+/**
+ * Where a tool lives.
+ *
+ * Most tools are rendered by the generic `[feature]` route; a handful (`href`) are shared
+ * MetaBSP screens or purpose-built pages. Both the sidebar and any card that links to a tool
+ * read the answer from here, so the two can never disagree about where a tool opens.
+ */
+export function instituteFeatureHref(feature) {
+  if (!feature) return '/services/institute';
+  return feature.href || `/services/institute/${feature.slug}`;
+}

@@ -13,6 +13,7 @@ import CodeRoundedIcon from '@mui/icons-material/CodeRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import { getServiceBySlug, getServiceForPath } from './serviceRegistry';
+import { INSTITUTE_FEATURE_GROUPS, instituteFeatureHref } from '@/lib/institute/featureRegistry';
 
 /**
  * `shortLabel` is what the mobile tab bar uses.
@@ -96,6 +97,57 @@ export const INSTAGRAM_NAV_SECTIONS = [
   },
 ];
 
+/**
+ * Institute Management's menu.
+ *
+ * The service has sixty-odd tools. They used to live on the service's landing page as a wall of
+ * cards, which made the main screen a menu and left nothing on it that answered "how is the
+ * institute doing" — and put the tools somewhere you had to navigate *back* to in order to reach
+ * the next one. They belong in the sidebar, where every other service keeps its navigation, so the
+ * main screen is free to be the analytics overview.
+ *
+ * The groups come straight from the feature registry: one place decides what tools exist, so the
+ * sidebar cannot drift from the routes that actually render. `collapsible` is what keeps sixty
+ * items usable — a group opens when the current page is inside it, and stays shut otherwise.
+ */
+export const INSTITUTE_NAV_SECTIONS = [
+  {
+    id: 'institute-workspace',
+    label: 'Institute',
+    items: [
+      SERVICES_ITEM,
+      {
+        href: '/services/institute',
+        label: 'Overview',
+        shortLabel: 'Overview',
+        icon: InsightsRoundedIcon,
+        // Every institute tool sits under this path, so prefix matching would leave "Overview"
+        // highlighted on all sixty of them.
+        exact: true,
+      },
+      { href: '/services/institute/contacts', label: 'Contacts', icon: PeopleAltRoundedIcon },
+    ],
+  },
+  ...INSTITUTE_FEATURE_GROUPS.map((group) => ({
+    id: `institute-${group.key}`,
+    label: group.label,
+    collapsible: true,
+    items: group.features.map((feature) => ({
+      href: instituteFeatureHref(feature),
+      label: feature.label,
+      icon: feature.icon,
+      // A shared tool leaves the service — the sidebar says so rather than letting the click
+      // look like a dead end when the menu changes underneath it.
+      shared: feature.kind === 'shared',
+    })),
+  })),
+  {
+    id: 'institute-account',
+    label: 'Account',
+    items: [{ href: '/settings', label: 'Settings', icon: SettingsRoundedIcon }],
+  },
+];
+
 function genericServiceSections(service) {
   if (!service) return HUB_NAV_SECTIONS;
   return [
@@ -131,6 +183,7 @@ export function getNavSections(pathname = '') {
   if (!service) return HUB_NAV_SECTIONS;
   if (service.slug === 'whatsapp') return WHATSAPP_NAV_SECTIONS;
   if (service.slug === 'instagram') return INSTAGRAM_NAV_SECTIONS;
+  if (service.slug === 'institute') return INSTITUTE_NAV_SECTIONS;
   return genericServiceSections(service);
 }
 
@@ -165,12 +218,35 @@ export function getMobileNavHrefs(pathname = '') {
     return ['/whatsapp', '/inbox', '/contacts', '/broadcasts'];
   }
 
+  if (service.slug === 'institute') {
+    // The overview leads; students and fees are the two tools an institute opens daily, and on a
+    // phone they are worth a tab rather than a trip through the drawer.
+    return ['/home', '/services/institute', '/services/institute/students', '/services/institute/fees'];
+  }
+
   return ['/home', service.href, `/services/${service.slug}/contacts`];
 }
 
+/** Does this item own the current page? `exact` items match only themselves. */
+export function matchesNavItem(pathname = '', item) {
+  if (!item?.href) return false;
+  if (pathname === item.href) return true;
+  return !item.exact && pathname.startsWith(`${item.href}/`);
+}
+
+/**
+ * The item the current page belongs to — the most specific one, not the first one listed.
+ *
+ * A menu that nests (an overview at `/services/institute`, a tool at `/services/institute/fees`)
+ * has two items matching the tool's path by prefix. Taking the first match put the overview's name
+ * in the title bar on every institute screen; the longest matching href is the one that is
+ * actually rendering the page.
+ */
 export function findNavItem(pathname = '') {
   const items = getNavigationItems(pathname);
-  return items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)) || null;
+  return items
+    .filter((item) => matchesNavItem(pathname, item))
+    .sort((a, b) => b.href.length - a.href.length)[0] || null;
 }
 
 export const NAV_SECTIONS = WHATSAPP_NAV_SECTIONS;

@@ -163,3 +163,38 @@ export const layout = {
    */
   mobileTabBarTotal: 'calc(60px + env(safe-area-inset-bottom, 0px))',
 };
+
+/**
+ * Chart colours, per scheme.
+ *
+ * Charts cannot borrow the UI palette wholesale: a series colour has to clear the same surface in
+ * both schemes, and two adjacent series have to stay apart for a colour-blind reader, which is a
+ * stricter test than "looks fine next to a button". These steps were checked against the chart
+ * surface of each scheme (white, and `neutral[900]`) for lightness, chroma, contrast and
+ * colour-vision-deficiency separation, so they are listed here rather than derived at the call
+ * site from `palette.primary.main`.
+ *
+ * `series` is a fixed order, never cycled: the first measure in a figure takes `series[0]`, the
+ * second `series[1]`. A figure that would need a third is the wrong figure.
+ */
+export const chart = {
+  light: {
+    series: ['#149C7C', '#B96C0C'],
+    grid: neutral[200],
+    axis: neutral[500],
+    track: neutral[200],
+    surface: '#FFFFFF',
+  },
+  dark: {
+    series: ['#149C7C', '#C98214'],
+    grid: neutral[800],
+    axis: neutral[400],
+    track: neutral[800],
+    surface: neutral[900],
+  },
+};
+
+/** The chart palette for a resolved scheme. */
+export function chartPalette(mode: 'light' | 'dark' = 'light') {
+  return mode === 'dark' ? chart.dark : chart.light;
+}
