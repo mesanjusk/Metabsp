@@ -64,6 +64,15 @@ describe('API key authentication', () => {
     });
   });
 
+  it('rejects BUSY-scoped tokens on the general API even in a header', async () => {
+    findOne.mockResolvedValue({ _id: 'busy-key', userId: 'u1', scope: 'busy' });
+    await expect(requireApiKey(request({ authorization: 'Bearer busy_token' }))).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it('never accepts API keys from a query string', async () => {
+    await expect(requireApiKey(new NextRequest('https://example.test/api/v1/status?apiKey=mbsp_secret'))).rejects.toMatchObject({ statusCode: 401 });
+  });
+
   it('rejects an unknown key', async () => {
     findOne.mockResolvedValue(null);
     await expect(requireApiKey(request({ authorization: 'Bearer mbsp_nope' }))).rejects.toMatchObject({

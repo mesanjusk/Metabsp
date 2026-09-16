@@ -100,6 +100,18 @@ export const loadActiveWhatsAppAccountForUser = async (userId: string, options: 
   return toAccountContext(account);
 };
 
+// Integrations pin their sender when created. Recheck ownership/team membership
+// on every send; switching the dashboard's active number must not redirect it.
+export const loadWhatsAppAccountForUserById = async (userId: string, accountId: string) => {
+  if (!/^[a-f0-9]{24}$/i.test(accountId)) throw new AppError('Select a connected WhatsApp number.', 400);
+  const account: any = await WhatsAppAccount.findOne({
+    _id: accountId, status: { $ne: 'disconnected' },
+    $or: [{ userId }, { teamMemberIds: userId }],
+  }).lean();
+  if (!account) throw new AppError('This WhatsApp number is disconnected or no longer accessible.', 403);
+  return toAccountContext(account);
+};
+
 export const loadWhatsAppAccountByPhoneNumberId = async (phoneNumberId: string, options: { requireAccount?: boolean } = {}) => {
   const { requireAccount = true } = options;
   if (!phoneNumberId) {

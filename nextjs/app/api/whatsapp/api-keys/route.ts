@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const authed = await requireAuth(req);
 
-    const keys: any[] = await ApiKey.find({ userId: authed.id }).sort({ createdAt: -1 }).lean();
+    const keys: any[] = await ApiKey.find({ userId: authed.id, scope: { $ne: 'busy' } }).sort({ createdAt: -1 }).lean();
 
     return NextResponse.json({
       success: true,
