@@ -17,7 +17,7 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import SpeedIcon from '@mui/icons-material/Speed';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import { motion } from 'framer-motion';
-import { brand } from '@/lib/ui/tokens';
+import { brand, neutral } from '@/lib/ui/tokens';
 
 const FeatureCard = ({ icon, title, description }) => (
   <Paper
@@ -39,7 +39,8 @@ export default function AboutPage() {
       <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
         <Box
           sx={{
-            background: `linear-gradient(135deg, ${brand[900]} 0%, ${brand[800]} 55%, ${brand[700]} 100%)`,
+            background: `linear-gradient(135deg, ${brand[50]} 0%, ${brand[100]} 55%, ${brand[200]} 100%)`,
+            color: neutral[900],
             color: 'white',
             py: { xs: 10, md: 16 },
             textAlign: 'center',
@@ -60,7 +61,7 @@ export default function AboutPage() {
                 Messaging runs on Meta&apos;s official WhatsApp Business Platform.
               </Typography>
               <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ mt: 3 }} flexWrap="wrap" useFlexGap>
-                <Chip label="Meta Technology Partner" icon={<VerifiedIcon />} sx={{ bgcolor: brand[200], color: brand[900], fontWeight: 700 }} />
+                <Chip label="Meta Technology Partner" icon={<VerifiedIcon />} sx={{ bgcolor: brand[700], color: brand[50], fontWeight: 700 }} />
                 <Chip label="Founded 2024" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: 'white' }} />
               </Stack>
             </motion.div>
@@ -169,7 +170,8 @@ export default function AboutPage() {
               py: 6,
               px: 4,
               borderRadius: 4,
-              background: `linear-gradient(135deg, ${brand[600]} 0%, ${brand[800]} 100%)`,
+              background: `linear-gradient(135deg, ${brand[100]} 0%, ${brand[200]} 100%)`,
+              color: neutral[900],
               color: 'white',
             }}
           >
@@ -181,7 +183,7 @@ export default function AboutPage() {
             </Typography>
             <Chip
               label="Start Free Trial"
-              sx={{ bgcolor: 'common.white', color: brand[700], fontWeight: 700, fontSize: '1rem', px: 2, py: 2.5, borderRadius: 2, cursor: 'pointer' }}
+              sx={{ bgcolor: brand[700], color: brand[50], fontWeight: 700, fontSize: '1rem', px: 2, py: 2.5, borderRadius: 2, cursor: 'pointer' }}
               clickable
             />
           </Box>

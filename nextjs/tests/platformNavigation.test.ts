@@ -71,6 +71,32 @@ describe('small-business service navigation', () => {
   });
 });
 
+/**
+ * Google Business Profile's four screens were tabs inside a 750-line page that also owns the OAuth
+ * and location state. They are routes now — one component, four addresses — so they can be linked
+ * and listed like every other service's screens.
+ */
+describe('google business profile navigation', () => {
+  it('lists every screen in the sidebar', () => {
+    const hrefs = new Set(getNavigationItems('/services/google-business').map((item: any) => item.href));
+    for (const href of [
+      '/services/google-business',
+      '/services/google-business/reviews',
+      '/services/google-business/posts',
+      '/services/google-business/review-requests',
+    ]) {
+      expect(hrefs.has(href), `${href} is missing from the menu`).toBe(true);
+    }
+  });
+
+  it('does not let the overview claim the other three', () => {
+    expect(findNavItem('/services/google-business')?.label).toBe('Overview');
+    expect(findNavItem('/services/google-business/reviews')?.label).toBe('Reviews');
+    expect(findNavItem('/services/google-business/posts')?.label).toBe('Posts');
+    expect(findNavItem('/services/google-business/review-requests')?.label).toBe('Ask for reviews');
+  });
+});
+
 describe('every service menu', () => {
   it.each((SERVICES as { slug: string; href: string }[]).map((s) => [s.slug, s.href]))(
     '%s offers its own overview and no duplicate destinations',
