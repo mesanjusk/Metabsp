@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     return errorResponse(error, 'Service temporarily unavailable');
   }
 
-  const allowed = await checkAuthRateLimit(req, { windowMs: 15 * 60 * 1000, maxRequests: 10 });
+  const allowed = await checkAuthRateLimit(req, { windowMs: 15 * 60 * 1000, maxRequests: 10, scope: 'reset' });
   if (!allowed) {
     return NextResponse.json({ success: false, message: 'Too many attempts. Please try again later.' }, { status: 429 });
   }
