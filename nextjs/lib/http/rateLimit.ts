@@ -53,11 +53,36 @@ export async function checkRateLimit({ windowMs, maxRequests, key, prefix }: Rat
   }
 }
 
-// Convenience wrapper for the unauthenticated auth/OTP endpoints (login,
-// signup OTP request/verify, password reset) — keyed by IP, same as
-// createAuthRateLimiter in the original.
-export async function checkAuthRateLimit(req: NextRequest, { windowMs, maxRequests }: { windowMs: number; maxRequests: number }): Promise<boolean> {
-  return checkRateLimit({ windowMs, maxRequests, key: getClientIp(req), prefix: 'auth' });
+/**
+ * Convenience wrapper for the unauthenticated auth/OTP endpoints (login,
+ * signup OTP request/verify, password reset) — keyed by IP, same as
+ * createAuthRateLimiter in the original.
+ *
+ * `scope` is what keeps these endpoints' budgets separate, and it is not
+ * optional in practice. Every caller used to share the single key
+ * `rl:auth:<ip>` while declaring its own `maxRequests` — 5 for the signup and
+ * password-reset OTP requests, 10 for the verify steps, 20 for login and the
+ * social callbacks — so one counter was being compared against five different
+ * thresholds. The budgets compounded instead of standing alone: signing up
+ * spends two requests minimum, a mistyped OTP or an already-registered number
+ * spends more, and all of it counted against the same allowance login was
+ * measured by. The declared "20 login attempts per 15 minutes" was really
+ * "20 minus every OTP request, verify and reset from this IP", and the
+ * strictest endpoint's limit of 5 governed anything sharing the window.
+ *
+ * Behind a NAT — a carrier, an office, a shared WiFi — that is one budget for
+ * everybody on the address, and the failure is opaque from the outside: the
+ * same "Too many attempts. Please try again later." on both sign-up and
+ * sign-in, on endpoints the person may have used only once or twice.
+ *
+ * express-rate-limit gave the original one store namespace per limiter
+ * instance, which is the behaviour being restored here.
+ */
+export async function checkAuthRateLimit(
+  req: NextRequest,
+  { windowMs, maxRequests, scope }: { windowMs: number; maxRequests: number; scope: string }
+): Promise<boolean> {
+  return checkRateLimit({ windowMs, maxRequests, key: `${scope}:${getClientIp(req)}`, prefix: 'auth' });
 }
 
 // Convenience wrapper for authenticated endpoints (connect, messaging) —
