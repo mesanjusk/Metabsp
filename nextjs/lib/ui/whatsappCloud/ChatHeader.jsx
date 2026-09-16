@@ -7,12 +7,12 @@ import { Avatar, Box, IconButton, Stack, Typography } from '@mui/material';
 
 export default function ChatHeader({ conversation, onRefresh, onBack, windowOpen }) {
   return (
-    <Box sx={{ px: 1.2, py: 0.9, bgcolor: '#f0f2f5', borderBottom: '1px solid #d1d7db', position: 'sticky', top: 0, zIndex: 2 }}>
+    <Box sx={{ px: 1.2, py: 0.9, bgcolor: 'background.default', borderBottom: '1px solid', borderColor: 'divider', position: 'sticky', top: 0, zIndex: 2 }}>
       <Stack direction="row" alignItems="center" spacing={1}>
         <IconButton size="small" sx={{ display: { xs: 'inline-flex', lg: 'none' } }} onClick={onBack}>
           <ArrowBackRoundedIcon fontSize="small" />
         </IconButton>
-        <Avatar sx={{ width: 34, height: 34, bgcolor: '#25d366', fontSize: 12 }}>
+        <Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.main', fontSize: 12 }}>
           {(conversation?.displayName || conversation?.contact || 'NA').slice(0, 2).toUpperCase()}
         </Avatar>
         <Box sx={{ minWidth: 0, flex: 1 }}>

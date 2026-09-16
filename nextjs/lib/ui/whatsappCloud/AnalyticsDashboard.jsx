@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, Paper, Stack, Typography, useTheme } from '@mui/material';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { whatsappCloudService } from '@/lib/client/services/whatsappCloudService';
+import { chartPalette } from '@/lib/ui/tokens';
 import EmptyState from './EmptyState';
 import LoadingSkeleton from './LoadingSkeleton';
 
@@ -21,6 +22,7 @@ function SummaryCard({ title, value }) {
 }
 
 export default function AnalyticsDashboard() {
+  const palette = chartPalette(useTheme().palette.mode);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -80,7 +82,7 @@ export default function AnalyticsDashboard() {
           <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Message Trend</Typography>
           <Box sx={{ height: 290 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" /><XAxis dataKey="day" /><YAxis /><Tooltip /><Legend /><Line type="monotone" dataKey="sent" stroke="#075e54" strokeWidth={2} /><Line type="monotone" dataKey="delivered" stroke="#25d366" strokeWidth={2} /></LineChart>
+              <LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke={palette.grid} /><XAxis dataKey="day" /><YAxis /><Tooltip /><Legend /><Line type="monotone" dataKey="sent" stroke={palette.series[0]} strokeWidth={2} /><Line type="monotone" dataKey="delivered" stroke={palette.series[1]} strokeWidth={2} /></LineChart>
             </ResponsiveContainer>
           </Box>
         </Paper>
@@ -89,7 +91,7 @@ export default function AnalyticsDashboard() {
           <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Read & Replies</Typography>
           <Box sx={{ height: 290 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" /><XAxis dataKey="day" /><YAxis /><Tooltip /><Legend /><Bar dataKey="read" fill="#22c55e" name="Read" /><Bar dataKey="replies" fill="#f59e0b" name="Replies" /></BarChart>
+              <BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke={palette.grid} /><XAxis dataKey="day" /><YAxis /><Tooltip /><Legend /><Bar dataKey="read" fill={palette.series[0]} name="Read" /><Bar dataKey="replies" fill={palette.series[1]} name="Replies" /></BarChart>
             </ResponsiveContainer>
           </Box>
         </Paper>

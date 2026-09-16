@@ -65,13 +65,13 @@ export default function ConversationList({
   onRefresh,
 }) {
   return (
-    <Stack sx={{ height: '100%', minHeight: 0, bgcolor: '#ffffff' }}>
+    <Stack sx={{ height: '100%', minHeight: 0, bgcolor: 'background.paper' }}>
       <Stack
         spacing={1}
         sx={{
           p: 1.1,
-          borderBottom: '1px solid #e9edef',
-          bgcolor: '#f0f2f5',
+          borderBottom: '1px solid', borderColor: 'divider',
+          bgcolor: 'background.default',
           position: 'sticky',
           top: 0,
           zIndex: 2,
@@ -130,7 +130,7 @@ export default function ConversationList({
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 999,
-                  bgcolor: '#ffffff',
+                  bgcolor: 'background.paper',
                 },
               }}
             />
@@ -171,14 +171,15 @@ export default function ConversationList({
                     py: { xs: 1.35, md: 1 },
                     px: 1.2,
                     alignItems: 'flex-start',
-                    borderBottom: '1px solid #f0f2f5',
-                    bgcolor: isActive ? '#f0f2f5' : '#ffffff',
-                    '&.Mui-selected': { bgcolor: '#f0f2f5' },
-                    '&:hover': { bgcolor: '#f8fafb' },
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: isActive ? 'action.selected' : 'background.paper',
+                    '&.Mui-selected': { bgcolor: 'action.selected' },
+                    '&:hover': { bgcolor: 'action.hover' },
                   }}
                 >
                   <Badge color="success" badgeContent={hasUnread ? conversation.unreadCount : 0} overlap="circular">
-                    <Avatar sx={{ bgcolor: '#25d366', width: 40, height: 40, fontSize: 13 }}>
+                    <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40, fontSize: 13 }}>
                       {getInitials(conversation.displayName || conversation.contact)}
                     </Avatar>
                   </Badge>
@@ -206,7 +207,7 @@ export default function ConversationList({
                         </Typography>
                         <Stack direction="row" alignItems="center" spacing={0.6}>
                           {!hasUnread ? (
-                            <DoneAllRoundedIcon sx={{ fontSize: 15, color: '#53bdeb' }} />
+                            <DoneAllRoundedIcon sx={{ fontSize: 15, color: 'primary.main' }} />
                           ) : null}
                           <Typography
                             noWrap

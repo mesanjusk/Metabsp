@@ -12,7 +12,13 @@ import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import CodeRoundedIcon from '@mui/icons-material/CodeRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
-import { getServiceBySlug, getServiceForPath } from './serviceRegistry';
+import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded';
+import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
+import MovieCreationRoundedIcon from '@mui/icons-material/MovieCreationRounded';
+import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
+import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
+import { SERVICES, getServiceBySlug, getServiceForPath } from './serviceRegistry';
+import { SMB_KINDS, getSmbService, smbRecordHref } from '@/lib/smb/workspaceRegistry';
 import { INSTITUTE_FEATURE_GROUPS, instituteFeatureHref } from '@/lib/institute/featureRegistry';
 
 /**
@@ -27,21 +33,35 @@ const SERVICES_ITEM = { href: '/home', label: 'All services', shortLabel: 'Home'
 /**
  * The hub's own menu.
  *
- * Contacts and Inbox are listed here, not only inside WhatsApp: they are the two things a small
- * business opens the app to do, and reaching them used to mean opening a service first. They are
- * also what gives the hub a mobile tab bar — `getMobileNavHrefs` returns a row per *service*, and
- * on the hub it returned nothing at all, so /home was the one screen in the product with no
- * bottom navigation on a phone. An app whose home screen has no tab bar reads as a website.
+ * `/home` is the front door to a platform with eleven services, and its sidebar used to list three
+ * things: All services, Inbox and Contacts. Two of those are WhatsApp screens — so the one page
+ * that is supposed to show what this product does instead showed one service's features, and every
+ * other service was reachable only from the switcher strip above the content.
+ *
+ * The services are the menu now. Inbox and Contacts stay, because they are what a small business
+ * opens the app to do, but under a heading that says they are shared workspace screens rather than
+ * the whole product.
  */
 export const HUB_NAV_SECTIONS = [
   {
     id: 'hub',
-    label: 'Digital workspace',
+    label: 'Workspace',
     items: [
       SERVICES_ITEM,
       { href: '/inbox', label: 'Inbox', icon: ForumRoundedIcon, requiresConnection: true },
       { href: '/contacts', label: 'Contacts', icon: PeopleAltRoundedIcon },
     ],
+  },
+  {
+    id: 'hub-services',
+    label: 'Services',
+    // Straight from the registry, so a service added tomorrow appears here without being
+    // remembered separately — the failure mode that left the hub listing three items.
+    items: SERVICES.map((service) => ({
+      href: service.href,
+      label: service.shortLabel || service.label,
+      icon: service.icon,
+    })),
   },
   {
     id: 'account',
@@ -148,20 +168,62 @@ export const INSTITUTE_NAV_SECTIONS = [
   },
 ];
 
+/**
+ * Extra screens a service owns beyond its record kinds — things with a page of their own that are
+ * not one of the shared `SmbRecord` collections.
+ */
+const SERVICE_EXTRAS = {
+  staff: [{ href: '/services/staff/attendance', label: 'Attendance', icon: BadgeRoundedIcon }],
+  payments: [{ href: '/services/payments/documents', label: 'Documents', icon: FolderRoundedIcon }],
+  video: [
+    { href: '/services/video/new', label: 'New video', icon: AddCircleOutlineRoundedIcon },
+    { href: '/services/video/accounts', label: 'Accounts', icon: AccountCircleRoundedIcon },
+  ],
+};
+
+/**
+ * Any service's menu.
+ *
+ * Every service used to fall back to the same three items — All services, "<name> dashboard",
+ * Contacts — whatever it actually contained. A service whose screens were tabs inside its landing
+ * page therefore had a sidebar that listed none of them, and the tabs were not linkable.
+ *
+ * This builds the menu from what the service actually has: its record kinds (from the small-
+ * business registry, which is also what renders those screens) plus any extra pages it owns. A
+ * service with neither still gets a correct two-item menu rather than a promise of screens that
+ * are not there.
+ */
 function genericServiceSections(service) {
   if (!service) return HUB_NAV_SECTIONS;
+
+  const smb = getSmbService(service.slug);
+  const tools = [
+    ...(smb?.kinds || []).map((kind) => ({
+      href: smbRecordHref(service.slug, kind),
+      label: SMB_KINDS[kind]?.label || kind,
+      icon: SMB_KINDS[kind]?.icon,
+    })),
+    ...(SERVICE_EXTRAS[service.slug] || []),
+  ].filter((item) => item.icon);
+
+  const name = service.shortLabel || service.label;
+
   return [
     {
       id: `${service.slug}-workspace`,
-      label: service.shortLabel || service.label,
+      label: name,
       items: [
         SERVICES_ITEM,
         {
           href: service.href,
-          label: `${service.shortLabel || service.label} dashboard`,
-          shortLabel: service.shortLabel || service.label,
-          icon: service.icon,
+          label: 'Overview',
+          shortLabel: name,
+          icon: InsightsRoundedIcon,
+          // Tool screens live under the service's own path, so prefix matching would leave
+          // "Overview" highlighted on every one of them.
+          exact: true,
         },
+        ...tools,
         { href: `/services/${service.slug}/contacts`, label: 'Contacts', icon: PeopleAltRoundedIcon },
       ],
     },
@@ -224,7 +286,14 @@ export function getMobileNavHrefs(pathname = '') {
     return ['/home', '/services/institute', '/services/institute/students', '/services/institute/fees'];
   }
 
-  return ['/home', service.href, `/services/${service.slug}/contacts`];
+  // Every other service: the overview leads, then the screens it actually has. Four is the
+  // ceiling because the shell adds its own "More".
+  const items = getNavSections(pathname)[0]?.items || [];
+  return items
+    .map((item) => item.href)
+    .filter((href) => href !== '/home')
+    .slice(0, 3)
+    .reduce((tabs, href) => (tabs.includes(href) ? tabs : [...tabs, href]), ['/home']);
 }
 
 /** Does this item own the current page? `exact` items match only themselves. */

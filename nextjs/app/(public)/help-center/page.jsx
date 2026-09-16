@@ -10,6 +10,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import NextLink from 'next/link';
 import { motion } from 'framer-motion';
+import { brand } from '@/lib/ui/tokens';
 
 const FAQ_DATA = [
   {
@@ -215,7 +216,7 @@ export default function HelpCenterPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
-        <Box sx={{ bgcolor: '#111b21', color: 'white', py: { xs: 8, md: 12 }, textAlign: 'center' }}>
+        <Box sx={{ bgcolor: brand[900], color: 'common.white', py: { xs: 8, md: 12 }, textAlign: 'center' }}>
           <Container maxWidth="md">
             <Typography variant="h3" fontWeight={800} sx={{ mb: 1.5, color: 'white' }}>Help Center</Typography>
             <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)', mb: 4 }}>

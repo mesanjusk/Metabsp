@@ -52,8 +52,8 @@ export const viewport = {
   initialScale: 1,
   viewportFit: 'cover' as const,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#0B7C64' },
-    { media: '(prefers-color-scheme: dark)', color: '#0D1017' },
+    { media: '(prefers-color-scheme: light)', color: '#7551D8' },
+    { media: '(prefers-color-scheme: dark)', color: '#0A0A0A' },
   ],
 };
 
@@ -76,13 +76,13 @@ export const viewport = {
  */
 const COLOR_SCHEME_CSS = `
 :root {
-  --app-bg: #F1F3F7;
-  --app-fg: #161A24;
+  --app-bg: #F2F2F2;
+  --app-fg: #171717;
   color-scheme: light;
 }
 :root[data-theme='dark'] {
-  --app-bg: #0D1017;
-  --app-fg: #F1F3F7;
+  --app-bg: #0A0A0A;
+  --app-fg: #F2F2F2;
   color-scheme: dark;
 }
 html, body {

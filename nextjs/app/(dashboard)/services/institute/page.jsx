@@ -31,7 +31,7 @@ import { chartPalette, typeScale } from '@/lib/ui/tokens';
  * Recharts is a third of this page's JavaScript and none of it is needed for the numbers above the
  * fold, so the figures arrive after the page does.
  */
-const HorizontalBars = dynamic(() => import('@/lib/ui/institute/HorizontalBars'), {
+const HorizontalBars = dynamic(() => import('@/lib/ui/charts/HorizontalBars'), {
   ssr: false,
   loading: () => <Skeleton variant="rounded" height={180} sx={{ borderRadius: 2 }} />,
 });
