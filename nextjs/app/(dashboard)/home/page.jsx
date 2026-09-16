@@ -34,7 +34,7 @@ import PageBody from '@/lib/ui/app/PageBody';
 import GrowthIntelligence from '@/lib/ui/app/GrowthIntelligence';
 import apiClient from '@/lib/api/client';
 import { SERVICES } from '@/lib/ui/app/serviceRegistry';
-import { brand, spacing, typeScale } from '@/lib/ui/tokens';
+import { brand, neutral, spacing, typeScale } from '@/lib/ui/tokens';
 
 const emptyOverview = {
   kpis: {},
@@ -226,16 +226,17 @@ export default function BusinessControlCenterPage() {
       description="Your customers, conversations and next steps, all in one place."
       actions={<Button component={NextLink} href="/inbox" variant="contained" startIcon={<ForumRoundedIcon />}>Open inbox</Button>}
     >
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.6fr 1fr' }, mb: 3, borderRadius: 3, overflow: 'hidden', bgcolor: brand[900], color: brand[50] }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.6fr 1fr' }, mb: 3, borderRadius: 3, overflow: 'hidden', bgcolor: (t) => (t.palette.mode === 'dark' ? brand[900] : brand[100]),
+        color: (t) => (t.palette.mode === 'dark' ? brand[50] : neutral[900]) }}>
         <Box sx={{ p: { xs: 3, md: 4 } }}>
-          <Typography variant="overline" sx={{ color: brand[300] }}>A LITTLE CLARITY. A LOT MORE POSSIBILITY.</Typography>
+          <Typography variant="overline" sx={{ color: (t) => (t.palette.mode === 'dark' ? brand[300] : brand[700]) }}>A LITTLE CLARITY. A LOT MORE POSSIBILITY.</Typography>
           <Typography component="h2" sx={{ fontSize: { xs: '1.875rem', md: '2.5rem' }, lineHeight: 1.15, fontWeight: 650, letterSpacing: '-0.04em', mt: 1, mb: 1.5 }}>Make room for<br />your next big idea.</Typography>
-          <Typography variant="body2" sx={{ color: brand[100], maxWidth: 440 }}>Keep the everyday work moving. Connect with customers, follow up on leads and bring your team together.</Typography>
+          <Typography variant="body2" sx={{ color: (t) => (t.palette.mode === 'dark' ? brand[100] : neutral[700]), maxWidth: 440 }}>Keep the everyday work moving. Connect with customers, follow up on leads and bring your team together.</Typography>
         </Box>
         <Stack spacing={1.5} sx={{ p: { xs: 3, md: 4 }, justifyContent: 'center', bgcolor: 'rgba(255,255,255,0.045)', borderLeft: { md: '1px solid rgba(255,255,255,0.1)' } }}>
-          <Typography variant="overline" sx={{ color: brand[300] }}>PICK UP WHERE IT MATTERS</Typography>
+          <Typography variant="overline" sx={{ color: (t) => (t.palette.mode === 'dark' ? brand[300] : brand[700]) }}>PICK UP WHERE IT MATTERS</Typography>
           {[[PeopleAltRoundedIcon, 'Manage your customers', '/contacts'], [CampaignRoundedIcon, 'Plan your next campaign', '/broadcasts']].map(([Icon, label, href]) => (
-            <ButtonBase component={NextLink} href={href} key={href} sx={{ p: 1.75, borderRadius: 2, textAlign: 'left', justifyContent: 'space-between', gap: 1, color: brand[50], border: '1px solid rgba(255,255,255,0.18)', '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' } }}>
+            <ButtonBase component={NextLink} href={href} key={href} sx={{ p: 1.75, borderRadius: 2, textAlign: 'left', justifyContent: 'space-between', gap: 1, color: 'inherit', border: '1px solid', borderColor: (t) => (t.palette.mode === 'dark' ? 'rgba(255,255,255,0.18)' : brand[300]), '&:hover': { bgcolor: (t) => (t.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : brand[200]) } }}>
               <Icon fontSize="small" /><Typography variant="body2" sx={{ flex: 1 }}>{label}</Typography><ArrowOutwardRoundedIcon sx={{ fontSize: 17 }} />
             </ButtonBase>
           ))}
@@ -261,13 +262,22 @@ export default function BusinessControlCenterPage() {
       <Box sx={{ mb: 3 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
           <Typography component="h2" variant="h5" fontWeight={750}>Your business toolkit</Typography>
-          <Typography variant="caption" color="text.secondary">One connected workspace</Typography>
+          <Typography variant="caption" color="text.secondary">Connection and availability across your business tools</Typography>
         </Stack>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
           {SERVICES.map((service) => {
             const Icon = service.icon;
             const released = service.status === 'active' || service.status === 'beta';
-            const connected = healthBySlug[service.slug]?.connection === 'connected';
+            const health = healthBySlug[service.slug] || {};
+            const connected = health.connection === 'connected';
+            const available = health.enabled && health.connection !== 'locked';
+            const status = !released
+              ? 'Coming soon'
+              : connected
+                ? 'Connected'
+                : available
+                  ? 'Available'
+                  : 'Locked';
             return (
               <Paper key={service.slug} variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', minWidth: 0 }}>
                 <ButtonBase component={released ? NextLink : 'div'} href={released ? service.href : undefined} disabled={!released} sx={{ display: 'flex', width: '100%', height: '100%', textAlign: 'left', alignItems: 'flex-start', p: 2.5, gap: 2, '&:hover': { bgcolor: 'action.hover' } }}>
@@ -275,7 +285,12 @@ export default function BusinessControlCenterPage() {
                   <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Typography variant="subtitle2" fontWeight={750}>{service.label}</Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', my: 0.75 }}>{service.description}</Typography>
-                    <Typography variant="caption" sx={{ color: connected ? 'success.main' : 'text.secondary', fontWeight: 650 }}>{!released ? 'Coming soon' : connected ? 'Connected' : service.tier === 'pro' ? 'Explore Pro service' : 'Open workspace'}</Typography>
+                    <Stack direction="row" alignItems="center" spacing={0.75}>
+                      {status === 'Locked' ? <LockRoundedIcon sx={{ fontSize: 14 }} color="disabled" /> : null}
+                      <Typography variant="caption" sx={{ color: connected || available ? 'success.main' : 'text.secondary', fontWeight: 650 }}>
+                        {status}
+                      </Typography>
+                    </Stack>
                   </Box>
                   {released ? <ArrowOutwardRoundedIcon sx={{ fontSize: 17, color: 'text.secondary' }} /> : null}
                 </ButtonBase>
@@ -363,30 +378,6 @@ export default function BusinessControlCenterPage() {
         </Section>
       </Box>
 
-      <Section title="Service health" subtitle="Connection and availability across your business tools.">
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' }, gap: 1 }}>
-          {SERVICES.map((service) => {
-            const item = healthBySlug[service.slug] || {};
-            const connected = item.connection === 'connected';
-            const available = item.enabled && item.connection !== 'locked';
-            const Icon = service.icon;
-            return (
-              <Box key={service.slug} sx={{ p: 1.35, border: '1px solid', borderColor: 'divider', borderRadius: 2.5, minWidth: 0 }}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Box sx={{ width: 30, height: 30, borderRadius: 2, bgcolor: 'action.hover', display: 'grid', placeItems: 'center', flexShrink: 0 }}><Icon fontSize="small" /></Box>
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography variant="caption" fontWeight={800} noWrap sx={{ display: 'block' }}>{service.shortLabel || service.label}</Typography>
-                    <Typography variant="caption" color={connected || available ? 'success.main' : 'text.secondary'} noWrap sx={{ display: 'block' }}>
-                      {connected ? '● Connected' : available ? '● Available' : service.status === 'planned' ? 'Coming soon' : 'Locked'}
-                    </Typography>
-                  </Box>
-                  {!available && service.status !== 'planned' ? <LockRoundedIcon sx={{ fontSize: 15 }} color="disabled" /> : null}
-                </Stack>
-              </Box>
-            );
-          })}
-        </Box>
-      </Section>
     </PageBody>
   );
 }

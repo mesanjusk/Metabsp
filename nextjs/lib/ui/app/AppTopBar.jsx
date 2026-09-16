@@ -228,7 +228,12 @@ export default function AppTopBar({
           </MenuItem>
         </Menu>
       </Box>
-      <ServiceSwitcherBar activeService={activeService} />
+      {/* The sidebar lists every service once it is permanently on screen, so the strip would be
+          the same eleven links a second time. Below `lg` the sidebar is a drawer you have to open,
+          and the strip is the only service navigation there is. */}
+      <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+        <ServiceSwitcherBar activeService={activeService} />
+      </Box>
     </Box>
   );
 }

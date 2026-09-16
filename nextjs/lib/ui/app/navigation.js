@@ -17,6 +17,9 @@ import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import MovieCreationRoundedIcon from '@mui/icons-material/MovieCreationRounded';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
+import RateReviewRoundedIcon from '@mui/icons-material/RateReviewRounded';
+import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
+import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import { SERVICES, getServiceBySlug, getServiceForPath } from './serviceRegistry';
 import { SMB_KINDS, getSmbService, smbRecordHref } from '@/lib/smb/workspaceRegistry';
 import { INSTITUTE_FEATURE_GROUPS, instituteFeatureHref } from '@/lib/institute/featureRegistry';
@@ -178,6 +181,13 @@ const SERVICE_EXTRAS = {
   video: [
     { href: '/services/video/new', label: 'New video', icon: AddCircleOutlineRoundedIcon },
     { href: '/services/video/accounts', label: 'Accounts', icon: AccountCircleRoundedIcon },
+  ],
+  // These four were tabs inside one 750-line page. They share their OAuth and location state, so
+  // they are still one component — but each is a route, so each can be linked and listed here.
+  'google-business': [
+    { href: '/services/google-business/reviews', label: 'Reviews', icon: RateReviewRoundedIcon },
+    { href: '/services/google-business/posts', label: 'Posts', icon: ArticleRoundedIcon },
+    { href: '/services/google-business/review-requests', label: 'Ask for reviews', icon: SendRoundedIcon },
   ],
 };
 
