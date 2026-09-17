@@ -50,23 +50,6 @@ const emptyOverview = {
 
 const compact = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
 
-/**
- * One KPI, in the pattern the design guide calls for: icon, label, big number, delta.
- *
- * The number is the reason the card exists, so it is the only thing on it at display size and the
- * only thing wearing the brand accent — the guide's rule that the accent belongs to interactive
- * elements, KPI values and CTAs, and nothing else. Everything around it is quiet by comparison.
- *
- * The delta is what turns a fact into information. "412 contacts" tells a shop owner nothing they
- * can act on; "412, up 8% on last week" tells them whether last week's effort worked. Where there
- * is no honest comparison — a previous window of zero, or a KPI that is a state rather than a flow
- * — the card says so rather than rendering a number, because a fabricated "+100%" on a new account
- * is how a dashboard loses someone's trust in the first minute.
- *
- * The text column carries `minWidth: 0` and the icon `flexShrink: 0`. Without that pair the label's
- * longest word sets a floor the card cannot afford at two-up on a 320px phone, and the icon lands
- * on top of the text.
- */
 function MetricCard({ icon: Icon, label, value, helper, delta, unavailable }) {
   const hasDelta = !unavailable && typeof delta === 'number' && Number.isFinite(delta);
   const rising = hasDelta && delta >= 0;
@@ -83,10 +66,6 @@ function MetricCard({ icon: Icon, label, value, helper, delta, unavailable }) {
         gap: 1.25,
       }}
     >
-      {/* Two lines' worth of height is reserved whether the label needs them or not. At two-up on a
-          360px phone "Messages today" wraps and "Contacts" does not, and without this the numbers
-          underneath sit at different heights across the row — the one thing a KPI row cannot do,
-          since scanning it depends on the numbers sharing a baseline. */}
       <Stack
         direction="row"
         alignItems="flex-start"
@@ -142,8 +121,6 @@ function MetricCard({ icon: Icon, label, value, helper, delta, unavailable }) {
               py: 0.125,
               borderRadius: 999,
               flexShrink: 0,
-              // Tinted from the semantic colour rather than a new palette key, so it tracks the
-              // theme in both schemes: the guide's "colored text on tinted bg" pill.
               bgcolor: (theme) => alpha(theme.palette[rising ? 'success' : 'error'].main, 0.12),
               color: rising ? 'success.main' : 'error.main',
             }}
@@ -170,8 +147,6 @@ function Section({ title, subtitle, action, children }) {
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 3, minWidth: 0 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1.5} sx={{ mb: 2 }}>
-        {/* minWidth:0 on the text and flexShrink:0 on the action: without both, a long subtitle
-            pushes the button off the card rather than wrapping. */}
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="h6" fontWeight={800}>{title}</Typography>
           {subtitle ? (
@@ -190,15 +165,21 @@ export default function BusinessControlCenterPage() {
   const quickActionsOpen = Boolean(quickActionsAnchor);
   const closeQuickActions = () => setQuickActionsAnchor(null);
   const [overview, setOverview] = useState(emptyOverview);
+  const [selectedServices, setSelectedServices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
-    apiClient
-      .get('/api/services/overview')
-      .then((response) => {
-        if (active) setOverview(response?.data?.data || emptyOverview);
+    Promise.all([
+      apiClient.get('/api/services/overview'),
+      apiClient.get('/api/business-profile'),
+    ])
+      .then(([overviewResponse, profileResponse]) => {
+        if (!active) return;
+        setOverview(overviewResponse?.data?.data || emptyOverview);
+        const selected = profileResponse?.data?.data?.selectedServices;
+        setSelectedServices(Array.isArray(selected) ? selected : null);
       })
       .catch((err) => {
         if (active) setError(err?.response?.data?.message || 'Could not load business overview.');
@@ -226,6 +207,9 @@ export default function BusinessControlCenterPage() {
 
   const funnelMax = Math.max(...funnelRows.map(([, value]) => Number(value || 0)), 1);
   const healthBySlug = Object.fromEntries((overview.serviceHealth || []).map((item) => [item.service, item]));
+  const visibleServices = selectedServices
+    ? SERVICES.filter((service) => selectedServices.includes(service.slug))
+    : SERVICES;
 
   return (
     <PageBody
@@ -267,12 +251,15 @@ export default function BusinessControlCenterPage() {
       </Box>
 
       <Box sx={{ mb: 3 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-          <Typography component="h2" variant="h5" fontWeight={750}>Your business toolkit</Typography>
-          <Typography variant="caption" color="text.secondary">Connection and availability across your business tools</Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
+          <Box>
+            <Typography component="h2" variant="h5" fontWeight={750}>Your business toolkit</Typography>
+            <Typography variant="caption" color="text.secondary">Only tools selected for your business profile are shown.</Typography>
+          </Box>
+          <Button component={NextLink} href="/setup/business-profile" size="small" variant="outlined">Edit business profile</Button>
         </Stack>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
-          {SERVICES.map((service) => {
+          {visibleServices.map((service) => {
             const Icon = service.icon;
             const released = service.status === 'active' || service.status === 'beta';
             const health = healthBySlug[service.slug] || {};
@@ -356,7 +343,6 @@ export default function BusinessControlCenterPage() {
         </Section>
       </Box>
 
-      {/* Leave room to scroll the final card clear of the floating action. */}
       <Box sx={{ height: 80 }} />
       <Fab
         id="home-quick-actions-button"
