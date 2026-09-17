@@ -1,0 +1,2 @@
+import {NextRequest,NextResponse} from 'next/server';import {connectDB} from '@/lib/db/mongo';import {requireAuth} from '@/lib/auth/session';import {errorResponse} from '@/lib/http/errorResponse';import StoreInquiry from '@/lib/models/StoreInquiry';
+export async function GET(req:NextRequest){try{await connectDB();const a=await requireAuth(req);const data=await StoreInquiry.find({ownerUserId:a.doc._id}).sort({createdAt:-1}).limit(250).lean();return NextResponse.json({success:true,data});}catch(e){return errorResponse(e,'Failed to load enquiries');}}

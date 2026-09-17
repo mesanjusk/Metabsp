@@ -36,3 +36,7 @@ export { default as Subscription } from './Subscription';
 export { default as SubscriptionPlan } from './SubscriptionPlan';
 export { default as Invoice } from './Invoice';
 export { default as DataDeletionRequest } from './DataDeletionRequest';
+export { default as StoreProfile } from './StoreProfile';
+export { default as StoreProduct } from './StoreProduct';
+export { default as StoreCategory } from './StoreCategory';
+export { default as StoreInquiry } from './StoreInquiry';

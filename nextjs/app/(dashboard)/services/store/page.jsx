@@ -1,15 +1,15 @@
 'use client';
 
 import PageBody from '@/lib/ui/app/PageBody';
-import SmbOverview from '@/lib/ui/smb/SmbOverview';
+import StoreOverview from '@/lib/ui/store/StoreOverview';
 
 export default function StoreServicePage() {
   return (
     <PageBody
-      title="Mini Store"
-      description="How the catalogue and stock are doing. Products, inventory and review requests each have a screen in the menu on the left."
+      title="E-Store"
+      description="Run your catalogue and customer enquiries from one place."
     >
-      <SmbOverview service="store" />
+      <StoreOverview />
     </PageBody>
   );
 }
