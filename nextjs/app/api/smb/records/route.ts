@@ -9,6 +9,7 @@ import { getAccessibleSmbKinds, requireSmbKindAccess } from '@/lib/services/smbA
 
 const VALID_KINDS = new Set<string>(SMB_RECORD_KINDS as readonly string[]);
 const CLOSED = new Set(['completed', 'paid', 'done', 'closed', 'cancelled', 'lost', 'rejected']);
+const DEFAULT_BALANCE_KINDS = new Set(['order', 'invoice', 'purchase_order']);
 
 function numberToPaise(value: unknown) {
   const number = Number(value || 0);
@@ -103,9 +104,9 @@ export async function POST(req: NextRequest) {
       ? Math.max(0, Number(body.balanceInPaise || 0))
       : body.balance != null
         ? numberToPaise(body.balance)
-        : kind === 'payment'
-          ? 0
-          : amountInPaise;
+        : DEFAULT_BALANCE_KINDS.has(kind)
+          ? amountInPaise
+          : 0;
 
     const record = await SmbRecord.create({
       userId: authed.doc._id,
