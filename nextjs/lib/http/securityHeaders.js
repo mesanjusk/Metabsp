@@ -65,7 +65,7 @@ function buildCsp(nonce, { isDev = process.env.NODE_ENV !== 'production' } = {})
     `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
-    `img-src 'self' data: blob: ${CLOUDINARY} https://*.fbcdn.net https://scontent.whatsapp.net`,
+    `img-src 'self' data: blob: https: ${CLOUDINARY}`,
     `connect-src 'self' ws: wss: ${META_API} ${CLOUDINARY}`,
     `frame-src 'self' ${META_FRAMES}`,
     // Without this the service worker is blocked outright and there is no PWA, no installable

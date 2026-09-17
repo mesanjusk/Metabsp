@@ -9,6 +9,7 @@ import { checkAuthRateLimit } from '@/lib/http/rateLimit';
 import { sanitizeUser } from '@/lib/http/sanitizeUser';
 import { normalizeAccountMobile, isPlausibleMobile, mobileLookupCandidates } from '@/lib/utils/accountMobile';
 import logger from '@/lib/utils/logger';
+import { ensureStoreProfile } from '@/lib/store/profile';
 
 // Ported from backend/src/routes/Users.js's POST /signup/verify.
 //
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
       tenantId: null,
       isActive: true,
     });
+    await ensureStoreProfile(user, null);
 
     const token = signTokenForUser(user._id);
     return NextResponse.json({ success: true, token, user: sanitizeUser(await user.populate('roleId')) }, { status: 201 });

@@ -48,3 +48,20 @@ describe('CORS policy', () => {
     expect(res.headers.get('access-control-allow-origin')).toBeNull();
   });
 });
+
+describe('E-Store domain routing', () => {
+  it('routes an automatic store subdomain to its public slug', () => {
+    const res = middleware(new NextRequest('https://blue-bakery.store.meta.sanjusk.in/'));
+    expect(res.headers.get('x-middleware-rewrite')).toContain('/shop/blue-bakery');
+  });
+
+  it('routes a customer custom domain to the domain storefront', () => {
+    const res = middleware(new NextRequest('https://shop.customer.example/'));
+    expect(res.headers.get('x-middleware-rewrite')).toContain('/storefront');
+  });
+
+  it('does not rewrite the platform home page', () => {
+    const res = middleware(new NextRequest('https://meta.sanjusk.in/'));
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+});
