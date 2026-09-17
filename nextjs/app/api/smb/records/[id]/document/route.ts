@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/auth/session';
 import SmbRecord from '@/lib/models/SmbRecord';
 import { requireSmbKindAccess } from '@/lib/services/smbAccess';
 
-const PRINTABLE_KINDS = new Set(['quotation', 'order', 'invoice', 'payment', 'expense']);
+const PRINTABLE_KINDS = new Set(['quotation', 'order', 'invoice', 'payment', 'expense', 'purchase_order']);
 
 function escapeHtml(value: unknown) {
   return String(value ?? '')
@@ -27,6 +27,7 @@ function documentLabel(kind: string) {
   if (kind === 'invoice') return 'INVOICE';
   if (kind === 'payment') return 'PAYMENT RECEIPT';
   if (kind === 'expense') return 'EXPENSE VOUCHER';
+  if (kind === 'purchase_order') return 'PURCHASE ORDER';
   return kind.toUpperCase();
 }
 
@@ -56,6 +57,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const dueAt = record.dueAt ? new Date(record.dueAt).toLocaleString('en-IN') : '—';
   const reference = record.reference || String(record._id).slice(-8).toUpperCase();
   const label = documentLabel(record.kind);
+  const data = record.data && typeof record.data === 'object' ? record.data : {};
+  const gstRate = Math.max(0, Math.min(100, Number(data.gstRate || 0)));
+  const totalPaise = Number(record.amountInPaise || 0);
+  const taxablePaise = gstRate > 0 ? Math.round(totalPaise / (1 + gstRate / 100)) : totalPaise;
+  const gstPaise = Math.max(0, totalPaise - taxablePaise);
+  const hasTaxDetails = Boolean(gstRate || data.hsnSac || data.sellerGstin || data.customerGstin || data.placeOfSupply);
 
   const html = `<!doctype html>
 <html>
@@ -78,22 +85,23 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 <div class="actions"><button onclick="window.print()">Print / Save PDF</button></div>
 <main class="sheet">
   <section class="top">
-    <div><div class="brand">${businessName}</div><div class="muted">Small Business Digital OS</div></div>
+    <div><div class="brand">${businessName}</div><div class="muted">Small Business Digital OS</div>${data.sellerGstin ? `<div class="muted">GSTIN: ${escapeHtml(data.sellerGstin)}</div>` : ''}</div>
     <div><div class="label">${escapeHtml(label)}</div><div class="muted">Ref: ${escapeHtml(reference)}</div></div>
   </section>
   <section class="grid">
-    <div class="box"><strong>Customer</strong><div style="margin-top:8px">${escapeHtml(customer.name || 'Walk-in / unassigned')}</div><div class="muted">${escapeHtml(customer.phone || '')}${customer.email ? ` · ${escapeHtml(customer.email)}` : ''}</div>${customer.company ? `<div class="muted">${escapeHtml(customer.company)}</div>` : ''}</div>
-    <div class="box"><strong>Details</strong><div class="muted" style="margin-top:8px">Created: ${escapeHtml(createdAt)}</div><div class="muted">Due: ${escapeHtml(dueAt)}</div><div class="muted">Status: ${escapeHtml(record.status || 'open')}</div></div>
+    <div class="box"><strong>${record.kind === 'purchase_order' ? 'Vendor / party' : 'Customer'}</strong><div style="margin-top:8px">${escapeHtml(customer.name || record.assignedTo || 'Walk-in / unassigned')}</div><div class="muted">${escapeHtml(customer.phone || '')}${customer.email ? ` · ${escapeHtml(customer.email)}` : ''}</div>${customer.company ? `<div class="muted">${escapeHtml(customer.company)}</div>` : ''}${data.customerGstin ? `<div class="muted">GSTIN: ${escapeHtml(data.customerGstin)}</div>` : ''}</div>
+    <div class="box"><strong>Details</strong><div class="muted" style="margin-top:8px">Created: ${escapeHtml(createdAt)}</div><div class="muted">Due: ${escapeHtml(dueAt)}</div><div class="muted">Status: ${escapeHtml(record.status || 'open')}</div>${data.placeOfSupply ? `<div class="muted">Place of supply: ${escapeHtml(data.placeOfSupply)}</div>` : ''}</div>
   </section>
   <div class="title">${escapeHtml(record.title)}</div>
   <section class="box">
-    <div class="row"><span>Amount</span><strong>${money(record.amountInPaise)}</strong></div>
+    ${data.hsnSac ? `<div class="row"><span>HSN / SAC</span><strong>${escapeHtml(data.hsnSac)}</strong></div>` : ''}
+    ${hasTaxDetails && gstRate > 0 ? `<div class="row"><span>Taxable value</span><strong>${money(taxablePaise)}</strong></div><div class="row"><span>GST included (${escapeHtml(gstRate)}%)</span><strong>${money(gstPaise)}</strong></div>` : `<div class="row"><span>Amount</span><strong>${money(record.amountInPaise)}</strong></div>`}
     <div class="row"><span>Balance / Due</span><strong>${money(record.balanceInPaise)}</strong></div>
     ${record.assignedTo ? `<div class="row"><span>Assigned to</span><strong>${escapeHtml(record.assignedTo)}</strong></div>` : ''}
     ${record.source ? `<div class="row"><span>Source</span><strong>${escapeHtml(record.source)}</strong></div>` : ''}
     <div class="row total"><span>${record.kind === 'payment' ? 'Received' : 'Total'}</span><span>${money(record.amountInPaise)}</span></div>
   </section>
-  <p class="muted" style="margin-top:28px">Generated from the business workspace. Verify tax/legal fields before using this as a statutory tax invoice.</p>
+  <p class="muted" style="margin-top:28px">Generated from the business workspace. Tax fields are printed exactly as supplied by the business; verify GST registration, place-of-supply and statutory invoice requirements before issuing.</p>
 </main>
 </body>
 </html>`;
