@@ -104,7 +104,20 @@ export function middleware(req: NextRequest) {
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', csp);
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  let response: NextResponse;
+  const host = String(req.headers.get('host') || req.nextUrl.hostname || '').split(':')[0].toLowerCase();
+  const subdomainBase = String(process.env.STORE_SUBDOMAIN_BASE || 'store.meta.sanjusk.in').toLowerCase();
+  const isPlatformHost = host === 'meta.sanjusk.in' || host === 'www.meta.sanjusk.in' || host === subdomainBase || host === 'localhost' || host.endsWith('.onrender.com');
+  if (req.nextUrl.pathname === '/' && host.endsWith(`.${subdomainBase}`)) {
+    const slug = host.slice(0, -(subdomainBase.length + 1));
+    const url = req.nextUrl.clone(); url.pathname = `/shop/${slug}`;
+    response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  } else if (req.nextUrl.pathname === '/' && host && !isPlatformHost) {
+    const url = req.nextUrl.clone(); url.pathname = '/storefront';
+    response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  } else {
+    response = NextResponse.next({ request: { headers: requestHeaders } });
+  }
   return withCsp(req, applyCors(req, response), nonce, csp);
 }
 

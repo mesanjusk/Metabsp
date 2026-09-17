@@ -16,6 +16,13 @@ const storeProfileSchema = new Schema({
   address: { type: String, default: '', trim: true, maxlength: 500 },
   currency: { type: String, enum: ['INR', 'USD', 'GBP', 'EUR', 'AED'], default: 'INR' },
   isPublished: { type: Boolean, default: false, index: true },
+  customDomain: { type: String, default: undefined, trim: true, lowercase: true },
+  domainVerificationToken: { type: String, default: '', select: false },
+  domainStatus: { type: String, enum: ['none', 'pending', 'dns_verified', 'active', 'error'], default: 'none', index: true },
+  domainError: { type: String, default: '', maxlength: 500 },
+  domainVerifiedAt: { type: Date, default: null },
 }, { timestamps: true });
+
+storeProfileSchema.index({ customDomain: 1 }, { unique: true, sparse: true });
 
 export default (mongoose.models.StoreProfile as any) || mongoose.model('StoreProfile', storeProfileSchema);

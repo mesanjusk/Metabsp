@@ -78,6 +78,19 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
+      # ── E-Store domains ────────────────────────────────────────────────
+      # Add *.store.meta.sanjusk.in once in Render and GoDaddy. Every new
+      # account then receives a subdomain without a per-signup DNS API call.
+      - key: STORE_SUBDOMAIN_BASE
+        value: store.meta.sanjusk.in
+      - key: STORE_DOMAIN_CNAME_TARGET
+        value: metabsp.onrender.com
+      # Used only after a store owner proves control with DNS. The server adds
+      # that one customer domain to this Render service so Render can issue TLS.
+      - key: RENDER_SERVICE_ID
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
 
       # ── Meta ────────────────────────────────────────────────────────────
       - key: META_APP_ID

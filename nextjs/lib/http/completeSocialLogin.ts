@@ -5,6 +5,7 @@ import { signTokenForUser } from '@/lib/auth/jwt';
 import { sanitizeUser } from '@/lib/http/sanitizeUser';
 import { recordAuditEvent } from '@/lib/services/auditLogService';
 import { resolveUserForSocialProfile } from '@/lib/services/socialAuthService';
+import { ensureStoreProfile } from '@/lib/store/profile';
 
 /**
  * Ported from the completeSocialLogin helper in backend/src/routes/Users.js.
@@ -28,6 +29,7 @@ export async function completeSocialLogin({
     User,
     getGlobalRoles,
   });
+  if (outcome === 'created') await ensureStoreProfile(user, null);
 
   const token = signTokenForUser(user._id);
 
