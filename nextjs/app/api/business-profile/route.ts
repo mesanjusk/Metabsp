@@ -35,21 +35,23 @@ export async function PUT(req: NextRequest) {
       if (allowedSlugs.has(slug as any) && !selectedServices.includes(slug)) selectedServices.push(slug);
     }
 
-    const profile = await BusinessProfile.findOneAndUpdate(
-      { userId: authed.doc._id },
-      {
-        $set: {
-          businessType,
-          businessName: String(body?.businessName || '').trim().slice(0, 120),
-          teamSize: ['solo', '2-5', '6-20', '21-50', '50+'].includes(String(body?.teamSize)) ? String(body.teamSize) : 'solo',
-          selectedServices,
-          completedAt: new Date(),
-        },
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    ).lean();
+    const values = {
+      businessType,
+      businessName: String(body?.businessName || '').trim().slice(0, 120),
+      teamSize: ['solo', '2-5', '6-20', '21-50', '50+'].includes(String(body?.teamSize)) ? String(body.teamSize) : 'solo',
+      selectedServices,
+      completedAt: new Date(),
+    };
 
-    return NextResponse.json({ success: true, data: profile });
+    let profile = await BusinessProfile.findOne({ userId: authed.doc._id });
+    if (profile) {
+      profile.set(values);
+      await profile.save();
+    } else {
+      profile = await BusinessProfile.create({ userId: authed.doc._id, ...values });
+    }
+
+    return NextResponse.json({ success: true, data: profile.toObject() });
   } catch (error) {
     return errorResponse(error, 'Failed to save business profile');
   }
