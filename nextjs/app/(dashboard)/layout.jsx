@@ -6,6 +6,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { useAuth } from '@/lib/ui/AuthContext';
 import { ROUTES } from '@/lib/constants/routes';
 import DashboardShell from '@/lib/ui/app/DashboardShell';
+import BusinessProfileGate from '@/lib/ui/app/BusinessProfileGate';
 
 /**
  * Replaces App.jsx's CloudProtectedRoute + Pages/Layout.jsx.
@@ -52,5 +53,9 @@ export default function DashboardLayout({ children }) {
     );
   }
 
-  return <DashboardShell>{children}</DashboardShell>;
+  return (
+    <DashboardShell>
+      <BusinessProfileGate>{children}</BusinessProfileGate>
+    </DashboardShell>
+  );
 }
