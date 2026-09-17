@@ -20,6 +20,10 @@ import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import RateReviewRoundedIcon from '@mui/icons-material/RateReviewRounded';
 import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
+import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
+import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded';
+import RequestQuoteRoundedIcon from '@mui/icons-material/RequestQuoteRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import { SERVICES, getServiceBySlug, getServiceForPath } from './serviceRegistry';
 import { SMB_KINDS, getSmbService, smbRecordHref } from '@/lib/smb/workspaceRegistry';
 import { INSTITUTE_FEATURE_GROUPS, instituteFeatureHref } from '@/lib/institute/featureRegistry';
@@ -176,6 +180,12 @@ export const INSTITUTE_NAV_SECTIONS = [
  * not one of the shared `SmbRecord` collections.
  */
 const SERVICE_EXTRAS = {
+  store: [
+    { href: '/services/store/products', label: 'Products', icon: Inventory2RoundedIcon },
+    { href: '/services/store/categories', label: 'Categories', icon: CategoryRoundedIcon },
+    { href: '/services/store/inquiries', label: 'Enquiries', icon: RequestQuoteRoundedIcon },
+    { href: '/services/store/settings', label: 'Store settings', icon: TuneRoundedIcon },
+  ],
   staff: [{ href: '/services/staff/attendance', label: 'Attendance', icon: BadgeRoundedIcon }],
   payments: [{ href: '/services/payments/documents', label: 'Documents', icon: FolderRoundedIcon }],
   video: [

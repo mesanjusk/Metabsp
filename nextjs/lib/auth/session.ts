@@ -28,6 +28,8 @@ function serviceForApiPath(pathname: string): ServiceSlug | null {
   if (path.startsWith('/api/instagram/')) return 'instagram';
   if (path.startsWith('/api/google-business/')) return 'google-business';
   if (path.startsWith('/api/institute/')) return 'institute';
+  if (path.startsWith('/api/store/public/')) return null;
+  if (path.startsWith('/api/store/')) return 'store';
   if (path.startsWith('/api/whatsapp/contacts')) return null;
   if (path.startsWith('/api/whatsapp/')) return 'whatsapp';
   return null;

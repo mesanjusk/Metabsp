@@ -92,17 +92,6 @@ export const SMB_SERVICES = {
       rows: [['Tasks due today', 'tasksDue'], ['Tasks overdue', 'tasksOverdue'], ['Active vendors', 'vendorsActive']],
     },
   },
-  store: {
-    title: 'Mini store & growth',
-    description: 'Maintain products, stock movements and review requests on top of your shared customer workspace.',
-    kinds: ['product', 'inventory', 'review_request'],
-    metrics: [['Active products', 'productsActive'], ['Pending reviews', 'pendingReviews'], ['Open orders', 'openOrders'], ['Outstanding, all orders', 'outstandingPaise', 'money']],
-    figure: {
-      title: 'Where the work stands',
-      caption: 'Open records right now.',
-      rows: [['Active products', 'productsActive'], ['Open orders', 'openOrders'], ['Pending reviews', 'pendingReviews']],
-    },
-  },
 };
 
 export const SMB_SERVICE_SLUGS = Object.keys(SMB_SERVICES);
