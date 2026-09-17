@@ -8,6 +8,28 @@ function safeDefaultName(user: any) {
   return name && name.replace(/\D/g, '') !== mobile ? name : 'My Store';
 }
 
+export function defaultStoreProfile(user: any) {
+  const name = safeDefaultName(user);
+  return {
+    name,
+    slug: `store-${String(user?._id || user?.id || 'new').slice(-6)}`,
+    tagline: '',
+    description: '',
+    logoUrl: '',
+    heroImageUrl: '',
+    accentColor: '#5b4bdb',
+    whatsapp: '',
+    phone: '',
+    email: '',
+    address: '',
+    currency: 'INR',
+    isPublished: false,
+    customDomain: '',
+    domainStatus: 'none',
+    domainError: '',
+  };
+}
+
 export async function ensureStoreProfile(user: any, tenantId: string | null = null) {
   const existing: any = await StoreProfile.findOne({ ownerUserId: user._id });
   if (existing) return existing;
@@ -26,8 +48,9 @@ export async function ensureStoreProfile(user: any, tenantId: string | null = nu
   return StoreProfile.create({ ownerUserId: user._id, tenantId: tenantId || null, name, slug: `store-${crypto.randomBytes(5).toString('hex')}` });
 }
 
-export function storeProfileResponse(profile: any) {
-  const value = typeof profile?.toObject === 'function' ? profile.toObject() : { ...profile };
+export function storeProfileResponse(profile: any, user: any = null) {
+  const stored = typeof profile?.toObject === 'function' ? profile.toObject() : { ...(profile || {}) };
+  const value = { ...(user ? defaultStoreProfile(user) : {}), ...stored };
   delete value.domainVerificationToken;
   return { ...value, ...publicStoreUrls(value.slug, value.customDomain, value.domainStatus), domainCnameTarget: STORE_DOMAIN_CNAME_TARGET };
 }

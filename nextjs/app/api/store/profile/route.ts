@@ -5,14 +5,18 @@ import { errorResponse } from '@/lib/http/errorResponse';
 import StoreProfile from '@/lib/models/StoreProfile';
 import crypto from 'crypto';
 import { normalizeStoreDomain, storeSlug } from '@/lib/store/helpers';
-import { ensureStoreProfile, storeProfileResponse } from '@/lib/store/profile';
+import { defaultStoreProfile, ensureStoreProfile, storeProfileResponse } from '@/lib/store/profile';
 
 export async function GET(req: NextRequest) {
   try {
     await connectDB(); const authed = await requireAuth(req);
-    const profile = await ensureStoreProfile(authed.doc, authed.tenantId);
-    const withToken = await StoreProfile.findById(profile._id).select('+domainVerificationToken').lean();
-    return NextResponse.json({ success: true, data: { ...storeProfileResponse(withToken), domainVerificationToken: withToken?.domainVerificationToken || '' } });
+    // Loading settings must stay read-only. PR #140 created a missing profile
+    // here, which made the whole Store overview depend on a successful write
+    // before it could render for an existing account. A profile is persisted
+    // on signup or the first Save; until then this deterministic draft is enough.
+    const profile: any = await StoreProfile.findOne({ ownerUserId: authed.doc._id }).select('+domainVerificationToken').lean();
+    const value = profile || defaultStoreProfile(authed.doc);
+    return NextResponse.json({ success: true, data: { ...storeProfileResponse(value, authed.doc), domainVerificationToken: profile?.domainVerificationToken || '' } });
   } catch (error) { return errorResponse(error, 'Failed to load store settings'); }
 }
 

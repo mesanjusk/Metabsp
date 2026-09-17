@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cleanImages, inquiryNumber, normalizeStoreDomain, publicStoreUrls, rupeesToPaise, storeSlug } from '@/lib/store/helpers';
 import { getMobileNavHrefs, getNavSections } from '@/lib/ui/app/navigation';
 import { getServiceBySlug } from '@/lib/ui/app/serviceRegistry';
+import { defaultStoreProfile, storeProfileResponse } from '@/lib/store/profile';
 
 describe('general-purpose E-Store', () => {
   it('publishes the store as an active basic service', () => {
@@ -33,5 +34,11 @@ describe('general-purpose E-Store', () => {
       subdomainUrl: 'https://my-shop.store.meta.sanjusk.in',
       customDomainUrl: 'https://shop.example.com',
     });
+  });
+
+  it('returns a usable draft for existing accounts without writing a profile', () => {
+    const user = { _id: '66aa11bb22cc33dd44ee5566', name: 'Example Retail', mobile: '919999999999' };
+    expect(defaultStoreProfile(user)).toMatchObject({ name: 'Example Retail', slug: 'store-ee5566', isPublished: false });
+    expect(storeProfileResponse(null, user)).toMatchObject({ publicPath: '/shop/store-ee5566', domainStatus: 'none' });
   });
 });
