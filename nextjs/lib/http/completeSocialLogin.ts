@@ -6,6 +6,7 @@ import { sanitizeUser } from '@/lib/http/sanitizeUser';
 import { recordAuditEvent } from '@/lib/services/auditLogService';
 import { resolveUserForSocialProfile } from '@/lib/services/socialAuthService';
 import { ensureStoreProfile } from '@/lib/store/profile';
+import logger from '@/lib/utils/logger';
 
 /**
  * Ported from the completeSocialLogin helper in backend/src/routes/Users.js.
@@ -29,7 +30,10 @@ export async function completeSocialLogin({
     User,
     getGlobalRoles,
   });
-  if (outcome === 'created') await ensureStoreProfile(user, null);
+  if (outcome === 'created') {
+    try { await ensureStoreProfile(user, null); }
+    catch (error: any) { logger.warn('[social-auth] Store profile provisioning deferred:', error?.message || error); }
+  }
 
   const token = signTokenForUser(user._id);
 

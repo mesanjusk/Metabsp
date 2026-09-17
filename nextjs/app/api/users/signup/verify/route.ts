@@ -74,7 +74,13 @@ export async function POST(req: NextRequest) {
       tenantId: null,
       isActive: true,
     });
-    await ensureStoreProfile(user, null);
+    try {
+      await ensureStoreProfile(user, null);
+    } catch (storeError: any) {
+      // The account is already valid. Store provisioning can retry when the
+      // owner first saves Store settings; it must never turn signup into a 500.
+      logger.warn('[signup] Store profile provisioning deferred:', storeError?.message || storeError);
+    }
 
     const token = signTokenForUser(user._id);
     return NextResponse.json({ success: true, token, user: sanitizeUser(await user.populate('roleId')) }, { status: 201 });
