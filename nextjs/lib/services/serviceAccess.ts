@@ -1,5 +1,6 @@
 import AppError from '@/lib/utils/AppError';
 import { ServiceEntitlement } from '@/lib/models';
+import BusinessProfile from '@/lib/models/BusinessProfile';
 import type { AuthedUser } from '@/lib/auth/session';
 
 export const SERVICE_SLUGS = [
@@ -47,14 +48,20 @@ function isRuleActive(rule: any, now = new Date()) {
 
 /**
  * Resolve service access without changing the shared User schema.
- * Basic services are always enabled.
+ * Basic services are always enabled unless the owner deliberately left them
+ * out of their business profile. Pro access still requires the existing
+ * entitlement; profiling narrows visibility and never upgrades a plan.
  * Pro precedence: user-specific rule > tenant rule > admin default > disabled.
  */
 export async function resolveServiceAccess(authed: AuthedUser) {
   const query: any[] = [{ userId: authed.id }];
   if (authed.tenantId) query.push({ tenantId: authed.tenantId, userId: null });
 
-  const rules: any[] = await ServiceEntitlement.find({ $or: query }).lean();
+  const [rules, profile]: [any[], any] = await Promise.all([
+    ServiceEntitlement.find({ $or: query }).lean(),
+    BusinessProfile.findOne({ userId: authed.doc._id }).select('selectedServices').lean(),
+  ]);
+  const selected = profile ? new Set((profile.selectedServices || []).map(String)) : null;
   const now = new Date();
   const activeRules = rules.filter((rule) => isRuleActive(rule, now));
 
@@ -95,6 +102,19 @@ export async function resolveServiceAccess(authed: AuthedUser) {
       reason: authed.isAdmin ? 'Available to platform administrator' : 'Upgrade to Pro or ask your admin for access',
       tier: 'pro',
     };
+  }
+
+  if (selected) {
+    for (const service of SERVICE_SLUGS) {
+      if (!selected.has(service)) {
+        result[service] = {
+          ...result[service],
+          enabled: false,
+          source: 'business_profile',
+          reason: 'Hidden by your business profile. Update your workspace setup to enable it.',
+        };
+      }
+    }
   }
 
   return result;
