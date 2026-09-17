@@ -40,7 +40,6 @@ export async function GET(req: NextRequest) {
     const month = monthBounds(now);
     const d30 = daysAgo(now, 30);
     const d60 = daysAgo(now, 60);
-    const d90 = daysAgo(now, 90);
 
     const [
       leadsOpen, followupsDue, followupsOverdue, quotationsOpen, openOrders, deliveriesOpen,
