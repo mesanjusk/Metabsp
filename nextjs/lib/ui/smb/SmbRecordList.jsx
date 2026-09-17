@@ -23,26 +23,38 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import apiClient from '@/lib/api/client';
 import { SMB_KINDS, getSmbService, smbRecordHref } from '@/lib/smb/workspaceRegistry';
 
-const DEFAULT_STATUS = { payment: 'received', product: 'active', inventory: 'recorded', vendor: 'active', review_request: 'pending' };
-const FINAL_STATUS = { lead: 'completed', followup: 'completed', quotation: 'completed', order: 'completed', payment: 'paid', expense: 'paid', task: 'completed', review_request: 'completed' };
-const TERMINAL = new Set(['completed', 'paid', 'done', 'closed', 'cancelled', 'lost', 'rejected', 'active', 'recorded', 'received']);
+const DEFAULT_STATUS = {
+  payment: 'received', product: 'active', inventory: 'recorded', vendor: 'active', review_request: 'pending',
+  responsibility: 'active', sop_task: 'active', rate_card: 'active', workflow_template: 'active',
+  payment_reminder: 'pending', purchase_order: 'open', delivery: 'pending', social_content: 'draft',
+  social_approval: 'pending', social_schedule: 'scheduled',
+};
+const FINAL_STATUS = {
+  lead: 'completed', followup: 'completed', quotation: 'completed', order: 'completed', invoice: 'paid',
+  payment: 'paid', payment_reminder: 'completed', expense: 'paid', task: 'completed', purchase_order: 'completed',
+  delivery: 'completed', social_approval: 'completed', social_schedule: 'completed', review_request: 'completed',
+};
+const TERMINAL = new Set(['completed', 'paid', 'done', 'closed', 'cancelled', 'lost', 'rejected', 'active', 'recorded', 'received', 'published']);
 const NEXT = { lead: 'followup', followup: 'quotation', quotation: 'order', order: 'invoice' };
 const money = (paise) => `₹${Math.round(Number(paise || 0) / 100).toLocaleString('en-IN')}`;
-const isMoneyKind = (kind) => ['quotation', 'order', 'payment', 'expense'].includes(kind);
+const isMoneyKind = (kind) => ['quotation', 'order', 'invoice', 'payment', 'expense', 'purchase_order', 'rate_card'].includes(kind);
 const kindLabel = (kind) => SMB_KINDS[kind]?.label || kind;
 
-const EMPTY_FORM = { title: '', customerName: '', customerPhone: '', assignedTo: '', amount: '', balance: '', dueAt: '', reference: '', quantity: '', status: '' };
+const EMPTY_FORM = {
+  title: '', customerName: '', customerPhone: '', assignedTo: '', amount: '', balance: '', dueAt: '', reference: '',
+  quantity: '', status: '', backup1: '', backup2: '', recurrence: '', hsnSac: '', gstRate: '', mediaUrl: '', channel: '', notes: '',
+};
 
-/**
- * One record kind, on its own screen.
- *
- * This was a tab inside the service's landing page, which meant every kind shared a URL and the
- * service had no room left for an overview. The behaviour — create, complete, convert to the next
- * stage — is unchanged; only its address is.
- *
- * `service` is passed so "convert to the next stage" can send you to the screen the new record
- * landed on, which a tab used to do by switching itself.
- */
+const NO_CUSTOMER = new Set([
+  'vendor', 'product', 'inventory', 'rate_card', 'responsibility', 'sop_task', 'workflow_template',
+  'social_content', 'social_approval', 'social_schedule', 'expense', 'purchase_order',
+]);
+const DUE_KINDS = new Set([
+  'followup', 'quotation', 'order', 'invoice', 'task', 'payment', 'payment_reminder', 'review_request',
+  'purchase_order', 'delivery', 'sop_task', 'social_approval', 'social_schedule',
+]);
+const TAX_KINDS = new Set(['quotation', 'order', 'invoice', 'product', 'purchase_order', 'rate_card']);
+
 export default function SmbRecordList({ service, kind }) {
   const router = useRouter();
   const [records, setRecords] = useState([]);
@@ -75,6 +87,17 @@ export default function SmbRecordList({ service, kind }) {
     setSaving(true);
     setError('');
     try {
+      const data = Object.fromEntries(Object.entries({
+        backup1: form.backup1.trim(),
+        backup2: form.backup2.trim(),
+        recurrence: form.recurrence.trim(),
+        hsnSac: form.hsnSac.trim(),
+        gstRate: form.gstRate === '' ? '' : Number(form.gstRate),
+        mediaUrl: form.mediaUrl.trim(),
+        channel: form.channel.trim(),
+        notes: form.notes.trim(),
+      }).filter(([, value]) => value !== '' && value != null));
+
       await apiClient.post('/api/smb/records', {
         kind,
         title: form.title.trim(),
@@ -88,6 +111,7 @@ export default function SmbRecordList({ service, kind }) {
         reference: form.reference.trim(),
         status: form.status.trim() || DEFAULT_STATUS[kind] || 'open',
         source: service,
+        data,
       });
       setForm(EMPTY_FORM);
       setShowForm(false);
@@ -120,9 +144,6 @@ export default function SmbRecordList({ service, kind }) {
     setError('');
     try {
       await apiClient.post(`/api/smb/records/${record._id}/convert`, { targetKind });
-      // A tab used to switch itself to where the new record landed. Do the same with the URL —
-      // but only when this service actually shows that kind: an order converts to an invoice,
-      // which Payments records without giving it a screen of its own.
       if (getSmbService(service)?.kinds?.includes(targetKind)) {
         router.push(smbRecordHref(service, targetKind));
         return;
@@ -157,24 +178,34 @@ export default function SmbRecordList({ service, kind }) {
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, mb: 2 }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,minmax(0,1fr))', lg: 'repeat(3,minmax(0,1fr))' }, gap: 1.25 }}>
                 <TextField size="small" label="Title / purpose" value={form.title} onChange={updateForm('title')} required />
-                {!['vendor', 'product', 'inventory'].includes(kind) ? (
+                {!NO_CUSTOMER.has(kind) ? (
                   <>
                     <TextField size="small" label="Customer name" value={form.customerName} onChange={updateForm('customerName')} />
                     <TextField size="small" label="Customer phone" value={form.customerPhone} onChange={updateForm('customerPhone')} />
                   </>
                 ) : null}
-                <TextField size="small" label={kind === 'vendor' ? 'Vendor/contact person' : 'Assigned to'} value={form.assignedTo} onChange={updateForm('assignedTo')} />
+                <TextField
+                  size="small"
+                  label={kind === 'vendor' ? 'Vendor/contact person' : kind === 'responsibility' ? 'Primary owner' : kind === 'purchase_order' ? 'Vendor / owner' : 'Assigned to'}
+                  value={form.assignedTo}
+                  onChange={updateForm('assignedTo')}
+                />
+                {kind === 'responsibility' ? <><TextField size="small" label="Backup 1" value={form.backup1} onChange={updateForm('backup1')} /><TextField size="small" label="Backup 2" value={form.backup2} onChange={updateForm('backup2')} /></> : null}
+                {kind === 'sop_task' ? <TextField size="small" label="Recurrence (e.g. daily / weekly / monthly)" value={form.recurrence} onChange={updateForm('recurrence')} /> : null}
                 {isMoneyKind(kind) ? <TextField size="small" type="number" label="Amount (₹)" value={form.amount} onChange={updateForm('amount')} /> : null}
-                {kind === 'order' ? <TextField size="small" type="number" label="Balance due (₹)" value={form.balance} onChange={updateForm('balance')} /> : null}
-                {['product', 'inventory'].includes(kind) ? <TextField size="small" type="number" label="Quantity" value={form.quantity} onChange={updateForm('quantity')} /> : null}
-                {['followup', 'quotation', 'order', 'task', 'payment', 'review_request'].includes(kind) ? (
+                {['order', 'invoice'].includes(kind) ? <TextField size="small" type="number" label="Balance due (₹)" value={form.balance} onChange={updateForm('balance')} /> : null}
+                {['product', 'inventory', 'purchase_order'].includes(kind) ? <TextField size="small" type="number" label="Quantity" value={form.quantity} onChange={updateForm('quantity')} /> : null}
+                {DUE_KINDS.has(kind) ? (
                   <TextField size="small" type="datetime-local" label="Due / action date" value={form.dueAt} onChange={updateForm('dueAt')} InputLabelProps={{ shrink: true }} />
                 ) : null}
+                {TAX_KINDS.has(kind) ? <><TextField size="small" label="HSN / SAC" value={form.hsnSac} onChange={updateForm('hsnSac')} /><TextField size="small" type="number" label="GST rate (%)" value={form.gstRate} onChange={updateForm('gstRate')} /></> : null}
+                {['social_content', 'social_approval', 'social_schedule'].includes(kind) ? <><TextField size="small" label="Channel" placeholder="Instagram / Facebook / Google" value={form.channel} onChange={updateForm('channel')} /><TextField size="small" label="Media / creative URL" value={form.mediaUrl} onChange={updateForm('mediaUrl')} /></> : null}
                 <TextField size="small" label="Reference" value={form.reference} onChange={updateForm('reference')} />
+                <TextField size="small" label="Notes" value={form.notes} onChange={updateForm('notes')} />
                 <TextField size="small" select label="Status" value={form.status} onChange={updateForm('status')}>
                   <MenuItem value="">Use default</MenuItem>
-                  {['open', 'pending', 'active', 'received', 'paid', 'completed', 'cancelled'].map((status) => (
-                    <MenuItem key={status} value={status}>{status}</MenuItem>
+                  {['draft', 'open', 'pending', 'scheduled', 'in_progress', 'active', 'received', 'paid', 'published', 'completed', 'cancelled'].map((status) => (
+                    <MenuItem key={status} value={status}>{status.replace('_', ' ')}</MenuItem>
                   ))}
                 </TextField>
               </Box>
@@ -194,23 +225,29 @@ export default function SmbRecordList({ service, kind }) {
             <Stack>
               {records.map((record) => {
                 const nextKind = NEXT[record.kind];
+                const details = record.data || {};
                 return (
                   <Stack key={record._id} direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: 'center' }} sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                     <Box sx={{ minWidth: 0, flex: 1 }}>
                       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                         <Typography variant="body2" fontWeight={800}>{record.title}</Typography>
                         <Chip size="small" label={record.status || 'open'} variant="outlined" />
+                        {details.recurrence ? <Chip size="small" label={details.recurrence} /> : null}
+                        {details.gstRate !== undefined && details.gstRate !== '' ? <Chip size="small" label={`GST ${details.gstRate}%`} /> : null}
+                        {details.channel ? <Chip size="small" label={details.channel} /> : null}
                       </Stack>
                       <Typography variant="caption" color="text.secondary">
                         {[
                           record.contactId?.name || record.contactId?.phone,
                           record.assignedTo ? `Owner: ${record.assignedTo}` : '',
+                          details.backup1 ? `Backup: ${details.backup1}${details.backup2 ? `, ${details.backup2}` : ''}` : '',
+                          details.hsnSac ? `HSN/SAC: ${details.hsnSac}` : '',
                           record.reference ? `Ref: ${record.reference}` : '',
                           record.dueAt ? `Due: ${new Date(record.dueAt).toLocaleString('en-IN')}` : '',
                         ].filter(Boolean).join(' · ') || 'No additional details'}
                       </Typography>
                     </Box>
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       {record.amountInPaise ? <Typography variant="body2" fontWeight={800}>{money(record.amountInPaise)}</Typography> : null}
                       {record.balanceInPaise ? <Chip size="small" label={`${money(record.balanceInPaise)} due`} /> : null}
                       {nextKind && !TERMINAL.has(record.status) ? (
@@ -233,7 +270,6 @@ export default function SmbRecordList({ service, kind }) {
           )}
         </CardContent>
       </Card>
-
     </Stack>
   );
 }
