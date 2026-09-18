@@ -6,6 +6,7 @@ import { startInvoiceScheduler } from '../services/invoiceSchedulerService';
 import { startBackupScheduler } from '../services/backupSchedulerService';
 import { startKeepAliveScheduler } from '../services/keepAliveService';
 import { startRetentionScheduler } from '../services/dataRetentionService';
+import { startGoogleReviewAutomationScheduler } from '../googleBusiness/reviewAutomation';
 import { runPreflightOnBoot } from '../services/preflightCheckService';
 import { runBootSelfCheck } from '../services/bootSelfCheck';
 import { startVideoWorkers } from '../video/core/queue/video-workers';
@@ -65,6 +66,10 @@ export function startBackgroundJobs(): void {
   // Enforces the published data-retention policy. No-ops loudly when no
   // retention window is configured, which is the default.
   startRetentionScheduler();
+
+  // Sync Google reviews every 15 minutes. Public auto-replies are opt-in and
+  // default to 4+ stars; lower ratings stay in the approval queue.
+  startGoogleReviewAutomationScheduler();
 
   logger.info('[runtime] Background workers and schedulers started');
 
