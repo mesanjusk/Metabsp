@@ -339,5 +339,10 @@ export function sanitizeGoogleBusinessAccount(account: any) {
     lastError: account.lastError || '',
     connectedAt: account.connectedAt,
     lastSyncAt: account.lastSyncAt,
+    autoReplyEnabled: Boolean(account.autoReplyEnabled),
+    autoReplyMinRating: Number(account.autoReplyMinRating || 4),
+    customToneRules: account.customToneRules || '',
+    allowReviewReplyEmojis: Boolean(account.allowReviewReplyEmojis),
+    reviewSupportContact: account.reviewSupportContact || '',
   };
 }
