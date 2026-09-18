@@ -425,13 +425,16 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
         {notice ? <Alert severity="success" onClose={() => setNotice('')}>{notice}</Alert> : null}
 
         {!connected ? (
-          <Card variant="outlined">
-            <CardContent>
-              <Stack spacing={2} alignItems="flex-start">
+          <Card variant="outlined" sx={{ minWidth: 0, overflow: 'hidden' }}>
+            <CardContent sx={{ minWidth: 0, p: { xs: 2, sm: 3 } }}>
+              <Stack spacing={2} alignItems="flex-start" sx={{ minWidth: 0 }}>
                 <Avatar sx={{ width: 52, height: 52 }}><StorefrontRoundedIcon /></Avatar>
-                <Box>
+                <Box sx={{ minWidth: 0, width: '100%' }}>
                   <Typography variant="h6" fontWeight={700}>Connect your Google Business Profile</Typography>
-                  <Typography color="text.secondary" sx={{ mt: 0.5, maxWidth: 720 }}>
+                  <Typography
+                    color="text.secondary"
+                    sx={{ mt: 0.5, maxWidth: 720, overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                  >
                     Sign in with the Google account that manages the business. This workspace then reads your
                     reviews and Search/Maps performance, and can publish replies and posts you approve. Your
                     customers, contacts and orders stay in the same shared workspace as WhatsApp and the CRM.
@@ -442,15 +445,42 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
                     Connect with Google
                   </Button>
                 ) : (
-                  <Alert severity="warning" sx={{ width: '100%' }}>
-                    This deployment has no Google Business client configured. Set
-                    {' '}<code>GOOGLE_BUSINESS_CLIENT_ID</code> and <code>GOOGLE_BUSINESS_CLIENT_SECRET</code>{' '}
-                    and enable the Business Profile APIs in the same Google Cloud project.
+                  <Alert
+                    severity="warning"
+                    sx={{
+                      width: '100%',
+                      minWidth: 0,
+                      alignItems: 'flex-start',
+                      '& .MuiAlert-message': {
+                        minWidth: 0,
+                        width: '100%',
+                        overflowWrap: 'anywhere',
+                        wordBreak: 'break-word',
+                      },
+                    }}
+                  >
+                    <Stack spacing={1.25} sx={{ minWidth: 0 }}>
+                      <Typography variant="body2">
+                        Google Business Profile is not configured for this platform yet.
+                      </Typography>
+                      <Typography variant="body2">
+                        Open Administration → Google configuration and save the platform Google OAuth client.
+                        You only configure this once; individual businesses then connect their own Google account.
+                      </Typography>
+                      <Button
+                        href="/admin"
+                        variant="outlined"
+                        size="small"
+                        sx={{ alignSelf: 'flex-start' }}
+                      >
+                        Configure Google
+                      </Button>
+                    </Stack>
                   </Alert>
                 )}
-                <Typography variant="caption" color="text.secondary">
-                  Google grants Business Profile API access per project. A newly enabled project starts at zero
-                  quota until Google approves the access request.
+                <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                  Google Business Profile API access is granted per Google Cloud project. If the project has not
+                  been approved yet, Google can return zero quota even after the OAuth client is configured.
                 </Typography>
               </Stack>
             </CardContent>
