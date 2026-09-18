@@ -53,6 +53,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       assignedTo: source.assignedTo,
       amountInPaise: source.amountInPaise,
       balanceInPaise: targetKind === 'payment' ? 0 : source.balanceInPaise,
+      quantity: source.quantity,
+      dueAt: source.dueAt || null,
       data: { ...(source.data || {}), convertedFrom: source.kind },
     });
 

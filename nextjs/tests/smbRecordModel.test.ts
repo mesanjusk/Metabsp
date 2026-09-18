@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SMB_RECORD_KINDS } from '../lib/models/SmbRecord';
 
 describe('small-business shared record model', () => {
-  it('contains the revenue, operations and growth record kinds', () => {
+  it('contains the revenue, operations, finance and marketing record kinds', () => {
     expect(SMB_RECORD_KINDS).toEqual(expect.arrayContaining([
       'lead',
       'followup',
@@ -10,12 +10,22 @@ describe('small-business shared record model', () => {
       'order',
       'invoice',
       'payment',
+      'payment_reminder',
       'task',
+      'responsibility',
+      'sop_task',
       'expense',
       'vendor',
+      'purchase_order',
+      'rate_card',
       'product',
       'inventory',
+      'delivery',
       'review_request',
+      'workflow_template',
+      'social_content',
+      'social_approval',
+      'social_schedule',
     ]));
   });
 
