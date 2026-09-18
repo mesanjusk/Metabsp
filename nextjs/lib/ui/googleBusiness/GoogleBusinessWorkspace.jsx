@@ -12,12 +12,14 @@ import {
   CircularProgress,
   Divider,
   FormControl,
+  FormControlLabel,
   InputLabel,
   Link as MuiLink,
   MenuItem,
   Rating,
   Select,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -36,7 +38,10 @@ import {
   fetchGoogleBusinessPerformance,
   fetchGooglePosts,
   fetchGoogleReviews,
+  fetchGoogleReviewSettings,
   publishGooglePost,
+  syncGoogleReviews,
+  updateGoogleReviewSettings,
   replyToGoogleReview,
   selectGoogleBusinessLocation,
   sendGoogleReviewRequest,
@@ -88,7 +93,7 @@ const SCREENS = {
   },
   reviews: {
     title: 'Reviews',
-    description: 'What customers wrote, and AI-drafted replies you approve before anything is posted.',
+    description: 'What customers wrote, with AI drafts, approval controls and optional automatic replies for higher ratings.',
   },
   posts: {
     title: 'Posts',
@@ -115,6 +120,13 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
   const [performance, setPerformance] = useState(null);
   const [reviews, setReviews] = useState({ reviews: [], summary: null, newReviewUri: '' });
   const [replyDrafts, setReplyDrafts] = useState({});
+  const [reviewSettings, setReviewSettings] = useState({
+    autoReplyEnabled: false,
+    autoReplyMinRating: 4,
+    customToneRules: '',
+    allowReviewReplyEmojis: false,
+    reviewSupportContact: '',
+  });
   const [posts, setPosts] = useState([]);
 
   const [postTopic, setPostTopic] = useState('');
@@ -166,7 +178,17 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
     ]);
 
     if (performanceResult.status === 'fulfilled') setPerformance(payload(performanceResult.value));
-    if (reviewsResult.status === 'fulfilled') setReviews(payload(reviewsResult.value) || { reviews: [], summary: null });
+    if (reviewsResult.status === 'fulfilled') {
+      const reviewData = payload(reviewsResult.value) || { reviews: [], summary: null };
+      setReviews(reviewData);
+      const drafts = {};
+      for (const record of reviewData.records || []) {
+        if (record?.reviewId && record?.replyStatus !== 'PUBLISHED' && record?.reviewReplyText) {
+          drafts[record.reviewId] = record.reviewReplyText;
+        }
+      }
+      setReplyDrafts((current) => ({ ...current, ...drafts }));
+    }
     if (postsResult.status === 'fulfilled') setPosts(payload(postsResult.value) || []);
 
     const failure = [performanceResult, reviewsResult, postsResult].find((item) => item.status === 'rejected');
@@ -177,6 +199,13 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
   useEffect(() => {
     if (connected && locationSelected) loadWorkspace();
   }, [connected, locationSelected, loadWorkspace]);
+
+  useEffect(() => {
+    if (!connected) return;
+    fetchGoogleReviewSettings()
+      .then((response) => setReviewSettings((current) => ({ ...current, ...(payload(response) || {}) })))
+      .catch(() => {});
+  }, [connected]);
 
   /**
    * `accountName` is optional and omitted on the first load, where the server
@@ -239,6 +268,37 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
     } catch (requestError) {
       setError(errorText(requestError, 'Could not select that location.'));
     } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveReviewSettings = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const saved = payload(await updateGoogleReviewSettings(reviewSettings));
+      setReviewSettings((current) => ({ ...current, ...(saved || {}) }));
+      setNotice(
+        saved?.autoReplyEnabled
+          ? `Automatic replies enabled for ${saved.autoReplyMinRating}★ and above. Lower ratings still require approval.`
+          : 'Automatic replies are off. AI drafts will wait for approval.'
+      );
+    } catch (requestError) {
+      setError(errorText(requestError, 'Could not save review automation settings.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const syncReviewsNow = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await syncGoogleReviews();
+      setNotice('Google reviews synced and the reply queue updated.');
+      await loadWorkspace();
+    } catch (requestError) {
+      setError(errorText(requestError, 'Could not sync Google reviews.'));
       setBusy(false);
     }
   };
@@ -548,6 +608,80 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
 
                   {tab === 'reviews' ? (
                     <Stack spacing={2}>
+                      <Card variant="outlined" sx={{ p: 2 }}>
+                        <Stack spacing={1.5}>
+                          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
+                            <Box>
+                              <Typography fontWeight={750}>AI review automation</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                New reviews are synced every 15 minutes. Auto-reply is opt-in; lower ratings always stay for approval.
+                              </Typography>
+                            </Box>
+                            <Button size="small" startIcon={<RefreshRoundedIcon />} onClick={syncReviewsNow} disabled={busy}>
+                              Sync now
+                            </Button>
+                          </Stack>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={Boolean(reviewSettings.autoReplyEnabled)}
+                                onChange={(event) => setReviewSettings((current) => ({ ...current, autoReplyEnabled: event.target.checked }))}
+                              />
+                            }
+                            label="Automatically publish eligible AI replies"
+                          />
+                          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+                            <FormControl size="small" sx={{ minWidth: 220 }}>
+                              <InputLabel id="google-review-threshold">Auto-reply minimum rating</InputLabel>
+                              <Select
+                                labelId="google-review-threshold"
+                                label="Auto-reply minimum rating"
+                                value={reviewSettings.autoReplyMinRating}
+                                onChange={(event) => setReviewSettings((current) => ({ ...current, autoReplyMinRating: Number(event.target.value) }))}
+                              >
+                                {[5, 4, 3, 2, 1].map((rating) => (
+                                  <MenuItem key={rating} value={rating}>{rating}★ and above</MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  checked={Boolean(reviewSettings.allowReviewReplyEmojis)}
+                                  onChange={(event) => setReviewSettings((current) => ({ ...current, allowReviewReplyEmojis: event.target.checked }))}
+                                />
+                              }
+                              label="Allow emoji"
+                            />
+                          </Stack>
+                          <TextField
+                            size="small"
+                            label="Tone rules"
+                            placeholder="Example: friendly, local, concise; avoid sales language"
+                            value={reviewSettings.customToneRules}
+                            onChange={(event) => setReviewSettings((current) => ({ ...current, customToneRules: event.target.value }))}
+                            inputProps={{ maxLength: 1000 }}
+                          />
+                          <TextField
+                            size="small"
+                            label="Offline contact for complaints"
+                            placeholder="Example: Call 07182-xxxxxx or email manager@example.com"
+                            value={reviewSettings.reviewSupportContact}
+                            onChange={(event) => setReviewSettings((current) => ({ ...current, reviewSupportContact: event.target.value }))}
+                            inputProps={{ maxLength: 300 }}
+                            helperText="Used only for 1–3 star drafts. Leave blank to avoid inventing contact details."
+                          />
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Button variant="contained" size="small" onClick={saveReviewSettings} disabled={busy}>
+                              Save automation settings
+                            </Button>
+                            <Typography variant="caption" color="text.secondary">
+                              AI replies are plain text and capped at 250 characters.
+                            </Typography>
+                          </Stack>
+                        </Stack>
+                      </Card>
+
                       {!(reviews.reviews || []).length ? (
                         <Typography color="text.secondary">No reviews have been left on this profile yet.</Typography>
                       ) : null}

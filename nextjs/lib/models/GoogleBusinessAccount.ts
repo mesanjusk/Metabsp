@@ -49,6 +49,14 @@ const googleBusinessAccountSchema = new Schema(
     accessTokenExpiresAt: { type: Date, default: null },
     scopes: { type: [String], default: [] },
 
+    // AI review automation is opt-in. Existing merchants remain approval-only
+    // until they explicitly enable automatic public replies.
+    autoReplyEnabled: { type: Boolean, default: false },
+    autoReplyMinRating: { type: Number, min: 1, max: 5, default: 4 },
+    customToneRules: { type: String, default: '', trim: true, maxlength: 1000 },
+    allowReviewReplyEmojis: { type: Boolean, default: false },
+    reviewSupportContact: { type: String, default: '', trim: true, maxlength: 300 },
+
     status: {
       type: String,
       enum: ['active', 'disconnected', 'error', 'pending'],

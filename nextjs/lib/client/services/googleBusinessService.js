@@ -17,6 +17,13 @@ export const replyToGoogleReview = (reviewId, comment) =>
   apiClient.post('/api/google-business/reviews', { reviewId, comment });
 export const removeGoogleReviewReply = (reviewId) =>
   apiClient.delete('/api/google-business/reviews', { params: { reviewId } });
+export const fetchGoogleReviewSettings = () => apiClient.get('/api/google-business/settings');
+export const updateGoogleReviewSettings = (settings) => apiClient.patch('/api/google-business/settings', settings);
+export const syncGoogleReviews = () => apiClient.post('/api/google-business/reviews/sync');
+export const approveGoogleReviewReply = (reviewId) =>
+  apiClient.post(`/api/google-business/reviews/${encodeURIComponent(reviewId)}/approve-reply`);
+export const editGoogleReviewReply = (reviewId, replyText) =>
+  apiClient.put(`/api/google-business/reviews/${encodeURIComponent(reviewId)}/edit-reply`, { replyText });
 
 export const fetchGooglePosts = () => apiClient.get('/api/google-business/posts');
 export const publishGooglePost = (post) => apiClient.post('/api/google-business/posts', post);

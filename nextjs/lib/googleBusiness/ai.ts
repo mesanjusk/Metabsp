@@ -81,20 +81,37 @@ async function draft(system: string, prompt: string, label: string): Promise<str
 const REPLY_SYSTEM = [
   'You write public replies to Google reviews on behalf of a small business owner.',
   'Rules you never break:',
-  '- Reply in 2-4 sentences, under 700 characters, in the same language as the review.',
-  '- Warm and specific, never corporate. Use the business name at most once.',
-  '- Only mention facts given to you. Never invent a discount, a refund, a policy, a staff name or a detail the review did not state.',
-  '- For a complaint: acknowledge the specific problem, take responsibility without admitting legal liability, and invite the customer to contact the business directly. Never argue and never blame the customer.',
+  '- Plain text only. Never use Markdown, bullets, asterisks, HTML, headings or quote marks around the answer.',
+  '- Maximum 250 characters including spaces. Prefer one or two short sentences.',
+  '- Reply in the same language as the review when practical.',
+  '- Only mention facts explicitly present in the review or supplied business context. Never invent discounts, refunds, policies, staff names, prices, hours or outcomes.',
+  '- For 4-5 stars: thank the customer warmly, mention a real positive detail when one exists, and invite them back.',
+  '- For 1-3 stars: acknowledge the issue, apologize calmly, never argue or blame the customer, and invite them to contact the business offline.',
   '- Never ask the reviewer to change or delete their rating.',
-  '- Output only the reply text. No greeting label, no quotes, no explanation, no placeholders in brackets.',
+  '- Do not admit legal liability.',
+  '- Output only the final reply.',
 ].join('\n');
+
+export function sanitizeReviewReply(text: string, allowEmojis: boolean): string {
+  let value = String(text || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[*_~`#>]/g, '')
+    .replace(/^\s*[-•]\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!allowEmojis) value = value.replace(/\p{Extended_Pictographic}/gu, '').replace(/\s{2,}/g, ' ').trim();
+  return value.slice(0, 250).trim();
+}
 
 export async function draftReviewReply(
   business: BusinessContext,
   review: Pick<NormalizedReview, 'rating' | 'comment' | 'reviewer'>,
-  tone = 'warm and professional'
+  tone = 'warm and professional',
+  options: { allowEmojis?: boolean; supportContact?: string } = {}
 ): Promise<string> {
   const comment = String(review.comment || '').trim();
+  const supportContact = String(options.supportContact || '').trim();
   const prompt = [
     businessBlock(business),
     '',
@@ -103,10 +120,14 @@ export async function draftReviewReply(
     comment ? `Review text:\n"""\n${comment.slice(0, 4000)}\n"""` : 'The customer left a rating with no written review.',
     '',
     `Tone: ${tone}.`,
+    options.allowEmojis ? 'At most one appropriate emoji is allowed.' : 'Do not use emoji.',
+    supportContact
+      ? `For a 1-3 star review, direct the customer to this offline contact when appropriate: ${supportContact}`
+      : 'For a 1-3 star review, invite the customer to contact the business directly without inventing contact details.',
     'Write the reply.',
   ].join('\n');
 
-  return draft(REPLY_SYSTEM, prompt, 'review reply');
+  return sanitizeReviewReply(await draft(REPLY_SYSTEM, prompt, 'review reply'), Boolean(options.allowEmojis));
 }
 
 const POST_SYSTEM = [
