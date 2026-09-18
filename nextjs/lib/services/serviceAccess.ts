@@ -1,6 +1,6 @@
 import AppError from '@/lib/utils/AppError';
 import { ServiceEntitlement } from '@/lib/models';
-import BusinessProfile from '@/lib/models/BusinessProfile';
+import SmbRecord from '@/lib/models/SmbRecord';
 import type { AuthedUser } from '@/lib/auth/session';
 
 export const SERVICE_SLUGS = [
@@ -19,8 +19,6 @@ export const SERVICE_SLUGS = [
 
 export type ServiceSlug = (typeof SERVICE_SLUGS)[number];
 
-// Basic products are included for every account. They are never blocked by an
-// entitlement row; release status is still controlled by the UI/feature itself.
 export const BASIC_SERVICES: ServiceSlug[] = [
   'whatsapp',
   'instagram',
@@ -28,15 +26,9 @@ export const BASIC_SERVICES: ServiceSlug[] = [
   'dialer',
   'crm',
   'store',
-  // The Video Studio has no per-seat cost to this platform: its clips are
-  // generated in the operator's own browser against their own Flow account, so
-  // there is nothing here to meter. It was absent from this list entirely,
-  // which the gate read as "not entitled" rather than "unknown service" — the
-  // nav card said `tier: 'basic'` while the server had never heard of the slug.
   'video',
 ];
 
-// Pro products are the only services controlled by tenant/user entitlements.
 export const PRO_SERVICES: ServiceSlug[] = ['institute', 'marketing', 'staff', 'payments'];
 
 function isRuleActive(rule: any, now = new Date()) {
@@ -51,7 +43,6 @@ function isRuleActive(rule: any, now = new Date()) {
  * Basic services are always enabled unless the owner deliberately left them
  * out of their business profile. Pro access still requires the existing
  * entitlement; profiling narrows visibility and never upgrades a plan.
- * Pro precedence: user-specific rule > tenant rule > admin default > disabled.
  */
 export async function resolveServiceAccess(authed: AuthedUser) {
   const query: any[] = [{ userId: authed.id }];
@@ -59,9 +50,10 @@ export async function resolveServiceAccess(authed: AuthedUser) {
 
   const [rules, profile]: [any[], any] = await Promise.all([
     ServiceEntitlement.find({ $or: query }).lean(),
-    BusinessProfile.findOne({ userId: authed.doc._id }).select('selectedServices').lean(),
+    SmbRecord.findOne({ userId: authed.doc._id, kind: 'business_profile' }).select('data.selectedServices').lean(),
   ]);
-  const selected = profile ? new Set((profile.selectedServices || []).map(String)) : null;
+  const selectedServices = profile?.data?.selectedServices;
+  const selected = Array.isArray(selectedServices) ? new Set(selectedServices.map(String)) : null;
   const now = new Date();
   const activeRules = rules.filter((rule) => isRuleActive(rule, now));
 
