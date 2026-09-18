@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import AppError from '@/lib/utils/AppError';
 import { resolveGoogleWorkspace } from '@/lib/googleBusiness/workspace';
+import { GoogleBusinessReview } from '@/lib/models';
 import { deleteGoogleReviewReply, replyToGoogleReview } from '@/lib/googleBusiness/profile';
 import { syncGoogleReviewsForUser } from '@/lib/googleBusiness/reviewAutomation';
 import { GoogleBusinessReview } from '@/lib/models';
