@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 
 export const SMB_RECORD_KINDS = [
+  'business_profile',
   'lead',
   'followup',
   'quotation',
