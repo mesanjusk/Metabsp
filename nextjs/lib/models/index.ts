@@ -12,6 +12,7 @@ export { default as ApiKey } from './ApiKey';
 export { default as WhatsAppAccount } from './WhatsAppAccount';
 export { default as InstagramAccount } from './InstagramAccount';
 export { default as GoogleBusinessAccount } from './GoogleBusinessAccount';
+export { default as GoogleBusinessReview } from './GoogleBusinessReview';
 export { default as PlatformCredential } from './PlatformCredential';
 export { default as ServiceEntitlement } from './ServiceEntitlement';
 export { default as InstituteRecord } from './InstituteRecord';
