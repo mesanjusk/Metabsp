@@ -92,7 +92,7 @@ const REPLY_SYSTEM = [
   '- Output only the final reply.',
 ].join('\n');
 
-function sanitizeReviewReply(text: string, allowEmojis: boolean): string {
+export function sanitizeReviewReply(text: string, allowEmojis: boolean): string {
   let value = String(text || '')
     .replace(/<[^>]*>/g, '')
     .replace(/[*_~`#>]/g, '')
