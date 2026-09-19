@@ -28,9 +28,11 @@ import BrandMark from '@/lib/ui/app/BrandMark';
 
 const NAV_LINKS = [
   { label: 'Product', to: '/' },
+  { label: 'Services', to: '/#services' },
+  { label: 'Pricing', to: '/#pricing' },
+  { label: 'FAQ', to: '/#faq' },
   { label: 'About', to: '/about' },
   { label: 'Developers', to: '/developer-docs' },
-  { label: 'Status', to: '/status' },
   { label: 'Contact', to: '/contact' },
 ];
 
@@ -196,8 +198,8 @@ export default function PublicLayout({ children }) {
                 <BrandMark size={30} />
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 300 }}>
-                A WhatsApp Business Solution Provider on Meta&apos;s official Cloud API. Every message in
-                and out runs on the WhatsApp Business Platform.
+                One business workspace for WhatsApp, Instagram, Google Business Profile, CRM, store,
+                payments, staff, marketing and operations. WhatsApp messaging uses Meta&apos;s official Cloud API.
               </Typography>
             </Grid>
 

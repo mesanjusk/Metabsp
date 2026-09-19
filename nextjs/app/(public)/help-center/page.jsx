@@ -35,11 +35,11 @@ const FAQ_DATA = [
       },
       {
         q: 'What is the difference between SanjuSK plans?',
-        a: 'Our Starter plan includes 1 phone number and 1,000 conversations/month. The Business plan supports up to 5 phone numbers and unlimited conversations. Enterprise plans offer dedicated infrastructure, SLA guarantees, and custom pricing. All plans include API access, template management, and webhook support.',
+        a: 'Starter is ₹999/month and covers the core workspace for small businesses, including WhatsApp, Instagram, Google Business Profile, Mini CRM, E-Store, Business Dialer, Video Studio, API access and 1,000 included platform messages. Growth is ₹2,999/month and adds Pro services such as Marketing & Publisher, Staff & Tasks, Payments & Documents and Institute Management, with 5,000 included platform messages.',
       },
       {
-        q: 'Is there a free trial available?',
-        a: 'Yes, we offer a 14-day free trial on the Business plan with no credit card required. You get access to all features including API access, template submission, and webhook configuration during the trial.',
+        q: 'Can I try SanjuSK before paying?',
+        a: 'You can create an account without a credit card, complete your business profile and explore the workspace before choosing a paid production plan. Some provider features require connecting your own Meta, Google or other provider account.',
       },
     ],
   },
@@ -104,12 +104,12 @@ const FAQ_DATA = [
     color: 'error',
     items: [
       {
-        q: 'How does WhatsApp conversation-based pricing work?',
-        a: 'WhatsApp charges per 24-hour conversation session, not per message. There are two types: business-initiated (you start the conversation, higher cost) and user-initiated (customer sends first message within 24 hours, lower cost). SanjuSK passes through Meta\'s conversation costs plus a platform fee based on your plan.',
+        q: 'How does WhatsApp provider pricing work?',
+        a: 'SanjuSK charges the platform subscription separately from Meta. WhatsApp messaging charges follow Meta\'s current pricing rules for the business and destination, and may change independently of the SanjuSK plan. The dashboard should be treated as the workspace fee plus applicable provider usage.',
       },
       {
         q: 'When am I charged?',
-        a: 'Platform subscription fees are charged monthly at the beginning of each billing cycle. Meta\'s conversation charges are billed by SanjuSK at the end of each month based on actual usage. You can view real-time usage estimates in your dashboard.',
+        a: 'SanjuSK plan pricing is monthly: ₹999 for Starter or ₹2,999 for Growth. Connected providers such as Meta can have separate usage charges under their own current pricing, so provider usage is not represented as unlimited by the platform subscription.',
       },
       {
         q: 'What payment methods do you accept?',
@@ -120,8 +120,8 @@ const FAQ_DATA = [
         a: 'You can cancel your subscription at any time from Account Settings → Subscription → Cancel Plan. Your access continues until the end of the current billing period. No refunds are provided for partial months. After cancellation, your data is retained for 30 days before deletion.',
       },
       {
-        q: 'Are there free conversations included each month?',
-        a: 'Meta provides 1,000 free user-initiated conversations per WhatsApp Business Account per month. These free conversations are automatically applied before your paid conversation usage. SanjuSK surfaces these free conversation credits in your billing dashboard.',
+        q: 'What usage is included in my SanjuSK plan?',
+        a: 'Starter includes 1,000 platform messages per month and Growth includes 5,000. These are SanjuSK platform allowances and are separate from any Meta or other provider charges that may apply to the connected service.',
       },
     ],
   },
