@@ -12,7 +12,7 @@ const DEFAULT_PLANS = [
   {
     code: 'starter',
     name: 'Starter',
-    description: 'For small teams sending under 1,000 messages a month.',
+    description: 'Core SMB workspace for small businesses, with 1,000 included platform messages.',
     priceInPaise: 99900,
     billingInterval: 'monthly',
     includedMessages: 1000,
@@ -21,7 +21,7 @@ const DEFAULT_PLANS = [
   {
     code: 'growth',
     name: 'Growth',
-    description: 'For teams running regular campaigns and broadcasts.',
+    description: 'Full SMB workspace with Pro operations tools and 5,000 included platform messages.',
     priceInPaise: 299900,
     billingInterval: 'monthly',
     includedMessages: 5000,
