@@ -1,5 +1,9 @@
 # Metabsp — Production & Meta Tech Provider Certification Report
 
+> **Current certification:** the September 11 snapshot below has been superseded by
+> [`PUBLIC_READINESS_2026-09-20.md`](./PUBLIC_READINESS_2026-09-20.md), which audits
+> the current SMB/Store/GBP/public-site code and the latest dependency posture.
+
 > **This report is a point-in-time historical record. Everything below the
 > "Current status" refresh describes an earlier architecture that no longer
 > exists in this repository** — it predates the consolidation into a single
