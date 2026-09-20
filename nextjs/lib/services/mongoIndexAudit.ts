@@ -1,6 +1,27 @@
 import mongoose, { type Model } from 'mongoose';
 import { connectDB } from '../db/mongo';
 import * as CoreModels from '../models';
+import '../video/modules/accounts/models/GoogleAccount';
+import '../video/modules/api-tokens/models/ApiToken';
+import '../video/modules/assets/models/Asset';
+import '../video/modules/backgrounds/models/Background';
+import '../video/modules/browser-automation/models/BrowserExecutionLog';
+import '../video/modules/browser-automation/models/BrowserProviderConfig';
+import '../video/modules/browser-automation/models/BrowserSession';
+import '../video/modules/browser-automation/models/BrowserTaskRun';
+import '../video/modules/characters/models/Character';
+import '../video/modules/instagram/models/InstagramAccount';
+import '../video/modules/instagram/models/InstagramMessage';
+import '../video/modules/jobs/models/Job';
+import '../video/modules/production-plans/models/ProductionPlan';
+import '../video/modules/production-profiles/models/ProductionProfile';
+import '../video/modules/production-runs/models/ProductionRun';
+import '../video/modules/projects/models/Project';
+import '../video/modules/prompt-templates/models/PromptTemplate';
+import '../video/modules/scenes/models/Scene';
+import '../video/modules/settings/models/Settings';
+import '../video/modules/style-packs/models/StylePack';
+import '../video/modules/voice-packs/models/VoicePack';
 
 type IndexKey = Record<string, number | string>;
 
