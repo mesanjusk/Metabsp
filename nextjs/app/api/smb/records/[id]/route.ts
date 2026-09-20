@@ -6,6 +6,7 @@ import { errorResponse } from '@/lib/http/errorResponse';
 import Contact from '@/lib/models/Contact';
 import SmbRecord from '@/lib/models/SmbRecord';
 import { requireSmbKindAccess } from '@/lib/services/smbAccess';
+import { isStoreProjection } from '@/lib/store/syncProductToSmb';
 
 const EDITABLE = new Set([
   'title', 'status', 'stage', 'source', 'reference', 'assignedTo', 'amountInPaise',
@@ -27,9 +28,15 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const { id } = await context.params;
     if (!mongoose.isValidObjectId(id)) return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
 
-    const existing: any = await SmbRecord.findOne({ _id: id, userId: authed.doc._id }).select('kind').lean();
+    const existing: any = await SmbRecord.findOne({ _id: id, userId: authed.doc._id }).select('kind data').lean();
     if (!existing) return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
     await requireSmbKindAccess(authed, existing.kind);
+    if (isStoreProjection(existing)) {
+      return NextResponse.json(
+        { success: false, message: 'This record is managed by E-Store. Update the product in E-Store instead.' },
+        { status: 409 }
+      );
+    }
 
     const body = await req.json();
     const update: any = {};
@@ -83,9 +90,15 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ id: 
     const authed = await requireAuth(req);
     const { id } = await context.params;
     if (!mongoose.isValidObjectId(id)) return NextResponse.json({ success: false, message: 'Invalid record id' }, { status: 400 });
-    const existing: any = await SmbRecord.findOne({ _id: id, userId: authed.doc._id }).select('kind').lean();
+    const existing: any = await SmbRecord.findOne({ _id: id, userId: authed.doc._id }).select('kind data').lean();
     if (!existing) return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
     await requireSmbKindAccess(authed, existing.kind);
+    if (isStoreProjection(existing)) {
+      return NextResponse.json(
+        { success: false, message: 'This record is managed by E-Store. Delete the product in E-Store instead.' },
+        { status: 409 }
+      );
+    }
     const deleted = await SmbRecord.findOneAndDelete({ _id: id, userId: authed.doc._id });
     if (!deleted) return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
     return NextResponse.json({ success: true });
