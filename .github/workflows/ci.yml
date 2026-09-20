@@ -80,7 +80,8 @@ jobs:
           cache: npm
           cache-dependency-path: nextjs/package-lock.json
       - run: npm ci
-      # Reported, not enforced: a new advisory in a transitive dependency
-      # should be visible without blocking every unrelated pull request.
-      - name: Dependency audit (advisory)
-        run: npm audit --omit=dev || true
+      # Block deployable changes when a real production HIGH/CRITICAL advisory
+      # remains. The wrapper handles the known npm range-collapse false positive
+      # for Next 15.5.25 only; every other high/critical finding fails CI.
+      - name: Dependency security gate
+        run: node scripts/security-audit.mjs
