@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       userId: authed.doc._id,
       action: 'mongo_indexes.create_missing',
       resource: 'system',
-      outcome: result.failures.length ? 'partial' : 'success',
+      outcome: result.failures.length ? 'failure' : 'success',
       metadata: {
         createdModels: result.createdModels,
         failures: result.failures,
