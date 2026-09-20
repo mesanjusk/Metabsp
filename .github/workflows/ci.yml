@@ -41,7 +41,7 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: nextjs/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
 
@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: nextjs/package-lock.json
+          cache-dependency-path: package-lock.json
       - run: npm ci
       # Block deployable changes whenever npm reports a production
       # HIGH/CRITICAL advisory. Moderate findings stay visible but do not block.
