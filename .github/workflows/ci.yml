@@ -80,8 +80,7 @@ jobs:
           cache: npm
           cache-dependency-path: nextjs/package-lock.json
       - run: npm ci
-      # Block deployable changes when a real production HIGH/CRITICAL advisory
-      # remains. The wrapper handles the known npm range-collapse false positive
-      # for Next 15.5.25 only; every other high/critical finding fails CI.
+      # Block deployable changes whenever npm reports a production
+      # HIGH/CRITICAL advisory. Moderate findings stay visible but do not block.
       - name: Dependency security gate
         run: node scripts/security-audit.mjs
