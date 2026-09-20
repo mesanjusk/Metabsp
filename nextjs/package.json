@@ -2,7 +2,7 @@
   "name": "metabsp-nextjs",
   "version": "0.1.0",
   "private": true,
-  "description": "Metabsp WhatsApp Cloud API product \u2014 Next.js 15 App Router. Runs as a single persistent Node process (server.js) on Render, hosting the App Router, API route handlers, Socket.IO, the BullMQ worker and the schedulers together.",
+  "description": "Metabsp WhatsApp Cloud API product — Next.js 15 App Router. Runs as a single persistent Node process (server.js) on Render, hosting the App Router, API route handlers, Socket.IO, the BullMQ worker and the schedulers together.",
   "scripts": {
     "dev": "node server.js",
     "build": "next build",
@@ -48,7 +48,7 @@
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.3",
-    "next": "^15.0.0",
+    "next": "15.5.25",
     "pdfkit": "^0.15.2",
     "pino": "^9.5.0",
     "playwright": "^1.62.1",
@@ -57,7 +57,7 @@
     "react-dom": "^18.3.1",
     "read-excel-file": "^9.3.10",
     "recharts": "^2.15.4",
-    "sharp": "^0.33.5",
+    "sharp": "0.35.4",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "typescript": "^5.5.0",
@@ -67,5 +67,8 @@
     "@types/fluent-ffmpeg": "^2.1.28",
     "@vitest/coverage-v8": "^3.2.7",
     "vitest": "^3.2.7"
+  },
+  "overrides": {
+    "postcss": "8.5.28"
   }
 }
