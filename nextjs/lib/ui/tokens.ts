@@ -92,21 +92,21 @@ export const WHATSAPP_CONNECTED = '#25D366';
  * component picks its own; two forces a real decision about hierarchy.
  */
 export const shadows = {
-  resting: '0 1px 2px rgba(10, 10, 10, 0.06), 0 1px 3px rgba(10, 10, 10, 0.04)',
-  raised: '0 8px 24px rgba(10, 10, 10, 0.10), 0 2px 6px rgba(10, 10, 10, 0.05)',
-  overlay: '0 24px 48px rgba(10, 10, 10, 0.18), 0 8px 16px rgba(10, 10, 10, 0.08)',
-  restingDark: '0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3)',
-  raisedDark: '0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35)',
-  overlayDark: '0 24px 48px rgba(0, 0, 0, 0.6), 0 8px 16px rgba(0, 0, 0, 0.4)',
+  resting: '0 1px 2px rgba(62, 42, 119, 0.05)',
+  raised: '0 4px 12px rgba(62, 42, 119, 0.09)',
+  overlay: '0 14px 34px rgba(45, 34, 75, 0.16)',
+  restingDark: '0 1px 2px rgba(0, 0, 0, 0.35)',
+  raisedDark: '0 4px 12px rgba(0, 0, 0, 0.45)',
+  overlayDark: '0 14px 34px rgba(0, 0, 0, 0.58)',
 };
 
 // A 4px base grid. MUI's spacing(1) === 8px, so these are named multiples
 // rather than a competing scale.
 export const radius = {
-  sm: 8,
-  md: 10,
-  lg: 16,
-  xl: 24,
+  sm: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
   pill: 999,
 };
 
@@ -119,12 +119,12 @@ export const radius = {
  * also `paper` is exactly that: two surfaces with no edge between them but a border.
  */
 export const surface = {
-  /** The page itself. */
-  base: { light: neutral[100], dark: neutral[950] },
+  /** The page itself: a very light lavender rather than cold grey. */
+  base: { light: brand[50], dark: neutral[950] },
   /** Cards and panels on top of the page. */
   card: { light: '#FFFFFF', dark: neutral[900] },
   /** A tier above a card — a nested block, a table header, a highlighted row. */
-  elevated: { light: neutral[50], dark: neutral[800] },
+  elevated: { light: brand[50], dark: neutral[800] },
 };
 
 /**
@@ -151,7 +151,7 @@ export const spacing = {
 export const layout = {
   sidebarWidth: 256,
   sidebarCollapsedWidth: 72,
-  topBarHeight: 68,
+  topBarHeight: 64,
   contentMaxWidth: 1440,
 
   /**
