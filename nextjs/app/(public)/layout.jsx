@@ -10,30 +10,26 @@ import {
   Container,
   Divider,
   Drawer,
-  Grid,
   IconButton,
   List,
-  ListItem,
   ListItemButton,
   ListItemText,
   Stack,
   Toolbar,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import BrandMark from '@/lib/ui/app/BrandMark';
 
 const NAV_LINKS = [
   { label: 'Product', to: '/' },
-  { label: 'Services', to: '/#services' },
+  { label: 'Apps', to: '/#services' },
   { label: 'Pricing', to: '/#pricing' },
   { label: 'FAQ', to: '/#faq' },
   { label: 'About', to: '/about' },
   { label: 'Developers', to: '/developer-docs' },
-  { label: 'Contact', to: '/contact' },
 ];
 
 const FOOTER_SECTIONS = [
@@ -41,17 +37,19 @@ const FOOTER_SECTIONS = [
     title: 'Platform',
     links: [
       { label: 'Product', to: '/' },
-      { label: 'About', to: '/about' },
-      { label: 'Status', to: '/status' },
+      { label: 'All apps', to: '/#services' },
+      { label: 'Pricing', to: '/#pricing' },
       { label: 'Help Center', to: '/help-center' },
+      { label: 'Status', to: '/status' },
     ],
   },
   {
-    title: 'Developers',
+    title: 'Company',
     links: [
-      { label: 'API reference', to: '/developer-docs' },
+      { label: 'About', to: '/about' },
+      { label: 'Contact', to: '/contact' },
       { label: 'Security', to: '/security-info' },
-      { label: 'Contact support', to: '/contact' },
+      { label: 'Developers', to: '/developer-docs' },
     ],
   },
   {
@@ -65,183 +63,211 @@ const FOOTER_SECTIONS = [
   },
 ];
 
-/**
- * The public shell around the marketing and legal pages.
- *
- * Two things changed beyond appearance, and both matter to App Review.
- *
- * The header used WhatsApp's own glyph as this product's logo. A Business
- * Solution Provider is a distinct company operating on top of WhatsApp, and
- * presenting Meta's mark as its own is a brand-guideline problem a reviewer
- * looks for. It is the product's own mark now.
- *
- * The footer laid its columns out with Tailwind classes (`grid grid-cols-3`)
- * that this app has no Tailwind to interpret, so the whole footer — including
- * the Privacy Policy and Terms links Meta checks — rendered as one unstyled
- * stack. It uses the layout system the rest of the app uses.
- */
 export default function PublicLayout({ children }) {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
       <AppBar
         position="sticky"
         elevation={0}
         sx={{
-          bgcolor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          color: 'text.primary',
+          bgcolor: 'rgba(255,255,255,0.96)',
+          color: '#24212a',
+          borderBottom: '1px solid #ece9ef',
+          backdropFilter: 'blur(14px)',
         }}
       >
-        <Toolbar sx={{ maxWidth: 1200, width: '100%', mx: 'auto', px: { xs: 2, md: 4 } }}>
+        <Toolbar
+          disableGutters
+          sx={{
+            width: '100%',
+            maxWidth: 1240,
+            mx: 'auto',
+            minHeight: { xs: 64, md: 72 },
+            px: { xs: 2, sm: 3, md: 4 },
+            gap: 2,
+          }}
+        >
           <Box
             component={NextLink}
             href="/"
-            sx={{ textDecoration: 'none', color: 'primary.main', display: 'flex', alignItems: 'center' }}
+            aria-label="SanjuSK home"
+            sx={{ textDecoration: 'none', color: '#714B67', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
           >
-            <BrandMark size={30} />
+            <BrandMark size={31} />
           </Box>
 
-          <Box sx={{ flexGrow: 1 }} />
-
-          {!isMobile && (
-            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mr: 2 }}>
-              {NAV_LINKS.map((link) => (
+          <Stack
+            direction="row"
+            spacing={0.25}
+            alignItems="center"
+            sx={{ ml: { md: 3 }, display: { xs: 'none', md: 'flex' } }}
+          >
+            {NAV_LINKS.map((link) => {
+              const selected = link.to === '/' ? pathname === '/' : pathname === link.to;
+              return (
                 <Button
                   key={link.to}
                   component={NextLink}
                   href={link.to}
                   sx={{
-                    color: pathname === link.to ? 'primary.main' : 'text.secondary',
-                    fontWeight: pathname === link.to ? 650 : 500,
+                    px: 1.35,
+                    color: selected ? '#714B67' : '#514b55',
+                    fontWeight: selected ? 750 : 600,
+                    '&:hover': { bgcolor: '#f6f1f5', color: '#714B67' },
                   }}
                 >
                   {link.label}
                 </Button>
-              ))}
-            </Stack>
-          )}
+              );
+            })}
+          </Stack>
 
-          {!isMobile && (
-            <Stack direction="row" spacing={1}>
-              <Button component={NextLink} href="/login" variant="text">
-                Sign in
-              </Button>
-              <Button component={NextLink} href="/signup" variant="contained">
-                Get started
-              </Button>
-            </Stack>
-          )}
+          <Box sx={{ flex: 1 }} />
 
-          {isMobile && (
-            <IconButton onClick={() => setDrawerOpen(true)} aria-label="Open menu" sx={{ color: 'text.primary' }}>
-              <MenuRoundedIcon />
-            </IconButton>
-          )}
+          <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', md: 'flex' } }}>
+            <Button component={NextLink} href="/login" sx={{ color: '#514b55', fontWeight: 700 }}>
+              Sign in
+            </Button>
+            <Button
+              component={NextLink}
+              href="/signup"
+              variant="contained"
+              endIcon={<ArrowForwardRoundedIcon />}
+              sx={{
+                bgcolor: '#714B67',
+                px: 2.25,
+                '&:hover': { bgcolor: '#5d3e55' },
+              }}
+            >
+              Start free
+            </Button>
+          </Stack>
+
+          <IconButton
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open menu"
+            sx={{ display: { xs: 'inline-flex', md: 'none' }, color: '#342f36' }}
+          >
+            <MenuRoundedIcon />
+          </IconButton>
         </Toolbar>
       </AppBar>
 
-      <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        <Box sx={{ width: 272, pt: 2 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, pb: 2 }}>
-            <Box sx={{ color: 'primary.main' }}>
-              <BrandMark size={26} />
-            </Box>
-            <IconButton onClick={() => setDrawerOpen(false)} aria-label="Close menu">
-              <CloseRoundedIcon />
-            </IconButton>
-          </Stack>
-          <Divider />
-          <List>
-            {NAV_LINKS.map((link) => (
-              <ListItem key={link.to} disablePadding>
-                <ListItemButton
-                  component={NextLink}
-                  href={link.to}
-                  selected={pathname === link.to}
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  <ListItemText primary={link.label} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-          <Divider />
-          <Stack spacing={1} sx={{ p: 2 }}>
-            <Button component={NextLink} href="/login" variant="outlined" fullWidth onClick={() => setDrawerOpen(false)}>
-              Sign in
-            </Button>
-            <Button component={NextLink} href="/signup" variant="contained" fullWidth onClick={() => setDrawerOpen(false)}>
-              Get started
-            </Button>
-          </Stack>
-        </Box>
+      <Drawer
+        anchor="right"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        PaperProps={{
+          sx: {
+            width: 'min(88vw, 360px)',
+            bgcolor: '#fff',
+            borderLeft: '1px solid #ece9ef',
+          },
+        }}
+      >
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2.25, py: 1.5 }}>
+          <Box sx={{ color: '#714B67' }}>
+            <BrandMark size={28} />
+          </Box>
+          <IconButton onClick={() => setDrawerOpen(false)} aria-label="Close menu">
+            <CloseRoundedIcon />
+          </IconButton>
+        </Stack>
+        <Divider />
+        <List sx={{ px: 1.25, py: 1.5 }}>
+          {NAV_LINKS.map((link) => (
+            <ListItemButton
+              key={link.to}
+              component={NextLink}
+              href={link.to}
+              onClick={() => setDrawerOpen(false)}
+              sx={{ borderRadius: 2.5, mb: 0.5, py: 1.1 }}
+            >
+              <ListItemText
+                primary={link.label}
+                primaryTypographyProps={{ fontWeight: 700, color: '#342f36' }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+        <Box sx={{ flex: 1 }} />
+        <Stack spacing={1} sx={{ p: 2 }}>
+          <Button component={NextLink} href="/login" variant="outlined" fullWidth onClick={() => setDrawerOpen(false)}>
+            Sign in
+          </Button>
+          <Button
+            component={NextLink}
+            href="/signup"
+            variant="contained"
+            fullWidth
+            onClick={() => setDrawerOpen(false)}
+            sx={{ bgcolor: '#714B67', '&:hover': { bgcolor: '#5d3e55' } }}
+          >
+            Start free
+          </Button>
+        </Stack>
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1 }}>
+      <Box component="main" sx={{ flex: 1, bgcolor: '#fff' }}>
         {children}
       </Box>
 
-      <Box
-        component="footer"
-        sx={{ bgcolor: 'background.paper', borderTop: '1px solid', borderColor: 'divider', mt: 'auto', py: 7 }}
-      >
+      <Box component="footer" sx={{ mt: 'auto', bgcolor: '#282630', color: '#f7f4f7', pt: { xs: 7, md: 9 }, pb: 4 }}>
         <Container maxWidth="lg">
-          <Grid container spacing={5} sx={{ mb: 5 }}>
-            <Grid item xs={12} md={4}>
-              <Box sx={{ color: 'primary.main', mb: 1.5 }}>
-                <BrandMark size={30} />
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr 1fr', md: '1.6fr repeat(3, 1fr)' },
+              gap: { xs: 4, md: 5 },
+            }}
+          >
+            <Box sx={{ gridColumn: { xs: '1 / -1', md: 'auto' } }}>
+              <Box sx={{ color: '#fff', mb: 2 }}>
+                <BrandMark size={34} />
               </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 300 }}>
-                One business workspace for WhatsApp, Instagram, Google Business Profile, CRM, store,
-                payments, staff, marketing and operations. WhatsApp messaging uses Meta&apos;s official Cloud API.
+              <Typography sx={{ color: 'rgba(255,255,255,0.68)', maxWidth: 390, lineHeight: 1.75 }}>
+                One business workspace for customer communication, sales, local presence, operations, staff and automation.
               </Typography>
-            </Grid>
+              <Button
+                component={NextLink}
+                href="/signup"
+                variant="contained"
+                sx={{ mt: 3, bgcolor: '#875A7B', '&:hover': { bgcolor: '#99678c' } }}
+              >
+                Start free
+              </Button>
+            </Box>
 
             {FOOTER_SECTIONS.map((section) => (
-              <Grid item xs={12} sm={4} md={2.6} key={section.title}>
-                <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                  {section.title}
-                </Typography>
-                <Stack spacing={1}>
+              <Box key={section.title}>
+                <Typography sx={{ fontWeight: 800, mb: 1.5 }}>{section.title}</Typography>
+                <Stack spacing={1.1}>
                   {section.links.map((link) => (
                     <Typography
                       key={link.to}
                       component={NextLink}
                       href={link.to}
                       variant="body2"
-                      sx={{
-                        color: 'text.secondary',
-                        textDecoration: 'none',
-                        '&:hover': { color: 'primary.main' },
-                      }}
+                      sx={{ color: 'rgba(255,255,255,0.62)', textDecoration: 'none', '&:hover': { color: '#fff' } }}
                     >
                       {link.label}
                     </Typography>
                   ))}
                 </Stack>
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
 
-          <Divider sx={{ mb: 3 }} />
-
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            justifyContent="space-between"
-            alignItems={{ sm: 'center' }}
-            spacing={1}
-          >
-            <Typography variant="body2" color="text.secondary">
+          <Divider sx={{ my: 5, borderColor: 'rgba(255,255,255,0.12)' }} />
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
               © {new Date().getFullYear()} SanjuSK. All rights reserved.
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              WhatsApp is a trademark of Meta Platforms, Inc. SanjuSK is an independent solution provider.
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', maxWidth: 640 }}>
+              WhatsApp is a trademark of Meta Platforms, Inc. SanjuSK is an independent solution provider using official provider APIs.
             </Typography>
           </Stack>
         </Container>
