@@ -14,20 +14,17 @@ import { accent, brand, layout, neutral, radius, semantic, shadows } from './tok
  */
 
 const fontStack = [
-  // The CSS variable next/font/google defines (lib/ui/fonts.ts), with the literal name after it so
-  // the stack still reads correctly anywhere the variable is not in scope — a Storybook frame, an
-  // email preview, a component rendered outside <html>.
-  'var(--font-inter)',
-  'Inter',
+  'system-ui',
   '-apple-system',
   'BlinkMacSystemFont',
   '"Segoe UI"',
   'Roboto',
   '"Helvetica Neue"',
+  '"Noto Sans"',
+  '"Liberation Sans"',
   'Arial',
   'sans-serif',
 ].join(', ');
-
 const monoStack = ['"JetBrains Mono"', '"SFMono-Regular"', 'Menlo', 'Consolas', 'monospace'].join(', ');
 
 const typography = {
@@ -35,12 +32,12 @@ const typography = {
   fontSize: 14,
   // Headings are tightened as they grow: display sizes at default tracking
   // look loose, body sizes at display tracking look cramped.
-  h1: { fontSize: '2.75rem', fontWeight: 800, lineHeight: 1.12, letterSpacing: '-0.022em' },
-  h2: { fontSize: '2.125rem', fontWeight: 750, lineHeight: 1.18, letterSpacing: '-0.019em' },
-  h3: { fontSize: '1.625rem', fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.014em' },
-  h4: { fontSize: '1.625rem', fontWeight: 700, lineHeight: 1.32, letterSpacing: '-0.01em' },
-  h5: { fontSize: '1.1875rem', fontWeight: 650, lineHeight: 1.4, letterSpacing: '-0.005em' },
-  h6: { fontSize: '1rem', fontWeight: 650, lineHeight: 1.45 },
+  h1: { fontSize: '2.75rem', fontWeight: 700, lineHeight: 1.12, letterSpacing: '-0.018em' },
+  h2: { fontSize: '2.125rem', fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.014em' },
+  h3: { fontSize: '1.625rem', fontWeight: 650, lineHeight: 1.28, letterSpacing: '-0.01em' },
+  h4: { fontSize: '1.625rem', fontWeight: 650, lineHeight: 1.32, letterSpacing: '-0.008em' },
+  h5: { fontSize: '1.1875rem', fontWeight: 600, lineHeight: 1.4, letterSpacing: 0 },
+  h6: { fontSize: '1rem', fontWeight: 600, lineHeight: 1.45 },
   subtitle1: { fontSize: '0.9375rem', fontWeight: 600, lineHeight: 1.5 },
   subtitle2: { fontSize: '0.8125rem', fontWeight: 600, lineHeight: 1.5 },
   body1: { fontSize: '0.9375rem', lineHeight: 1.6 },
@@ -75,7 +72,7 @@ function buildPalette(mode: 'light' | 'dark') {
       // The app sits on the tinted `default`; every card and panel is `paper`
       // on top of it. That one step of contrast is what gives the layout
       // depth without a single shadow.
-      default: isLight ? neutral[100] : neutral[950],
+      default: isLight ? brand[50] : neutral[950],
       paper: isLight ? '#FFFFFF' : neutral[900],
     },
     text: {
@@ -83,7 +80,7 @@ function buildPalette(mode: 'light' | 'dark') {
       secondary: isLight ? neutral[600] : neutral[400],
       disabled: isLight ? neutral[400] : neutral[600],
     },
-    divider: isLight ? neutral[200] : alpha(neutral[300], 0.14),
+    divider: isLight ? brand[100] : alpha(neutral[300], 0.14),
     action: {
       hover: isLight ? alpha(neutral[900], 0.04) : alpha('#FFFFFF', 0.06),
       selected: isLight ? alpha(brand[600], 0.1) : alpha(brand[400], 0.16),
@@ -135,7 +132,7 @@ function buildComponents(mode: 'light' | 'dark'): Theme['components'] {
     MuiPaper: {
       styleOverrides: {
         root: { backgroundImage: 'none' },
-        outlined: { borderColor: isLight ? neutral[200] : alpha(neutral[300], 0.14) },
+        outlined: { borderColor: isLight ? brand[100] : alpha(neutral[300], 0.14) },
         elevation1: { boxShadow: resting },
         elevation2: { boxShadow: raised },
       },
@@ -143,18 +140,18 @@ function buildComponents(mode: 'light' | 'dark'): Theme['components'] {
     MuiCard: {
       defaultProps: { elevation: 0, variant: 'outlined' },
       styleOverrides: {
-        root: { borderRadius: radius.lg, overflow: 'hidden', boxShadow: isLight ? '0 3px 16px rgba(22, 26, 36, 0.035)' : 'none' },
+        root: { borderRadius: radius.lg, overflow: 'hidden', boxShadow: isLight ? '0 1px 3px rgba(62, 42, 119, 0.05)' : 'none' },
       },
     },
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
-        root: { borderRadius: radius.md, paddingInline: 18, minHeight: 42, fontWeight: 650, '@media (max-width: 599px)': { minHeight: 44 } },
+        root: { borderRadius: radius.md, paddingInline: 18, minHeight: 40, fontWeight: 600, '@media (max-width: 599px)': { minHeight: 44 } },
         sizeSmall: { minHeight: 36, paddingInline: 12, '@media (max-width: 599px)': { minHeight: 44 } },
         sizeLarge: { minHeight: 46, paddingInline: 24, fontSize: '0.9375rem' },
         containedPrimary: {
-          boxShadow: `0 3px 8px ${alpha(brand[600], 0.18)}`,
-          '&:hover': { boxShadow: raised },
+          boxShadow: 'none',
+          '&:hover': { boxShadow: 'none', backgroundColor: brand[700] },
         },
         // A text button that only changes colour on hover gives no feedback on
         // a dense toolbar; a background does.

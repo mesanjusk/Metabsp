@@ -68,14 +68,14 @@ export default function PublicLayout({ children }) {
   const pathname = usePathname();
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#F8F6FD' }}>
       <AppBar
         position="sticky"
         elevation={0}
         sx={{
-          bgcolor: 'rgba(255,255,255,0.96)',
-          color: '#24212a',
-          borderBottom: '1px solid #ece9ef',
+          bgcolor: 'rgba(248,246,253,0.96)',
+          color: '#312C38',
+          borderBottom: '1px solid #E4DFF1',
           backdropFilter: 'blur(14px)',
         }}
       >
@@ -94,7 +94,7 @@ export default function PublicLayout({ children }) {
             component={NextLink}
             href="/"
             aria-label="SanjuSK home"
-            sx={{ textDecoration: 'none', color: '#714B67', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
+            sx={{ textDecoration: 'none', color: '#7551D8', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
           >
             <BrandMark size={31} />
           </Box>
@@ -114,9 +114,9 @@ export default function PublicLayout({ children }) {
                   href={link.to}
                   sx={{
                     px: 1.35,
-                    color: selected ? '#714B67' : '#514b55',
-                    fontWeight: selected ? 750 : 600,
-                    '&:hover': { bgcolor: '#f6f1f5', color: '#714B67' },
+                    color: selected ? '#7551D8' : '#5F5968',
+                    fontWeight: selected ? 650 : 500,
+                    '&:hover': { bgcolor: '#f6f1f5', color: '#7551D8' },
                   }}
                 >
                   {link.label}
@@ -128,7 +128,7 @@ export default function PublicLayout({ children }) {
           <Box sx={{ flex: 1 }} />
 
           <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', md: 'flex' } }}>
-            <Button component={NextLink} href="/login" sx={{ color: '#514b55', fontWeight: 700 }}>
+            <Button component={NextLink} href="/login" sx={{ color: '#5F5968', fontWeight: 600 }}>
               Sign in
             </Button>
             <Button
@@ -137,9 +137,9 @@ export default function PublicLayout({ children }) {
               variant="contained"
               endIcon={<ArrowForwardRoundedIcon />}
               sx={{
-                bgcolor: '#714B67',
+                bgcolor: '#7551D8',
                 px: 2.25,
-                '&:hover': { bgcolor: '#5d3e55' },
+                '&:hover': { bgcolor: '#6040B8' },
               }}
             >
               Start free
@@ -149,7 +149,7 @@ export default function PublicLayout({ children }) {
           <IconButton
             onClick={() => setDrawerOpen(true)}
             aria-label="Open menu"
-            sx={{ display: { xs: 'inline-flex', md: 'none' }, color: '#342f36' }}
+            sx={{ display: { xs: 'inline-flex', md: 'none' }, color: '#312C38' }}
           >
             <MenuRoundedIcon />
           </IconButton>
@@ -163,13 +163,13 @@ export default function PublicLayout({ children }) {
         PaperProps={{
           sx: {
             width: 'min(88vw, 360px)',
-            bgcolor: '#fff',
-            borderLeft: '1px solid #ece9ef',
+            bgcolor: '#F8F6FD',
+            borderLeft: '1px solid #E4DFF1',
           },
         }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2.25, py: 1.5 }}>
-          <Box sx={{ color: '#714B67' }}>
+          <Box sx={{ color: '#7551D8' }}>
             <BrandMark size={28} />
           </Box>
           <IconButton onClick={() => setDrawerOpen(false)} aria-label="Close menu">
@@ -188,7 +188,7 @@ export default function PublicLayout({ children }) {
             >
               <ListItemText
                 primary={link.label}
-                primaryTypographyProps={{ fontWeight: 700, color: '#342f36' }}
+                primaryTypographyProps={{ fontWeight: 700, color: '#312C38' }}
               />
             </ListItemButton>
           ))}
@@ -204,18 +204,18 @@ export default function PublicLayout({ children }) {
             variant="contained"
             fullWidth
             onClick={() => setDrawerOpen(false)}
-            sx={{ bgcolor: '#714B67', '&:hover': { bgcolor: '#5d3e55' } }}
+            sx={{ bgcolor: '#7551D8', '&:hover': { bgcolor: '#6040B8' } }}
           >
             Start free
           </Button>
         </Stack>
       </Drawer>
 
-      <Box component="main" sx={{ flex: 1, bgcolor: '#fff' }}>
+      <Box component="main" sx={{ flex: 1, bgcolor: '#F8F6FD' }}>
         {children}
       </Box>
 
-      <Box component="footer" sx={{ mt: 'auto', bgcolor: '#282630', color: '#f7f4f7', pt: { xs: 7, md: 9 }, pb: 4 }}>
+      <Box component="footer" sx={{ mt: 'auto', bgcolor: '#EDE9FD', color: '#312C38', pt: { xs: 7, md: 9 }, pb: 4 }}>
         <Container maxWidth="lg">
           <Box
             sx={{
@@ -225,17 +225,17 @@ export default function PublicLayout({ children }) {
             }}
           >
             <Box sx={{ gridColumn: { xs: '1 / -1', md: 'auto' } }}>
-              <Box sx={{ color: '#fff', mb: 2 }}>
+              <Box sx={{ color: '#6040B8', mb: 2 }}>
                 <BrandMark size={34} />
               </Box>
-              <Typography sx={{ color: 'rgba(255,255,255,0.68)', maxWidth: 390, lineHeight: 1.75 }}>
+              <Typography sx={{ color: '#6C6574', maxWidth: 390, lineHeight: 1.75 }}>
                 One business workspace for customer communication, sales, local presence, operations, staff and automation.
               </Typography>
               <Button
                 component={NextLink}
                 href="/signup"
                 variant="contained"
-                sx={{ mt: 3, bgcolor: '#875A7B', '&:hover': { bgcolor: '#99678c' } }}
+                sx={{ mt: 3, bgcolor: '#7551D8', '&:hover': { bgcolor: '#6040B8' } }}
               >
                 Start free
               </Button>
@@ -243,7 +243,7 @@ export default function PublicLayout({ children }) {
 
             {FOOTER_SECTIONS.map((section) => (
               <Box key={section.title}>
-                <Typography sx={{ fontWeight: 800, mb: 1.5 }}>{section.title}</Typography>
+                <Typography sx={{ fontWeight: 650, mb: 1.5 }}>{section.title}</Typography>
                 <Stack spacing={1.1}>
                   {section.links.map((link) => (
                     <Typography
@@ -251,7 +251,7 @@ export default function PublicLayout({ children }) {
                       component={NextLink}
                       href={link.to}
                       variant="body2"
-                      sx={{ color: 'rgba(255,255,255,0.62)', textDecoration: 'none', '&:hover': { color: '#fff' } }}
+                      sx={{ color: '#6C6574', textDecoration: 'none', '&:hover': { color: '#6040B8' } }}
                     >
                       {link.label}
                     </Typography>
@@ -261,12 +261,12 @@ export default function PublicLayout({ children }) {
             ))}
           </Box>
 
-          <Divider sx={{ my: 5, borderColor: 'rgba(255,255,255,0.12)' }} />
+          <Divider sx={{ my: 5, borderColor: '#DCD5FB' }} />
           <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+            <Typography variant="caption" sx={{ color: '#7A7282' }}>
               © {new Date().getFullYear()} SanjuSK. All rights reserved.
             </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', maxWidth: 640 }}>
+            <Typography variant="caption" sx={{ color: '#7A7282', maxWidth: 640 }}>
               WhatsApp is a trademark of Meta Platforms, Inc. SanjuSK is an independent solution provider using official provider APIs.
             </Typography>
           </Stack>

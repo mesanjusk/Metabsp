@@ -44,27 +44,27 @@ import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import { useAuth } from '@/lib/ui/AuthContext';
 import { ROUTES } from '@/lib/constants/routes';
 
-const ODOO_PLUM = '#714B67';
-const ODOO_PLUM_DARK = '#5B3C53';
-const INK = '#26212A';
-const MUTED = '#6D6871';
-const SOFT = '#F7F6F8';
-const LINE = '#E9E5EA';
-const YELLOW = '#F5C451';
-const AQUA = '#39C7B3';
+const ODOO_PLUM = '#7551D8';
+const ODOO_PLUM_DARK = '#6040B8';
+const INK = '#312C38';
+const MUTED = '#6C6574';
+const SOFT = '#F7F5FC';
+const LINE = '#E4DFF1';
+const YELLOW = '#DCD5FB';
+const AQUA = '#C3B6F7';
 
 const SERVICES = [
-  { icon: WhatsAppIcon, title: 'WhatsApp', badge: 'Core', bg: '#E5F8ED', ink: '#147A48', text: 'Shared inbox, templates, broadcasts, automations and Meta Cloud API workflows.' },
-  { icon: InstagramIcon, title: 'Instagram', badge: 'Beta', bg: '#FCE9F3', ink: '#B63D75', text: 'Messages, comments, private replies and publishing from the same workspace.' },
-  { icon: StorefrontRoundedIcon, title: 'Google Business', badge: 'Beta', bg: '#EAF1FF', ink: '#3667B4', text: 'Reviews, AI reply drafts, posts and local Search/Maps performance.' },
-  { icon: PeopleAltRoundedIcon, title: 'CRM', badge: 'Core', bg: '#F1EBFF', ink: '#7250B5', text: 'Leads, follow-ups, quotations, orders and customer history.' },
-  { icon: Inventory2RoundedIcon, title: 'E-Store', badge: 'Core', bg: '#E8F8F6', ink: '#178E82', text: 'Catalogue, branded storefront, categories and customer enquiries.' },
-  { icon: PhoneInTalkRoundedIcon, title: 'Dialer', badge: 'Beta', bg: '#FFF1E6', ink: '#B9662A', text: 'Click-to-call leads and connected call-history workflows.' },
-  { icon: CampaignRoundedIcon, title: 'Marketing', badge: 'Pro', bg: '#FFF4D8', ink: '#9E6A00', text: 'Content planning, reusable assets and connected-channel publishing.' },
-  { icon: TaskAltRoundedIcon, title: 'Staff & Tasks', badge: 'Pro', bg: '#EAF6FF', ink: '#2D7BAA', text: 'My Day, SOPs, responsibilities and attendance workflows.' },
-  { icon: PaymentsRoundedIcon, title: 'Payments', badge: 'Pro', bg: '#F4ECF2', ink: '#714B67', text: 'Quotations, invoices, collections, reminders and business documents.' },
-  { icon: SchoolRoundedIcon, title: 'Institute', badge: 'Pro', bg: '#EAF5E7', ink: '#4A8442', text: 'Admissions, fees, attendance, forms, ID cards and academic operations.' },
-  { icon: MovieCreationRoundedIcon, title: 'Video Studio', badge: 'Beta', bg: '#F3EDFF', ink: '#6F51AA', text: 'Short-form video projects with scripts, scenes, voice and rendering workflows.' },
+  { icon: WhatsAppIcon, title: 'WhatsApp', badge: 'Core', bg: '#F0EDFD', ink: '#6040B8', text: 'Shared inbox, templates, broadcasts, automations and Meta Cloud API workflows.' },
+  { icon: InstagramIcon, title: 'Instagram', badge: 'Beta', bg: '#EEE9FC', ink: '#7551D8', text: 'Messages, comments, private replies and publishing from the same workspace.' },
+  { icon: StorefrontRoundedIcon, title: 'Google Business', badge: 'Beta', bg: '#F4F1FE', ink: '#6040B8', text: 'Reviews, AI reply drafts, posts and local Search/Maps performance.' },
+  { icon: PeopleAltRoundedIcon, title: 'CRM', badge: 'Core', bg: '#EDE9FD', ink: '#7551D8', text: 'Leads, follow-ups, quotations, orders and customer history.' },
+  { icon: Inventory2RoundedIcon, title: 'E-Store', badge: 'Core', bg: '#F6F4FE', ink: '#6040B8', text: 'Catalogue, branded storefront, categories and customer enquiries.' },
+  { icon: PhoneInTalkRoundedIcon, title: 'Dialer', badge: 'Beta', bg: '#EEE9FC', ink: '#7551D8', text: 'Click-to-call leads and connected call-history workflows.' },
+  { icon: CampaignRoundedIcon, title: 'Marketing', badge: 'Pro', bg: '#F3F0FE', ink: '#6040B8', text: 'Content planning, reusable assets and connected-channel publishing.' },
+  { icon: TaskAltRoundedIcon, title: 'Staff & Tasks', badge: 'Pro', bg: '#EDE9FD', ink: '#7551D8', text: 'My Day, SOPs, responsibilities and attendance workflows.' },
+  { icon: PaymentsRoundedIcon, title: 'Payments', badge: 'Pro', bg: '#F6F4FE', ink: '#6040B8', text: 'Quotations, invoices, collections, reminders and business documents.' },
+  { icon: SchoolRoundedIcon, title: 'Institute', badge: 'Pro', bg: '#EEE9FC', ink: '#7551D8', text: 'Admissions, fees, attendance, forms, ID cards and academic operations.' },
+  { icon: MovieCreationRoundedIcon, title: 'Video Studio', badge: 'Beta', bg: '#F2EEFD', ink: '#6040B8', text: 'Short-form video projects with scripts, scenes, voice and rendering workflows.' },
 ];
 
 const PLATFORM_FEATURES = [
@@ -109,15 +109,15 @@ function AppTile({ service, compact = false }) {
         sx={{
           width: compact ? { xs: 58, sm: 64 } : { xs: 64, sm: 72 },
           height: compact ? { xs: 58, sm: 64 } : { xs: 64, sm: 72 },
-          borderRadius: 2.25,
+          borderRadius: 2,
           display: 'grid',
           placeItems: 'center',
           bgcolor: service.bg,
           color: service.ink,
           border: '1px solid rgba(37,32,40,0.05)',
-          boxShadow: '0 9px 24px rgba(34, 26, 34, 0.08)',
+          boxShadow: '0 2px 8px rgba(96, 64, 184, 0.08)',
           transition: 'transform .18s ease, box-shadow .18s ease',
-          '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 14px 30px rgba(34, 26, 34, 0.12)' },
+          '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 4px 12px rgba(96, 64, 184, 0.12)' },
         }}
       >
         <Icon sx={{ fontSize: compact ? 30 : 34 }} />
@@ -173,9 +173,9 @@ function DashboardMock() {
       variant="outlined"
       sx={{
         p: { xs: 1.5, sm: 2 },
-        borderRadius: 3.5,
-        borderColor: '#e7e3e8',
-        boxShadow: '0 22px 60px rgba(54, 41, 53, 0.12)',
+        borderRadius: 2,
+        borderColor: LINE,
+        boxShadow: '0 8px 24px rgba(96, 64, 184, 0.10)',
         bgcolor: '#fff',
       }}
     >
@@ -186,9 +186,9 @@ function DashboardMock() {
         <Typography variant="caption" sx={{ color: MUTED, fontWeight: 700 }}>Workspace overview</Typography>
       </Stack>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.15fr .85fr' }, gap: 1.4 }}>
-        <Box sx={{ p: 1.4, borderRadius: 2.5, bgcolor: SOFT }}>
+        <Box sx={{ p: 1.4, borderRadius: 2, bgcolor: SOFT }}>
           <Typography variant="caption" sx={{ color: MUTED, fontWeight: 700 }}>TODAY</Typography>
-          <Typography sx={{ fontSize: { xs: 28, sm: 34 }, lineHeight: 1.1, fontWeight: 850, color: INK, mt: 0.4 }}>128</Typography>
+          <Typography sx={{ fontSize: { xs: 28, sm: 34 }, lineHeight: 1.1, fontWeight: 700, color: INK, mt: 0.4 }}>128</Typography>
           <Typography variant="caption" sx={{ color: MUTED }}>customer actions completed</Typography>
           <Stack spacing={1.2} sx={{ mt: 1.8 }}>
             {rows.map(([label, value]) => (
@@ -200,7 +200,7 @@ function DashboardMock() {
                 <LinearProgress
                   variant="determinate"
                   value={value}
-                  sx={{ height: 6, bgcolor: '#e6e1e7', '& .MuiLinearProgress-bar': { bgcolor: ODOO_PLUM } }}
+                  sx={{ height: 6, bgcolor: '#E4DFF1', '& .MuiLinearProgress-bar': { bgcolor: ODOO_PLUM } }}
                 />
               </Box>
             ))}
@@ -214,12 +214,12 @@ function DashboardMock() {
           ].map(([Icon, label, value]) => (
             <Box key={label} sx={{ p: 1.25, border: `1px solid ${LINE}`, borderRadius: 2.4 }}>
               <Stack direction="row" alignItems="center" spacing={1}>
-                <Box sx={{ width: 34, height: 34, display: 'grid', placeItems: 'center', borderRadius: 2, bgcolor: '#F1EAF0', color: ODOO_PLUM }}>
+                <Box sx={{ width: 34, height: 34, display: 'grid', placeItems: 'center', borderRadius: 2, bgcolor: '#EDE9FD', color: ODOO_PLUM }}>
                   <Icon sx={{ fontSize: 19 }} />
                 </Box>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="caption" sx={{ display: 'block', color: MUTED }}>{label}</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 800, color: INK }}>{value}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 650, color: INK }}>{value}</Typography>
                 </Box>
               </Stack>
             </Box>
@@ -237,28 +237,28 @@ function PricingCard({ plan }) {
       sx={{
         p: { xs: 3, md: 4 },
         height: '100%',
-        borderRadius: 4,
+        borderRadius: 2,
         borderWidth: plan.highlight ? 2 : 1,
         borderColor: plan.highlight ? ODOO_PLUM : LINE,
         bgcolor: plan.highlight ? '#FBF7FA' : '#fff',
         position: 'relative',
       }}
     >
-      {plan.highlight ? <Chip label="Popular" size="small" sx={{ position: 'absolute', top: 18, right: 18, bgcolor: ODOO_PLUM, color: '#fff', fontWeight: 800 }} /> : null}
+      {plan.highlight ? <Chip label="Popular" size="small" sx={{ position: 'absolute', top: 18, right: 18, bgcolor: ODOO_PLUM, color: '#fff', fontWeight: 650 }} /> : null}
       <Stack spacing={2.5}>
         <Box>
-          <Typography variant="h5" sx={{ color: INK, fontWeight: 850 }}>{plan.name}</Typography>
+          <Typography variant="h5" sx={{ color: INK, fontWeight: 700 }}>{plan.name}</Typography>
           <Typography variant="body2" sx={{ color: MUTED, mt: 1, lineHeight: 1.65 }}>{plan.description}</Typography>
         </Box>
         <Stack direction="row" alignItems="baseline" spacing={0.75}>
-          <Typography sx={{ fontSize: { xs: 36, md: 42 }, fontWeight: 850, color: INK }}>{plan.price}</Typography>
+          <Typography sx={{ fontSize: { xs: 36, md: 42 }, fontWeight: 700, color: INK }}>{plan.price}</Typography>
           <Typography sx={{ color: MUTED }}>{plan.suffix}</Typography>
         </Stack>
         <Stack spacing={1.15}>
           {plan.features.map((feature) => (
             <Stack key={feature} direction="row" spacing={1} alignItems="flex-start">
               <CheckCircleRoundedIcon sx={{ color: ODOO_PLUM, fontSize: 19, mt: '2px' }} />
-              <Typography variant="body2" sx={{ color: '#4e4950' }}>{feature}</Typography>
+              <Typography variant="body2" sx={{ color: '#514A5B' }}>{feature}</Typography>
             </Stack>
           ))}
         </Stack>
@@ -312,15 +312,15 @@ export default function LandingPage() {
               <Stack spacing={2.6} alignItems={{ xs: 'center', md: 'flex-start' }} textAlign={{ xs: 'center', md: 'left' }}>
                 <Chip
                   label="One account · 11 connected business apps"
-                  sx={{ bgcolor: '#F3ECF1', color: ODOO_PLUM, fontWeight: 800, borderRadius: 999 }}
+                  sx={{ bgcolor: '#F3ECF1', color: ODOO_PLUM, fontWeight: 650, borderRadius: 999 }}
                 />
                 <Typography
                   component="h1"
                   sx={{
                     fontSize: { xs: '2.55rem', sm: '3.4rem', md: '4.35rem' },
                     lineHeight: { xs: 1.06, md: 1.02 },
-                    letterSpacing: '-0.045em',
-                    fontWeight: 850,
+                    letterSpacing: '-0.02em',
+                    fontWeight: 700,
                     maxWidth: 720,
                   }}
                 >
@@ -352,7 +352,7 @@ export default function LandingPage() {
                     href="/#pricing"
                     variant="outlined"
                     size="large"
-                    sx={{ borderColor: '#D7CFD5', color: INK, px: 3.25, minWidth: 170 }}
+                    sx={{ borderColor: '#DCD5FB', color: INK, px: 3.25, minWidth: 170 }}
                   >
                     See pricing
                   </Button>
@@ -387,16 +387,16 @@ export default function LandingPage() {
             <Grid item xs={12} md={5}>
               <Stack spacing={2.2}>
                 <Stack direction="row" alignItems="center" spacing={1}>
-                  <Typography sx={{ color: ODOO_PLUM, fontWeight: 850 }}>View all Apps</Typography>
+                  <Typography sx={{ color: ODOO_PLUM, fontWeight: 700 }}>View all Apps</Typography>
                   <ArrowForwardRoundedIcon sx={{ color: ODOO_PLUM }} />
                 </Stack>
-                <Typography sx={{ fontSize: { xs: '2rem', md: '3rem' }, lineHeight: 1.1, fontWeight: 850, letterSpacing: '-0.035em' }}>
+                <Typography sx={{ fontSize: { xs: '2rem', md: '3rem' }, lineHeight: 1.1, fontWeight: 700, letterSpacing: '-0.015em' }}>
                   A full business toolkit, without the usual <Highlight tone="aqua">complexity.</Highlight>
                 </Typography>
                 <Typography sx={{ color: MUTED, lineHeight: 1.8, fontSize: '1.02rem' }}>
                   Each app handles a real process, while customer data and account access stay connected. Start small, then add tools when your workflow needs them.
                 </Typography>
-                <Button component={NextLink} href="/signup" endIcon={<ArrowOutwardRoundedIcon />} sx={{ alignSelf: 'flex-start', color: ODOO_PLUM, fontWeight: 800, px: 0 }}>
+                <Button component={NextLink} href="/signup" endIcon={<ArrowOutwardRoundedIcon />} sx={{ alignSelf: 'flex-start', color: ODOO_PLUM, fontWeight: 650, px: 0 }}>
                   Build your workspace
                 </Button>
               </Stack>
@@ -423,8 +423,8 @@ export default function LandingPage() {
           </Grid>
           <Grid item xs={12} md={6}>
             <Stack spacing={2.2}>
-              <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 900, letterSpacing: '.12em' }}>OPTIMIZED FOR PRODUCTIVITY</Typography>
-              <Typography sx={{ fontSize: { xs: '2.2rem', md: '3.2rem' }, fontWeight: 850, lineHeight: 1.08, letterSpacing: '-0.04em' }}>
+              <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 700, letterSpacing: '.12em' }}>OPTIMIZED FOR PRODUCTIVITY</Typography>
+              <Typography sx={{ fontSize: { xs: '2.2rem', md: '3.2rem' }, fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.018em' }}>
                 Less switching. Less repeated entry. More work finished.
               </Typography>
               <Typography sx={{ color: MUTED, lineHeight: 1.8, fontSize: '1.02rem' }}>
@@ -434,7 +434,7 @@ export default function LandingPage() {
                 {['Shared customer context across modules', 'Responsive mobile and desktop workspace', 'Human-first automation with optional AI'].map((item) => (
                   <Stack key={item} direction="row" spacing={1.1} alignItems="center">
                     <CheckCircleRoundedIcon sx={{ color: ODOO_PLUM, fontSize: 20 }} />
-                    <Typography sx={{ color: '#49444b', fontWeight: 650 }}>{item}</Typography>
+                    <Typography sx={{ color: '#514A5B', fontWeight: 650 }}>{item}</Typography>
                   </Stack>
                 ))}
               </Stack>
@@ -443,22 +443,22 @@ export default function LandingPage() {
         </Grid>
       </Container>
 
-      <Box sx={{ bgcolor: '#FBF8FB', borderBlock: `1px solid ${LINE}` }}>
+      <Box sx={{ bgcolor: '#F8F6FD', borderBlock: `1px solid ${LINE}` }}>
         <Container maxWidth="lg" sx={{ py: { xs: 8, md: 11 } }}>
           <Stack spacing={1.5} textAlign="center" sx={{ mb: 5.5 }}>
-            <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 900, letterSpacing: '.12em' }}>NATIVE AUTOMATION</Typography>
-            <Typography sx={{ fontSize: { xs: '2.15rem', md: '3.1rem' }, fontWeight: 850, letterSpacing: '-0.035em' }}>
+            <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 700, letterSpacing: '.12em' }}>NATIVE AUTOMATION</Typography>
+            <Typography sx={{ fontSize: { xs: '2.15rem', md: '3.1rem' }, fontWeight: 700, letterSpacing: '-0.015em' }}>
               Build a system that does more of the routine work.
             </Typography>
           </Stack>
           <Grid container spacing={2.5}>
             {PLATFORM_FEATURES.map(({ icon: Icon, title, text }) => (
               <Grid item xs={12} sm={6} md={3} key={title}>
-                <Paper variant="outlined" sx={{ p: 3, height: '100%', borderRadius: 3.5, borderColor: LINE, bgcolor: '#fff' }}>
-                  <Box sx={{ width: 46, height: 46, borderRadius: 2.4, display: 'grid', placeItems: 'center', bgcolor: '#F1EAF0', color: ODOO_PLUM }}>
+                <Paper variant="outlined" sx={{ p: 3, height: '100%', borderRadius: 2, borderColor: LINE, bgcolor: '#fff' }}>
+                  <Box sx={{ width: 46, height: 46, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: '#EDE9FD', color: ODOO_PLUM }}>
                     <Icon />
                   </Box>
-                  <Typography variant="h6" sx={{ mt: 2, fontWeight: 800, color: INK }}>{title}</Typography>
+                  <Typography variant="h6" sx={{ mt: 2, fontWeight: 650, color: INK }}>{title}</Typography>
                   <Typography variant="body2" sx={{ mt: 1, color: MUTED, lineHeight: 1.75 }}>{text}</Typography>
                 </Paper>
               </Grid>
@@ -469,8 +469,8 @@ export default function LandingPage() {
 
       <Container maxWidth="lg" sx={{ py: { xs: 8, md: 11 } }}>
         <Stack spacing={1.5} textAlign="center" sx={{ mb: 5 }}>
-          <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 900, letterSpacing: '.12em' }}>EVERYDAY WORKFLOWS</Typography>
-          <Typography sx={{ fontSize: { xs: '2.1rem', md: '3rem' }, fontWeight: 850, letterSpacing: '-0.035em' }}>
+          <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 700, letterSpacing: '.12em' }}>EVERYDAY WORKFLOWS</Typography>
+          <Typography sx={{ fontSize: { xs: '2.1rem', md: '3rem' }, fontWeight: 700, letterSpacing: '-0.015em' }}>
             One workspace from first enquiry to final payment.
           </Typography>
           <Typography sx={{ maxWidth: 760, mx: 'auto', color: MUTED, lineHeight: 1.75 }}>
@@ -482,11 +482,11 @@ export default function LandingPage() {
             const Icon = service.icon;
             return (
               <Grid item xs={12} sm={6} md={4} key={service.title}>
-                <Paper variant="outlined" sx={{ p: 2.75, height: '100%', borderRadius: 3.2, borderColor: LINE }}>
+                <Paper variant="outlined" sx={{ p: 2.75, height: '100%', borderRadius: 2, borderColor: LINE }}>
                   <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
                     <Box sx={{ width: 44, height: 44, borderRadius: 2.2, display: 'grid', placeItems: 'center', bgcolor: service.bg, color: service.ink }}><Icon /></Box>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 800, color: INK }}>{service.title}</Typography>
+                      <Typography sx={{ fontWeight: 650, color: INK }}>{service.title}</Typography>
                       <Typography variant="caption" sx={{ color: MUTED }}>{service.badge}</Typography>
                     </Box>
                   </Stack>
@@ -501,8 +501,8 @@ export default function LandingPage() {
       <Box id="pricing" sx={{ bgcolor: SOFT, borderBlock: `1px solid ${LINE}` }}>
         <Container maxWidth="md" sx={{ py: { xs: 8, md: 11 } }}>
           <Stack spacing={1.5} textAlign="center" sx={{ mb: 5 }}>
-            <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 900, letterSpacing: '.12em' }}>SIMPLE PRICING</Typography>
-            <Typography sx={{ fontSize: { xs: '2.2rem', md: '3.1rem' }, fontWeight: 850, letterSpacing: '-0.035em' }}>Start small. Add more when you need it.</Typography>
+            <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 700, letterSpacing: '.12em' }}>SIMPLE PRICING</Typography>
+            <Typography sx={{ fontSize: { xs: '2.2rem', md: '3.1rem' }, fontWeight: 700, letterSpacing: '-0.015em' }}>Start small. Add more when you need it.</Typography>
             <Typography sx={{ color: MUTED }}>Create your account first, then choose a paid plan when you are ready for production use.</Typography>
           </Stack>
           <Grid container spacing={3}>
@@ -528,8 +528,8 @@ export default function LandingPage() {
           ].map(([n, title, text]) => (
             <Grid item xs={12} sm={6} md={3} key={n}>
               <Box sx={{ borderTop: `3px solid ${n === '01' ? YELLOW : ODOO_PLUM}`, pt: 2 }}>
-                <Typography sx={{ color: MUTED, fontWeight: 800 }}>{n}</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 850, mt: 1, color: INK }}>{title}</Typography>
+                <Typography sx={{ color: MUTED, fontWeight: 650 }}>{n}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, mt: 1, color: INK }}>{title}</Typography>
                 <Typography variant="body2" sx={{ color: MUTED, mt: 1, lineHeight: 1.7 }}>{text}</Typography>
               </Box>
             </Grid>
@@ -537,17 +537,17 @@ export default function LandingPage() {
         </Grid>
       </Container>
 
-      <Box id="faq" sx={{ bgcolor: '#FBF8FB', borderTop: `1px solid ${LINE}` }}>
+      <Box id="faq" sx={{ bgcolor: '#F8F6FD', borderTop: `1px solid ${LINE}` }}>
         <Container maxWidth="md" sx={{ py: { xs: 8, md: 11 } }}>
           <Stack spacing={1.5} textAlign="center" sx={{ mb: 4.5 }}>
-            <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 900, letterSpacing: '.12em' }}>FAQ</Typography>
-            <Typography sx={{ fontSize: { xs: '2.05rem', md: '2.85rem' }, fontWeight: 850, letterSpacing: '-0.035em' }}>Questions before you sign up</Typography>
+            <Typography variant="overline" sx={{ color: ODOO_PLUM, fontWeight: 700, letterSpacing: '.12em' }}>FAQ</Typography>
+            <Typography sx={{ fontSize: { xs: '2.05rem', md: '2.85rem' }, fontWeight: 700, letterSpacing: '-0.015em' }}>Questions before you sign up</Typography>
           </Stack>
           <Stack spacing={1.15}>
             {FAQS.map(([q, a]) => (
               <Accordion key={q} disableGutters elevation={0} sx={{ bgcolor: '#fff', border: `1px solid ${LINE}`, borderRadius: '14px !important', '&:before': { display: 'none' } }}>
                 <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />} sx={{ px: { xs: 2, sm: 2.5 } }}>
-                  <Typography sx={{ fontWeight: 800, color: INK }}>{q}</Typography>
+                  <Typography sx={{ fontWeight: 650, color: INK }}>{q}</Typography>
                 </AccordionSummary>
                 <AccordionDetails sx={{ px: { xs: 2, sm: 2.5 }, pb: 2.5 }}>
                   <Divider sx={{ mb: 2 }} />
@@ -564,7 +564,7 @@ export default function LandingPage() {
           sx={{
             position: 'relative',
             overflow: 'hidden',
-            bgcolor: '#F0E7EE',
+            bgcolor: '#EDE9FD',
             borderRadius: { xs: 3.5, md: 5 },
             px: { xs: 3, sm: 5, md: 8 },
             py: { xs: 5, md: 7 },
@@ -573,10 +573,10 @@ export default function LandingPage() {
         >
           <Box sx={{ position: 'absolute', width: 170, height: 170, borderRadius: '50%', bgcolor: YELLOW, opacity: 0.28, top: -90, right: -30 }} />
           <Stack spacing={2.2} alignItems="center" sx={{ position: 'relative' }}>
-            <Typography sx={{ fontSize: { xs: '2.05rem', md: '3.35rem' }, fontWeight: 850, lineHeight: 1.08, letterSpacing: '-0.04em', maxWidth: 850 }}>
+            <Typography sx={{ fontSize: { xs: '2.05rem', md: '3.35rem' }, fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.018em', maxWidth: 850 }}>
               Simplify the everyday work and make room for your <Highlight tone="aqua">next big idea.</Highlight>
             </Typography>
-            <Typography sx={{ color: '#625b64', maxWidth: 680, lineHeight: 1.75 }}>
+            <Typography sx={{ color: MUTED, maxWidth: 680, lineHeight: 1.75 }}>
               One login, one customer workspace and fewer disconnected tools for your team.
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ width: { xs: '100%', sm: 'auto' } }}>

@@ -3,7 +3,6 @@ import ThemeRegistry from '@/lib/ui/ThemeRegistry';
 import { AuthProvider } from '@/lib/ui/AuthContext';
 import { ToastContainer } from '@/lib/ui/components/Toast';
 import PwaProvider from '@/lib/ui/app/PwaProvider';
-import { inter } from '@/lib/ui/fonts';
 
 export const metadata = {
   title: 'SanjuSK — WhatsApp Business Solution Provider',
@@ -52,7 +51,7 @@ export const viewport = {
   initialScale: 1,
   viewportFit: 'cover' as const,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#7551D8' },
+    { media: '(prefers-color-scheme: light)', color: '#F6F4FE' },
     { media: '(prefers-color-scheme: dark)', color: '#0A0A0A' },
   ],
 };
@@ -76,7 +75,7 @@ export const viewport = {
  */
 const COLOR_SCHEME_CSS = `
 :root {
-  --app-bg: #F2F2F2;
+  --app-bg: #F6F4FE;
   --app-fg: #171717;
   color-scheme: light;
 }
@@ -136,7 +135,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const nonce = (await headers()).get('x-nonce') || undefined;
 
   return (
-    <html lang="en" className={inter.variable} style={{ height: '100%' }} suppressHydrationWarning>
+    <html lang="en" style={{ height: '100%' }} suppressHydrationWarning>
       <head>
         <style dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_CSS }} />
         {nonce ? <script nonce={nonce} dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_SCRIPT }} /> : null}
