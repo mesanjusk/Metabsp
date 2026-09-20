@@ -41,3 +41,9 @@ export { default as StoreProfile } from './StoreProfile';
 export { default as StoreProduct } from './StoreProduct';
 export { default as StoreCategory } from './StoreCategory';
 export { default as StoreInquiry } from './StoreInquiry';
+
+export { default as SmbRecord } from './SmbRecord';
+export { default as AttendanceDevice } from './AttendanceDevice';
+export { default as AttendanceProfile } from './AttendanceProfile';
+export { default as AttendanceRecord } from './AttendanceRecord';
+export { default as AttendanceSettings } from './AttendanceSettings';
