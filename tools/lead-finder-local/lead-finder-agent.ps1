@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 $AgentVersion = '1.0.0'
 $ScraperUrl = 'http://127.0.0.1:8080'
 $ComposeFile = Join-Path $PSScriptRoot 'docker-compose.yml'
+$DockerDesktop = 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
 
 if (-not (Test-Path $ConfigPath)) {
   throw "Missing config file: $ConfigPath"
@@ -19,10 +20,25 @@ if (-not $MetaBspUrl -or -not $AgentToken) {
 }
 
 $AgentHeaders = @{ Authorization = "Bearer $AgentToken" }
+$DockerStartAttempted = $false
 
 function Invoke-AgentApi {
   param([string]$Path, [hashtable]$Body)
   return Invoke-RestMethod -Uri "$MetaBspUrl$Path" -Method Post -Headers $AgentHeaders -ContentType 'application/json' -Body ($Body | ConvertTo-Json -Depth 8 -Compress) -TimeoutSec 60
+}
+
+function Ensure-Docker {
+  try {
+    docker info | Out-Null
+    return $true
+  } catch {
+    if (-not $script:DockerStartAttempted -and (Test-Path $DockerDesktop)) {
+      $script:DockerStartAttempted = $true
+      Start-Process $DockerDesktop
+      Write-Host 'Starting Docker Desktop...'
+    }
+    return $false
+  }
 }
 
 function Test-Scraper {
@@ -35,6 +51,7 @@ function Test-Scraper {
 }
 
 function Ensure-Scraper {
+  if (-not (Ensure-Docker)) { return $false }
   if (Test-Scraper) { return $true }
   try {
     & docker compose -f $ComposeFile up -d | Out-Null
