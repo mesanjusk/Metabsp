@@ -8,12 +8,13 @@ import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
 import MovieCreationRoundedIcon from '@mui/icons-material/MovieCreationRounded';
+import TravelExploreRoundedIcon from '@mui/icons-material/TravelExploreRounded';
 
-/** One registry for every customer-facing service in the SMB Digital OS. */
 export const SERVICES = [
   { slug: 'whatsapp', label: 'WhatsApp', shortLabel: 'WhatsApp', description: 'Inbox, contacts, templates, campaigns and automation.', href: '/whatsapp', icon: WhatsAppIcon, status: 'active', tier: 'basic' },
   { slug: 'instagram', label: 'Instagram', shortLabel: 'Instagram', description: 'Messages, comments, private replies and publishing.', href: '/instagram', icon: InstagramIcon, status: 'beta', tier: 'basic' },
   { slug: 'google-business', label: 'Google Business Profile', shortLabel: 'Google', description: 'Reviews, AI replies, profile posts and Search/Maps performance for your Google listing.', href: '/services/google-business', icon: StorefrontRoundedIcon, status: 'beta', tier: 'basic' },
+  { slug: 'lead-finder', label: 'Business Lead Finder', shortLabel: 'Leads', description: 'Find local business prospects, enrich contact details, review them and add selected leads to CRM contacts.', href: '/services/lead-finder', icon: TravelExploreRoundedIcon, status: 'beta', tier: 'pro' },
   { slug: 'dialer', label: 'Business Dialer', shortLabel: 'Dialer', description: 'Lead calling, click-to-dial and synced call history via the Business Call Manager app.', href: '/services/dialer', icon: PhoneInTalkRoundedIcon, status: 'beta', tier: 'basic' },
   { slug: 'crm', label: 'Mini CRM', shortLabel: 'CRM', description: 'Shared customers, leads, follow-ups, quotations and orders.', href: '/services/crm', icon: PeopleAltRoundedIcon, status: 'beta', tier: 'basic' },
   { slug: 'store', label: 'E-Store', shortLabel: 'Store', description: 'Publish a branded product catalogue, collect customer enquiries and follow every order request.', href: '/services/store', icon: StorefrontRoundedIcon, status: 'active', tier: 'basic' },
