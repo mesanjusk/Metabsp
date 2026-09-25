@@ -61,6 +61,7 @@ const friendlyStatusError = (error) => {
 };
 
 const STATUS_POLL_MS = 30000;
+const EMBEDDED_SIGNUP_TIMEOUT_MS = 10 * 60 * 1000;
 
 export function useWhatsAppConnection() {
   const {
@@ -182,14 +183,15 @@ export function useWhatsAppConnection() {
         await loadFacebookSdk({ appId: config.appId, apiVersion: config.sdkVersion });
       }
 
-      // Start listening before FB.login. Meta normally posts
-      // WA_EMBEDDED_SIGNUP with WABA/phone ids, but some successful popup
-      // variants omit that final message. Give it a short grace period and then
-      // proceed with the OAuth code alone; the backend re-derives WABA, phone
-      // and coexistence from the validated BISU token.
+      // Start listening before FB.login so the exact WABA/phone selected in the
+      // popup is captured. The old 5-second code-only fallback expired while a
+      // real user was still choosing assets, so multi-WABA tokens reached the
+      // backend without a WABA id and were correctly rejected as ambiguous.
+      // Keep the listener alive for the whole interactive signup instead and do
+      // not silently discard Meta's asset-selection result.
       const embeddedSignupData = listenForEmbeddedSignupData({
-        timeoutMs: 5000,
-        allowMissingOnTimeout: true,
+        timeoutMs: EMBEDDED_SIGNUP_TIMEOUT_MS,
+        allowMissingOnTimeout: false,
       });
 
       // Match the CURRENT Meta Embedded Signup v4 Builder output exactly:
