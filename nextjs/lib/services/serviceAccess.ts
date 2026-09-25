@@ -7,6 +7,7 @@ export const SERVICE_SLUGS = [
   'whatsapp',
   'instagram',
   'google-business',
+  'lead-finder',
   'dialer',
   'crm',
   'store',
@@ -29,7 +30,7 @@ export const BASIC_SERVICES: ServiceSlug[] = [
   'video',
 ];
 
-export const PRO_SERVICES: ServiceSlug[] = ['institute', 'marketing', 'staff', 'payments'];
+export const PRO_SERVICES: ServiceSlug[] = ['lead-finder', 'institute', 'marketing', 'staff', 'payments'];
 
 function isRuleActive(rule: any, now = new Date()) {
   if (!rule) return false;
@@ -98,7 +99,9 @@ export async function resolveServiceAccess(authed: AuthedUser) {
 
   if (selected) {
     for (const service of SERVICE_SLUGS) {
-      if (!selected.has(service)) {
+      // Existing profiles predate Lead Finder, so absence of this new slug must
+      // not silently override an explicit Pro entitlement or admin access.
+      if (service !== 'lead-finder' && !selected.has(service)) {
         result[service] = {
           ...result[service],
           enabled: false,

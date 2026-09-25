@@ -1,6 +1,7 @@
 import logger from '../utils/logger';
 import { startWhatsAppSendWorker } from '../queues/whatsappSendWorker';
 import { startWebhookWorker } from '../queues/webhookWorker';
+import { startLeadFinderWorker } from '../queues/leadFinderWorker';
 import { startTokenRefreshScheduler } from '../services/tokenRefreshService';
 import { startInvoiceScheduler } from '../services/invoiceSchedulerService';
 import { startBackupScheduler } from '../services/backupSchedulerService';
@@ -45,6 +46,7 @@ export function startBackgroundJobs(): void {
   // mode this whole module exists to prevent.
   startWhatsAppSendWorker();
   startWebhookWorker();
+  startLeadFinderWorker();
 
   // The Video Studio's queues. Ported with the studio but never started, which made every
   // video job a write to Mongo that nothing would ever pick up — see lib/video/core/queue/video-workers.ts.
