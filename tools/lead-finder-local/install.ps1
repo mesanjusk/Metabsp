@@ -23,8 +23,8 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 }
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-Invoke-WebRequest "$RawBase/docker-compose.yml" -OutFile (Join-Path $InstallDir 'docker-compose.yml')
-Invoke-WebRequest "$RawBase/lead-finder-agent.ps1" -OutFile (Join-Path $InstallDir 'lead-finder-agent.ps1')
+Invoke-WebRequest "$RawBase/docker-compose.yml" -UseBasicParsing -OutFile (Join-Path $InstallDir 'docker-compose.yml')
+Invoke-WebRequest "$RawBase/lead-finder-agent.ps1" -UseBasicParsing -OutFile (Join-Path $InstallDir 'lead-finder-agent.ps1')
 
 $config = @{
   metaBspUrl = $MetaBspUrl.TrimEnd('/')
