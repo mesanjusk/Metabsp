@@ -11,11 +11,16 @@ function baseUrl() {
 async function scraperRequest(path: string, init?: RequestInit) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 60000);
+  const apiKey = String(process.env.LEAD_SCRAPER_API_KEY || '').trim();
+  const headers = new Headers(init?.headers || {});
+  if (apiKey) headers.set('X-API-Key', apiKey);
   try {
-    const res = await fetch(`${baseUrl()}${path}`, { ...init, signal: controller.signal, cache: 'no-store' });
+    const res = await fetch(`${baseUrl()}${path}`, { ...init, headers, signal: controller.signal, cache: 'no-store' });
     if (!res.ok) throw new Error(`Scraper ${res.status}: ${(await res.text()).slice(0, 300)}`);
     return res;
-  } finally { clearTimeout(timer); }
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function geocode(place: string) {
@@ -52,17 +57,22 @@ function firstEmail(value: unknown) {
 async function findSocials(website: string) {
   const blank = { instagram: '', facebook: '', linkedin: '' };
   if (!website) return blank;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(/^https?:\/\//i.test(website) ? website : `https://${website}`, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0 MetaBSP Lead Finder' } });
-    clearTimeout(timer); if (!res.ok) return blank;
+    if (!res.ok) return blank;
     const html = (await res.text()).slice(0, 400000);
     return {
       instagram: html.match(/https?:\/\/(?:www\.)?instagram\.com\/[A-Za-z0-9_.-]+/i)?.[0] || '',
       facebook: html.match(/https?:\/\/(?:www\.|m\.)?facebook\.com\/[A-Za-z0-9_.-]+/i)?.[0] || '',
       linkedin: html.match(/https?:\/\/(?:[a-z]{2,3}\.)?linkedin\.com\/(?:company|in|school)\/[A-Za-z0-9_.%\/-]+/i)?.[0] || '',
     };
-  } catch { return blank; }
+  } catch {
+    return blank;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function runLeadFinderSearch(searchJobId: string) {
