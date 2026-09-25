@@ -107,7 +107,7 @@ function Invoke-LocalScrape {
   }
   if ($status -ne 'ok') { throw 'Google Maps scraper timed out' }
 
-  $response = Invoke-WebRequest -Uri "$ScraperUrl/api/v1/jobs/$($created.id)/download" -Method Get -TimeoutSec 60
+  $response = Invoke-WebRequest -Uri "$ScraperUrl/api/v1/jobs/$($created.id)/download" -Method Get -UseBasicParsing -TimeoutSec 60
   return [string]$response.Content
 }
 
