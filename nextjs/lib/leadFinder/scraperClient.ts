@@ -8,18 +8,46 @@ function baseUrl() {
   return /^https?:\/\//i.test(clean) ? clean : `http://${clean}`;
 }
 
-async function scraperRequest(path: string, init?: RequestInit) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60000);
-  const apiKey = String(process.env.LEAD_SCRAPER_API_KEY || '').trim();
+function scraperHeaders(init?: RequestInit) {
   const headers = new Headers(init?.headers || {});
+  const apiKey = String(process.env.LEAD_SCRAPER_API_KEY || '').trim();
+  const cfClientId = String(process.env.LEAD_SCRAPER_CF_ACCESS_CLIENT_ID || '').trim();
+  const cfClientSecret = String(process.env.LEAD_SCRAPER_CF_ACCESS_CLIENT_SECRET || '').trim();
   if (apiKey) headers.set('X-API-Key', apiKey);
+  if (cfClientId) headers.set('CF-Access-Client-Id', cfClientId);
+  if (cfClientSecret) headers.set('CF-Access-Client-Secret', cfClientSecret);
+  return headers;
+}
+
+async function scraperRequest(path: string, init?: RequestInit, timeoutMs = 60000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${baseUrl()}${path}`, { ...init, headers, signal: controller.signal, cache: 'no-store' });
+    const res = await fetch(`${baseUrl()}${path}`, {
+      ...init,
+      headers: scraperHeaders(init),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
     if (!res.ok) throw new Error(`Scraper ${res.status}: ${(await res.text()).slice(0, 300)}`);
     return res;
+  } catch (error: any) {
+    if (error?.name === 'AbortError') throw new Error('Lead scraper is offline or unreachable');
+    throw error;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+export async function getRemoteLeadScraperStatus() {
+  if (!String(process.env.LEAD_SCRAPER_URL || '').trim()) {
+    return { configured: false, online: false, message: 'Lead scraper URL is not configured' };
+  }
+  try {
+    await scraperRequest('/api/v1/jobs', undefined, 8000);
+    return { configured: true, online: true, message: 'Lead scraper is online' };
+  } catch (error: any) {
+    return { configured: true, online: false, message: String(error?.message || error) };
   }
 }
 
@@ -75,6 +103,36 @@ async function findSocials(website: string) {
   }
 }
 
+export async function processLeadFinderCsv(searchJobId: string, csvText: string) {
+  const search: any = await LeadSearchJob.findById(searchJobId);
+  if (!search) throw new Error('Lead search job not found');
+  const rows = parseCsv(csvText).slice(0, search.requestedLimit || 50);
+  for (const raw of rows) {
+    const name = String(raw.title || raw.name || '').trim(); if (!name) continue;
+    const phone = String(raw.phone || '').replace(/[^+\d]/g, ''); const website = String(raw.website || '').trim();
+    const placeId = String(raw.place_id || raw.data_id || raw.cid || '').trim();
+    const sourceKey = placeId || phone || website.toLowerCase() || `${name.toLowerCase()}|${String(raw.address || '').toLowerCase()}`;
+    const socials = search.socialEnabled ? await findSocials(website) : { instagram: '', facebook: '', linkedin: '' };
+    await ProspectLead.findOneAndUpdate({ userId: search.userId, sourceKey }, { $set: {
+      tenantId: search.tenantId || null, searchJobId: search._id, googlePlaceId: placeId, name, phone, email: firstEmail(raw.emails || raw.email),
+      website, address: String(raw.address || ''), category: String(raw.category || ''), rating: Number(raw.review_rating || raw.rating) || null,
+      reviewCount: Number(raw.review_count || 0) || 0, latitude: Number(raw.latitude || raw.lat) || null, longitude: Number(raw.longitude || raw.lon || raw.lng) || null,
+      ...socials, source: 'google_maps'
+    }, $setOnInsert: { status: 'new' } }, { upsert: true, setDefaultsOnInsert: true });
+  }
+  search.status = 'completed'; search.totalFound = rows.length; search.error = ''; search.completedAt = new Date(); await search.save();
+  return { totalFound: rows.length };
+}
+
+export async function failLeadFinderSearch(searchJobId: string, error: unknown) {
+  const search: any = await LeadSearchJob.findById(searchJobId);
+  if (!search) return;
+  search.status = 'failed';
+  search.error = String((error as any)?.message || error || 'Lead search failed').slice(0, 1000);
+  search.completedAt = new Date();
+  await search.save();
+}
+
 export async function runLeadFinderSearch(searchJobId: string) {
   const search: any = await LeadSearchJob.findById(searchJobId);
   if (!search) throw new Error('Lead search job not found');
@@ -96,23 +154,9 @@ export async function runLeadFinderSearch(searchJobId: string) {
       await new Promise((resolve) => setTimeout(resolve, 8000));
     }
     if (status !== 'ok') throw new Error('Google Maps scraper timed out');
-    const rows = parseCsv(await (await scraperRequest(`/api/v1/jobs/${created.id}/download`)).text()).slice(0, search.requestedLimit || 50);
-    for (const raw of rows) {
-      const name = String(raw.title || raw.name || '').trim(); if (!name) continue;
-      const phone = String(raw.phone || '').replace(/[^+\d]/g, ''); const website = String(raw.website || '').trim();
-      const placeId = String(raw.place_id || raw.data_id || raw.cid || '').trim();
-      const sourceKey = placeId || phone || website.toLowerCase() || `${name.toLowerCase()}|${String(raw.address || '').toLowerCase()}`;
-      const socials = search.socialEnabled ? await findSocials(website) : { instagram: '', facebook: '', linkedin: '' };
-      await ProspectLead.findOneAndUpdate({ userId: search.userId, sourceKey }, { $set: {
-        tenantId: search.tenantId || null, searchJobId: search._id, googlePlaceId: placeId, name, phone, email: firstEmail(raw.emails || raw.email),
-        website, address: String(raw.address || ''), category: String(raw.category || ''), rating: Number(raw.review_rating || raw.rating) || null,
-        reviewCount: Number(raw.review_count || 0) || 0, latitude: Number(raw.latitude || raw.lat) || null, longitude: Number(raw.longitude || raw.lon || raw.lng) || null,
-        ...socials, source: 'google_maps'
-      }, $setOnInsert: { status: 'new' } }, { upsert: true, setDefaultsOnInsert: true });
-    }
-    search.status = 'completed'; search.totalFound = rows.length; search.completedAt = new Date(); await search.save();
-    return { totalFound: rows.length };
+    return await processLeadFinderCsv(searchJobId, await (await scraperRequest(`/api/v1/jobs/${created.id}/download`)).text());
   } catch (error: any) {
-    search.status = 'failed'; search.error = String(error?.message || error).slice(0, 1000); search.completedAt = new Date(); await search.save(); throw error;
+    await failLeadFinderSearch(searchJobId, error);
+    throw error;
   }
 }
