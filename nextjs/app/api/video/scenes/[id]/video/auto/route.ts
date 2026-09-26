@@ -3,17 +3,17 @@ import { requireUserId, UnauthorizedError } from "@/lib/video/core/auth/session"
 import { getScene } from "@/lib/video/modules/scenes/service";
 import { enqueueJob } from "@/lib/video/modules/jobs/service";
 import { findAccountWithFlowSession } from "@/lib/video/modules/accounts/service";
+import { isExtensionConnected } from "@/lib/video/core/browser/extension-presence";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Enqueues browser-automation-backed video generation (Module 4) instead of the manual hand-off —
- * only processed if a standalone worker.ts process is running (see
- * core/queue/worker-only-processors.ts); otherwise the job stays visibly "queued" on /queue until
- * one is. Requires at least one Google account with a connected Flow browser session
- * (Accounts page), checked here so the failure is immediate and clear rather than a job that can
- * never complete.
+ * Enqueues automated Google Flow video generation.
+ *
+ * Prefer the local Chrome runner when it is connected: it uses the operator's existing Google login
+ * and keeps browser/Flow work off the cloud server. A stored Playwright Flow session remains a
+ * fallback so existing cloud-worker installations keep working unchanged.
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -22,10 +22,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const scene = await getScene(userId, sceneId);
     if (!scene) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const account = await findAccountWithFlowSession(userId);
-    if (!account) {
+    const [localRunnerOnline, account] = await Promise.all([
+      isExtensionConnected().catch(() => false),
+      findAccountWithFlowSession(userId).catch(() => null),
+    ]);
+    if (!localRunnerOnline && !account) {
       return NextResponse.json(
-        { error: "Connect a Google account's Flow browser session first, on the Accounts page." },
+        {
+          error:
+            "Start the Video Local Runner in Chrome (recommended), or connect a Google account's Flow browser session on the Accounts page.",
+        },
         { status: 400 },
       );
     }
@@ -35,10 +41,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       projectId: scene.projectId.toString(),
       sceneId,
       type: "scene_video_auto",
-      payload: {},
+      payload: { preferLocalRunner: localRunnerOnline },
     });
 
-    return NextResponse.json({ job }, { status: 202 });
+    return NextResponse.json({ job, execution: localRunnerOnline ? "local_chrome" : "cloud_playwright" }, { status: 202 });
   } catch (err) {
     if (err instanceof UnauthorizedError) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     return NextResponse.json({ error: "Failed to start automated video generation" }, { status: 500 });

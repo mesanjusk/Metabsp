@@ -7,18 +7,17 @@ import { findAccountWithFlowSession, getDecryptedFlowSessionState } from "@/lib/
 import { resolveActiveTemplate } from "@/lib/video/modules/prompt-templates/service";
 import { generateVideoViaFlowAutomation } from "@/lib/video/core/ai/providers/google/google-flow-automated";
 import { completeSceneVideo, fallBackToManualVideo } from "./scene-video.processor";
+import { isExtensionConnected } from "@/lib/video/core/browser/extension-presence";
+import { resolveFlowVideo } from "@/lib/video/core/production/flow-image-step";
+import { renderTemplate } from "@/lib/video/core/prompt-engine/engine";
+import { sceneVideoTemplate } from "@/lib/video/core/prompt-engine/templates";
 
 /**
- * Browser-automation-backed scene video generation (Module 4) — the `scene_video_auto` job type,
- * deliberately its own processor and queue rather than an option inside `scene_video`, so this file
- * (the only importer of the Playwright-based provider) is reachable only from worker.ts's
- * worker-only registry — never core/queue/processors/index.ts, which the Vercel serverless
- * `/api/queue/tick` route also uses. See core/queue/worker-only-processors.ts.
+ * Automated Google Flow scene video generation.
  *
- * If the user hasn't connected any Google account's Flow browser session
- * (modules/accounts/service.ts#findAccountWithFlowSession), this job fails outright rather than
- * silently falling back — POST /api/scenes/:id/video/auto already checks for a connected session
- * before enqueueing, so reaching here with none connected means it was disconnected in between.
+ * When the local Chrome runner is online, Flow is driven on the office PC using that Chrome
+ * profile's existing Google login. That avoids Chromium/Flow load on the cloud worker. If no local
+ * runner is connected, the existing stored-session Playwright path remains the fallback.
  */
 export async function processSceneVideoAutoJob(bullJob: BullJob<BullJobData>): Promise<ProcessorResult> {
   return withJobLifecycle(bullJob, async (jobDoc) => {
@@ -29,13 +28,6 @@ export async function processSceneVideoAutoJob(bullJob: BullJob<BullJobData>): P
     ]);
     if (!scene) throw new Error("Scene not found");
     if (!project) throw new Error("Project not found");
-
-    const account = await findAccountWithFlowSession(jobDoc.userId);
-    if (!account) throw new Error("No Google account has a connected Flow browser session");
-    const storageStateJson = await getDecryptedFlowSessionState(jobDoc.userId, account.accountId);
-    if (!storageStateJson) throw new Error("Flow session for the selected account could not be decrypted");
-    jobDoc.set("googleAccountId", account.accountId);
-    await jobDoc.save();
 
     const characters = await Character.find({ _id: { $in: scene.characterIds }, userId: jobDoc.userId }).lean();
     const characterReferenceImages = characters
@@ -48,6 +40,47 @@ export async function processSceneVideoAutoJob(bullJob: BullJob<BullJobData>): P
     const style = project.style === "Custom" ? (project.customStyleDescription ?? "Custom") : project.style;
     const promptTemplateOverrides = project.promptTemplateOverrides as Record<string, string> | undefined;
     const templateOverride = await resolveActiveTemplate(jobDoc.userId, "scene_video", promptTemplateOverrides?.scene_video);
+    const durationSeconds = 8;
+    const promptText = renderTemplate(templateOverride ?? sceneVideoTemplate, {
+      action: scene.visual,
+      camera: scene.camera,
+      lighting: "morning",
+      emotion: scene.emotion,
+      durationSeconds: String(durationSeconds),
+      style,
+    });
+
+    // Once a job has extension run ids, keep resolving those runs even if the browser briefly goes
+    // offline after completing them. Otherwise a resumed job could abandon a finished local clip
+    // and unexpectedly switch to Playwright.
+    const existingFlowRunIds = (jobDoc.payload as { flowRunIds?: Record<string, string> } | undefined)?.flowRunIds;
+    const localRunnerOnline = await isExtensionConnected().catch(() => false);
+    const useLocalRunner = Boolean(existingFlowRunIds?.video) || localRunnerOnline;
+
+    if (useLocalRunner) {
+      const result = await resolveFlowVideo(
+        jobDoc,
+        {
+          key: "video",
+          prompt: promptText,
+          referenceUrls: characterReferenceImages.map((image) => image.url),
+        },
+        {
+          projectId: jobDoc.projectId?.toString(),
+          imageTarget: { kind: "scene-video", sceneId: scene._id.toString() },
+        },
+      );
+      return completeSceneVideo(scene, jobDoc.userId, jobDoc.projectId!.toString(), result, project.activeProfileId);
+    }
+
+    const account = await findAccountWithFlowSession(jobDoc.userId);
+    if (!account) {
+      throw new Error("Video Local Runner is offline and no Google account has a connected Flow browser session");
+    }
+    const storageStateJson = await getDecryptedFlowSessionState(jobDoc.userId, account.accountId);
+    if (!storageStateJson) throw new Error("Flow session for the selected account could not be decrypted");
+    jobDoc.set("googleAccountId", account.accountId);
+    await jobDoc.save();
 
     const result = await generateVideoViaFlowAutomation(
       {
@@ -57,7 +90,7 @@ export async function processSceneVideoAutoJob(bullJob: BullJob<BullJobData>): P
         camera: scene.camera,
         lighting: "morning",
         emotion: scene.emotion,
-        durationSeconds: 8,
+        durationSeconds,
         style,
         templateOverride,
       },
