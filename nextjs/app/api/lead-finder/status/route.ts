@@ -11,10 +11,18 @@ function mode() {
   return String(process.env.LEAD_SCRAPER_URL || '').trim() ? 'remote' : 'local_agent';
 }
 
+function canManageLocalAgent(authed: any) {
+  if (authed?.isAdmin) return true;
+  const code = String(authed?.doc?.roleId?.code || '').trim().toLowerCase();
+  const name = String(authed?.doc?.roleId?.name || '').trim().toLowerCase();
+  const privileged = new Set(['admin', 'administrator', 'superadmin', 'super-admin', 'super_admin', 'owner']);
+  return privileged.has(code) || privileged.has(name);
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authed = await requireAuth(req);
-    const canSetup = Boolean(authed.isAdmin);
+    const canSetup = canManageLocalAgent(authed);
     const currentMode = mode();
     if (currentMode === 'remote') {
       const remote = await getRemoteLeadScraperStatus();

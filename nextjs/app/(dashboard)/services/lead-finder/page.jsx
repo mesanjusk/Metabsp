@@ -163,7 +163,7 @@ export default function LeadFinderPage() {
             label={scraperStatus.online ? 'Office PC Online' : scraperStatus.configured ? 'Office PC Offline' : 'Local Agent Not Configured'}
           />
         </Stack>
-        {scraperStatus.mode === 'local_agent' && scraperStatus.canSetup ? <Button variant="outlined" startIcon={<ComputerRoundedIcon />} onClick={openSetup}>Local PC Setup</Button> : null}
+        {scraperStatus.mode === 'local_agent' ? <Button variant="outlined" startIcon={<ComputerRoundedIcon />} onClick={openSetup}>Setup Guide</Button> : null}
       </Stack>
       <Typography color="text.secondary">Find local businesses from Google Maps, review them, then add selected prospects to Contacts.</Typography>
       <Typography variant="body2" color={scraperStatus.online ? 'success.main' : 'text.secondary'}>{scraperStatus.message}</Typography>
@@ -192,13 +192,17 @@ export default function LeadFinderPage() {
     {!leads.length && !activeJob ? <Typography color="text.secondary" sx={{ py: 6, textAlign: 'center' }}>{scraperStatus.online ? 'No leads yet. Start your first search above.' : 'Turn on the office PC and Lead Finder agent to start searching.'}</Typography> : null}
 
     <Dialog open={setupOpen} onClose={() => setSetupOpen(false)} fullWidth maxWidth="md">
-      <DialogTitle>Local PC Setup</DialogTitle>
+      <DialogTitle>Local PC Setup Guide</DialogTitle>
       <DialogContent dividers>
-        <Typography color="text.secondary" sx={{ mb: 2 }}>
-          Run these steps on the Windows PC that will perform Google Maps searches. Use PowerShell as Administrator. Commands are generated for this MetaBSP deployment.
+        <Typography color="text.secondary" sx={{ mb: 1 }}>
+          Run these steps on the Windows PC that will perform Google Maps searches. Use PowerShell as Administrator.
+        </Typography>
+        <Typography variant="body2" fontWeight={700} sx={{ mb: 2 }}>
+          Native Windows setup — Docker Desktop and WSL are not required.
         </Typography>
         {setupLoading ? <Stack alignItems="center" sx={{ py: 5 }}><CircularProgress /></Stack> : null}
         {setupError ? <Typography color="error" sx={{ py: 2 }}>{setupError}</Typography> : null}
+        {!setupLoading && setupData?.note ? <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{setupData.note}</Typography> : null}
         {!setupLoading && setupData?.commands ? <Stack spacing={2}>
           {setupData.commands.map((step, index) => <Box key={`${step.title}-${index}`} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ sm: 'center' }}>
@@ -214,7 +218,7 @@ export default function LeadFinderPage() {
               {step.command}
             </Box>
           </Box>)}
-          {setupData.expiresAt ? <Typography variant="caption" color="text.secondary">The setup code in step 4 is one-time and expires after 15 minutes. Reopen this popup to generate a fresh code.</Typography> : null}
+          {setupData.expiresAt ? <Typography variant="caption" color="text.secondary">The activation code in step 4 is one-time and expires after 15 minutes. Use Generate Fresh Commands if it expires.</Typography> : null}
         </Stack> : null}
       </DialogContent>
       <DialogActions>
