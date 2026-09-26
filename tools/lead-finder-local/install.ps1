@@ -111,8 +111,8 @@ $configPath = Join-Path $InstallDir 'config.json'
 $arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$agentPath`" -ConfigPath `"$configPath`""
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Description 'Runs the MetaBSP Google Maps Lead Finder on this PC.' -RunLevel Highest -Force | Out-Null
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Description 'Runs the MetaBSP Google Maps Lead Finder on this PC and automatically restarts if interrupted.' -RunLevel Highest -Force | Out-Null
 Start-ScheduledTask -TaskName $TaskName
 
 Write-Host 'Starting native scraper and checking localhost API...'
@@ -127,7 +127,7 @@ for ($i = 0; $i -lt 36; $i++) {
 if (-not $healthy) {
   Write-Host ''
   Write-Host 'The native scraper was installed, but its localhost API is not ready yet.' -ForegroundColor Yellow
-  Write-Host 'Open Task Scheduler > MetaBSP Lead Finder Agent, run it once, then check this page again.' -ForegroundColor Yellow
+  Write-Host 'The Windows task will keep retrying automatically.' -ForegroundColor Yellow
   throw 'Google Maps scraper did not become healthy on localhost:8080.'
 }
 
@@ -137,4 +137,5 @@ Write-Host "Scraper: $ScraperExe"
 Write-Host 'API: http://127.0.0.1:8080 (localhost only)'
 Write-Host "Startup task: $TaskName"
 Write-Host 'Docker and WSL are not required for this setup.' -ForegroundColor Green
+Write-Host 'The agent will start automatically at Windows sign-in and automatically restart if interrupted.' -ForegroundColor Green
 Write-Host 'Open MetaBSP > Business Lead Finder. Office PC should show Online within about 30 seconds.'
