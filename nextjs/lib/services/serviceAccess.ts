@@ -41,11 +41,26 @@ function isRuleActive(rule: any, now = new Date()) {
 
 /**
  * Resolve service access without changing the shared User schema.
- * Basic services are always enabled unless the owner deliberately left them
- * out of their business profile. Pro access still requires the existing
- * entitlement; profiling narrows visibility and never upgrades a plan.
+ * Platform administrators always have every service, independent of profile
+ * selections or per-user/tenant entitlement rules. For normal accounts,
+ * Basic services are included by plan, Pro services require entitlement,
+ * and the business profile may narrow which services are visible.
  */
 export async function resolveServiceAccess(authed: AuthedUser) {
+  if (authed.isAdmin) {
+    return Object.fromEntries(
+      SERVICE_SLUGS.map((service) => [
+        service,
+        {
+          enabled: true,
+          source: 'admin',
+          reason: 'Available to platform administrator',
+          tier: BASIC_SERVICES.includes(service) ? ('basic' as const) : ('pro' as const),
+        },
+      ])
+    );
+  }
+
   const query: any[] = [{ userId: authed.id }];
   if (authed.tenantId) query.push({ tenantId: authed.tenantId, userId: null });
 
@@ -90,9 +105,9 @@ export async function resolveServiceAccess(authed: AuthedUser) {
     }
 
     result[service] = {
-      enabled: Boolean(authed.isAdmin),
-      source: authed.isAdmin ? 'admin' : 'default',
-      reason: authed.isAdmin ? 'Available to platform administrator' : 'Upgrade to Pro or ask your admin for access',
+      enabled: false,
+      source: 'default',
+      reason: 'Upgrade to Pro or ask your admin for access',
       tier: 'pro',
     };
   }
@@ -100,7 +115,7 @@ export async function resolveServiceAccess(authed: AuthedUser) {
   if (selected) {
     for (const service of SERVICE_SLUGS) {
       // Existing profiles predate Lead Finder, so absence of this new slug must
-      // not silently override an explicit Pro entitlement or admin access.
+      // not silently override an explicit Pro entitlement.
       if (service !== 'lead-finder' && !selected.has(service)) {
         result[service] = {
           ...result[service],
