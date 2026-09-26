@@ -6,10 +6,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $InstallDir = Join-Path $env:ProgramData 'MetaBSPLeadFinder'
+$DataDir = Join-Path $InstallDir 'data'
 $RawBase = 'https://raw.githubusercontent.com/mesanjusk/Metabsp/main/tools/lead-finder-local'
 $TaskName = 'MetaBSP Lead Finder Agent'
-$DockerInstallerUrl = 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe'
-$LegacyWslKernelUrl = 'https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi'
+$ScraperVersion = '1.18.1'
+$ScraperExe = Join-Path $InstallDir 'google-maps-scraper.exe'
+$ScraperUrl = "https://github.com/gosom/google-maps-scraper/releases/download/v$ScraperVersion/google_maps_scraper-$ScraperVersion-windows-amd64.exe"
+$ScraperSha256 = 'c124fab30f12e4aae25ef52f38eb2bea5422ece708b3171ca0f34be56cf7848f'
 $MetaBspUrl = $MetaBspUrl.TrimEnd('/')
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -18,62 +21,8 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
   throw 'Run PowerShell as Administrator, then run this installer again.'
 }
 
-Write-Host 'Checking Windows requirements...'
-$os = Get-CimInstance Win32_OperatingSystem
-$build = [int]$os.BuildNumber
-if ($build -lt 19045) {
-  throw "Docker Desktop requires Windows 10 22H2 build 19045 or newer. This PC is build $build. Run Windows Update first."
-}
-$ramGb = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
-if ($ramGb -lt 8) {
-  throw "Docker Desktop requires at least 8 GB RAM. This PC reports $ramGb GB."
-}
-$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-if ($cpu.VirtualizationFirmwareEnabled -eq $false) {
-  throw 'Hardware virtualization is disabled. Enable Intel VT-x/AMD-V (Virtualization Technology) in BIOS/UEFI, restart Windows, then run this installer again.'
-}
-
-Write-Host 'Checking WSL 2 prerequisites...'
-$restartNeeded = $false
-foreach ($featureName in @('Microsoft-Windows-Subsystem-Linux', 'VirtualMachinePlatform')) {
-  $feature = Get-WindowsOptionalFeature -Online -FeatureName $featureName
-  if ($feature.State -ne 'Enabled') {
-    Write-Host "Enabling Windows feature: $featureName"
-    $result = Enable-WindowsOptionalFeature -Online -FeatureName $featureName -All -NoRestart
-    if ($result.RestartNeeded) { $restartNeeded = $true }
-  }
-}
-if ($restartNeeded) {
-  Write-Host ''
-  Write-Host 'WSL 2 prerequisites were enabled successfully.' -ForegroundColor Green
-  Write-Host 'RESTART WINDOWS. After restart, open MetaBSP > Business Lead Finder > Local PC Setup, generate a fresh setup code, and run the installer again.' -ForegroundColor Yellow
-  exit 3010
-}
-
-if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
-  throw 'WSL is not available yet. Restart Windows first. If this continues after restart, run Windows Update and try again.'
-}
-
-$wslHelp = (& wsl.exe --help 2>&1 | Out-String)
-if ($wslHelp -match '--update') {
-  Write-Host 'Updating WSL...'
-  & wsl.exe --update
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host 'WSL update returned a warning. Continuing to verify WSL 2.' -ForegroundColor Yellow
-  }
-} else {
-  Write-Host 'Older inbox WSL detected. Installing the Microsoft WSL 2 kernel update...'
-  $kernelMsi = Join-Path $env:TEMP 'wsl_update_x64.msi'
-  Invoke-WebRequest -UseBasicParsing $LegacyWslKernelUrl -OutFile $kernelMsi
-  $kernelInstall = Start-Process msiexec.exe -Wait -PassThru -ArgumentList @('/i', "`"$kernelMsi`"", '/passive', '/norestart')
-  if ($kernelInstall.ExitCode -notin @(0, 3010)) {
-    throw "WSL 2 kernel installer failed with exit code $($kernelInstall.ExitCode). Run Windows Update and try again."
-  }
-}
-
-& wsl.exe --set-default-version 2
-if ($LASTEXITCODE -ne 0) {
-  throw 'WSL 2 is not ready yet. Restart Windows once, then rerun this installer.'
+if (-not [Environment]::Is64BitOperatingSystem) {
+  throw 'This Lead Finder installer currently requires 64-bit Windows.'
 }
 
 function New-LocalAgentToken {
@@ -92,6 +41,39 @@ function Get-Sha256Hex {
   } finally { $sha.Dispose() }
 }
 
+Write-Host 'Preparing MetaBSP Lead Finder local runtime...'
+New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+New-Item -ItemType Directory -Path $DataDir -Force | Out-Null
+
+$downloadScraper = $true
+if (Test-Path $ScraperExe) {
+  try {
+    $existingHash = (Get-FileHash -Algorithm SHA256 -Path $ScraperExe).Hash.ToLowerInvariant()
+    if ($existingHash -eq $ScraperSha256) { $downloadScraper = $false }
+  } catch {}
+}
+
+if ($downloadScraper) {
+  Write-Host "Downloading Google Maps Scraper v$ScraperVersion for Windows..."
+  $tempScraper = Join-Path $env:TEMP "google-maps-scraper-$ScraperVersion.exe"
+  Invoke-WebRequest -UseBasicParsing $ScraperUrl -OutFile $tempScraper
+  $actualHash = (Get-FileHash -Algorithm SHA256 -Path $tempScraper).Hash.ToLowerInvariant()
+  if ($actualHash -ne $ScraperSha256) {
+    Remove-Item $tempScraper -Force -ErrorAction SilentlyContinue
+    throw 'Downloaded Google Maps scraper failed SHA-256 verification.'
+  }
+  Move-Item $tempScraper $ScraperExe -Force
+  Unblock-File -Path $ScraperExe -ErrorAction SilentlyContinue
+}
+
+Write-Host 'Verifying native scraper executable...'
+$helpOutput = & $ScraperExe -h 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0 -and -not $helpOutput) {
+  throw 'The native Google Maps scraper could not start on this Windows PC.'
+}
+
+Invoke-WebRequest "$RawBase/lead-finder-agent.ps1" -UseBasicParsing -OutFile (Join-Path $InstallDir 'lead-finder-agent.ps1')
+
 if (-not $AgentToken) {
   if (-not $SetupCode) {
     throw 'A SetupCode is required. Open MetaBSP > Business Lead Finder > Local PC Setup and copy the current install command.'
@@ -106,93 +88,43 @@ if (-not $AgentToken) {
   Invoke-RestMethod -Uri "$MetaBspUrl/api/lead-finder/agent/bootstrap" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 60 | Out-Null
 }
 
-New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 $config = @{
   metaBspUrl = $MetaBspUrl
   agentToken = $AgentToken
+  scraperExe = $ScraperExe
+  scraperDataDir = $DataDir
 } | ConvertTo-Json
 Set-Content -Path (Join-Path $InstallDir 'config.json') -Value $config -Encoding UTF8
-
-function Find-DockerCli {
-  $command = Get-Command docker.exe -ErrorAction SilentlyContinue
-  if ($command) { return $command.Source }
-  foreach ($candidate in @(
-    (Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\resources\bin\docker.exe'),
-    'C:\Program Files\Docker\Docker\resources\bin\docker.exe'
-  )) {
-    if (Test-Path $candidate) { return $candidate }
-  }
-  return $null
-}
-
-function Find-DockerDesktop {
-  foreach ($candidate in @(
-    (Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\Docker Desktop.exe'),
-    'C:\Program Files\Docker\Docker\Docker Desktop.exe'
-  )) {
-    if (Test-Path $candidate) { return $candidate }
-  }
-  return $null
-}
-
-$DockerExe = Find-DockerCli
-if (-not $DockerExe) {
-  Write-Host 'Docker Desktop is not installed. Downloading the official installer...'
-  $dockerInstaller = Join-Path $env:TEMP 'DockerDesktopInstaller.exe'
-  Invoke-WebRequest -UseBasicParsing $DockerInstallerUrl -OutFile $dockerInstaller
-  Write-Host 'Installing Docker Desktop with the WSL 2 backend...'
-  $process = Start-Process $dockerInstaller -Wait -PassThru -ArgumentList @('install', '--user', '--backend=wsl-2', '--accept-license')
-  if ($process.ExitCode -ne 0) {
-    throw "Docker Desktop installer failed with exit code $($process.ExitCode). Verify Windows is fully updated and virtualization is enabled, then run this installer again."
-  }
-  $DockerExe = Find-DockerCli
-  if (-not $DockerExe) {
-    throw 'Docker Desktop finished installing but docker.exe was not found. Restart Windows once, then run this installer again.'
-  }
-}
-
-Invoke-WebRequest "$RawBase/docker-compose.yml" -UseBasicParsing -OutFile (Join-Path $InstallDir 'docker-compose.yml')
-Invoke-WebRequest "$RawBase/lead-finder-agent.ps1" -UseBasicParsing -OutFile (Join-Path $InstallDir 'lead-finder-agent.ps1')
-
-$dockerDesktop = Find-DockerDesktop
-try { & $DockerExe info | Out-Null } catch {
-  if ($dockerDesktop) {
-    Start-Process $dockerDesktop
-    Write-Host 'Starting Docker Desktop...'
-  }
-}
-
-$dockerReady = $false
-for ($i = 0; $i -lt 48; $i++) {
-  try { & $DockerExe info | Out-Null; $dockerReady = $true; break } catch { Start-Sleep -Seconds 5 }
-}
-if (-not $dockerReady) {
-  throw 'Docker Desktop did not become ready. Open Docker Desktop once, accept any first-run agreement, make sure it shows Engine running, then run this installer again.'
-}
-
-& $DockerExe compose -f (Join-Path $InstallDir 'docker-compose.yml') up -d
-if ($LASTEXITCODE -ne 0) { throw 'Could not start the Google Maps scraper container.' }
-
-$healthy = $false
-for ($i = 0; $i -lt 18; $i++) {
-  try {
-    Invoke-RestMethod 'http://127.0.0.1:8080/api/v1/jobs' -TimeoutSec 5 | Out-Null
-    $healthy = $true
-    break
-  } catch { Start-Sleep -Seconds 5 }
-}
-if (-not $healthy) { throw 'Google Maps scraper did not become healthy on localhost:8080.' }
 
 $agentPath = Join-Path $InstallDir 'lead-finder-agent.ps1'
 $configPath = Join-Path $InstallDir 'config.json'
 $arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$agentPath`" -ConfigPath `"$configPath`""
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Description 'Runs the MetaBSP Google Maps Lead Finder on this PC.' -RunLevel Highest -Force | Out-Null
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Description 'Runs the MetaBSP Google Maps Lead Finder on this PC.' -RunLevel Highest -Force | Out-Null
 Start-ScheduledTask -TaskName $TaskName
+
+Write-Host 'Starting native scraper and checking localhost API...'
+$healthy = $false
+for ($i = 0; $i -lt 36; $i++) {
+  try {
+    Invoke-RestMethod 'http://127.0.0.1:8080/api/v1/jobs' -TimeoutSec 5 | Out-Null
+    $healthy = $true
+    break
+  } catch { Start-Sleep -Seconds 5 }
+}
+if (-not $healthy) {
+  Write-Host ''
+  Write-Host 'The native scraper was installed, but its localhost API is not ready yet.' -ForegroundColor Yellow
+  Write-Host 'Open Task Scheduler > MetaBSP Lead Finder Agent, run it once, then check this page again.' -ForegroundColor Yellow
+  throw 'Google Maps scraper did not become healthy on localhost:8080.'
+}
 
 Write-Host ''
 Write-Host 'MetaBSP Lead Finder local agent installed successfully.' -ForegroundColor Green
-Write-Host 'Scraper: http://127.0.0.1:8080 (localhost only)'
+Write-Host "Scraper: $ScraperExe"
+Write-Host 'API: http://127.0.0.1:8080 (localhost only)'
 Write-Host "Startup task: $TaskName"
+Write-Host 'Docker and WSL are not required for this setup.' -ForegroundColor Green
 Write-Host 'Open MetaBSP > Business Lead Finder. Office PC should show Online within about 30 seconds.'
