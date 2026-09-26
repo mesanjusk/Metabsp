@@ -15,6 +15,7 @@ import {
   DialogTitle,
   FormControlLabel,
   Grid,
+  LinearProgress,
   Stack,
   TextField,
   Typography,
@@ -55,6 +56,12 @@ export default function LeadFinderPage() {
 
   const activeJob = jobs.find((j) => ['queued', 'running'].includes(j.status));
   const latestJob = jobs[0];
+  const activeProgress = activeJob
+    ? Math.min(99, Math.max(1, Number(activeJob.progressPercent ?? (activeJob.status === 'queued' ? 5 : 20))))
+    : 0;
+  const activeStage = activeJob?.progressStage || (activeJob?.status === 'queued'
+    ? 'Queued — waiting for office PC'
+    : 'Searching Google Maps');
 
   const load = async () => {
     const jr = await fetchLeadSearches();
@@ -69,7 +76,7 @@ export default function LeadFinderPage() {
       const sr = await fetchLeadFinderStatus();
       setScraperStatus(sr.data?.data || { configured: false, online: false, message: 'Lead Finder status unavailable' });
     } catch {
-      setScraperStatus({ configured: false, online: false, message: 'Lead Finder status unavailable', mode: 'local_agent', canSetup: false });
+      setScraperStatus((current) => ({ ...current, message: 'Status refresh temporarily unavailable' }));
     }
   };
 
@@ -106,7 +113,7 @@ export default function LeadFinderPage() {
   }, []);
   useEffect(() => {
     if (!activeJob) return undefined;
-    const t = setInterval(() => load().catch(() => {}), 5000);
+    const t = setInterval(() => load().catch(() => {}), 2500);
     return () => clearInterval(t);
   }, [activeJob?._id, activeJob?.status]);
 
@@ -175,7 +182,19 @@ export default function LeadFinderPage() {
       <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Max results" inputProps={{ min: 1, max: 100 }} value={limit} onChange={(e) => setLimit(Number(e.target.value))} /></Grid>
       <Grid item xs={12} md={2}><Button fullWidth variant="contained" startIcon={busy ? <CircularProgress size={18} color="inherit" /> : <SearchRoundedIcon />} disabled={busy || Boolean(activeJob) || !businessType.trim() || !location.trim() || !scraperStatus.online} onClick={run} sx={{ height: 56 }}>Find leads</Button></Grid>
       <Grid item xs={12}><FormControlLabel control={<Checkbox checked={emailEnabled} onChange={(e) => setEmailEnabled(e.target.checked)} />} label="Find emails" /><FormControlLabel control={<Checkbox checked={socialEnabled} onChange={(e) => setSocialEnabled(e.target.checked)} />} label="Find social profiles (slower)" /></Grid>
-    </Grid>{message ? <Typography sx={{ mt: 1.5 }} color="text.secondary">{message}</Typography> : null}</CardContent></Card>
+    </Grid>
+    {message ? <Typography sx={{ mt: 1.5 }} color="text.secondary">{message}</Typography> : null}
+    {activeJob ? <Box sx={{ mt: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 1 }}>
+        <Typography fontWeight={800}>{activeStage}</Typography>
+        <Typography variant="body2" fontWeight={800}>{activeProgress}%</Typography>
+      </Stack>
+      <LinearProgress variant="determinate" value={activeProgress} sx={{ height: 9, borderRadius: 99 }} />
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+        Keep the office PC on and connected. Results will appear automatically when processing is complete.
+      </Typography>
+    </Box> : null}
+    </CardContent></Card>
 
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }} alignItems={{ md: 'center' }}>
       <Chip label={`Found ${stats.total}`} /><Chip label={`Phone ${stats.phone}`} /><Chip label={`Email ${stats.email}`} /><Chip label={`Converted ${stats.converted}`} />
@@ -195,7 +214,7 @@ export default function LeadFinderPage() {
       <DialogTitle>Local PC Setup Guide</DialogTitle>
       <DialogContent dividers>
         <Typography color="text.secondary" sx={{ mb: 1 }}>
-          Run these steps on the Windows PC that will perform Google Maps searches. Use PowerShell as Administrator.
+          Run these steps only for first-time setup or repair/update. Normal Lead Finder searches do not require PowerShell.
         </Typography>
         <Typography variant="body2" fontWeight={700} sx={{ mb: 2 }}>
           Native Windows setup — Docker Desktop and WSL are not required.

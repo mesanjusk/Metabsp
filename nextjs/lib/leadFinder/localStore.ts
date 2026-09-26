@@ -21,6 +21,8 @@ export type LocalLeadSearchJob = {
   emailEnabled: boolean;
   socialEnabled: boolean;
   status: 'queued' | 'running' | 'completed' | 'failed';
+  progressPercent: number;
+  progressStage: string;
   totalFound: number;
   error: string;
   createdAt: string;
@@ -60,13 +62,15 @@ function jobKey(id: string) { return `${JOB_PREFIX}${id}`; }
 function leadsKey(id: string) { return `${LEADS_PREFIX}${id}`; }
 function userJobsKey(userId: string) { return `${USER_JOBS_PREFIX}${userId}`; }
 
-export async function createLocalLeadSearchJob(input: Omit<LocalLeadSearchJob, '_id' | 'status' | 'totalFound' | 'error' | 'createdAt' | 'updatedAt' | 'startedAt' | 'completedAt'>) {
+export async function createLocalLeadSearchJob(input: Omit<LocalLeadSearchJob, '_id' | 'status' | 'progressPercent' | 'progressStage' | 'totalFound' | 'error' | 'createdAt' | 'updatedAt' | 'startedAt' | 'completedAt'>) {
   const redis = getRedisConnection();
   const now = new Date().toISOString();
   const job: LocalLeadSearchJob = {
     ...input,
     _id: crypto.randomBytes(12).toString('hex'),
     status: 'queued',
+    progressPercent: 5,
+    progressStage: 'Queued — waiting for office PC',
     totalFound: 0,
     error: '',
     createdAt: now,
@@ -125,6 +129,8 @@ async function requeueStaleLocalLeadSearches() {
     if (job && job.status === 'running') {
       job.status = 'queued';
       job.startedAt = null;
+      job.progressPercent = 5;
+      job.progressStage = 'Queued again — reconnecting to office PC';
       job.error = 'Previous local agent run stopped before completion; queued again.';
       await saveLocalLeadSearchJob(job);
       await redis.rpush(QUEUE_KEY, id);
@@ -145,11 +151,25 @@ export async function claimNextLocalLeadSearch() {
     job.startedAt = new Date().toISOString();
     job.completedAt = null;
     job.error = '';
+    job.progressPercent = 10;
+    job.progressStage = 'Starting search on office PC';
     await saveLocalLeadSearchJob(job);
     await redis.zadd(RUNNING_KEY, Date.now(), id);
     return job;
   }
   return null;
+}
+
+export async function updateLocalLeadSearchProgress(jobId: string, percent: number, stage: string) {
+  const redis = getRedisConnection();
+  const job = await getLocalLeadSearchJob(jobId);
+  if (!job || job.status !== 'running') return job;
+  const safePercent = Math.max(10, Math.min(99, Math.round(Number(percent) || 10)));
+  job.progressPercent = Math.max(Number(job.progressPercent || 0), safePercent);
+  job.progressStage = String(stage || job.progressStage || 'Searching Google Maps').slice(0, 160);
+  await saveLocalLeadSearchJob(job);
+  await redis.zadd(RUNNING_KEY, Date.now(), jobId);
+  return job;
 }
 
 export async function completeLocalLeadSearch(jobId: string, leads: LocalProspectLead[]) {
@@ -159,6 +179,8 @@ export async function completeLocalLeadSearch(jobId: string, leads: LocalProspec
   await redis.set(leadsKey(jobId), JSON.stringify(leads), 'EX', JOB_TTL_SECONDS);
   await redis.zrem(RUNNING_KEY, jobId);
   job.status = 'completed';
+  job.progressPercent = 100;
+  job.progressStage = 'Completed';
   job.totalFound = leads.length;
   job.error = '';
   job.completedAt = new Date().toISOString();
@@ -172,6 +194,7 @@ export async function failLocalLeadSearch(jobId: string, error: unknown) {
   if (!job) return null;
   await redis.zrem(RUNNING_KEY, jobId);
   job.status = 'failed';
+  job.progressStage = 'Search failed';
   job.error = String((error as any)?.message || error || 'Lead search failed').slice(0, 1000);
   job.completedAt = new Date().toISOString();
   await saveLocalLeadSearchJob(job);
