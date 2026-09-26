@@ -3,10 +3,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.0.0'
+$AgentVersion = '1.1.0'
 $ScraperUrl = 'http://127.0.0.1:8080'
-$ComposeFile = Join-Path $PSScriptRoot 'docker-compose.yml'
-$DockerDesktop = 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
+$ScraperStartAttemptedAt = $null
 
 if (-not (Test-Path $ConfigPath)) {
   throw "Missing config file: $ConfigPath"
@@ -15,30 +14,19 @@ if (-not (Test-Path $ConfigPath)) {
 $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
 $MetaBspUrl = ([string]$config.metaBspUrl).TrimEnd('/')
 $AgentToken = [string]$config.agentToken
+$ScraperExe = [string]$config.scraperExe
+$ScraperDataDir = [string]$config.scraperDataDir
 if (-not $MetaBspUrl -or -not $AgentToken) {
   throw 'config.json must contain metaBspUrl and agentToken'
 }
+if (-not $ScraperExe) { $ScraperExe = Join-Path $PSScriptRoot 'google-maps-scraper.exe' }
+if (-not $ScraperDataDir) { $ScraperDataDir = Join-Path $PSScriptRoot 'data' }
 
 $AgentHeaders = @{ Authorization = "Bearer $AgentToken" }
-$DockerStartAttempted = $false
 
 function Invoke-AgentApi {
   param([string]$Path, [hashtable]$Body)
   return Invoke-RestMethod -Uri "$MetaBspUrl$Path" -Method Post -Headers $AgentHeaders -ContentType 'application/json' -Body ($Body | ConvertTo-Json -Depth 8 -Compress) -TimeoutSec 60
-}
-
-function Ensure-Docker {
-  try {
-    docker info | Out-Null
-    return $true
-  } catch {
-    if (-not $script:DockerStartAttempted -and (Test-Path $DockerDesktop)) {
-      $script:DockerStartAttempted = $true
-      Start-Process $DockerDesktop
-      Write-Host 'Starting Docker Desktop...'
-    }
-    return $false
-  }
 }
 
 function Test-Scraper {
@@ -51,15 +39,28 @@ function Test-Scraper {
 }
 
 function Ensure-Scraper {
-  if (-not (Ensure-Docker)) { return $false }
   if (Test-Scraper) { return $true }
-  try {
-    & docker compose -f $ComposeFile up -d | Out-Null
-  } catch {
-    Write-Host "Docker is not ready: $($_.Exception.Message)"
+  if (-not (Test-Path $ScraperExe)) {
+    Write-Host "Missing Google Maps scraper executable: $ScraperExe"
     return $false
   }
-  for ($i = 0; $i -lt 12; $i++) {
+
+  $now = Get-Date
+  if ($script:ScraperStartAttemptedAt -and (($now - $script:ScraperStartAttemptedAt).TotalSeconds -lt 90)) {
+    return $false
+  }
+
+  try {
+    New-Item -ItemType Directory -Path $ScraperDataDir -Force | Out-Null
+    $script:ScraperStartAttemptedAt = $now
+    Start-Process -FilePath $ScraperExe -ArgumentList @('-web', '-addr', '127.0.0.1:8080', '-data-folder', $ScraperDataDir) -WindowStyle Hidden
+    Write-Host 'Starting native Google Maps scraper...'
+  } catch {
+    Write-Host "Could not start native scraper: $($_.Exception.Message)"
+    return $false
+  }
+
+  for ($i = 0; $i -lt 24; $i++) {
     Start-Sleep -Seconds 5
     if (Test-Scraper) { return $true }
   }
@@ -69,7 +70,7 @@ function Ensure-Scraper {
 function Get-Coordinates {
   param([string]$Location)
   $encoded = [uri]::EscapeDataString($Location)
-  $headers = @{ 'User-Agent' = 'MetaBSP-LeadFinder-Agent/1.0' }
+  $headers = @{ 'User-Agent' = 'MetaBSP-LeadFinder-Agent/1.1' }
   $rows = Invoke-RestMethod -Uri "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=$encoded" -Headers $headers -TimeoutSec 30
   if (-not $rows -or -not $rows[0].lat -or -not $rows[0].lon) {
     throw "Could not find coordinates for $Location"
@@ -115,7 +116,7 @@ Write-Host 'MetaBSP Lead Finder agent started.'
 while ($true) {
   try {
     if (-not (Ensure-Scraper)) {
-      Write-Host 'Waiting for Docker/Google Maps scraper...'
+      Write-Host 'Waiting for native Google Maps scraper...'
       Start-Sleep -Seconds 20
       continue
     }
