@@ -6,6 +6,9 @@ const leadFinderAgentSchema = new Schema(
     hostname: { type: String, default: '', trim: true },
     version: { type: String, default: '', trim: true },
     lastSeenAt: { type: Date, default: null, index: true },
+    setupCodeHash: { type: String, default: '', select: false },
+    setupCodeExpiresAt: { type: Date, default: null, select: false },
+    setupCodeUsedAt: { type: Date, default: null, select: false },
   },
   { timestamps: true }
 );
