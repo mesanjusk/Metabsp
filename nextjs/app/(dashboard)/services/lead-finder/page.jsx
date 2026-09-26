@@ -1,13 +1,33 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, FormControlLabel, Grid, Stack, TextField, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  Grid,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import ComputerRoundedIcon from '@mui/icons-material/ComputerRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import {
   fetchLeadSearches,
   fetchLeadFinderStatus,
+  fetchLeadFinderSetup,
   fetchProspectLeads,
   startLeadSearch,
   convertProspectLeads,
@@ -26,7 +46,12 @@ export default function LeadFinderPage() {
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [scraperStatus, setScraperStatus] = useState({ configured: false, online: false, message: 'Checking office PC…', mode: 'local_agent' });
+  const [scraperStatus, setScraperStatus] = useState({ configured: false, online: false, message: 'Checking office PC…', mode: 'local_agent', canSetup: false });
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [setupData, setSetupData] = useState(null);
+  const [setupError, setSetupError] = useState('');
+  const [copiedStep, setCopiedStep] = useState(null);
 
   const activeJob = jobs.find((j) => ['queued', 'running'].includes(j.status));
   const latestJob = jobs[0];
@@ -44,7 +69,33 @@ export default function LeadFinderPage() {
       const sr = await fetchLeadFinderStatus();
       setScraperStatus(sr.data?.data || { configured: false, online: false, message: 'Lead Finder status unavailable' });
     } catch {
-      setScraperStatus({ configured: false, online: false, message: 'Lead Finder status unavailable', mode: 'local_agent' });
+      setScraperStatus({ configured: false, online: false, message: 'Lead Finder status unavailable', mode: 'local_agent', canSetup: false });
+    }
+  };
+
+  const openSetup = async () => {
+    setSetupOpen(true);
+    setSetupLoading(true);
+    setSetupData(null);
+    setSetupError('');
+    setCopiedStep(null);
+    try {
+      const response = await fetchLeadFinderSetup();
+      setSetupData(response.data?.data || null);
+    } catch (error) {
+      setSetupError(error?.response?.data?.message || error?.response?.data?.error || error?.message || 'Could not prepare local PC setup.');
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
+  const copyCommand = async (command, index) => {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopiedStep(index);
+      setTimeout(() => setCopiedStep((current) => current === index ? null : current), 1800);
+    } catch {
+      setCopiedStep(null);
     }
   };
 
@@ -103,13 +154,16 @@ export default function LeadFinderPage() {
 
   return <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: 'auto' }}>
     <Stack spacing={.75} sx={{ mb: 3 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
-        <Typography variant="h4" fontWeight={800}>Business Lead Finder</Typography>
-        <Chip
-          size="small"
-          color={scraperStatus.online ? 'success' : scraperStatus.configured ? 'warning' : 'default'}
-          label={scraperStatus.online ? 'Office PC Online' : scraperStatus.configured ? 'Office PC Offline' : 'Local Agent Not Configured'}
-        />
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ sm: 'center' }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+          <Typography variant="h4" fontWeight={800}>Business Lead Finder</Typography>
+          <Chip
+            size="small"
+            color={scraperStatus.online ? 'success' : scraperStatus.configured ? 'warning' : 'default'}
+            label={scraperStatus.online ? 'Office PC Online' : scraperStatus.configured ? 'Office PC Offline' : 'Local Agent Not Configured'}
+          />
+        </Stack>
+        {scraperStatus.mode === 'local_agent' && scraperStatus.canSetup ? <Button variant="outlined" startIcon={<ComputerRoundedIcon />} onClick={openSetup}>Local PC Setup</Button> : null}
       </Stack>
       <Typography color="text.secondary">Find local businesses from Google Maps, review them, then add selected prospects to Contacts.</Typography>
       <Typography variant="body2" color={scraperStatus.online ? 'success.main' : 'text.secondary'}>{scraperStatus.message}</Typography>
@@ -136,5 +190,37 @@ export default function LeadFinderPage() {
       <Box sx={{ minWidth: 0, flex: 1 }}><Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center"><Typography fontWeight={800}>{lead.name}</Typography>{lead.category ? <Chip size="small" label={lead.category} /> : null}{lead.status === 'converted' ? <Chip size="small" color="success" label="In Contacts" /> : null}</Stack><Typography variant="body2" color="text.secondary">{lead.address || 'No address'}</Typography><Typography variant="body2" sx={{ mt: .5 }}>{lead.phone || 'No phone'}{lead.email ? ` • ${lead.email}` : ''}</Typography><Typography variant="body2" color="text.secondary">{lead.rating ? `★ ${lead.rating} · ${lead.reviewCount || 0} reviews` : 'No rating'}{lead.website ? ` • ${lead.website}` : ''}</Typography></Box>
     </CardContent></Card>)}</Stack>
     {!leads.length && !activeJob ? <Typography color="text.secondary" sx={{ py: 6, textAlign: 'center' }}>{scraperStatus.online ? 'No leads yet. Start your first search above.' : 'Turn on the office PC and Lead Finder agent to start searching.'}</Typography> : null}
+
+    <Dialog open={setupOpen} onClose={() => setSetupOpen(false)} fullWidth maxWidth="md">
+      <DialogTitle>Local PC Setup</DialogTitle>
+      <DialogContent dividers>
+        <Typography color="text.secondary" sx={{ mb: 2 }}>
+          Run these steps on the Windows PC that will perform Google Maps searches. Use PowerShell as Administrator. Commands are generated for this MetaBSP deployment.
+        </Typography>
+        {setupLoading ? <Stack alignItems="center" sx={{ py: 5 }}><CircularProgress /></Stack> : null}
+        {setupError ? <Typography color="error" sx={{ py: 2 }}>{setupError}</Typography> : null}
+        {!setupLoading && setupData?.commands ? <Stack spacing={2}>
+          {setupData.commands.map((step, index) => <Box key={`${step.title}-${index}`} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ sm: 'center' }}>
+              <Box>
+                <Typography fontWeight={800}>{step.title}{step.optional ? ' (optional)' : ''}</Typography>
+                <Typography variant="body2" color="text.secondary">{step.note}</Typography>
+              </Box>
+              <Button size="small" variant="outlined" startIcon={<ContentCopyRoundedIcon />} onClick={() => copyCommand(step.command, index)}>
+                {copiedStep === index ? 'Copied' : 'Copy'}
+              </Button>
+            </Stack>
+            <Box component="pre" sx={{ mt: 1.5, mb: 0, p: 1.5, borderRadius: 1.5, bgcolor: 'action.hover', overflowX: 'auto', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 13 }}>
+              {step.command}
+            </Box>
+          </Box>)}
+          {setupData.expiresAt ? <Typography variant="caption" color="text.secondary">The setup code in step 4 is one-time and expires after 15 minutes. Reopen this popup to generate a fresh code.</Typography> : null}
+        </Stack> : null}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setSetupOpen(false)}>Close</Button>
+        <Button variant="contained" onClick={openSetup} disabled={setupLoading}>Generate Fresh Commands</Button>
+      </DialogActions>
+    </Dialog>
   </Box>;
 }
