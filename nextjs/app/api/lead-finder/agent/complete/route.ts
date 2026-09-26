@@ -5,16 +5,33 @@ import AppError from '@/lib/utils/AppError';
 import { requireLeadFinderAgent } from '@/lib/leadFinder/agentAuth';
 import { failLeadFinderSearch, processLeadFinderCsv } from '@/lib/leadFinder/scraperClient';
 import LeadSearchJob from '@/lib/models/LeadSearchJob';
+import { failLocalLeadFinderCsvSearch, processLocalLeadFinderCsv } from '@/lib/leadFinder/localCsv';
+import { getLocalLeadSearchJob } from '@/lib/leadFinder/localStore';
 
 export async function POST(req: NextRequest) {
   try {
     await requireLeadFinderAgent(req);
     const mode = String(process.env.LEAD_FINDER_MODE || 'local_agent').trim().toLowerCase();
-    if (mode !== 'local_agent') throw new AppError('Lead Finder local agent mode is disabled', 409);
-    await connectDB();
     const body = await req.json();
     const jobId = String(body?.jobId || '').trim();
     if (!jobId) throw new AppError('jobId is required', 400);
+
+    if (mode === 'local_agent') {
+      const job = await getLocalLeadSearchJob(jobId);
+      if (!job) throw new AppError('Lead search job not found', 404);
+      if (body?.success === false) {
+        await failLocalLeadFinderCsvSearch(jobId, String(body?.error || 'Local scraper failed'));
+        return NextResponse.json({ success: true, data: { status: 'failed' } });
+      }
+      const csv = String(body?.csv || '');
+      if (!csv.trim()) throw new AppError('CSV results are required', 400);
+      if (Buffer.byteLength(csv, 'utf8') > 5 * 1024 * 1024) throw new AppError('Lead result payload is too large', 413);
+      const result = await processLocalLeadFinderCsv(jobId, csv);
+      return NextResponse.json({ success: true, data: result });
+    }
+
+    if (mode !== 'remote') throw new AppError('Lead Finder mode is invalid', 409);
+    await connectDB();
     const job: any = await LeadSearchJob.findById(jobId);
     if (!job) throw new AppError('Lead search job not found', 404);
 
