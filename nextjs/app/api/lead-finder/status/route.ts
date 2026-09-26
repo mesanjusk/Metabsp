@@ -13,16 +13,17 @@ function mode() {
 
 export async function GET(req: NextRequest) {
   try {
-    await requireAuth(req);
+    const authed = await requireAuth(req);
+    const canSetup = Boolean(authed.isAdmin);
     const currentMode = mode();
     if (currentMode === 'remote') {
       const remote = await getRemoteLeadScraperStatus();
-      return NextResponse.json({ success: true, data: { mode: 'remote', ...remote } });
+      return NextResponse.json({ success: true, data: { mode: 'remote', ...remote, canSetup: false } });
     }
 
     const configured = Boolean(String(process.env.LEAD_FINDER_AGENT_TOKEN || '').trim());
     if (!configured) {
-      return NextResponse.json({ success: true, data: { mode: 'local_agent', configured: false, online: false, message: 'Local PC agent is not configured yet' } });
+      return NextResponse.json({ success: true, data: { mode: 'local_agent', configured: false, online: false, message: 'Local PC agent is not configured yet', canSetup } });
     }
     await connectDB();
     const agent: any = await LeadFinderAgent.findOne({ agentId: 'default' }).lean();
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
       mode: 'local_agent', configured: true, online,
       message: online ? `Office PC online${agent?.hostname ? ` (${agent.hostname})` : ''}` : 'Office PC agent is offline',
       lastSeenAt,
+      canSetup,
     } });
   } catch (error) {
     return errorResponse(error, 'Failed to check lead finder status');
