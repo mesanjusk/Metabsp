@@ -21,17 +21,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: { mode: 'remote', ...remote, canSetup: false } });
     }
 
-    const configured = Boolean(String(process.env.LEAD_FINDER_AGENT_TOKEN || '').trim());
-    if (!configured) {
-      return NextResponse.json({ success: true, data: { mode: 'local_agent', configured: false, online: false, message: 'Local PC agent is not configured yet', canSetup } });
-    }
     await connectDB();
-    const agent: any = await LeadFinderAgent.findOne({ agentId: 'default' }).lean();
+    const agent: any = await LeadFinderAgent.findOne({ agentId: 'default' }).select('+authTokenHash').lean();
+    const configured = Boolean(String(process.env.LEAD_FINDER_AGENT_TOKEN || '').trim() || agent?.authTokenHash);
     const lastSeenAt = agent?.lastSeenAt ? new Date(agent.lastSeenAt) : null;
     const online = Boolean(lastSeenAt && Date.now() - lastSeenAt.getTime() < 45000);
     return NextResponse.json({ success: true, data: {
-      mode: 'local_agent', configured: true, online,
-      message: online ? `Office PC online${agent?.hostname ? ` (${agent.hostname})` : ''}` : 'Office PC agent is offline',
+      mode: 'local_agent',
+      configured,
+      online,
+      message: online
+        ? `Office PC online${agent?.hostname ? ` (${agent.hostname})` : ''}`
+        : configured ? 'Office PC agent is offline' : 'Local PC agent is not configured yet',
       lastSeenAt,
       canSetup,
     } });
