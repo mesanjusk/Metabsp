@@ -67,9 +67,19 @@ if ($downloadScraper) {
 }
 
 Write-Host 'Verifying native scraper executable...'
-$helpOutput = & $ScraperExe -h 2>&1 | Out-String
-if ($LASTEXITCODE -ne 0 -and -not $helpOutput) {
-  throw 'The native Google Maps scraper could not start on this Windows PC.'
+$verifyStdout = Join-Path $env:TEMP 'metabsp-leadfinder-scraper-help.out'
+$verifyStderr = Join-Path $env:TEMP 'metabsp-leadfinder-scraper-help.err'
+try {
+  Remove-Item $verifyStdout, $verifyStderr -Force -ErrorAction SilentlyContinue
+  $verifyProcess = Start-Process -FilePath $ScraperExe -ArgumentList '-h' -Wait -PassThru -WindowStyle Hidden -RedirectStandardOutput $verifyStdout -RedirectStandardError $verifyStderr
+  $helpOutput = ''
+  if (Test-Path $verifyStdout) { $helpOutput += Get-Content -Raw -Path $verifyStdout -ErrorAction SilentlyContinue }
+  if (Test-Path $verifyStderr) { $helpOutput += Get-Content -Raw -Path $verifyStderr -ErrorAction SilentlyContinue }
+  if ($verifyProcess.ExitCode -ne 0 -and [string]::IsNullOrWhiteSpace($helpOutput)) {
+    throw 'The native Google Maps scraper could not start on this Windows PC.'
+  }
+} finally {
+  Remove-Item $verifyStdout, $verifyStderr -Force -ErrorAction SilentlyContinue
 }
 
 Invoke-WebRequest "$RawBase/lead-finder-agent.ps1" -UseBasicParsing -OutFile (Join-Path $InstallDir 'lead-finder-agent.ps1')
