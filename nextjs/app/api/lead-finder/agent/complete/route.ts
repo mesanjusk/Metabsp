@@ -8,7 +8,7 @@ import LeadSearchJob from '@/lib/models/LeadSearchJob';
 
 export async function POST(req: NextRequest) {
   try {
-    requireLeadFinderAgent(req);
+    await requireLeadFinderAgent(req);
     const mode = String(process.env.LEAD_FINDER_MODE || 'local_agent').trim().toLowerCase();
     if (mode !== 'local_agent') throw new AppError('Lead Finder local agent mode is disabled', 409);
     await connectDB();
