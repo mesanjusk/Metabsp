@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
-import { isExtensionWorkerConfigured } from '@/lib/video/core/browser/extension-auth';
 import { getExtensionPresence } from '@/lib/video/core/browser/extension-presence';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     await requireAuth(req);
-    const configured = isExtensionWorkerConfigured();
+    const configured = Boolean(String(process.env.BROWSER_EXTENSION_TOKEN || '').trim());
     const presence = configured ? await getExtensionPresence() : { connected: false };
     return NextResponse.json({
       success: true,
