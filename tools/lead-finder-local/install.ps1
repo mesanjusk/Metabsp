@@ -1,5 +1,6 @@
 param(
-  [Parameter(Mandatory = $true)][string]$AgentToken,
+  [string]$SetupCode = '',
+  [string]$AgentToken = '',
   [string]$MetaBspUrl = 'https://meta.sanjusk.in'
 )
 
@@ -8,6 +9,7 @@ $InstallDir = Join-Path $env:ProgramData 'MetaBSPLeadFinder'
 $RawBase = 'https://raw.githubusercontent.com/mesanjusk/Metabsp/main/tools/lead-finder-local'
 $TaskName = 'MetaBSP Lead Finder Agent'
 $DockerInstallerUrl = 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe'
+$MetaBspUrl = $MetaBspUrl.TrimEnd('/')
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
@@ -30,7 +32,7 @@ if ($cpu.VirtualizationFirmwareEnabled -eq $false) {
   throw 'Hardware virtualization is disabled. Enable Intel VT-x/AMD-V (Virtualization Technology) in BIOS/UEFI, restart Windows, then run this installer again.'
 }
 
-Write-Host 'Checking WSL 2...'
+Write-Host 'Checking WSL 2 prerequisites...'
 $restartNeeded = $false
 foreach ($featureName in @('Microsoft-Windows-Subsystem-Linux', 'VirtualMachinePlatform')) {
   $feature = Get-WindowsOptionalFeature -Online -FeatureName $featureName
@@ -43,19 +45,57 @@ foreach ($featureName in @('Microsoft-Windows-Subsystem-Linux', 'VirtualMachineP
 if ($restartNeeded) {
   Write-Host ''
   Write-Host 'WSL 2 prerequisites were enabled successfully.' -ForegroundColor Green
-  Write-Host 'RESTART WINDOWS, then open MetaBSP > Business Lead Finder > Local PC Setup and run the installer again.' -ForegroundColor Yellow
+  Write-Host 'RESTART WINDOWS. After restart, open MetaBSP > Business Lead Finder > Local PC Setup, generate a fresh setup code, and run the installer again.' -ForegroundColor Yellow
   exit 3010
 }
 
-if (Get-Command wsl.exe -ErrorAction SilentlyContinue) {
-  Write-Host 'Updating WSL...'
-  & wsl.exe --update
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host 'WSL update returned a warning. Continuing; Docker will verify WSL during startup.' -ForegroundColor Yellow
-  }
-} else {
-  throw 'WSL is unavailable even though its Windows features are enabled. Restart Windows, run Windows Update, then run this installer again.'
+if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+  throw 'WSL is not available yet. Restart Windows first. If this continues after restart, run Windows Update and try again.'
 }
+
+Write-Host 'Updating WSL...'
+& wsl.exe --update
+if ($LASTEXITCODE -ne 0) {
+  Write-Host 'WSL update returned a warning. Continuing; Docker Desktop will verify WSL during startup.' -ForegroundColor Yellow
+}
+& wsl.exe --set-default-version 2
+
+function New-LocalAgentToken {
+  $bytes = New-Object byte[] 32
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+  return [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+}
+
+function Get-Sha256Hex {
+  param([string]$Value)
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $hash = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Value))
+    return -join ($hash | ForEach-Object { $_.ToString('x2') })
+  } finally { $sha.Dispose() }
+}
+
+if (-not $AgentToken) {
+  if (-not $SetupCode) {
+    throw 'A SetupCode is required. Open MetaBSP > Business Lead Finder > Local PC Setup and copy the current install command.'
+  }
+  Write-Host 'Registering this PC with MetaBSP...'
+  $AgentToken = New-LocalAgentToken
+  $body = @{
+    setupCode = $SetupCode
+    authTokenHash = Get-Sha256Hex -Value $AgentToken
+    hostname = $env:COMPUTERNAME
+  } | ConvertTo-Json -Compress
+  Invoke-RestMethod -Uri "$MetaBspUrl/api/lead-finder/agent/bootstrap" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 60 | Out-Null
+}
+
+New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+$config = @{
+  metaBspUrl = $MetaBspUrl
+  agentToken = $AgentToken
+} | ConvertTo-Json
+Set-Content -Path (Join-Path $InstallDir 'config.json') -Value $config -Encoding UTF8
 
 function Find-DockerCli {
   $command = Get-Command docker.exe -ErrorAction SilentlyContinue
@@ -95,15 +135,8 @@ if (-not $DockerExe) {
   }
 }
 
-New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Invoke-WebRequest "$RawBase/docker-compose.yml" -UseBasicParsing -OutFile (Join-Path $InstallDir 'docker-compose.yml')
 Invoke-WebRequest "$RawBase/lead-finder-agent.ps1" -UseBasicParsing -OutFile (Join-Path $InstallDir 'lead-finder-agent.ps1')
-
-$config = @{
-  metaBspUrl = $MetaBspUrl.TrimEnd('/')
-  agentToken = $AgentToken
-} | ConvertTo-Json
-Set-Content -Path (Join-Path $InstallDir 'config.json') -Value $config -Encoding UTF8
 
 $dockerDesktop = Find-DockerDesktop
 try { & $DockerExe info | Out-Null } catch {
@@ -118,7 +151,7 @@ for ($i = 0; $i -lt 48; $i++) {
   try { & $DockerExe info | Out-Null; $dockerReady = $true; break } catch { Start-Sleep -Seconds 5 }
 }
 if (-not $dockerReady) {
-  throw 'Docker Desktop did not become ready. Open Docker Desktop once, finish any first-run setup, then run this installer again.'
+  throw 'Docker Desktop did not become ready. Open Docker Desktop once, accept any first-run agreement, make sure it shows Engine running, then run this installer again.'
 }
 
 & $DockerExe compose -f (Join-Path $InstallDir 'docker-compose.yml') up -d
