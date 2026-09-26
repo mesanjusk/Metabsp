@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$AgentVersion = '1.1.0'
+$AgentVersion = '1.2.0'
 $ScraperUrl = 'http://127.0.0.1:8080'
 $ScraperStartAttemptedAt = $null
 
@@ -27,6 +27,32 @@ $AgentHeaders = @{ Authorization = "Bearer $AgentToken" }
 function Invoke-AgentApi {
   param([string]$Path, [hashtable]$Body)
   return Invoke-RestMethod -Uri "$MetaBspUrl$Path" -Method Post -Headers $AgentHeaders -ContentType 'application/json' -Body ($Body | ConvertTo-Json -Depth 8 -Compress) -TimeoutSec 60
+}
+
+function Send-AgentHeartbeat {
+  try {
+    Invoke-AgentApi -Path '/api/lead-finder/agent/progress' -Body @{
+      hostname = $env:COMPUTERNAME
+      version = $AgentVersion
+    } | Out-Null
+  } catch {
+    Write-Host "Heartbeat error: $($_.Exception.Message)"
+  }
+}
+
+function Report-Progress {
+  param([string]$JobId, [int]$Percent, [string]$Stage)
+  try {
+    Invoke-AgentApi -Path '/api/lead-finder/agent/progress' -Body @{
+      hostname = $env:COMPUTERNAME
+      version = $AgentVersion
+      jobId = $JobId
+      progress = $Percent
+      stage = $Stage
+    } | Out-Null
+  } catch {
+    Write-Host "Progress update error: $($_.Exception.Message)"
+  }
 }
 
 function Test-Scraper {
@@ -62,6 +88,7 @@ function Ensure-Scraper {
 
   for ($i = 0; $i -lt 24; $i++) {
     Start-Sleep -Seconds 5
+    if (($i % 2) -eq 0) { Send-AgentHeartbeat }
     if (Test-Scraper) { return $true }
   }
   return $false
@@ -70,7 +97,7 @@ function Ensure-Scraper {
 function Get-Coordinates {
   param([string]$Location)
   $encoded = [uri]::EscapeDataString($Location)
-  $headers = @{ 'User-Agent' = 'MetaBSP-LeadFinder-Agent/1.1' }
+  $headers = @{ 'User-Agent' = 'MetaBSP-LeadFinder-Agent/1.2' }
   $rows = Invoke-RestMethod -Uri "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=$encoded" -Headers $headers -TimeoutSec 30
   if (-not $rows -or -not $rows[0].lat -or -not $rows[0].lon) {
     throw "Could not find coordinates for $Location"
@@ -80,7 +107,11 @@ function Get-Coordinates {
 
 function Invoke-LocalScrape {
   param($Job)
+  $jobId = [string]$Job.id
+  Report-Progress -JobId $jobId -Percent 15 -Stage 'Finding location coordinates'
   $coords = Get-Coordinates -Location ([string]$Job.location)
+
+  Report-Progress -JobId $jobId -Percent 25 -Stage 'Starting Google Maps search'
   $payload = @{
     name = "metabsp-$($Job.id)"
     keywords = @([string]$Job.query)
@@ -97,24 +128,35 @@ function Invoke-LocalScrape {
   $created = Invoke-RestMethod -Uri "$ScraperUrl/api/v1/jobs" -Method Post -ContentType 'application/json' -Body ($payload | ConvertTo-Json -Depth 5 -Compress) -TimeoutSec 60
   if (-not $created.id) { throw 'Local scraper did not return a job id' }
 
+  Report-Progress -JobId $jobId -Percent 30 -Stage 'Searching Google Maps'
   $status = ''
   for ($i = 0; $i -lt 90; $i++) {
     Start-Sleep -Seconds 8
     $poll = Invoke-RestMethod -Uri "$ScraperUrl/api/v1/jobs/$($created.id)" -Method Get -TimeoutSec 30
     if ($poll.Status) { $status = ([string]$poll.Status).ToLower() }
     elseif ($poll.status) { $status = ([string]$poll.status).ToLower() }
+
+    if (($i % 2) -eq 0) {
+      $percent = [Math]::Min(80, 30 + [Math]::Floor((($i + 1) / 90.0) * 50))
+      Report-Progress -JobId $jobId -Percent $percent -Stage 'Searching Google Maps'
+    }
+
     if ($status -eq 'ok') { break }
     if ($status -eq 'failed') { throw 'Google Maps scraper job failed' }
   }
   if ($status -ne 'ok') { throw 'Google Maps scraper timed out' }
 
+  Report-Progress -JobId $jobId -Percent 85 -Stage 'Downloading search results'
   $response = Invoke-WebRequest -Uri "$ScraperUrl/api/v1/jobs/$($created.id)/download" -Method Get -UseBasicParsing -TimeoutSec 60
+  Report-Progress -JobId $jobId -Percent 95 -Stage 'Processing leads'
   return [string]$response.Content
 }
 
 Write-Host 'MetaBSP Lead Finder agent started.'
 while ($true) {
   try {
+    Send-AgentHeartbeat
+
     if (-not (Ensure-Scraper)) {
       Write-Host 'Waiting for native Google Maps scraper...'
       Start-Sleep -Seconds 20
