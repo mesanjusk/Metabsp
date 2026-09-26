@@ -9,6 +9,7 @@ $InstallDir = Join-Path $env:ProgramData 'MetaBSPLeadFinder'
 $RawBase = 'https://raw.githubusercontent.com/mesanjusk/Metabsp/main/tools/lead-finder-local'
 $TaskName = 'MetaBSP Lead Finder Agent'
 $DockerInstallerUrl = 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe'
+$LegacyWslKernelUrl = 'https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi'
 $MetaBspUrl = $MetaBspUrl.TrimEnd('/')
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -53,12 +54,27 @@ if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
   throw 'WSL is not available yet. Restart Windows first. If this continues after restart, run Windows Update and try again.'
 }
 
-Write-Host 'Updating WSL...'
-& wsl.exe --update
-if ($LASTEXITCODE -ne 0) {
-  Write-Host 'WSL update returned a warning. Continuing; Docker Desktop will verify WSL during startup.' -ForegroundColor Yellow
+$wslHelp = (& wsl.exe --help 2>&1 | Out-String)
+if ($wslHelp -match '--update') {
+  Write-Host 'Updating WSL...'
+  & wsl.exe --update
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host 'WSL update returned a warning. Continuing to verify WSL 2.' -ForegroundColor Yellow
+  }
+} else {
+  Write-Host 'Older inbox WSL detected. Installing the Microsoft WSL 2 kernel update...'
+  $kernelMsi = Join-Path $env:TEMP 'wsl_update_x64.msi'
+  Invoke-WebRequest -UseBasicParsing $LegacyWslKernelUrl -OutFile $kernelMsi
+  $kernelInstall = Start-Process msiexec.exe -Wait -PassThru -ArgumentList @('/i', "`"$kernelMsi`"", '/passive', '/norestart')
+  if ($kernelInstall.ExitCode -notin @(0, 3010)) {
+    throw "WSL 2 kernel installer failed with exit code $($kernelInstall.ExitCode). Run Windows Update and try again."
+  }
 }
+
 & wsl.exe --set-default-version 2
+if ($LASTEXITCODE -ne 0) {
+  throw 'WSL 2 is not ready yet. Restart Windows once, then rerun this installer.'
+}
 
 function New-LocalAgentToken {
   $bytes = New-Object byte[] 32
