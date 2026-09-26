@@ -14,8 +14,7 @@ singleton that three subsystems all share:
 
 1. **BullMQ send queue** (`nextjs/lib/queues/whatsappSendQueue.ts` /
    `whatsappSendWorker.js`) — the broadcast-message job queue.
-2. **Rate limiter** (`rate-limit-redis`, wired in `backend/src/app.js`'s
-   middleware chain) — sliding-window counters keyed by `req.ip` or user
+2. **Rate limiter** (`nextjs/lib/http/rateLimit.ts`) — sliding-window counters keyed by `req.ip` or user
    ID.
 3. **Socket.IO Redis adapter** (`@socket.io/redis-adapter`, in
    `nextjs/lib/socket/server.js`) — pub/sub so `emit()` on one API instance
@@ -63,62 +62,48 @@ concern, not a backup one.)
 
 ### Connection pooling
 
-The app connects via `mongoose.connect(mongoURI, { autoIndex:
-!isProduction })` in `nextjs/lib/db/mongo.ts` and otherwise relies on
-Mongoose/the MongoDB Node driver's defaults (`maxPoolSize: 100` as of
-driver 4+, no explicit override in this codebase). At real concurrency,
-size `maxPoolSize` deliberately rather than leaving it implicit — a pool
-that's too small serializes requests behind pool-checkout waits; too large
-just wastes connections your Mongo tier has to hold open. If you add an
-explicit override, do it in `connectDB()`'s `mongoose.connect(...)` call
-site (add `maxPoolSize: N` alongside `autoIndex`), and size it relative to
-`(API replicas + worker replicas) × maxPoolSize ≤ your Mongo tier's
-connection limit`.
+The live application uses a deliberately small production pool in
+`nextjs/lib/db/mongo.ts`:
 
-### `autoIndex` is disabled in production — on purpose
-
-```js
-// autoIndex (and Mongo's own implicit collection creation on first write)
-// handles index/collection creation per-model, lazily, as each model is
-// actually used — which is what we want here. We deliberately do NOT call
-// mongoose.connection.syncIndexes() at boot: that eagerly force-creates a
-// real collection for every single registered model across the whole app
-// (~30 models between the two merged products), which on a shared/free
-// Atlas tier can hit the cluster-wide 500-collection cap and crash-loop
-// the server on startup — even for models nothing has written to yet.
+```ts
 await mongoose.connect(mongoURI, {
-  autoIndex: !isProduction,
+  autoIndex: false,
+  serverSelectionTimeoutMS: 10_000,
+  maxPoolSize: 10,
 });
 ```
 
-In development, Mongoose creates indexes lazily as each model's collection
-gets its first write — convenient, but in production this same laziness
-means **a fresh production database has none of its indexes until each
-collection happens to get written to**, and even then, index *build* still
-happens implicitly and can be slow/blocking on a collection that already
-has data in it (e.g., after a restore).
+The 10-second server-selection timeout prevents a dead database from making an
+HTTP request look hung for the driver's longer default window. The pool of 10
+is intentional for the current shared/managed deployment shape: a zero-downtime
+deploy briefly runs both old and new instances, so each process must leave
+connection headroom. Increase it only from measured pool pressure and keep
+`replicas × maxPoolSize` within the MongoDB tier's connection limit.
 
-What operators need to do instead: run index creation **explicitly**, as
-a deploy step, not implicitly at request time. Two ways to do this,
-depending on what you have available:
+### `autoIndex` is disabled in production — index drift is now audited
 
-1. **A one-off migration script** — write a small script (following the
-   pattern of `backend/scripts/migrate-whatsapp-account-uniqueness.js` or
-   `backend/bulk/scripts/migrateMetabspUsers.js`, both already in this
-   repo) that requires each Mongoose model and calls
-   `Model.createIndexes()` (or `Model.syncIndexes()` if you want it to
-   also *drop* indexes no longer defined in the schema — be careful with
-   that on a live collection with a lot of data, since dropping/rebuilding
-   an index can be a long blocking operation). Run it once after each
-   deploy that changes schema/index definitions, against the target
-   environment's real `MONGO_URI`.
-2. **Run it manually via `mongosh`/Atlas's index UI** for a one-time setup
-   on a brand-new environment, if you'd rather not script it.
+`autoIndex: false` is unconditional. Request traffic never creates or drops
+indexes implicitly.
 
-Either way, do this **before** the app receives production traffic on a
-fresh database/collection — a collection with data but no index will
-still serve correct results, just via full collection scans, until the
-index build finishes.
+The app now has an admin-only index auditor:
+
+- `GET /api/system/indexes` compares every registered core Mongoose schema
+  with the indexes that actually exist in MongoDB.
+- It reports missing indexes, unexpected indexes and known dangerous legacy
+  shapes.
+- It explicitly detects the legacy globally-unique `Contact.phone` index
+  that can block the same customer phone number from being stored by two
+  different tenants.
+- Collections that have never been used are reported but are not force-created.
+- `POST /api/system/indexes` with
+  `{"action":"create-missing"}` creates only missing indexes on collections
+  that already exist. It never drops an index automatically.
+
+Treat an index audit as a deployment/readiness gate after schema changes.
+Review every reported extra/dangerous index manually before dropping it in
+Atlas/mongosh. This is deliberately safer than running `syncIndexes()` on
+production, which can silently drop an operator-created or legacy index before
+the data has been checked.
 
 ### Read replicas / sharding
 
