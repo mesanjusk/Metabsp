@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import { getRemoteLeadScraperStatus } from '@/lib/leadFinder/scraperClient';
-import LeadFinderAgent from '@/lib/models/LeadFinderAgent';
+import {
+  getLeadFinderAgentAuthHash,
+  getLeadFinderAgentHeartbeat,
+} from '@/lib/leadFinder/agentState';
 
 function mode() {
   const configured = String(process.env.LEAD_FINDER_MODE || '').trim().toLowerCase();
@@ -29,17 +31,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: { mode: 'remote', ...remote, canSetup: false } });
     }
 
-    await connectDB();
-    const agent: any = await LeadFinderAgent.findOne({ agentId: 'default' }).select('+authTokenHash').lean();
-    const configured = Boolean(String(process.env.LEAD_FINDER_AGENT_TOKEN || '').trim() || agent?.authTokenHash);
-    const lastSeenAt = agent?.lastSeenAt ? new Date(agent.lastSeenAt) : null;
-    const online = Boolean(lastSeenAt && Date.now() - lastSeenAt.getTime() < 45000);
+    const [authHash, heartbeat] = await Promise.all([
+      getLeadFinderAgentAuthHash(),
+      getLeadFinderAgentHeartbeat(),
+    ]);
+    const configured = Boolean(String(process.env.LEAD_FINDER_AGENT_TOKEN || '').trim() || authHash);
+    const lastSeenAt = heartbeat?.lastSeenAt ? new Date(heartbeat.lastSeenAt) : null;
+    const online = Boolean(lastSeenAt && !Number.isNaN(lastSeenAt.getTime()) && Date.now() - lastSeenAt.getTime() < 45000);
+
     return NextResponse.json({ success: true, data: {
       mode: 'local_agent',
       configured,
       online,
       message: online
-        ? `Office PC online${agent?.hostname ? ` (${agent.hostname})` : ''}`
+        ? `Office PC online${heartbeat?.hostname ? ` (${heartbeat.hostname})` : ''}`
         : configured ? 'Office PC agent is offline' : 'Local PC agent is not configured yet',
       lastSeenAt,
       canSetup,

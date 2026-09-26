@@ -1,10 +1,9 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import AppError from '@/lib/utils/AppError';
-import LeadFinderAgent from '@/lib/models/LeadFinderAgent';
+import { setLeadFinderSetupCodeHash } from '@/lib/leadFinder/agentState';
 
 function psQuote(value: string) {
   return `'${String(value || '').replace(/'/g, "''")}'`;
@@ -32,15 +31,10 @@ export async function GET(req: NextRequest) {
     let installCommand = '';
 
     if (canActivate) {
-      await connectDB();
       const setupCode = crypto.randomBytes(24).toString('base64url');
       const setupCodeHash = crypto.createHash('sha256').update(setupCode).digest('hex');
       setupCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
-      await LeadFinderAgent.findOneAndUpdate(
-        { agentId: 'default' },
-        { $set: { setupCodeHash, setupCodeExpiresAt, setupCodeUsedAt: null } },
-        { upsert: true, setDefaultsOnInsert: true }
-      );
+      await setLeadFinderSetupCodeHash(setupCodeHash);
       installCommand = `& $p -SetupCode ${psQuote(setupCode)} -MetaBspUrl ${psQuote(metaBspUrl)}`;
     }
 

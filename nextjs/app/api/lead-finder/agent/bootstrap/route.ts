@@ -1,9 +1,12 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/db/mongo';
 import { errorResponse } from '@/lib/http/errorResponse';
 import AppError from '@/lib/utils/AppError';
-import LeadFinderAgent from '@/lib/models/LeadFinderAgent';
+import {
+  consumeLeadFinderSetupCodeHash,
+  setLeadFinderAgentAuthHash,
+  setLeadFinderAgentHeartbeat,
+} from '@/lib/leadFinder/agentState';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,20 +21,11 @@ export async function POST(req: NextRequest) {
     if (!/^[a-f0-9]{64}$/.test(authTokenHash)) throw new AppError('Invalid local agent credential', 400);
 
     const setupCodeHash = crypto.createHash('sha256').update(setupCode).digest('hex');
-    await connectDB();
-    const agent = await LeadFinderAgent.findOneAndUpdate(
-      {
-        agentId: 'default',
-        setupCodeHash,
-        setupCodeExpiresAt: { $gt: new Date() },
-        setupCodeUsedAt: null,
-      },
-      {
-        $set: { authTokenHash, setupCodeUsedAt: new Date(), hostname },
-      },
-      { new: true, select: '+setupCodeHash +setupCodeExpiresAt +setupCodeUsedAt +authTokenHash' }
-    );
-    if (!agent) throw new AppError('Setup code is invalid, expired, or already used. Generate a new code from Lead Finder setup.', 401);
+    const valid = await consumeLeadFinderSetupCodeHash(setupCodeHash);
+    if (!valid) throw new AppError('Setup code is invalid, expired, or already used. Generate a new code from Lead Finder setup.', 401);
+
+    await setLeadFinderAgentAuthHash(authTokenHash);
+    await setLeadFinderAgentHeartbeat(hostname, 'bootstrap');
 
     return NextResponse.json({ success: true, data: { registered: true } });
   } catch (error) {

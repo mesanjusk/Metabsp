@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/db/mongo';
 import { errorResponse } from '@/lib/http/errorResponse';
 import AppError from '@/lib/utils/AppError';
 import { requireLeadFinderAgent } from '@/lib/leadFinder/agentAuth';
-import LeadFinderAgent from '@/lib/models/LeadFinderAgent';
+import { setLeadFinderAgentHeartbeat } from '@/lib/leadFinder/agentState';
 import LeadSearchJob from '@/lib/models/LeadSearchJob';
 
 export async function POST(req: NextRequest) {
@@ -13,10 +13,9 @@ export async function POST(req: NextRequest) {
     if (mode !== 'local_agent') throw new AppError('Lead Finder local agent mode is disabled', 409);
     await connectDB();
     const body = await req.json().catch(() => ({}));
-    await LeadFinderAgent.findOneAndUpdate(
-      { agentId: 'default' },
-      { $set: { hostname: String(body?.hostname || '').slice(0, 200), version: String(body?.version || '').slice(0, 50), lastSeenAt: new Date() } },
-      { upsert: true, setDefaultsOnInsert: true }
+    await setLeadFinderAgentHeartbeat(
+      String(body?.hostname || '').slice(0, 200),
+      String(body?.version || '').slice(0, 50)
     );
 
     const staleBefore = new Date(Date.now() - 20 * 60 * 1000);
