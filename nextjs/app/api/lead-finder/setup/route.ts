@@ -17,6 +17,24 @@ function canManageLocalAgent(authed: any) {
   return privileged.has(code) || privileged.has(name);
 }
 
+function getPublicMetaBspUrl(req: NextRequest) {
+  const configured = String(process.env.METABSP_PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || '').trim();
+  if (configured) return configured.replace(/\/$/, '');
+
+  const forwardedHost = String(req.headers.get('x-forwarded-host') || req.headers.get('host') || '')
+    .split(',')[0]
+    .trim();
+  const forwardedProto = String(req.headers.get('x-forwarded-proto') || 'https')
+    .split(',')[0]
+    .trim() || 'https';
+
+  if (forwardedHost && !/^(?:0\.0\.0\.0|127\.0\.0\.1|localhost)(?::|$)/i.test(forwardedHost)) {
+    return `${forwardedProto}://${forwardedHost}`.replace(/\/$/, '');
+  }
+
+  return 'https://meta.sanjusk.in';
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authed = await requireAuth(req);
@@ -25,7 +43,7 @@ export async function GET(req: NextRequest) {
     const currentMode = String(process.env.LEAD_FINDER_MODE || 'local_agent').trim().toLowerCase();
     if (currentMode !== 'local_agent') throw new AppError('Local PC setup is not enabled on this deployment', 409);
 
-    const metaBspUrl = req.nextUrl.origin;
+    const metaBspUrl = getPublicMetaBspUrl(req);
     const installerUrl = 'https://raw.githubusercontent.com/mesanjusk/Metabsp/main/tools/lead-finder-local/install.ps1';
     let setupCodeExpiresAt: Date | null = null;
     let installCommand = '';
