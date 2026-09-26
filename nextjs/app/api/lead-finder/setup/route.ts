@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
 
     const metaBspUrl = getPublicMetaBspUrl(req);
     const installerUrl = 'https://raw.githubusercontent.com/mesanjusk/Metabsp/main/tools/lead-finder-local/install.ps1';
+    const repairUrl = 'https://raw.githubusercontent.com/mesanjusk/Metabsp/main/tools/lead-finder-local/repair.ps1';
+    const repairCommand = `$r = Join-Path $env:TEMP 'metabsp-leadfinder-repair.ps1'; Invoke-WebRequest -UseBasicParsing ${psQuote(repairUrl)} -OutFile $r; & $r -MetaBspUrl ${psQuote(metaBspUrl)}`;
     let setupCodeExpiresAt: Date | null = null;
     let installCommand = '';
 
@@ -63,12 +65,18 @@ export async function GET(req: NextRequest) {
         command: 'Start-Process powershell.exe -Verb RunAs',
       },
       {
-        title: '2. Set the installer file path',
-        note: 'Paste this in the Administrator PowerShell window.',
+        title: '2. Existing PC only — Repair / Update agent',
+        note: 'If Lead Finder is already installed, run this one command and stop here. It updates the agent, enables automatic restart, and does not change your activation token. Normal searches need no PowerShell.',
+        command: repairCommand,
+        optional: true,
+      },
+      {
+        title: '3. New PC — Set the installer file path',
+        note: 'Only for first-time installation on a new PC.',
         command: "$p = Join-Path $env:TEMP 'metabsp-leadfinder-install.ps1'",
       },
       {
-        title: '3. Download the latest MetaBSP installer',
+        title: '4. New PC — Download the latest MetaBSP installer',
         note: 'Downloads the native-Windows Lead Finder installer. Docker and WSL are not required.',
         command: `Invoke-WebRequest -UseBasicParsing ${psQuote(installerUrl)} -OutFile $p`,
       },
@@ -76,21 +84,21 @@ export async function GET(req: NextRequest) {
 
     if (canActivate) {
       commands.push({
-        title: '4. Install and activate this PC',
-        note: 'The one-time setup code expires in 15 minutes. The installer downloads the verified native Windows scraper, registers this PC, starts the local API, and configures auto-start.',
+        title: '5. New PC — Install and activate',
+        note: 'The one-time setup code expires in 15 minutes. The installer downloads the verified native Windows scraper, registers this PC, starts the local API, and configures auto-start/self-recovery.',
         command: installCommand,
       });
       commands.push({
-        title: '5. Verify the local scraper',
-        note: 'Optional check. A successful setup returns the local jobs API response.',
+        title: '6. Verify the local scraper',
+        note: 'Optional check. A successful setup may return null when there are no active scraper jobs.',
         command: "Invoke-RestMethod 'http://127.0.0.1:8080/api/v1/jobs'",
         optional: true,
       });
     } else {
       commands.push({
-        title: '4. Activation command requires an administrator/owner',
-        note: 'You can prepare this PC with steps 1–3. Sign in with an administrator/owner account to generate the secure one-time activation command.',
-        command: '# Sign in with an administrator/owner account, reopen Setup Guide, then copy step 4.',
+        title: '5. Activation command requires an administrator/owner',
+        note: 'For a new PC, sign in with an administrator/owner account to generate the secure one-time activation command. Existing installed PCs can still use the Repair / Update command above.',
+        command: '# Sign in with an administrator/owner account, reopen Setup Guide, then copy the new-PC activation command.',
         optional: true,
       });
     }
@@ -102,7 +110,7 @@ export async function GET(req: NextRequest) {
         expiresAt: setupCodeExpiresAt,
         canActivate,
         runtime: 'native_windows',
-        note: 'This setup uses the official native Windows scraper executable. Docker Desktop and WSL are not required.',
+        note: 'First-time setup is one-time. After installation, the Windows agent starts automatically and restarts itself if interrupted. Use Repair / Update only when updating an older installation.',
       },
     });
   } catch (error) {
