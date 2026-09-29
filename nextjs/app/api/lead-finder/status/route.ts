@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     ]);
     const configured = Boolean(String(process.env.LEAD_FINDER_AGENT_TOKEN || '').trim() || authHash);
     const lastSeenAt = heartbeat?.lastSeenAt ? new Date(heartbeat.lastSeenAt) : null;
-    const online = Boolean(lastSeenAt && !Number.isNaN(lastSeenAt.getTime()) && Date.now() - lastSeenAt.getTime() < 45000);
+    const online = Boolean(lastSeenAt && !Number.isNaN(lastSeenAt.getTime()) && Date.now() - lastSeenAt.getTime() < 120000);
 
     return NextResponse.json({ success: true, data: {
       mode: 'local_agent',

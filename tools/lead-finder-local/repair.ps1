@@ -38,6 +38,21 @@ Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Description 'Runs the MetaBSP Google Maps Lead Finder on this PC and automatically restarts if interrupted.' -RunLevel Highest -Force | Out-Null
 Start-ScheduledTask -TaskName $TaskName
 
+# Install a restricted per-user URL handler so the browser can request ONLY the
+# existing Lead Finder scheduled task; no arbitrary PowerShell is accepted.
+$BrowserStartPath = Join-Path $InstallDir 'browser-start.ps1'
+Invoke-WebRequest -UseBasicParsing "$RawBase/browser-start.ps1" -OutFile $BrowserStartPath
+$ProtocolKey = 'HKCU:\Software\Classes\metabsp-leadfinder'
+New-Item -Path $ProtocolKey -Force | Out-Null
+Set-Item -Path $ProtocolKey -Value 'URL:MetaBSP Lead Finder'
+New-ItemProperty -Path $ProtocolKey -Name 'URL Protocol' -Value '' -PropertyType String -Force | Out-Null
+$ProtocolCommandKey = Join-Path $ProtocolKey 'shell\open\command'
+New-Item -Path $ProtocolCommandKey -Force | Out-Null
+$PowerShellPath = Join-Path $PSHOME 'powershell.exe'
+$ProtocolCommand = "`"$PowerShellPath`" -NoProfile -ExecutionPolicy RemoteSigned -File `"$BrowserStartPath`" `"%1`""
+Set-Item -Path $ProtocolCommandKey -Value $ProtocolCommand
+
+
 Write-Host ''
 Write-Host 'MetaBSP Lead Finder agent updated and restarted successfully.' -ForegroundColor Green
 Write-Host 'It will start automatically at Windows sign-in and automatically restart if interrupted.' -ForegroundColor Green

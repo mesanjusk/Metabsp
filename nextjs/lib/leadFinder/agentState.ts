@@ -40,7 +40,7 @@ export async function setLeadFinderAgentHeartbeat(hostname: string, version: str
     version: String(version || '').slice(0, 50),
     lastSeenAt: new Date().toISOString(),
   };
-  await redis.set(HEARTBEAT_KEY, JSON.stringify(heartbeat), 'EX', 75);
+  await redis.set(HEARTBEAT_KEY, JSON.stringify(heartbeat), 'EX', 180);
   return heartbeat;
 }
 
