@@ -25,6 +25,7 @@ import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import ComputerRoundedIcon from '@mui/icons-material/ComputerRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import PowerSettingsNewRoundedIcon from '@mui/icons-material/PowerSettingsNewRounded';
 import {
   fetchLeadSearches,
   fetchLeadFinderStatus,
@@ -49,6 +50,7 @@ export default function LeadFinderPage() {
   const [message, setMessage] = useState('');
   const [scraperStatus, setScraperStatus] = useState({ configured: false, online: false, message: 'Checking office PC…', mode: 'local_agent', canSetup: false });
   const [setupOpen, setSetupOpen] = useState(false);
+  const [restartGuideOpen, setRestartGuideOpen] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
   const [setupData, setSetupData] = useState(null);
   const [setupError, setSetupError] = useState('');
@@ -170,7 +172,10 @@ export default function LeadFinderPage() {
             label={scraperStatus.online ? 'Office PC Online' : scraperStatus.configured ? 'Office PC Offline' : 'Local Agent Not Configured'}
           />
         </Stack>
-        {scraperStatus.mode === 'local_agent' ? <Button variant="outlined" startIcon={<ComputerRoundedIcon />} onClick={openSetup}>Setup Guide</Button> : null}
+        {scraperStatus.mode === 'local_agent' ? <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Button variant="outlined" startIcon={<PowerSettingsNewRoundedIcon />} onClick={() => { setCopiedStep(null); setRestartGuideOpen(true); }}>Go Online (Office PC)</Button>
+          <Button variant="outlined" startIcon={<ComputerRoundedIcon />} onClick={openSetup}>Setup Guide</Button>
+        </Stack> : null}
       </Stack>
       <Typography color="text.secondary">Find local businesses from Google Maps, review them, then add selected prospects to Contacts.</Typography>
       <Typography variant="body2" color={scraperStatus.online ? 'success.main' : 'text.secondary'}>{scraperStatus.message}</Typography>
@@ -210,6 +215,18 @@ export default function LeadFinderPage() {
     </CardContent></Card>)}</Stack>
     {!leads.length && !activeJob ? <Typography color="text.secondary" sx={{ py: 6, textAlign: 'center' }}>{scraperStatus.online ? 'No leads yet. Start your first search above.' : 'Turn on the office PC and Lead Finder agent to start searching.'}</Typography> : null}
 
+    <Dialog open={restartGuideOpen} onClose={() => setRestartGuideOpen(false)} fullWidth maxWidth="sm">
+      <DialogTitle>Bring Office PC Online</DialogTitle>
+      <DialogContent dividers>
+        <Typography sx={{ mb: 1.5 }}>On the office PC where Lead Finder is installed, open PowerShell as Administrator and run:</Typography>
+        <Box component="pre" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: 'action.hover', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 13 }}>Start-ScheduledTask -TaskName "MetaBSP Lead Finder Agent"</Box>
+        <Button variant="outlined" startIcon={<ContentCopyRoundedIcon />} onClick={() => copyCommand('Start-ScheduledTask -TaskName "MetaBSP Lead Finder Agent"', 'restart-agent')} sx={{ mt: 1 }}>
+          {copiedStep === 'restart-agent' ? 'Copied' : 'Copy command'}
+        </Button>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Keep that PC switched on, connected to the internet, and signed into Windows. Wait approximately 30 seconds, then refresh the status. This button shows instructions; the website cannot execute PowerShell on your PC. If it keeps disconnecting, use the existing Setup Guide's Repair / Update step to troubleshoot the agent instead of repeatedly restarting it.</Typography>
+      </DialogContent>
+      <DialogActions><Button onClick={() => { setRestartGuideOpen(false); loadStatus(); }}>Close & Refresh Status</Button></DialogActions>
+    </Dialog>
     <Dialog open={setupOpen} onClose={() => setSetupOpen(false)} fullWidth maxWidth="md">
       <DialogTitle>Local PC Setup Guide</DialogTitle>
       <DialogContent dividers>
