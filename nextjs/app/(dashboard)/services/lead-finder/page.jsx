@@ -218,12 +218,15 @@ export default function LeadFinderPage() {
     <Dialog open={restartGuideOpen} onClose={() => setRestartGuideOpen(false)} fullWidth maxWidth="sm">
       <DialogTitle>Bring Office PC Online</DialogTitle>
       <DialogContent dividers>
-        <Typography sx={{ mb: 1.5 }}>On the office PC where Lead Finder is installed, open PowerShell as Administrator and run:</Typography>
+        <Typography sx={{ mb: 1.5 }}>On the installed Office PC, click below to request the Windows agent to start. Chrome may ask you to allow opening the MetaBSP Lead Finder shortcut.</Typography>
+        <Button fullWidth variant="contained" startIcon={<PowerSettingsNewRoundedIcon />} onClick={() => { window.location.href = 'metabsp-leadfinder://start'; }}>Start Agent on This PC</Button>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, mb: 1.5 }}>One-time requirement: run Setup Guide → Existing PC — Repair / Update to register this shortcut on Windows. The shortcut works only on the installed PC, never remotely on another machine. It starts only the fixed Lead Finder scheduled task.</Typography>
+        <Typography sx={{ mb: 1.5 }}>If the browser shortcut is unavailable, open PowerShell as Administrator on the Office PC and run:</Typography>
         <Box component="pre" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: 'action.hover', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 13 }}>Start-ScheduledTask -TaskName "MetaBSP Lead Finder Agent"</Box>
         <Button variant="outlined" startIcon={<ContentCopyRoundedIcon />} onClick={() => copyCommand('Start-ScheduledTask -TaskName "MetaBSP Lead Finder Agent"', 'restart-agent')} sx={{ mt: 1 }}>
           {copiedStep === 'restart-agent' ? 'Copied' : 'Copy command'}
         </Button>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Keep that PC switched on, connected to the internet, and signed into Windows. Wait approximately 30 seconds, then refresh the status. This button shows instructions; the website cannot execute PowerShell on your PC. If it keeps disconnecting, use the existing Setup Guide's Repair / Update step to troubleshoot the agent instead of repeatedly restarting it.</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Keep that PC switched on, connected to the internet, and signed into Windows. Wait approximately 30 seconds, then refresh the status. The browser can launch the locally registered shortcut only after your approval; it cannot directly execute arbitrary PowerShell. If it keeps disconnecting, use the existing Setup Guide's Repair / Update step to troubleshoot the agent instead of repeatedly restarting it.</Typography>
       </DialogContent>
       <DialogActions><Button onClick={() => { setRestartGuideOpen(false); loadStatus(); }}>Close & Refresh Status</Button></DialogActions>
     </Dialog>
