@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Box, Tab, Tabs } from '@mui/material';
 import PageBody from '@/lib/ui/app/PageBody';
@@ -36,7 +37,13 @@ const TABS = [
 ];
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState('account');
+
+  useEffect(() => {
+    const requested = String(searchParams.get('tab') || '');
+    if (TABS.some((entry) => entry.value === requested)) setTab(requested);
+  }, [searchParams]);
 
   return (
     <PageBody title="Settings" description="Your account, workspace preferences, team access, attendance, and plan.">
