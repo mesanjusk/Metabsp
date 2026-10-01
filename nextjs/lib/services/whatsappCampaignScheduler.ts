@@ -19,6 +19,22 @@ const BATCH_SIZE = 10;
 export async function runScheduledWhatsAppCampaigns() {
   await connectDB();
 
+  // If a process died after claiming a campaign, release that stale claim.
+  // Recipient jobs use deterministic BullMQ ids, so retrying is idempotent.
+  await SmbRecord.updateMany(
+    {
+      kind: 'whatsapp_campaign',
+      status: 'processing',
+      updatedAt: { $lt: new Date(Date.now() - 5 * 60 * 1000) },
+    },
+    {
+      $set: {
+        status: 'scheduled',
+        'data.lastError': 'Recovered after an interrupted scheduler run.',
+      },
+    }
+  );
+
   const due: any[] = await SmbRecord.find({
     kind: 'whatsapp_campaign',
     status: 'scheduled',
