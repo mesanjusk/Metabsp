@@ -24,6 +24,7 @@ export const SMB_RECORD_KINDS = [
   'social_content',
   'social_approval',
   'social_schedule',
+  'whatsapp_campaign',
   'note',
 ] as const;
 

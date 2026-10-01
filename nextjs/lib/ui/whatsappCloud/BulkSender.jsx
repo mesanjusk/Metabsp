@@ -26,14 +26,23 @@ const splitNumbers = (rawValue) =>
     .map((item) => item.replace(/\D/g, '').trim())
     .filter(Boolean);
 
+const campaignStatusColor = (status) => {
+  if (status === 'queued') return 'success';
+  if (status === 'scheduled' || status === 'processing') return 'info';
+  if (status === 'failed') return 'error';
+  return 'default';
+};
+
 export default function BulkSender({ standalone, search }) {
   const [numbersText, setNumbersText] = useState('');
   const [template, setTemplate] = useState(null);
   const [messageType, setMessageType] = useState('template');
   const [messageText, setMessageText] = useState('');
+  const [scheduleAt, setScheduleAt] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [progress, setProgress] = useState({ total: 0, processed: 0, success: 0, failed: 0 });
   const [contacts, setContacts] = useState([]);
+  const [scheduledCampaigns, setScheduledCampaigns] = useState([]);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
 
@@ -49,8 +58,19 @@ export default function BulkSender({ standalone, search }) {
     }
   };
 
+  const loadCampaigns = async () => {
+    try {
+      const response = await whatsappCloudService.getBroadcasts();
+      const list = response?.data?.data || [];
+      setScheduledCampaigns(Array.isArray(list) ? list : []);
+    } catch (_error) {
+      setScheduledCampaigns([]);
+    }
+  };
+
   useEffect(() => {
     loadContacts();
+    loadCampaigns();
   }, []);
 
   const handleFileUpload = async (event) => {
@@ -89,10 +109,30 @@ export default function BulkSender({ standalone, search }) {
     }
   };
 
+  const cancelCampaign = async (campaign) => {
+    try {
+      await whatsappCloudService.cancelBroadcast(campaign.id);
+      toast.success('Scheduled campaign cancelled.');
+      await loadCampaigns();
+    } catch (error) {
+      toast.error(parseApiError(error, 'Could not cancel the campaign.'));
+    }
+  };
+
   const sendBulkMessages = async () => {
     if (!numbers.length) return toast.error('Please provide at least 1 recipient number.');
     if (messageType === 'template' && !template?.name) return toast.error('Please select a template first.');
     if (messageType === 'text' && !messageText.trim()) return toast.error('Please enter a message.');
+
+    let scheduledIso;
+    if (scheduleAt) {
+      if (messageType !== 'template') return toast.error('Scheduled campaigns must use an approved WhatsApp template.');
+      const scheduledTime = new Date(scheduleAt);
+      if (Number.isNaN(scheduledTime.getTime()) || scheduledTime.getTime() <= Date.now()) {
+        return toast.error('Choose a future date and time for the campaign.');
+      }
+      scheduledIso = scheduledTime.toISOString();
+    }
 
     setIsSending(true);
     setProgress({ total: numbers.length, processed: 0, success: 0, failed: 0 });
@@ -105,7 +145,16 @@ export default function BulkSender({ standalone, search }) {
         templateName: messageType === 'template' ? template.name : undefined,
         language: messageType === 'template' ? template.language : undefined,
         components: [],
+        scheduleAt: scheduledIso,
       });
+
+      if (response?.data?.scheduled) {
+        setProgress({ total: numbers.length, processed: 0, success: 0, failed: 0 });
+        setScheduleAt('');
+        await loadCampaigns();
+        toast.success(`Campaign scheduled for ${new Date(response.data.campaign?.dueAt || scheduledIso).toLocaleString()}.`);
+        return;
+      }
 
       const results = Array.isArray(response?.data?.results) ? response.data.results : [];
       const success = results.filter((item) => item.success).length;
@@ -121,13 +170,15 @@ export default function BulkSender({ standalone, search }) {
     }
   };
 
+  const recentCampaigns = scheduledCampaigns.slice(0, 8);
+
   return (
     <Paper variant="outlined" sx={{ p: 2.5, borderRadius: standalone ? 0 : 3 }}>
       <Stack spacing={2}>
         <Box>
           <Typography variant="h6" fontWeight={700}>Broadcast Campaign</Typography>
           <Typography variant="body2" color="text.secondary">
-            Send template or text messages using manual numbers, CSV/XLSX import, or saved CRM contacts.
+            Send now or schedule an approved template using manual numbers, CSV/XLSX import, or saved CRM contacts.
           </Typography>
         </Box>
 
@@ -165,6 +216,17 @@ export default function BulkSender({ standalone, search }) {
         </Stack>
 
         <TextField
+          type="datetime-local"
+          label="Schedule campaign (optional)"
+          value={scheduleAt}
+          onChange={(event) => setScheduleAt(event.target.value)}
+          disabled={isSending}
+          InputLabelProps={{ shrink: true }}
+          helperText="Leave blank to send now. Scheduled campaigns use approved templates only and are stored durably until their send time."
+          sx={{ maxWidth: 420 }}
+        />
+
+        <TextField
           multiline
           rows={5}
           disabled={isSending}
@@ -191,7 +253,7 @@ export default function BulkSender({ standalone, search }) {
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems={{ sm: 'center' }}>
           <Button variant="contained" onClick={sendBulkMessages} disabled={isSending || numbers.length === 0}>
-            {isSending ? 'Sending Broadcast…' : 'Send Broadcast'}
+            {isSending ? (scheduleAt ? 'Scheduling…' : 'Sending Broadcast…') : (scheduleAt ? 'Schedule Campaign' : 'Send Broadcast')}
           </Button>
           <Typography variant="caption" color="text.secondary">Recipients: {numbers.length}</Typography>
         </Stack>
@@ -206,6 +268,33 @@ export default function BulkSender({ standalone, search }) {
           <Typography variant="body2" color="success.main">Success: <strong>{progress.success}</strong></Typography>
           <Typography variant="body2" color="error.main">Failed: <strong>{progress.failed}</strong></Typography>
         </Stack>
+
+        {recentCampaigns.length ? (
+          <Box sx={{ pt: 1 }}>
+            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Recent scheduled campaigns</Typography>
+            <Stack spacing={1}>
+              {recentCampaigns.map((campaign) => (
+                <Paper key={campaign.id} variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ sm: 'center' }}>
+                    <Box>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                        <Typography variant="body2" fontWeight={700}>{campaign.title || campaign.templateName || 'Campaign'}</Typography>
+                        <Chip size="small" variant="outlined" color={campaignStatusColor(campaign.status)} label={campaign.status || 'unknown'} />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        {campaign.recipientCount || 0} recipients · {campaign.dueAt ? new Date(campaign.dueAt).toLocaleString() : 'No schedule time'}
+                      </Typography>
+                      {campaign.lastError ? <Typography variant="caption" color="error" display="block">{campaign.lastError}</Typography> : null}
+                    </Box>
+                    {campaign.status === 'scheduled' ? (
+                      <Button size="small" color="error" variant="text" onClick={() => cancelCampaign(campaign)}>Cancel</Button>
+                    ) : null}
+                  </Stack>
+                </Paper>
+              ))}
+            </Stack>
+          </Box>
+        ) : null}
       </Stack>
     </Paper>
   );

@@ -6,19 +6,81 @@ import { checkUserRateLimit } from '@/lib/http/rateLimit';
 import { resolveCurrentWhatsAppAccountForUser } from '@/lib/whatsapp/currentAccount';
 import { enqueueBroadcastRecipients, waitForJobResults } from '@/lib/queues/whatsappSendQueue';
 import { normalizePhone } from '@/lib/whatsapp/dispatch';
+import SmbRecord from '@/lib/models/SmbRecord';
 import AppError from '@/lib/utils/AppError';
 
-// Ported from backend/src/controllers/whatsappController.js's sendBroadcast.
-//
-// CARRIED-OVER RISK (see docs/NEXTJS_MIGRATION_AUDIT_AND_PLAN.md §1.2/§2.3):
-// this still synchronously blocks the HTTP response on waitForJobResults
-// (up to 5 minutes) to keep the response shape the frontend
-// (BulkSender.jsx: response.data.results) depends on unchanged — same
-// tradeoff the original made. maxDuration below budgets for that, but a
-// broadcast slow enough to approach it will still time out; a proper fix
-// is to make this fire-and-forget with a polling/websocket status endpoint
-// instead, not yet done here.
+// Immediate broadcasts preserve the existing synchronous response contract.
+// Scheduled broadcasts are different: they are persisted in the shared SMB
+// record collection and return immediately. The background campaign scheduler
+// queues them when due, so a Redis restart before send time does not erase the
+// campaign definition.
 export const maxDuration = 300;
+
+const mapCampaign = (item: any) => ({
+  id: String(item._id),
+  campaignId: String(item.reference || item.data?.campaignId || ''),
+  title: item.title,
+  status: item.status,
+  dueAt: item.dueAt,
+  recipientCount: Number(item.quantity || item.data?.recipientCount || 0),
+  templateName: String(item.data?.templateName || ''),
+  createdAt: item.createdAt,
+  queuedAt: item.data?.queuedAt || null,
+  lastError: String(item.data?.lastError || ''),
+});
+
+export async function GET(req: NextRequest) {
+  try {
+    await connectDB();
+    const authed = await requireAuth(req);
+
+    const records: any[] = await SmbRecord.find({
+      userId: authed.id,
+      kind: 'whatsapp_campaign',
+    })
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .lean();
+
+    return NextResponse.json({ success: true, data: records.map(mapCampaign) });
+  } catch (error) {
+    return errorResponse(error, 'Failed to load broadcast campaigns');
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    await connectDB();
+    const authed = await requireAuth(req);
+    const { searchParams } = new URL(req.url);
+    const id = String(searchParams.get('id') || '').trim();
+    if (!id) throw new AppError('Campaign id is required', 400);
+
+    const cancelled: any = await SmbRecord.findOneAndUpdate(
+      {
+        _id: id,
+        userId: authed.id,
+        kind: 'whatsapp_campaign',
+        status: 'scheduled',
+      },
+      {
+        $set: {
+          status: 'cancelled',
+          completedAt: new Date(),
+        },
+      },
+      { new: true }
+    ).lean();
+
+    if (!cancelled) {
+      throw new AppError('Campaign was not found or is already being sent and can no longer be cancelled', 409);
+    }
+
+    return NextResponse.json({ success: true, data: mapCampaign(cancelled) });
+  } catch (error) {
+    return errorResponse(error, 'Failed to cancel broadcast campaign');
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,8 +93,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { recipients = [], contacts = [], messageType = 'text', text = '', body: bodyField = '', templateName = '', language = 'en_US', components = [], campaignId } =
-      body || {};
+    const {
+      recipients = [],
+      contacts = [],
+      messageType = 'text',
+      text = '',
+      body: bodyField = '',
+      templateName = '',
+      language = 'en_US',
+      components = [],
+      campaignId,
+      campaignName = '',
+      scheduleAt = '',
+    } = body || {};
 
     const incomingRecipients = Array.isArray(recipients) && recipients.length ? recipients : contacts;
     const normalizedRecipients = incomingRecipients
@@ -43,21 +116,66 @@ export async function POST(req: NextRequest) {
     const uniqueRecipients: string[] = [...new Set(normalizedRecipients)] as string[];
     if (!uniqueRecipients.length) throw new AppError('recipients must be a non-empty array', 400);
 
+    const normalizedMessageType = String(messageType).toLowerCase();
     const resolvedBody = String(text || bodyField || '').trim();
-    if (String(messageType).toLowerCase() === 'text' && !resolvedBody) throw new AppError('Text message body is required', 400);
-    if (String(messageType).toLowerCase() === 'template' && !String(templateName || '').trim()) throw new AppError('templateName is required', 400);
+    if (normalizedMessageType === 'text' && !resolvedBody) throw new AppError('Text message body is required', 400);
+    if (normalizedMessageType === 'template' && !String(templateName || '').trim()) throw new AppError('templateName is required', 400);
 
     const accountContext: any = await resolveCurrentWhatsAppAccountForUser(authed.id);
     const accountId = accountContext?.account?._id;
     if (!accountId) throw new AppError('A connected WhatsApp account is required to send a broadcast', 400);
 
     const finalCampaignId = String(campaignId || `campaign_${Date.now()}`);
+    const requestedScheduleAt = String(scheduleAt || '').trim();
+
+    if (requestedScheduleAt) {
+      if (normalizedMessageType !== 'template') {
+        throw new AppError('Scheduled campaigns must use an approved WhatsApp template', 400);
+      }
+
+      const dueAt = new Date(requestedScheduleAt);
+      if (Number.isNaN(dueAt.getTime())) throw new AppError('scheduleAt must be a valid date and time', 400);
+      if (dueAt.getTime() <= Date.now()) throw new AppError('scheduleAt must be in the future', 400);
+
+      const record: any = await SmbRecord.create({
+        userId: authed.id,
+        kind: 'whatsapp_campaign',
+        title: String(campaignName || '').trim() || `${templateName} campaign`,
+        status: 'scheduled',
+        source: 'whatsapp',
+        reference: finalCampaignId,
+        quantity: uniqueRecipients.length,
+        dueAt,
+        data: {
+          campaignId: finalCampaignId,
+          whatsappAccountId: String(accountId),
+          recipientCount: uniqueRecipients.length,
+          recipients: uniqueRecipients,
+          messageType: 'template',
+          templateName: String(templateName).trim(),
+          language: String(language || 'en_US'),
+          components: Array.isArray(components) ? components : [],
+          scheduleAttempts: 0,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          scheduled: true,
+          campaignId: finalCampaignId,
+          total: uniqueRecipients.length,
+          campaign: mapCampaign(record.toObject()),
+        },
+        { status: 202 }
+      );
+    }
 
     const jobs = await enqueueBroadcastRecipients({
       accountId,
       userId: authed.id,
       recipients: uniqueRecipients,
-      messageType: String(messageType).toLowerCase(),
+      messageType: normalizedMessageType,
       body: resolvedBody,
       templateName,
       language,
@@ -68,6 +186,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      scheduled: false,
       campaignId: finalCampaignId,
       total: uniqueRecipients.length,
       sent: results.filter((item: any) => item.success).length,

@@ -74,9 +74,23 @@ export async function enqueueBroadcastRecipients({
   campaignId,
 }: Omit<JobDataInput, 'to'> & { recipients: string[] }) {
   const q = getQueue();
-  const jobs = recipients.map((to) => ({
+  const stableCampaignKey = campaignId
+    ? [String(accountId), String(userId), String(campaignId)].join('_').replace(/[^a-zA-Z0-9_-]/g, '')
+    : '';
+
+  const jobs = recipients.map((to, index) => ({
     name: 'send',
     data: buildJobData({ accountId, userId, to, messageType, body, templateName, language, components, campaignId }),
+    ...(stableCampaignKey
+      ? {
+          // A scheduler crash after enqueue but before its Mongo status update
+          // can safely retry: BullMQ will reuse the same job ids rather than
+          // sending the campaign twice.
+          opts: {
+            jobId: `${stableCampaignKey}_${index}_${String(to).replace(/[^0-9]/g, '')}`,
+          },
+        }
+      : {}),
   }));
   return q.addBulk(jobs);
 }

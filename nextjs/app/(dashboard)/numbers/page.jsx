@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, AlertTitle, Button, Stack } from '@mui/material';
+import { Alert, AlertTitle, Button, Paper, Stack, Typography } from '@mui/material';
 import dynamic from 'next/dynamic';
 import PageBody from '@/lib/ui/app/PageBody';
 import { useDashboard } from '@/lib/ui/app/DashboardContext';
@@ -100,6 +100,45 @@ export default function NumbersPage() {
             reports exactly what is wrong.
           </Alert>
         ) : null}
+
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 3 }}>
+          <Stack spacing={1.5}>
+            <div>
+              <Typography variant="subtitle1" fontWeight={700}>Verified business badge assistance</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Meta decides badge eligibility and approval. MetaBSP cannot grant or guarantee a “Green Tick”, but this checklist helps you prepare the business and number before applying in Meta.
+              </Typography>
+            </div>
+            <Stack spacing={0.75}>
+              <Typography variant="body2">1. Complete Meta Business Verification with legal business details that match your documents.</Typography>
+              <Typography variant="body2">2. Keep the WhatsApp display name, website, business profile and phone details consistent with the verified business.</Typography>
+              <Typography variant="body2">3. Keep messaging quality healthy and follow WhatsApp Business messaging and opt-in policies.</Typography>
+              <Typography variant="body2">4. When Meta shows the verified-badge / official-business-account option for the business, submit the request from Meta&apos;s own Business/WhatsApp Manager.</Typography>
+            </Stack>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Button
+                component="a"
+                href="https://business.facebook.com/settings/security"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outlined"
+                size="small"
+              >
+                Open Meta Security Center
+              </Button>
+              <Button
+                component="a"
+                href="https://business.facebook.com/wa/manage/home/"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="text"
+                size="small"
+              >
+                Open WhatsApp Manager
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
 
         <WhatsAppNumbersPanel
           onConnect={startConnect}
