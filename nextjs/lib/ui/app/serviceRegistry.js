@@ -9,9 +9,11 @@ import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
 import MovieCreationRoundedIcon from '@mui/icons-material/MovieCreationRounded';
 import TravelExploreRoundedIcon from '@mui/icons-material/TravelExploreRounded';
+import SmsRoundedIcon from '@mui/icons-material/SmsRounded';
 
 export const SERVICES = [
   { slug: 'whatsapp', label: 'WhatsApp', shortLabel: 'WhatsApp', description: 'Inbox, contacts, templates, campaigns and automation.', href: '/whatsapp', icon: WhatsAppIcon, status: 'active', tier: 'basic' },
+  { slug: 'rcs', label: 'RCS Messaging', shortLabel: 'RCS', description: 'Google RCS Business Messaging with capability checks, campaigns, inbox events and WhatsApp/SMS fallback.', href: '/services/rcs', icon: SmsRoundedIcon, status: 'beta', tier: 'basic' },
   { slug: 'instagram', label: 'Instagram', shortLabel: 'Instagram', description: 'Messages, comments, private replies and publishing.', href: '/instagram', icon: InstagramIcon, status: 'beta', tier: 'basic' },
   { slug: 'google-business', label: 'Google Business Profile', shortLabel: 'Google', description: 'Reviews, AI replies, profile posts and Search/Maps performance for your Google listing.', href: '/services/google-business', icon: StorefrontRoundedIcon, status: 'beta', tier: 'basic' },
   { slug: 'lead-finder', label: 'Business Lead Finder', shortLabel: 'Leads', description: 'Find local business prospects, enrich contact details, review them and add selected leads to CRM contacts.', href: '/services/lead-finder', icon: TravelExploreRoundedIcon, status: 'beta', tier: 'pro' },

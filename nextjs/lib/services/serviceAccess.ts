@@ -5,6 +5,7 @@ import type { AuthedUser } from '@/lib/auth/session';
 
 export const SERVICE_SLUGS = [
   'whatsapp',
+  'rcs',
   'instagram',
   'google-business',
   'lead-finder',
@@ -22,6 +23,7 @@ export type ServiceSlug = (typeof SERVICE_SLUGS)[number];
 
 export const BASIC_SERVICES: ServiceSlug[] = [
   'whatsapp',
+  'rcs',
   'instagram',
   'google-business',
   'dialer',
@@ -116,7 +118,7 @@ export async function resolveServiceAccess(authed: AuthedUser) {
     for (const service of SERVICE_SLUGS) {
       // Existing profiles predate Lead Finder, so absence of this new slug must
       // not silently override an explicit Pro entitlement.
-      if (service !== 'lead-finder' && !selected.has(service)) {
+      if (!['lead-finder', 'rcs'].includes(service) && !selected.has(service)) {
         result[service] = {
           ...result[service],
           enabled: false,

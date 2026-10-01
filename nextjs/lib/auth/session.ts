@@ -25,6 +25,7 @@ export function getBearerToken(req: NextRequest): string | null {
  */
 function serviceForApiPath(pathname: string): ServiceSlug | null {
   const path = String(pathname || '');
+  if (path.startsWith('/api/rcs/')) return 'rcs';
   if (path.startsWith('/api/instagram/')) return 'instagram';
   if (path.startsWith('/api/google-business/')) return 'google-business';
   if (path.startsWith('/api/lead-finder/')) return 'lead-finder';
