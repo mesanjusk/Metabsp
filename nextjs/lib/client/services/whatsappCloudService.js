@@ -135,7 +135,9 @@ export const fetchContacts = (params = {}) => apiClient.get('/api/whatsapp/conta
 export const createContact = (payload) => apiClient.post('/api/whatsapp/contacts', payload, { headers: { 'Content-Type': 'application/json' } });
 export const updateContact = (id, payload) => apiClient.put(`/api/whatsapp/contacts/${id}`, payload, { headers: { 'Content-Type': 'application/json' } });
 export const importContacts = (contacts) => apiClient.post('/api/whatsapp/contacts/import', { contacts }, { headers: { 'Content-Type': 'application/json' } });
+export const fetchWhatsAppBroadcasts = () => apiClient.get('/api/whatsapp/broadcast');
 export const sendWhatsAppBroadcast = (payload) => apiClient.post('/api/whatsapp/broadcast', payload, { headers: { 'Content-Type': 'application/json' } });
+export const cancelWhatsAppBroadcast = (campaignId) => apiClient.delete('/api/whatsapp/broadcast', { params: { id: campaignId } });
 
 
 export const fetchWhatsAppTemplates = () => apiClient.get('/api/whatsapp/templates');
@@ -228,7 +230,9 @@ export const whatsappCloudService = {
   createContact,
   updateContact,
   importContacts,
+  getBroadcasts: fetchWhatsAppBroadcasts,
   sendBroadcast: sendWhatsAppBroadcast,
+  cancelBroadcast: cancelWhatsAppBroadcast,
   getTemplates: fetchWhatsAppTemplates,
   createTemplate: createWhatsAppTemplate,
   getStatus: fetchWhatsAppStatus,
