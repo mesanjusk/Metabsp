@@ -1,5 +1,6 @@
 import AppError from '@/lib/utils/AppError';
 import RcsMessage from '@/lib/models/RcsMessage';
+import RcsConsent from '@/lib/models/RcsConsent';
 import { checkRcsCapabilities, normalizeRcsPhone, sendRcsText } from '@/lib/rcs/googleRbm';
 import { resolveCurrentWhatsAppAccountForUser } from '@/lib/whatsapp/currentAccount';
 import { checkWhatsApp24hWindow } from '@/lib/whatsapp/twentyFourHourGuard';
@@ -63,6 +64,9 @@ export async function deliverRcsWithFallback({
   if (cleanText.length > 3072) throw new AppError('RCS text messages can be at most 3072 characters', 400);
 
   const normalizedTrafficType = normalizeTrafficType(trafficType);
+  const suppressed = await RcsConsent.findOne({ userId: authed.id, agentId: agent.agentId, phone: normalizedPhone, optedOut: true }).lean();
+  if (suppressed) throw new AppError('This recipient has opted out of RCS messages', 403);
+
   const capability = await checkRcsCapabilities({
     agentId: String(agent.agentId),
     region: agent.region,
