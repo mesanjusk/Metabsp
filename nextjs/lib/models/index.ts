@@ -10,6 +10,8 @@ export { default as Role } from './Role';
 export { default as Organization } from './Organization';
 export { default as ApiKey } from './ApiKey';
 export { default as WhatsAppAccount } from './WhatsAppAccount';
+export { default as RcsAgent } from './RcsAgent';
+export { default as RcsMessage } from './RcsMessage';
 export { default as InstagramAccount } from './InstagramAccount';
 export { default as GoogleBusinessAccount } from './GoogleBusinessAccount';
 export { default as GoogleBusinessReview } from './GoogleBusinessReview';
