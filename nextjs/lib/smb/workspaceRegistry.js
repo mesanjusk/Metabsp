@@ -34,7 +34,7 @@ export const SMB_KINDS = {
   task: { label: 'Tasks', icon: TaskAltRoundedIcon, blurb: 'Work assigned to the team, and when it is due.' },
   responsibility: { label: 'Responsibilities', icon: AssignmentIndRoundedIcon, blurb: 'Primary and backup ownership for recurring business duties.' },
   sop_task: { label: 'SOP / recurring tasks', icon: AutorenewRoundedIcon, blurb: 'Repeatable operating procedures and their recurrence.' },
-  vendor: { label: 'Vendors', icon: HandshakeRoundedIcon, blurb: 'Suppliers and the people responsible for them.' },
+  vendor: { label: 'Suppliers / Vendors', icon: HandshakeRoundedIcon, blurb: 'Supplier profiles, contacts, commercial terms and the people responsible for each relationship.' },
   purchase_order: { label: 'Purchase orders', icon: ShoppingBagRoundedIcon, blurb: 'Commitments sent to vendors, with values and due dates.' },
   rate_card: { label: 'Rate cards', icon: PriceChangeRoundedIcon, blurb: 'Reusable standard prices for products and services.' },
   product: { label: 'Products', icon: Inventory2RoundedIcon, blurb: 'What you sell, including optional HSN/SAC and GST rate.' },

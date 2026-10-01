@@ -43,6 +43,7 @@ const kindLabel = (kind) => SMB_KINDS[kind]?.label || kind;
 const EMPTY_FORM = {
   title: '', customerName: '', customerPhone: '', assignedTo: '', amount: '', balance: '', dueAt: '', reference: '',
   quantity: '', status: '', backup1: '', backup2: '', recurrence: '', hsnSac: '', gstRate: '', mediaUrl: '', channel: '', notes: '',
+  vendorPhone: '', vendorEmail: '', vendorCategory: '', paymentTerms: '', leadTimeDays: '', gstin: '', rating: '',
 };
 
 const NO_CUSTOMER = new Set([
@@ -96,6 +97,13 @@ export default function SmbRecordList({ service, kind }) {
         mediaUrl: form.mediaUrl.trim(),
         channel: form.channel.trim(),
         notes: form.notes.trim(),
+        vendorPhone: form.vendorPhone.trim(),
+        vendorEmail: form.vendorEmail.trim(),
+        vendorCategory: form.vendorCategory.trim(),
+        paymentTerms: form.paymentTerms.trim(),
+        leadTimeDays: form.leadTimeDays === '' ? '' : Number(form.leadTimeDays),
+        gstin: form.gstin.trim(),
+        rating: form.rating === '' ? '' : Number(form.rating),
       }).filter(([, value]) => value !== '' && value != null));
 
       await apiClient.post('/api/smb/records', {
@@ -190,6 +198,17 @@ export default function SmbRecordList({ service, kind }) {
                   value={form.assignedTo}
                   onChange={updateForm('assignedTo')}
                 />
+                {kind === 'vendor' ? (
+                  <>
+                    <TextField size="small" label="Supplier phone" value={form.vendorPhone} onChange={updateForm('vendorPhone')} />
+                    <TextField size="small" label="Supplier email" value={form.vendorEmail} onChange={updateForm('vendorEmail')} />
+                    <TextField size="small" label="Category / supplies" placeholder="Paper / printing / courier / packaging" value={form.vendorCategory} onChange={updateForm('vendorCategory')} />
+                    <TextField size="small" label="Payment terms" placeholder="Advance / 15 days / 30 days" value={form.paymentTerms} onChange={updateForm('paymentTerms')} />
+                    <TextField size="small" type="number" label="Lead time (days)" inputProps={{ min: 0 }} value={form.leadTimeDays} onChange={updateForm('leadTimeDays')} />
+                    <TextField size="small" label="GSTIN" value={form.gstin} onChange={updateForm('gstin')} />
+                    <TextField size="small" type="number" label="Rating (1–5)" inputProps={{ min: 1, max: 5, step: 0.5 }} value={form.rating} onChange={updateForm('rating')} />
+                  </>
+                ) : null}
                 {kind === 'responsibility' ? <><TextField size="small" label="Backup 1" value={form.backup1} onChange={updateForm('backup1')} /><TextField size="small" label="Backup 2" value={form.backup2} onChange={updateForm('backup2')} /></> : null}
                 {kind === 'sop_task' ? <TextField size="small" label="Recurrence (e.g. daily / weekly / monthly)" value={form.recurrence} onChange={updateForm('recurrence')} /> : null}
                 {isMoneyKind(kind) ? <TextField size="small" type="number" label="Amount (₹)" value={form.amount} onChange={updateForm('amount')} /> : null}
@@ -239,7 +258,13 @@ export default function SmbRecordList({ service, kind }) {
                       <Typography variant="caption" color="text.secondary">
                         {[
                           record.contactId?.name || record.contactId?.phone,
-                          record.assignedTo ? `Owner: ${record.assignedTo}` : '',
+                          record.assignedTo ? `${record.kind === 'vendor' ? 'Contact' : 'Owner'}: ${record.assignedTo}` : '',
+                          record.kind === 'vendor' && details.vendorCategory ? `Category: ${details.vendorCategory}` : '',
+                          record.kind === 'vendor' && details.vendorPhone ? `Phone: ${details.vendorPhone}` : '',
+                          record.kind === 'vendor' && details.vendorEmail ? details.vendorEmail : '',
+                          record.kind === 'vendor' && details.paymentTerms ? `Terms: ${details.paymentTerms}` : '',
+                          record.kind === 'vendor' && details.leadTimeDays !== undefined ? `Lead: ${details.leadTimeDays}d` : '',
+                          record.kind === 'vendor' && details.rating ? `Rating: ${details.rating}/5` : '',
                           details.backup1 ? `Backup: ${details.backup1}${details.backup2 ? `, ${details.backup2}` : ''}` : '',
                           details.hsnSac ? `HSN/SAC: ${details.hsnSac}` : '',
                           record.reference ? `Ref: ${record.reference}` : '',
