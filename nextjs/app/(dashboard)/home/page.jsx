@@ -21,6 +21,8 @@ import {
   Typography,
 } from '@mui/material';
 import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
+import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import AppsRoundedIcon from '@mui/icons-material/AppsRounded';
@@ -49,6 +51,17 @@ const emptyOverview = {
 };
 
 const compact = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
+
+const emptyFounder = {
+  customers: 0,
+  newCustomers7d: 0,
+  followupsDue: 0,
+  suppliers: 0,
+  purchaseOrdersOpen: 0,
+  teamMembers: 0,
+  tasksOverdue: 0,
+  responsibilities: 0,
+};
 
 function MetricCard({ icon: Icon, label, value, helper, delta, unavailable }) {
   const hasDelta = !unavailable && typeof delta === 'number' && Number.isFinite(delta);
@@ -160,11 +173,41 @@ function Section({ title, subtitle, action, children }) {
   );
 }
 
+function FounderRelationshipCard({ icon: Icon, title, value, helper, description, primaryHref, primaryLabel, secondaryHref, secondaryLabel }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, minWidth: 0, height: '100%' }}>
+      <Stack spacing={1.5} sx={{ height: '100%' }}>
+        <Stack direction="row" justifyContent="space-between" spacing={1.5} alignItems="flex-start">
+          <Box>
+            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: '0.08em' }}>FOUNDER ESSENTIAL</Typography>
+            <Typography variant="h6" fontWeight={800}>{title}</Typography>
+          </Box>
+          <Box sx={{ width: 42, height: 42, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: 'action.selected', color: 'primary.main', flexShrink: 0 }}>
+            <Icon fontSize="small" />
+          </Box>
+        </Stack>
+        <Box>
+          <Typography sx={{ fontSize: '2rem', lineHeight: 1, fontWeight: 800, color: 'primary.main', fontVariantNumeric: 'tabular-nums' }}>
+            {compact.format(Number(value || 0))}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">{helper}</Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{description}</Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button component={NextLink} href={primaryHref} size="small" variant="contained">{primaryLabel}</Button>
+          {secondaryHref ? <Button component={NextLink} href={secondaryHref} size="small" variant="outlined">{secondaryLabel}</Button> : null}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
 export default function BusinessControlCenterPage() {
   const [quickActionsAnchor, setQuickActionsAnchor] = useState(null);
   const quickActionsOpen = Boolean(quickActionsAnchor);
   const closeQuickActions = () => setQuickActionsAnchor(null);
   const [overview, setOverview] = useState(emptyOverview);
+  const [founder, setFounder] = useState(emptyFounder);
   const [selectedServices, setSelectedServices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -186,6 +229,21 @@ export default function BusinessControlCenterPage() {
       })
       .finally(() => {
         if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    apiClient
+      .get('/api/founder/summary')
+      .then((response) => {
+        if (active) setFounder({ ...emptyFounder, ...(response?.data?.data || {}) });
+      })
+      .catch(() => {
+        // Founder cards are supplementary to the main workspace. If this
+        // summary is unavailable, keep the cards usable with zeroed counts
+        // rather than turning the whole home screen into an error state.
       });
     return () => { active = false; };
   }, []);
@@ -248,6 +306,52 @@ export default function BusinessControlCenterPage() {
         <MetricCard unavailable={loading || Boolean(error)} icon={AppsRoundedIcon} label="Available tools" value={kpis.availableTools} helper="Enabled for this account" />
         <MetricCard unavailable={loading || Boolean(error)} icon={CheckCircleRoundedIcon} label="Connected" value={kpis.connectedChannels} helper="Live channels" />
         <MetricCard unavailable={loading || Boolean(error)} icon={TrendingUpRoundedIcon} label="Outgoing today" value={kpis.outgoingToday} delta={deltas.outgoingToday} helper="vs yesterday" />
+      </Box>
+
+      <Box sx={{ mb: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
+          <Box>
+            <Typography component="h2" variant="h5" fontWeight={750}>Founder essentials</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Keep the three relationships every business depends on visible: customers, suppliers and the team.
+            </Typography>
+          </Box>
+        </Stack>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
+          <FounderRelationshipCard
+            icon={PeopleAltRoundedIcon}
+            title="Customers"
+            value={founder.customers || kpis.totalContacts}
+            helper={`${founder.newCustomers7d || kpis.newContacts7d || 0} new in 7 days · ${founder.followupsDue || 0} follow-ups due`}
+            description="Keep customer details, conversations, assigned owner, follow-ups, quotations and orders connected to one customer record."
+            primaryHref="/contacts"
+            primaryLabel="Manage customers"
+            secondaryHref="/services/crm"
+            secondaryLabel="Open CRM"
+          />
+          <FounderRelationshipCard
+            icon={HandshakeRoundedIcon}
+            title="Suppliers"
+            value={founder.suppliers}
+            helper={`${founder.purchaseOrdersOpen || 0} open purchase orders`}
+            description="Maintain supplier/vendor ownership, purchasing commitments and the people responsible for each supplier relationship."
+            primaryHref="/services/staff/records/vendor"
+            primaryLabel="Manage suppliers"
+            secondaryHref="/services/payments/records/purchase_order"
+            secondaryLabel="Purchase orders"
+          />
+          <FounderRelationshipCard
+            icon={GroupsRoundedIcon}
+            title="Team members"
+            value={founder.teamMembers}
+            helper={`${founder.tasksOverdue || 0} overdue tasks · ${founder.responsibilities || 0} responsibilities`}
+            description="Control who can work the shared WhatsApp inbox, then connect team accountability through tasks, responsibilities and SOPs."
+            primaryHref="/settings?tab=team"
+            primaryLabel="Manage team"
+            secondaryHref="/services/staff"
+            secondaryLabel="Tasks & SOPs"
+          />
+        </Box>
       </Box>
 
       <Box sx={{ mb: 3 }}>
