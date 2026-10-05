@@ -22,7 +22,7 @@ const STATUS_COPY = {
   completed: {
     severity: 'success',
     title: 'Deletion completed',
-    body: 'Everything held for this account has been permanently deleted — messages, contacts, connected WhatsApp numbers and their access tokens, API keys and webhook destinations. Nothing remains to restore.',
+    body: 'The live account-owned data covered by the deletion service has been deleted, including customer communication records, connected provider accounts, API credentials and supported business-workspace records. A minimal deletion/audit record may be retained to prove the request was processed, and separate legally required billing records or external-provider copies may follow their own retention rules.',
   },
   no_account_found: {
     severity: 'info',
