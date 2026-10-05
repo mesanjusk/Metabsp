@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import { Contact, GoogleBusinessAccount, InstagramAccount, Message, WhatsAppAccount } from '@/lib/models';
+import SmbRecord from '@/lib/models/SmbRecord';
 import { resolveServiceAccess } from '@/lib/services/serviceAccess';
 import { buildGrowthAgents, buildGrowthRecommendations } from '@/lib/services/growthIntelligence';
 
@@ -32,6 +33,9 @@ export async function GET(req: NextRequest) {
       overdueFollowUps,
       unansweredRows,
       reactivationCandidates,
+      overdueReceivablesCount,
+      overdueReceivablesRows,
+      quotationPipelineRows,
       whatsapp,
       instagram,
       googleBusiness,
@@ -88,18 +92,50 @@ export async function GET(req: NextRequest) {
           { lastSeen: null, updatedAt: { $lte: thirtyDaysAgo } },
         ],
       }),
+      SmbRecord.countDocuments({
+        userId,
+        kind: { $in: ['order', 'invoice'] },
+        status: { $nin: ['completed', 'paid', 'done', 'closed', 'cancelled', 'lost', 'rejected'] },
+        balanceInPaise: { $gt: 0 },
+        dueAt: { $lt: new Date() },
+      }),
+      SmbRecord.aggregate([
+        { $match: {
+          userId,
+          kind: { $in: ['order', 'invoice'] },
+          status: { $nin: ['completed', 'paid', 'done', 'closed', 'cancelled', 'lost', 'rejected'] },
+          balanceInPaise: { $gt: 0 },
+          dueAt: { $lt: new Date() },
+        } },
+        { $group: { _id: null, value: { $sum: '$balanceInPaise' } } },
+      ]),
+      SmbRecord.aggregate([
+        { $match: {
+          userId,
+          kind: 'quotation',
+          status: { $nin: ['completed', 'paid', 'done', 'closed', 'cancelled', 'lost', 'rejected'] },
+          amountInPaise: { $gt: 0 },
+        } },
+        { $group: { _id: null, value: { $sum: '$amountInPaise' } } },
+      ]),
       WhatsAppAccount.findOne({ userId, isActive: true }).select('status displayPhoneNumber verifiedName').lean(),
       InstagramAccount.findOne({ userId, isActive: true }).select('status username name').lean(),
       GoogleBusinessAccount.findOne({ userId, isActive: true }).select('status locationName locationTitle').lean(),
     ]);
 
     const unansweredConversations = Number(unansweredRows?.[0]?.count || 0);
+    const overdueReceivablesPaise = Number(overdueReceivablesRows?.[0]?.value || 0);
+    const quotationPipelinePaise = Number(quotationPipelineRows?.[0]?.value || 0);
 
     const inputs = {
       activeOpportunities,
       overdueFollowUps,
       unansweredConversations,
       reactivationCandidates,
+      overdueReceivablesCount,
+      overdueReceivablesPaise,
+      quotationPipelinePaise,
+      paymentsEnabled: Boolean(access?.payments?.enabled),
       whatsappConnected: whatsapp?.status === 'active',
       instagramConnected: instagram?.status === 'active',
       marketingEnabled: Boolean(access?.marketing?.enabled),
@@ -125,6 +161,10 @@ export async function GET(req: NextRequest) {
           overdueFollowUps,
           unansweredConversations,
           reactivationCandidates,
+          overdueReceivablesCount,
+          overdueReceivablesPaise,
+          quotationPipelinePaise,
+          actionableValuePaise: overdueReceivablesPaise + quotationPipelinePaise,
           urgentCount,
           highCount,
         },

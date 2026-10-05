@@ -1,12 +1,29 @@
 # MetaBSP
 
-A WhatsApp Business Solution Provider platform built on Meta's official
-WhatsApp Business Platform (Cloud API). Businesses connect their own WhatsApp
-number through Meta's Embedded Signup, then use a shared inbox, message
-templates, broadcasts, automations and a REST API to talk to their customers.
+MetaBSP is an India-first **small-business growth operating system** built from
+an official WhatsApp Business Platform foundation. The product goal is not to
+make a merchant replace every tool they already use. It is to connect customer
+identity, conversations, CRM activity, sales/collections and growth channels so
+the owner can answer one question every day: **what should I do next to grow?**
 
-There is no unofficial transport anywhere in this codebase. Every message in
-and out goes through the Cloud API.
+The operating loop is:
+
+`Reach → Convert → Retain → Measure`
+
+WhatsApp remains the primary customer communication rail. The shared Contact and
+SMB record models are the business history. Google Business Profile, Instagram,
+marketing/publishing, RCS and future channel adapters write into that same
+customer-centric workspace instead of creating separate mini-CRMs.
+
+Accounting is integration-first. The existing BUSY connector safely sends
+approved WhatsApp templates/invoice notifications from BUSY through a customer's
+own connected WhatsApp number. Full accounting/customer transaction sync and
+additional adapters such as Tally and Marg are roadmap work; the application must
+not claim those connectors are live until they have real tested provider/client
+integration.
+
+There is no unofficial WhatsApp transport anywhere in this codebase. Every
+WhatsApp message in and out goes through Meta's official Cloud API.
 
 ---
 
