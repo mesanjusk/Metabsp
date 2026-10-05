@@ -95,6 +95,25 @@ if (value('META_ENABLE_COEXISTENCE').toLowerCase() === 'true') {
   warnings.push('Coexistence is enabled: complete one real WhatsApp Business App onboarding end-to-end before Meta submission');
 }
 
+if (value('ENABLE_SCHEDULED_BACKUPS').toLowerCase() === 'true') {
+  const backupKey = requireEnv(
+    'BACKUP_ENCRYPTION_KEY',
+    'scheduled off-host backups must be encrypted with a separate 32-byte base64 key'
+  );
+  if (backupKey) {
+    try {
+      if (Buffer.from(backupKey, 'base64').length !== 32) {
+        errors.push('BACKUP_ENCRYPTION_KEY: must decode to exactly 32 bytes');
+      }
+    } catch {
+      errors.push('BACKUP_ENCRYPTION_KEY: invalid base64');
+    }
+  }
+  for (const name of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']) {
+    requireEnv(name, 'encrypted off-host backups use the existing Cloudinary account');
+  }
+}
+
 const enforceReview = value('META_REVIEW_ENFORCE_READY').toLowerCase() === 'true';
 const reviewerFields = [
   ['META_REVIEWER_LOGIN', 'reviewer username/mobile'],
