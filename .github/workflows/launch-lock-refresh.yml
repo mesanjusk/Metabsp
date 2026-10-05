@@ -28,8 +28,9 @@ jobs:
 
       - name: Resolve exact dependency tree
         run: |
-          rm -f package-lock.json
-          npm install --package-lock-only --ignore-scripts
+          git fetch origin main --depth=1
+          git checkout origin/main -- package-lock.json
+          npm install --package-lock-only --package-lock=true --ignore-scripts
 
       - name: Show production audit
         run: npm audit --omit=dev || true
