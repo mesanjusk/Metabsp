@@ -2,7 +2,7 @@
   "name": "metabsp-nextjs",
   "version": "0.1.0",
   "private": true,
-  "description": "Metabsp WhatsApp Cloud API product \u2014 Next.js 15 App Router. Runs as a single persistent Node process (server.js) on Render, hosting the App Router, API route handlers, Socket.IO, the BullMQ worker and the schedulers together.",
+  "description": "SK Digital Business Growth OS — a connected small-business workspace with official WhatsApp Cloud API, CRM, growth, operations and customer communication.",
   "scripts": {
     "dev": "node server.js",
     "build": "next build",
