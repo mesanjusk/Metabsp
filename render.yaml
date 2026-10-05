@@ -172,6 +172,35 @@ services:
       - key: KEEP_ALIVE_TOKEN
         sync: false
 
+      # ── Reliability / recovery ──────────────────────────────────────────
+      # Mongo is the durable journal for accepted WhatsApp queue work. Redis
+      # may therefore remain non-persistent on the free plan without making a
+      # restart a silent message-loss event.
+      - key: DURABLE_QUEUE_REPLAY_INTERVAL_MS
+        value: "30000"
+      - key: DURABLE_QUEUE_COMPLETED_RETENTION_DAYS
+        value: "14"
+      - key: WEBHOOK_JOURNAL_TIMEOUT_MS
+        value: "2000"
+
+      # Daily encrypted logical Mongo snapshots are uploaded off-host to the
+      # existing Cloudinary account, so no Render persistent disk or mongodump
+      # binary is required. Generate this as a separate 32-byte base64 secret.
+      - key: ENABLE_SCHEDULED_BACKUPS
+        value: "true"
+      - key: BACKUP_ENCRYPTION_KEY
+        sync: false
+      - key: BACKUP_CLOUDINARY_FOLDER
+        value: system_backups
+      - key: BACKUP_RETENTION_DAYS
+        value: "30"
+      - key: BACKUP_MIN_INTERVAL_HOURS
+        value: "20"
+      - key: BACKUP_MAX_AGE_HOURS
+        value: "26"
+      - key: BACKUP_POLL_INTERVAL_MS
+        value: "3600000"
+
       # ── App Review ──────────────────────────────────────────────────────
       # Set true on the exact deployment submitted to Meta, so missing
       # reviewer credentials fail the build instead of reaching Meta broken.
@@ -247,10 +276,9 @@ services:
     # Redis, and an eviction policy that drops keys under memory pressure
     # silently discards queued customer messages.
     #
-    # Confirm persistence is ON for this instance in the Render dashboard after
-    # a blueprint deploy. It is not settable here, and with it off a restart
-    # loses every queued inbound webhook and outbound send — the same silent
-    # message loss the eviction policy above exists to prevent. The application
-    # cannot verify either setting at boot: Render blocks CONFIG GET, so the
-    # startup self-check reports "could not verify" rather than a pass.
+    # Persistence is desirable for faster recovery but no longer required for
+    # correctness: accepted inbound/outbound WhatsApp queue work is journaled
+    # in Mongo before Redis becomes the dispatch layer, and the replay scheduler
+    # reconstructs stale/lost jobs after a Redis restart. Keep noeviction so an
+    # otherwise healthy Redis does not churn active BullMQ state under pressure.
     maxmemoryPolicy: noeviction
