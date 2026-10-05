@@ -1,0 +1,45 @@
+name: Refresh launch hardening lockfile
+
+on:
+  push:
+    branches: [feat/launch-readiness-hardening-20261005]
+    paths:
+      - nextjs/package.json
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nextjs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/launch-readiness-hardening-20261005
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: nextjs/package-lock.json
+
+      - name: Resolve exact dependency tree
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Show production audit
+        run: npm audit --omit=dev || true
+
+      - name: Commit refreshed lockfile
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "Lockfile already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: refresh dependency lockfile"
+          git push origin HEAD:feat/launch-readiness-hardening-20261005
