@@ -13,6 +13,7 @@ const backupSnapshotSchema = new Schema(
     documentCount: { type: Number, default: 0 },
     error: { type: String, default: '' },
     formatVersion: { type: Number, default: 1 },
+    remoteVerified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
