@@ -75,8 +75,8 @@ jobs:
           RUN_BACKGROUND_JOBS=false npm run start:next -- -p 3100 > /tmp/skdigital-mobile.log 2>&1 &
           APP_PID=$!
           trap 'kill $APP_PID 2>/dev/null || true' EXIT
-          MOBILE_SMOKE_BASE_URL=http://127.0.0.1:3100 npm run test:mobile
-          LAUNCH_JOURNEY_BASE_URL=http://127.0.0.1:3100 npm run test:launch-journey
+          MOBILE_SMOKE_BASE_URL=http://localhost:3100 npm run test:mobile
+          LAUNCH_JOURNEY_BASE_URL=http://localhost:3100 npm run test:launch-journey
 
   audit:
     runs-on: ubuntu-latest
