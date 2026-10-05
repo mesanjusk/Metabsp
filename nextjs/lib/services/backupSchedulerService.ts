@@ -1,57 +1,63 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import fs from 'fs';
-import path from 'path';
 import { withLeaderLock } from './schedulerLock';
 import logger from '../utils/logger';
+import {
+  hasRecentSuccessfulBackup,
+  runEncryptedCloudBackup,
+} from './encryptedBackupService';
 
-const execFileAsync = promisify(execFile);
+const POLL_INTERVAL_MS = Math.max(60 * 60 * 1000, Number(process.env.BACKUP_POLL_INTERVAL_MS || 60 * 60 * 1000));
+const MIN_INTERVAL_HOURS = Math.max(1, Number(process.env.BACKUP_MIN_INTERVAL_HOURS || 20));
 
-/**
- * Inert unless explicitly enabled — a backup job invokes `mongodump` (a system
- * binary, not a Node dependency) on a schedule, which is not something every
- * deployment wants running by default before an operator has confirmed the
- * binary is installed and BACKUP_DIR is a real, persistent (ideally off-host)
- * mount. See docs/BACKUP_RESTORE.md.
- */
 export const isBackupEnabled = () =>
   String(process.env.ENABLE_SCHEDULED_BACKUPS || '').toLowerCase() === 'true';
 
 export async function runScheduledBackup() {
-  if (!isBackupEnabled()) return { ran: false, reason: 'ENABLE_SCHEDULED_BACKUPS is not set to true' };
+  if (!isBackupEnabled()) {
+    return { ran: false, reason: 'ENABLE_SCHEDULED_BACKUPS is not set to true' };
+  }
 
-  const mongoUri = process.env.MONGO_URI;
-  if (!mongoUri) return { ran: false, reason: 'MONGO_URI is not set' };
-
-  const backupDir = process.env.BACKUP_DIR || path.join(process.cwd(), 'backups');
-  fs.mkdirSync(backupDir, { recursive: true });
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const archivePath = path.join(backupDir, `metabsp-${timestamp}.gz`);
+  const recent = await hasRecentSuccessfulBackup({ maxAgeHours: MIN_INTERVAL_HOURS });
+  if (recent.ok) {
+    return {
+      ran: false,
+      reason: `latest encrypted off-host backup is only ${Number(recent.ageHours || 0).toFixed(1)}h old`,
+    };
+  }
 
   try {
-    await execFileAsync('mongodump', [`--uri=${mongoUri}`, `--archive=${archivePath}`, '--gzip'], {
-      timeout: 15 * 60 * 1000, // large deployments take a while; don't hang forever
-    });
-    logger.info(`[backup-scheduler] Backup written to ${archivePath}`);
-    return { ran: true, archivePath };
+    return await runEncryptedCloudBackup();
   } catch (error: any) {
-    logger.error('[backup-scheduler] Backup run failed:', error.message);
-    return { ran: true, error: error.message };
+    logger.error('[backup-scheduler] Encrypted off-host backup failed:', error?.message || error);
+    return { ran: true, error: error?.message || String(error) };
   }
 }
 
-export function startBackupScheduler({ intervalMs = 24 * 60 * 60 * 1000 } = {}) {
+export function startBackupScheduler({ intervalMs = POLL_INTERVAL_MS } = {}) {
   if (!isBackupEnabled()) {
     logger.info('[backup-scheduler] Disabled (set ENABLE_SCHEDULED_BACKUPS=true to enable)');
     return null;
   }
 
-  return setInterval(() => {
-    // Longer TTL than the other schedulers: mongodump itself is allowed up to
-    // 15 minutes, so the lock must outlive the backup run, not just a DB scan.
-    withLeaderLock('scheduled-backup', runScheduledBackup, { ttlMs: 20 * 60 * 1000 }).catch((error) =>
-      logger.error('[backup-scheduler] Scheduled run failed:', error.message)
+  const tick = () =>
+    withLeaderLock('scheduled-backup', runScheduledBackup, {
+      // The logical dump is bounded by one pass over Mongo plus upload. Keep
+      // the leader lock long enough that a second replica cannot start a
+      // parallel full-database snapshot.
+      ttlMs: 45 * 60 * 1000,
+    }).catch((error: any) =>
+      logger.error('[backup-scheduler] Scheduled run failed:', error?.message || error)
     );
-  }, intervalMs).unref();
+
+  // Do not wait 24 hours after a deploy before discovering backups are broken.
+  // The service checks whether a recent successful snapshot already exists and
+  // skips when one does, so deploys do not create duplicate daily archives.
+  const bootTimer = setTimeout(() => void tick(), 30_000);
+  bootTimer.unref();
+
+  const timer = setInterval(tick, intervalMs);
+  timer.unref();
+  logger.info(
+    `[backup-scheduler] Enabled — encrypted Cloudinary backup check every ${Math.round(intervalMs / 60_000)} minute(s), minimum ${MIN_INTERVAL_HOURS}h between snapshots`
+  );
+  return timer;
 }
