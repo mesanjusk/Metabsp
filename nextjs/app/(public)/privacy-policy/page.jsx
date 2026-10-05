@@ -56,9 +56,9 @@ export default function PrivacyPolicyPage() {
               <BulletList items={[
                 'Business name, legal entity type, and registration details',
                 'Business phone numbers registered with WhatsApp Business',
-                'Business verification documents submitted to Meta',
-                'Tax identification numbers (where required)',
-                'Billing information and payment method details',
+                'Business verification information you choose to provide or connect for supported provider workflows',
+                'Tax or billing identifiers when you provide them for an enabled billing or compliance feature',
+                'Billing and subscription information used by enabled billing features; payment credentials handled directly by a payment provider are not represented here as if we store full card or bank credentials',
               ]} />
               <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>WhatsApp Data</Typography>
               <BulletList items={[
@@ -66,7 +66,7 @@ export default function PrivacyPolicyPage() {
                 'Message templates submitted and their approval status',
                 'Message delivery receipts and read receipts',
                 'Webhook event payloads received from Meta',
-                'Message content you send through our API (temporarily cached)',
+                'Message content processed through the platform and, where the feature requires it, stored in message history subject to the configured retention settings',
                 'Business profile information (name, description, website, address)',
               ]} />
               <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Contact and End-User Data</Typography>
@@ -187,7 +187,7 @@ export default function PrivacyPolicyPage() {
                 'Right to opt-out of the sale of personal information (we do not sell personal information)',
                 'Right to non-discrimination for exercising your rights',
               ]} />
-              <Para>To exercise these rights, contact us at privacy@meta.sanjusk.in or submit a request through our data deletion page.</Para>
+              <Para>To exercise an applicable privacy right, contact us at privacy@meta.sanjusk.in or submit a request through our data deletion page. We will verify and process requests according to the law that applies to the requester and the data involved.</Para>
             </Section>
 
             <Section title="8. How to Delete Your Data">
@@ -227,15 +227,15 @@ export default function PrivacyPolicyPage() {
             </Section>
 
             <Section title="12. Changes to This Policy">
-              <Para>We may update this Privacy Policy periodically. We will notify you of material changes by email and by posting the updated policy on this page with a revised "Last updated" date. Your continued use of our services after changes constitute acceptance of the updated policy.</Para>
+              <Para>We may update this Privacy Policy periodically. Material changes will be reflected on this page with a revised "Last updated" date and, where required by law or appropriate for the change, may also be communicated through the product or available account contact channels.</Para>
             </Section>
 
             <Section title="13. Contact Us">
-              <Para>For privacy-related inquiries, please contact our Data Protection Officer:</Para>
+              <Para>For privacy-related inquiries, please contact our privacy team:</Para>
               <BulletList items={[
                 'Email: privacy@meta.sanjusk.in',
                 'Subject line: Privacy Inquiry – [Your Name/Company]',
-                'Response time: Within 72 hours for routine inquiries, 30 days for formal GDPR/CCPA requests',
+                'We acknowledge and process privacy requests according to the timelines required by applicable law; verification or complex requests may require additional information.',
               ]} />
             </Section>
           </Paper>
