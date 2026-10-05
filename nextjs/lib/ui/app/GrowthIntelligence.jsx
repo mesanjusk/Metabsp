@@ -69,6 +69,11 @@ function statusLabel(value) {
   return 'Ready';
 }
 
+function money(paise) {
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
+    .format(Number(paise || 0) / 100);
+}
+
 function priorityLabel(value) {
   if (value === 'urgent') return 'Urgent';
   if (value === 'high') return 'High';
@@ -104,12 +109,12 @@ export default function GrowthIntelligence() {
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 3 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1.5} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h6" fontWeight={800}>AI Growth Team</Typography>
+            <Typography variant="h6" fontWeight={800}>Growth command center</Typography>
             <Typography variant="caption" color="text.secondary">
-              One intelligence layer using your existing tenant, contacts, inbox and service permissions.
+              One customer history across conversations, CRM, sales and growth channels — focused on the next action, not another dashboard.
             </Typography>
           </Box>
-          <Chip icon={<AutoAwesomeRoundedIcon />} label={loading ? 'Analysing…' : 'Shared business brain'} variant="outlined" />
+          <Chip icon={<AutoAwesomeRoundedIcon />} label={loading ? 'Analysing…' : 'Reach → Convert → Retain → Measure'} variant="outlined" />
         </Stack>
 
         {error ? <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert> : null}
@@ -159,13 +164,15 @@ export default function GrowthIntelligence() {
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 3 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1.5} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h6" fontWeight={800}>What needs attention</Typography>
+            <Typography variant="h6" fontWeight={800}>Today's growth actions</Typography>
             <Typography variant="caption" color="text.secondary">
-              Rule-based recommendations from live shared data. No duplicate lead database and no AI token cost for this scan.
+              Ranked from live conversations, CRM activity, quotations and receivables so the owner knows what to do before opening five separate tools.
             </Typography>
           </Box>
           {!loading ? (
             <Stack direction="row" spacing={0.75}>
+              {summary.actionableValuePaise ? <Chip size="small" label={`${money(summary.actionableValuePaise)} actionable`} variant="outlined" /> : null}
+              {summary.overdueReceivablesPaise ? <Chip size="small" color="warning" label={`${money(summary.overdueReceivablesPaise)} overdue`} variant="outlined" /> : null}
               {summary.urgentCount ? <Chip size="small" icon={<PriorityHighRoundedIcon />} label={`${summary.urgentCount} urgent`} /> : null}
               {summary.highCount ? <Chip size="small" label={`${summary.highCount} high`} variant="outlined" /> : null}
             </Stack>
