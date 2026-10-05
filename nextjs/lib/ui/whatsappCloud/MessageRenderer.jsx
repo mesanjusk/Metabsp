@@ -94,12 +94,12 @@ export default function MessageRenderer({ message, type }) {
 
   if (safeType === 'video') {
     const mediaUrl = message?.mediaUrl || message?.video?.link || message?.url;
-    return mediaUrl ? <video controls style={{ maxHeight: 320, width: '100%', borderRadius: 12, backgroundColor: '#000' }}><source src={mediaUrl} /></video> : <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.8 }}>Video unavailable</Typography>;
+    return mediaUrl ? <video controls style={{ maxHeight: 320, width: '100%', borderRadius: 12, backgroundColor: '#000' }}><source src={mediaUrl} /></video> : <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.8, overflowWrap: 'anywhere' }}>{message?.mediaMirrorError || 'Video unavailable'}</Typography>;
   }
 
   if (safeType === 'audio') {
     const mediaUrl = message?.mediaUrl || message?.audio?.link || message?.url;
-    return mediaUrl ? <audio controls style={{ width: '100%' }}><source src={mediaUrl} /></audio> : <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.8 }}>Audio unavailable</Typography>;
+    return mediaUrl ? <audio controls style={{ width: '100%' }}><source src={mediaUrl} /></audio> : <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.8, overflowWrap: 'anywhere' }}>{message?.mediaMirrorError || 'Audio unavailable'}</Typography>;
   }
 
   return <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{text || 'Unsupported message payload'}</Typography>;
