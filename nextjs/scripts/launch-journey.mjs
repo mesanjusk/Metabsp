@@ -118,7 +118,8 @@ try {
     await page.waitForURL(/\/home/, { timeout: 10_000 });
 
     assert(await page.getByText('Business growth workspace', { exact: true }).count(), 'Home did not show the growth workspace after onboarding.');
-    assert(await page.getByRole('link', { name: /open inbox/i }).count(), 'Home did not expose the primary inbox action.');
+    const inboxAction = page.locator('[href="/inbox"]').filter({ hasText: /open inbox/i });
+    assert(await inboxAction.count(), 'Home did not expose a navigable Open inbox action.');
     assert(pageErrors.length === 0, `Browser errors at ${viewport.width}px: ${pageErrors.join(' | ')}`);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
