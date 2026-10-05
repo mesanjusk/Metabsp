@@ -4,14 +4,63 @@ const baseUrl = process.env.MOBILE_SMOKE_BASE_URL || 'http://127.0.0.1:3100';
 const widths = [320, 375, 390];
 const protectedRoutes = [
   '/home',
-  '/services/crm',
-  '/services/payments',
-  '/services/institute/forms',
-  '/services/institute/id-card',
-  '/services/store/products',
+  '/whatsapp',
+  '/inbox',
+  '/templates',
+  '/broadcasts',
+  '/automations',
+  '/analytics',
   '/numbers',
+  '/contacts',
+  '/business',
+  '/developers',
+  '/instagram',
+  '/services/rcs',
+  '/services/google-business',
+  '/services/google-business/reviews',
+  '/services/google-business/posts',
+  '/services/google-business/review-requests',
+  '/services/lead-finder',
+  '/services/dialer',
+  '/services/crm',
+  '/services/crm/board',
+  '/services/store',
+  '/services/store/products',
+  '/services/store/categories',
+  '/services/store/inquiries',
+  '/services/store/settings',
+  '/services/institute',
+  '/services/institute/forms',
+  '/services/institute/fees',
+  '/services/institute/id-card',
+  '/services/institute/add-admission',
+  '/services/marketing',
+  '/services/staff',
+  '/services/staff/attendance',
+  '/services/staff/my-day',
+  '/services/video',
+  '/services/video/new',
+  '/services/video/accounts',
+  '/services/payments',
+  '/services/payments/documents',
+  '/services/payments/ledger',
+  '/services/payments/reports',
+  '/settings',
+  '/setup/business-profile',
 ];
-const publicRoutes = ['/login', '/signup'];
+const publicRoutes = [
+  '/',
+  '/login',
+  '/signup',
+  '/about',
+  '/contact',
+  '/help-center',
+  '/privacy-policy',
+  '/terms-of-service',
+  '/security-info',
+  '/cookie-policy',
+  '/data-deletion',
+];
 
 const services = [
   'whatsapp','rcs','instagram','google-business','lead-finder','dialer','crm','store',
@@ -53,8 +102,13 @@ function mockedApi(url) {
   if (path.includes('/api/institute/idcards/projects')) return json({ success: true, data: [] });
   if (path === '/api/store/products' || path === '/api/store/categories' || path === '/api/store/inquiries') return json({ success: true, data: [] });
   if (path === '/api/store/profile') return json({ success: true, data: { name: 'Test Store', slug: 'test-store', currency: 'INR' } });
+  if (path === '/api/admin/privacy/deletion-requests') return json({ success: true, data: [] });
 
-  return json({ success: true, data: {} });
+  // Launch smoke is testing browser layout and route stability, not provider
+  // correctness. An empty collection is the safest generic load-state payload:
+  // list screens can iterate it, while object-style property reads simply get
+  // undefined and render their empty states.
+  return json({ success: true, data: [] });
 }
 
 async function waitForServer() {
@@ -73,6 +127,22 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+async function assertNoViewportOverflow(page, route, width, suffix = '') {
+  const metrics = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+    bodyWidth: document.body.scrollWidth,
+    mainWidth: document.querySelector('main')?.scrollWidth || 0,
+    mainClientWidth: document.querySelector('main')?.clientWidth || 0,
+  }));
+  const label = suffix ? `${route} ${suffix}` : route;
+  assert(metrics.scrollWidth <= metrics.clientWidth + 1, `${label} overflows root at ${width}px: ${metrics.scrollWidth}px > ${metrics.clientWidth}px`);
+  assert(metrics.bodyWidth <= metrics.clientWidth + 1, `${label} overflows body at ${width}px`);
+  if (metrics.mainClientWidth) {
+    assert(metrics.mainWidth <= metrics.mainClientWidth + 1, `${label} overflows main at ${width}px: ${metrics.mainWidth}px > ${metrics.mainClientWidth}px`);
+  }
+}
+
 await waitForServer();
 const browser = await chromium.launch({ headless: true });
 
@@ -87,13 +157,7 @@ try {
 
     for (const route of publicRoutes) {
       await page.goto(baseUrl + route, { waitUntil: 'networkidle' });
-      const metrics = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
-        clientWidth: document.documentElement.clientWidth,
-        bodyWidth: document.body.scrollWidth,
-      }));
-      assert(metrics.scrollWidth <= metrics.clientWidth + 1, `${route} overflows at ${width}px: ${metrics.scrollWidth}px > ${metrics.clientWidth}px`);
-      assert(metrics.bodyWidth <= metrics.clientWidth + 1, `${route} body overflows at ${width}px`);
+      await assertNoViewportOverflow(page, route, width);
     }
 
     await page.addInitScript(() => {
@@ -106,24 +170,35 @@ try {
     for (const route of protectedRoutes) {
       await page.goto(baseUrl + route, { waitUntil: 'networkidle' });
       await page.waitForTimeout(150);
-      const metrics = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
-        clientWidth: document.documentElement.clientWidth,
-        bodyWidth: document.body.scrollWidth,
-        mainWidth: document.querySelector('main')?.scrollWidth || 0,
-        mainClientWidth: document.querySelector('main')?.clientWidth || 0,
-      }));
-      assert(metrics.scrollWidth <= metrics.clientWidth + 1, `${route} overflows root at ${width}px: ${metrics.scrollWidth}px > ${metrics.clientWidth}px`);
-      assert(metrics.bodyWidth <= metrics.clientWidth + 1, `${route} overflows body at ${width}px`);
-      assert(metrics.mainWidth <= metrics.mainClientWidth + 1, `${route} overflows main at ${width}px: ${metrics.mainWidth}px > ${metrics.mainClientWidth}px`);
-      assert(await page.locator('text=More').count(), `${route} is missing mobile More navigation at ${width}px`);
+      await assertNoViewportOverflow(page, route, width);
+      assert(await page.getByText('More', { exact: true }).count(), `${route} is missing mobile More navigation at ${width}px`);
+
+      if (route === '/services/institute/forms') {
+        const trigger = page.getByRole('button', { name: /new form/i });
+        if (await trigger.count()) {
+          await trigger.first().click();
+          await page.waitForTimeout(50);
+          await assertNoViewportOverflow(page, route, width, 'dialog');
+          await page.keyboard.press('Escape');
+        }
+      }
+
+      if (route === '/services/store/products') {
+        const trigger = page.getByRole('button', { name: /add product/i });
+        if (await trigger.count()) {
+          await trigger.first().click();
+          await page.waitForTimeout(50);
+          await assertNoViewportOverflow(page, route, width, 'dialog');
+          await page.keyboard.press('Escape');
+        }
+      }
     }
 
     assert(pageErrors.length === 0, `Browser errors at ${width}px: ${pageErrors.join(' | ')}`);
     await context.close();
   }
 
-  console.log(`Mobile smoke passed at ${widths.join(', ')}px across ${publicRoutes.length + protectedRoutes.length} routes.`);
+  console.log(`Mobile smoke passed at ${widths.join(', ')}px across ${publicRoutes.length + protectedRoutes.length} customer-facing routes.`);
 } finally {
   await browser.close();
 }
