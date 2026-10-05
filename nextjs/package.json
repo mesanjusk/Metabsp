@@ -22,7 +22,8 @@
     "loadtest:health": "node loadtest/autocannon-health.js",
     "loadtest:webhook": "node loadtest/autocannon-webhook.js",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
-    "test:mobile": "node scripts/mobile-smoke.mjs"
+    "test:mobile": "node scripts/mobile-smoke.mjs",
+    "test:launch-journey": "node scripts/launch-journey.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
