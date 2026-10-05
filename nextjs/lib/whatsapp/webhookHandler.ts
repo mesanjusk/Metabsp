@@ -10,7 +10,7 @@ import CampaignMessageStatus from '../models/CampaignMessageStatus';
 import {
   loadWhatsAppAccountFromWebhookIdentifiers,
 } from '../services/whatsappAccountService';
-import { uploadWhatsAppMediaToCloudinary } from '../services/whatsappMediaService';
+import { isMediaMirrorTooLargeError, uploadWhatsAppMediaToCloudinary } from '../services/whatsappMediaService';
 import { resolveAutoReplyAction, resolveReplyDelayMs } from '../services/autoReplyService';
 import { resolveMatchingWorkflow } from '../services/workflowService';
 import { saveAndEmitMessage, normalizePhone } from './dispatch';
@@ -418,6 +418,18 @@ export async function processWebhookEnvelope(body: any): Promise<void> {
             });
           }
         } catch (error: any) {
+          await Message.findByIdAndUpdate((message as any)._id, {
+            $set: isMediaMirrorTooLargeError(error)
+              ? {
+                  mediaSize: Number(error.fileSize || 0),
+                  mediaMirrorStatus: 'skipped_too_large',
+                  mediaMirrorError: 'This attachment is too large to mirror safely. Open it in WhatsApp.',
+                }
+              : {
+                  mediaMirrorStatus: 'failed',
+                  mediaMirrorError: 'Attachment preview is temporarily unavailable.',
+                },
+          }).catch(() => undefined);
           logger.error('[whatsapp] media processing failed', error.message);
         }
       }
