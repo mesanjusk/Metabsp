@@ -168,7 +168,7 @@ export default function TermsOfServicePage() {
 
             <Section title="10. Limitation of Liability">
               <Para>
-                TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, SANJUSK AND ITS AFFILIATES, OFFICERS, EMPLOYEES, AGENTS, PARTNERS, AND LICENSORS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM:
+                TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, SK DIGITAL, OPERATED BY MAHI CREATION, AND ITS AFFILIATES, OFFICERS, EMPLOYEES, AGENTS, PARTNERS, AND LICENSORS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM:
               </Para>
               <BulletList items={[
                 'Your access to or use of, or inability to access or use, the Service',
@@ -218,7 +218,7 @@ export default function TermsOfServicePage() {
 
             <Section title="15. Contact">
               <Para>
-                For questions about these Terms, contact us at legal@meta.sanjusk.in or write to: SK Digital Legal Team, [Address on file]. For support inquiries, contact support@meta.sanjusk.in.
+                For questions about these Terms, contact legal@meta.sanjusk.in. SK Digital is operated by Mahi Creation. For support inquiries, contact support@meta.sanjusk.in.
               </Para>
             </Section>
           </Paper>
