@@ -25,7 +25,12 @@ jobs:
           node-version: '22'
 
       - name: Resolve exact dependency tree
-        run: npm install --package-lock-only --package-lock=true --ignore-scripts
+        run: |
+          echo "package-lock config: $(npm config get package-lock)"
+          node -e "console.log('requested next', require('./package.json').dependencies.next)"
+          rm -f package-lock.json
+          npm install --package-lock=true --ignore-scripts
+          test -s package-lock.json
 
       - name: Show production audit
         run: npm audit --omit=dev || true
