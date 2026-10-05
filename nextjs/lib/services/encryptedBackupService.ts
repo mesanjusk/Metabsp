@@ -38,22 +38,31 @@ function ejson() {
 
 async function* backupLines(db: any, counters: { collections: number; documents: number }) {
   const EJSON = ejson();
-  const collections = (await db.listCollections({}, { nameOnly: true }).toArray())
-    .map((item: any) => String(item.name || ''))
-    .filter((name: string) => name && !name.startsWith('system.') && name !== 'backupsnapshots')
-    .sort();
+  const collectionDefs = (await db.listCollections({}).toArray())
+    .filter((item: any) => {
+      const name = String(item.name || '');
+      return name && !name.startsWith('system.') && name !== 'backupsnapshots';
+    })
+    .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)));
 
   yield JSON.stringify({
     type: 'manifest',
     format: 'skdigital-mongo-ejson',
     version: 1,
     createdAt: new Date().toISOString(),
-    collections,
+    collections: collectionDefs.map((item: any) => String(item.name)),
   }) + '\n';
 
-  for (const name of collections) {
+  for (const definition of collectionDefs) {
+    const name = String(definition.name);
     counters.collections += 1;
-    yield JSON.stringify({ type: 'collection', name }) + '\n';
+    const indexes = await db.collection(name).indexes().catch(() => []);
+    yield JSON.stringify({
+      type: 'collection',
+      name,
+      ejsonOptions: EJSON.stringify(definition.options || {}, { relaxed: false }),
+      ejsonIndexes: EJSON.stringify(indexes || [], { relaxed: false }),
+    }) + '\n';
     const cursor = db.collection(name).find({});
     for await (const doc of cursor) {
       counters.documents += 1;
