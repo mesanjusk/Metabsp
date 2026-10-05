@@ -39,7 +39,7 @@ export default function TermsOfServicePage() {
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Para>
-              These Terms of Service ("Terms") govern your access to and use of the SanjuSK platform, including our website, APIs, and related services (collectively, the "Service"). By accessing or using our Service, you agree to be bound by these Terms. If you do not agree, do not use the Service.
+              These Terms of Service ("Terms") govern your access to and use of the SK Digital platform, operated by Mahi Creation, including our website, APIs, and related services (collectively, the "Service"). By accessing or using our Service, you agree to be bound by these Terms. If you do not agree, do not use the Service.
             </Para>
 
             <Divider sx={{ my: 4 }} />
@@ -55,7 +55,7 @@ export default function TermsOfServicePage() {
 
             <Section title="2. WhatsApp Business Platform Usage Requirements">
               <Para>
-                SanjuSK provides access to the WhatsApp Business Platform through Meta&apos;s official Cloud API. Your use of our Service to access the WhatsApp Business API is subject to additional requirements:
+                SK Digital provides access to the WhatsApp Business Platform through Meta&apos;s official Cloud API. Your use of our Service to access the WhatsApp Business API is subject to additional requirements:
               </Para>
               <BulletList items={[
                 'You must comply with Meta\'s WhatsApp Business Policy (https://www.whatsapp.com/legal/business-policy)',
@@ -68,7 +68,7 @@ export default function TermsOfServicePage() {
                 'You must honor Meta\'s quality ratings and reduce opt-out rates to maintain messaging access',
               ]} />
               <Para>
-                SanjuSK reserves the right to suspend or terminate your access if we determine, at our sole discretion, that your use violates Meta&apos;s policies, as violations may jeopardize our standing with Meta and, with it, every other customer&apos;s access.
+                SK Digital reserves the right to suspend or terminate your access if we determine, at our sole discretion, that your use violates Meta&apos;s policies, as violations may jeopardize our standing with Meta and, with it, every other customer&apos;s access.
               </Para>
             </Section>
 
@@ -105,7 +105,7 @@ export default function TermsOfServicePage() {
                 'Introducing malware, viruses, or malicious code',
                 'Conducting denial-of-service attacks against our infrastructure',
                 'Using automated tools to create accounts in violation of our policies',
-                'Reselling access to the SanjuSK platform without written authorization',
+                'Reselling access to the SK Digital platform without written authorization',
               ]} />
             </Section>
 
@@ -114,7 +114,7 @@ export default function TermsOfServicePage() {
               <BulletList items={[
                 'Maintaining the confidentiality of your account credentials and API keys',
                 'All activities that occur under your account, whether authorized by you or not',
-                'Promptly notifying SanjuSK of any unauthorized access to your account',
+                'Promptly notifying SK Digital of any unauthorized access to your account',
                 'Ensuring that all users in your organization who access the Service comply with these Terms',
                 'Keeping your business and contact information accurate and up to date',
                 'Maintaining adequate records of end-user consent for WhatsApp messaging',
@@ -124,13 +124,13 @@ export default function TermsOfServicePage() {
 
             <Section title="5. Meta/WhatsApp API Usage Compliance">
               <Para>
-                As an intermediary between you and Meta's WhatsApp Business API, SanjuSK must comply with Meta's Platform Terms. Accordingly:
+                As an intermediary between you and Meta's WhatsApp Business API, SK Digital must comply with Meta's Platform Terms. Accordingly:
               </Para>
               <BulletList items={[
                 'We may be required to provide Meta with information about your use of the API if requested',
-                'Meta may independently restrict or terminate your access to the WhatsApp API regardless of your agreement with SanjuSK',
+                'Meta may independently restrict or terminate your access to the WhatsApp API regardless of your agreement with SK Digital',
                 'Quality ratings assigned by Meta to your phone numbers affect your messaging capabilities and are outside our control',
-                'Meta\'s decisions regarding template approval, business verification, and account status are final and not subject to appeal through SanjuSK',
+                'Meta\'s decisions regarding template approval, business verification, and account status are final and not subject to appeal through SK Digital',
                 'We will notify you as promptly as possible of any communications we receive from Meta that affect your account',
               ]} />
             </Section>
@@ -141,7 +141,7 @@ export default function TermsOfServicePage() {
               </Para>
               <BulletList items={[
                 'You retain ownership of all data you input into the Service',
-                'You grant SanjuSK a limited license to process your data solely to provide the Service',
+                'You grant SK Digital a limited license to process your data solely to provide the Service',
                 'Message content is retained for 90 days; contact data is retained while your account is active',
                 'You are responsible for obtaining all necessary consents to process end-user data through our platform',
                 'Upon account termination, you may request export of your data within 30 days',
@@ -150,7 +150,7 @@ export default function TermsOfServicePage() {
 
             <Section title="7. Service Availability and SLA">
               <Para>
-                SanjuSK strives to maintain 99.9% uptime for our API and dashboard. Planned maintenance windows will be announced at least 48 hours in advance via our Status Page and email notifications. We are not responsible for downtime caused by Meta's WhatsApp API infrastructure, third-party providers, or events outside our reasonable control.
+                We operate the API and dashboard on a best-effort availability basis unless a written plan or enterprise agreement states a specific service level. Maintenance, provider outages and incidents may affect availability. We do not publish a 99.9% SLA unless that commitment is explicitly included in the customer’s applicable plan or written agreement.
               </Para>
             </Section>
 
@@ -162,7 +162,7 @@ export default function TermsOfServicePage() {
 
             <Section title="9. Intellectual Property">
               <Para>
-                The Service, including all software, algorithms, interfaces, and content created by SanjuSK, is protected by intellectual property laws. You receive a limited, non-exclusive, non-transferable license to use the Service during your subscription. You may not copy, modify, distribute, sell, or lease any part of the Service or its underlying code.
+                The Service, including all software, algorithms, interfaces, and content created by SK Digital, is protected by intellectual property laws. You receive a limited, non-exclusive, non-transferable license to use the Service during your subscription. You may not copy, modify, distribute, sell, or lease any part of the Service or its underlying code.
               </Para>
             </Section>
 
@@ -184,7 +184,7 @@ export default function TermsOfServicePage() {
 
             <Section title="11. Indemnification">
               <Para>
-                You agree to defend, indemnify, and hold harmless SanjuSK and its affiliates, officers, directors, employees, and agents from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising out of or relating to your violation of these Terms, your use of the Service, your WhatsApp messaging activities, or your violation of any rights of a third party.
+                You agree to defend, indemnify, and hold harmless SK Digital and its affiliates, officers, directors, employees, and agents from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising out of or relating to your violation of these Terms, your use of the Service, your WhatsApp messaging activities, or your violation of any rights of a third party.
               </Para>
             </Section>
 
@@ -218,7 +218,7 @@ export default function TermsOfServicePage() {
 
             <Section title="15. Contact">
               <Para>
-                For questions about these Terms, contact us at legal@meta.sanjusk.in or write to: SanjuSK Legal Team, [Address on file]. For support inquiries, contact support@meta.sanjusk.in.
+                For questions about these Terms, contact us at legal@meta.sanjusk.in or write to: SK Digital Legal Team, [Address on file]. For support inquiries, contact support@meta.sanjusk.in.
               </Para>
             </Section>
           </Paper>
