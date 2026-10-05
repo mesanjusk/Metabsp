@@ -91,6 +91,30 @@ async function fileSha256(filePath: string) {
   return hash.digest('hex');
 }
 
+async function verifyRemoteArtifact(url: string, expectedSha256: string, expectedBytes: number) {
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok || !response.body) {
+    throw new Error(`Uploaded backup could not be downloaded for verification (HTTP ${response.status})`);
+  }
+
+  const hash = crypto.createHash('sha256');
+  let bytes = 0;
+  for await (const chunk of Readable.fromWeb(response.body as any)) {
+    const buffer = Buffer.from(chunk as any);
+    bytes += buffer.length;
+    hash.update(buffer);
+  }
+
+  const sha256 = hash.digest('hex');
+  if (bytes !== expectedBytes) {
+    throw new Error(`Remote backup byte count mismatch: expected ${expectedBytes}, downloaded ${bytes}`);
+  }
+  if (sha256 !== expectedSha256) {
+    throw new Error('Remote backup SHA-256 mismatch');
+  }
+  return { bytes, sha256 };
+}
+
 async function pruneOldBackups() {
   const retentionDays = Math.max(7, Number(process.env.BACKUP_RETENTION_DAYS || 30));
   const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
@@ -123,7 +147,7 @@ export async function hasRecentSuccessfulBackup({
   maxAgeHours = Number(process.env.BACKUP_MAX_AGE_HOURS || 26),
 } = {}) {
   await connectDB();
-  const latest: any = await BackupSnapshot.findOne({ status: 'success' }).sort({ completedAt: -1 }).lean();
+  const latest: any = await BackupSnapshot.findOne({ status: 'success', remoteVerified: true }).sort({ completedAt: -1 }).lean();
   const completedAt = latest?.completedAt ? new Date(latest.completedAt) : null;
   const ageMs = completedAt ? Date.now() - completedAt.getTime() : Number.POSITIVE_INFINITY;
   return {
@@ -171,6 +195,8 @@ export async function runEncryptedCloudBackup() {
       overwrite: false,
     });
 
+    await verifyRemoteArtifact(String(upload.secure_url || ''), sha256, stat.size);
+
     const completedAt = new Date();
     await BackupSnapshot.updateOne(
       { _id: snapshot._id },
@@ -185,6 +211,7 @@ export async function runEncryptedCloudBackup() {
           collectionCount: counters.collections,
           documentCount: counters.documents,
           error: '',
+          remoteVerified: true,
         },
       }
     );
