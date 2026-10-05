@@ -77,15 +77,27 @@ export default function BusinessProfileSetupPage() {
         <Card variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
           <Stack spacing={2}>
             <FormControl fullWidth>
-              <InputLabel>Business type</InputLabel>
-              <Select value={businessType} label="Business type" onChange={(event) => chooseType(event.target.value)}>
+              <InputLabel id="business-type-label">Business type</InputLabel>
+              <Select
+                id="business-type"
+                labelId="business-type-label"
+                value={businessType}
+                label="Business type"
+                onChange={(event) => chooseType(event.target.value)}
+              >
                 {BUSINESS_TYPES.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
               </Select>
             </FormControl>
             <TextField label="Business name (optional)" value={businessName} onChange={(event) => setBusinessName(event.target.value)} inputProps={{ maxLength: 120 }} />
             <FormControl fullWidth>
-              <InputLabel>Team size</InputLabel>
-              <Select value={teamSize} label="Team size" onChange={(event) => setTeamSize(event.target.value)}>
+              <InputLabel id="team-size-label">Team size</InputLabel>
+              <Select
+                id="team-size"
+                labelId="team-size-label"
+                value={teamSize}
+                label="Team size"
+                onChange={(event) => setTeamSize(event.target.value)}
+              >
                 {TEAM_SIZES.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
               </Select>
             </FormControl>
