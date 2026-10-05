@@ -26,11 +26,11 @@ export default function IDCardPrintPage() {
   return <PageBody title="ID Card Print" description="Print-ready cards using the template assigned to the selected project.">
     <style jsx global>{`@media print { header, nav, aside, .no-print { display:none !important; } body { background:#fff !important; } .print-grid { display:grid !important; grid-template-columns:repeat(2,max-content) !important; gap:12px !important; } .print-card { box-shadow:none !important; } }`}</style>
     <Stack spacing={2}>
-      <Stack className="no-print" direction="row" spacing={1}><Button component={NextLink} href="/services/institute/id-card">ID Card Manager</Button><Button variant="contained" startIcon={<PrintRoundedIcon/>} onClick={()=>window.print()} disabled={!design||!printable.length}>Print</Button></Stack>
+      <Stack className="no-print" direction="row" spacing={1} useFlexGap flexWrap="wrap"><Button component={NextLink} href="/services/institute/id-card">ID Card Manager</Button><Button variant="contained" startIcon={<PrintRoundedIcon/>} onClick={()=>window.print()} disabled={!design||!printable.length}>Print</Button></Stack>
       {error&&<Alert severity="error">{error}</Alert>}
       {!projectId&&<Alert severity="info">Open this screen from an ID-card project.</Alert>}
       {project&&!design&&<Alert severity="warning">Assign an ID-card template to {project.title} before printing.</Alert>}
-      {design&&<><Paper className="no-print" variant="outlined" sx={{p:2,borderRadius:3}}><Typography fontWeight={800}>{project?.title}</Typography><Typography variant="body2" color="text.secondary">{printable.length} printable cards · template {design.name}</Typography></Paper><Box className="print-grid" sx={{display:'grid',gridTemplateColumns:{xs:'1fr',md:'repeat(2,max-content)'},gap:2,alignItems:'start'}}>{printable.map((s)=><Card key={s.idcard_uuid} design={design} student={s}/>)}</Box></>}
+      {design&&<><Paper className="no-print" variant="outlined" sx={{p:2,borderRadius:3}}><Typography fontWeight={800}>{project?.title}</Typography><Typography variant="body2" color="text.secondary">{printable.length} printable cards · template {design.name}</Typography></Paper><Box className="print-grid" sx={{display:'grid',gridTemplateColumns:{xs:'minmax(0,1fr)',md:'repeat(2,max-content)'},gap:2,alignItems:'start'}}>{printable.map((s)=><Box key={s.idcard_uuid} sx={{maxWidth:'100%',overflowX:'auto',WebkitOverflowScrolling:'touch'}}><Card design={design} student={s}/></Box>)}</Box></>}
     </Stack>
   </PageBody>;
 }

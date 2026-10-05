@@ -40,12 +40,12 @@ export default function PrivacyPolicyPage() {
         <Container maxWidth="md">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <Typography variant="h3" fontWeight={800} sx={{ mb: 2 }}>Privacy Policy</Typography>
-            <Typography variant="body1" color="text.secondary">Last updated: June 2025</Typography>
+            <Typography variant="body1" color="text.secondary">Last updated: October 5, 2026</Typography>
           </Box>
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Para>
-              SanjuSK ("we," "us," or "our") is a messaging platform built on Meta&apos;s official WhatsApp Business Platform (Cloud API). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our platform, including our website and API services.
+              Mahi Creation operates the SK Digital platform ("SK Digital," "we," "us," or "our"). SK Digital includes customer communication and business-growth tools, with WhatsApp messaging built on Meta&apos;s official WhatsApp Business Platform (Cloud API). This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our platform, including our website and API services.
             </Para>
 
             <Divider sx={{ my: 4 }} />
@@ -56,9 +56,9 @@ export default function PrivacyPolicyPage() {
               <BulletList items={[
                 'Business name, legal entity type, and registration details',
                 'Business phone numbers registered with WhatsApp Business',
-                'Business verification documents submitted to Meta',
-                'Tax identification numbers (where required)',
-                'Billing information and payment method details',
+                'Business verification information you choose to provide or connect for supported provider workflows',
+                'Tax or billing identifiers when you provide them for an enabled billing or compliance feature',
+                'Billing and subscription information used by enabled billing features; payment credentials handled directly by a payment provider are not represented here as if we store full card or bank credentials',
               ]} />
               <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>WhatsApp Data</Typography>
               <BulletList items={[
@@ -66,7 +66,7 @@ export default function PrivacyPolicyPage() {
                 'Message templates submitted and their approval status',
                 'Message delivery receipts and read receipts',
                 'Webhook event payloads received from Meta',
-                'Message content you send through our API (temporarily cached)',
+                'Message content processed through the platform and, where the feature requires it, stored in message history subject to the configured retention settings',
                 'Business profile information (name, description, website, address)',
               ]} />
               <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Contact and End-User Data</Typography>
@@ -78,11 +78,11 @@ export default function PrivacyPolicyPage() {
               ]} />
               <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Technical Data</Typography>
               <BulletList items={[
-                'IP addresses and geolocation data',
+                'IP addresses used for security, abuse prevention and rate limiting where available',
                 'Browser type, version, and operating system',
                 'API request logs including endpoints accessed and response codes',
                 'Authentication tokens and session identifiers',
-                'Device identifiers for mobile access',
+                'Browser and device information supplied by the client where available',
               ]} />
             </Section>
 
@@ -100,8 +100,8 @@ export default function PrivacyPolicyPage() {
             </Section>
 
             <Section title="3. How User Consent is Collected">
-              <Para>As a WhatsApp Business Solution Provider, we require all businesses using our platform to comply with WhatsApp's Business Policy and Messaging Policy, which mandate that businesses obtain explicit opt-in consent from end users before messaging them.</Para>
-              <Para>Businesses using SanjuSK are responsible for:</Para>
+              <Para>Because SK Digital integrates with Meta's official WhatsApp Business Platform, businesses using WhatsApp features must comply with WhatsApp's Business Policy and Messaging Policy, including the applicable consent and messaging requirements.</Para>
+              <Para>Businesses using SK Digital are responsible for:</Para>
               <BulletList items={[
                 'Obtaining clear, affirmative consent from contacts before sending them WhatsApp messages',
                 'Clearly disclosing the nature and frequency of messages at the point of opt-in',
@@ -109,31 +109,33 @@ export default function PrivacyPolicyPage() {
                 'Maintaining records of consent for audit purposes',
                 'Honoring opt-out requests promptly (within 24 hours)',
               ]} />
-              <Para>SanjuSK provides tools to help businesses manage opt-in/opt-out records, but ultimate responsibility for consent compliance lies with the business using our platform.</Para>
+              <Para>SK Digital provides tools to help businesses manage opt-in/opt-out records, but ultimate responsibility for consent compliance lies with the business using our platform.</Para>
             </Section>
 
             <Section title="4. Data Retention">
-              <Para>We retain different categories of data for different periods based on business necessity and legal requirements:</Para>
+              <Para>
+                The application has automated retention controls for messages, inactive contacts and audit logs, but the
+                retention windows are deployment-configurable rather than hard-coded. If no retention window is configured,
+                those records are not automatically expired by the retention scheduler.
+              </Para>
               <BulletList items={[
-                'Message content: 90 days from the date of transmission, then permanently deleted',
-                'Contact phone numbers and opt-in records: Retained indefinitely while your account is active, or until you request deletion',
-                'API request logs and webhook logs: 1 year from the date of the request',
-                'Account information and billing records: Duration of your account plus 7 years for tax compliance',
-                'Message delivery receipts: 1 year from transmission date',
-                'Template submission history: Duration of your account',
-                'Security and audit logs: 2 years',
+                'Message, contact and audit-log retention windows are controlled by the deployment configuration.',
+                'Account and billing records may be retained where required to provide the service or meet applicable accounting and legal obligations.',
+                'A verified deletion request removes the account-owned live data covered by our deletion service, including messages, contacts, connected accounts, API keys, webhooks, automations and SMB records.',
+                'A minimal deletion-request record may be retained to evidence that the request was received and processed.',
+                'Backup retention depends on the backup system actually enabled for the deployment; we do not promise a fixed backup purge period unless it is configured and published.',
               ]} />
-              <Para>You may request early deletion of your data at any time. See Section 8 for details on how to request data deletion.</Para>
+              <Para>You may request deletion of your account data at any time. See Section 8 for details.</Para>
             </Section>
 
             <Section title="5. Data Encryption and Security">
-              <Para>We implement industry-standard security measures to protect your data:</Para>
+              <Para>We publish only controls that are implemented by the current application or its production transport:</Para>
               <BulletList items={[
-                'AES-256 encryption for all data at rest, including databases and file storage',
-                'TLS 1.3 for all data in transit between your systems, our platform, and Meta\'s APIs',
-                'Encrypted storage of API keys, access tokens, and webhook secrets',
-                'Database encryption at the disk level using AES-256',
-                'Encrypted backups stored in geographically separate locations',
+                'WhatsApp access tokens and values passed through the sensitive-value helper are encrypted with application-layer AES-256-GCM.',
+                'Customer API keys are stored as one-way hashes; the plaintext key is returned only when it is created.',
+                'The web application applies a nonce-based Content Security Policy and additional browser security headers.',
+                'Meta callbacks and customer webhook deliveries use cryptographic signature-verification paths where applicable.',
+                'Production browser and provider connections are served over HTTPS/TLS.',
               ]} />
             </Section>
 
@@ -185,7 +187,7 @@ export default function PrivacyPolicyPage() {
                 'Right to opt-out of the sale of personal information (we do not sell personal information)',
                 'Right to non-discrimination for exercising your rights',
               ]} />
-              <Para>To exercise these rights, contact us at privacy@meta.sanjusk.in or submit a request through our data deletion page.</Para>
+              <Para>To exercise an applicable privacy right, contact us at privacy@meta.sanjusk.in or submit a request through our data deletion page. We will verify and process requests according to the law that applies to the requester and the data involved.</Para>
             </Section>
 
             <Section title="8. How to Delete Your Data">
@@ -195,22 +197,22 @@ export default function PrivacyPolicyPage() {
                 Upon receiving a valid deletion request, we will:
               </Para>
               <BulletList items={[
-                'Permanently delete your account data within 30 days',
-                'Remove all message content and contact data',
-                'Revoke all API keys and access tokens',
-                'Send a confirmation email when deletion is complete',
+                'Record your request with a confirmation code and status page',
+                'Verify the requester before destructive manual deletion',
+                'Remove the account-owned live data covered by the deletion service after verification',
+                'Update the request status when processing completes or requires manual follow-up',
               ]} />
             </Section>
 
             <Section title="9. How Businesses Revoke Access">
-              <Para>Businesses can revoke SanjuSK's access to their WhatsApp Business Account at any time by:</Para>
+              <Para>Businesses can revoke SK Digital's access to their WhatsApp Business Account at any time by:</Para>
               <BulletList items={[
-                'Navigating to Meta Business Suite → Business Settings → Connected Apps and removing SanjuSK',
-                'Visiting Facebook Settings → Business Integrations and removing the SanjuSK integration',
+                'Navigating to Meta Business Suite → Business Settings → Connected Apps and removing SK Digital',
+                'Visiting Facebook Settings → Business Integrations and removing the SK Digital integration',
                 'Contacting our support team at support@meta.sanjusk.in to initiate immediate access revocation',
-                'Deleting your SanjuSK account through the Account Settings page',
+                'Deleting your SK Digital account through the Account Settings page',
               ]} />
-              <Para>Upon revocation, we will cease processing any new WhatsApp data within 24 hours and will retain historical data per our retention schedule unless a deletion request is submitted.</Para>
+              <Para>Revoking provider access stops future provider-authorized processing once the revocation takes effect. Historical data remains subject to the configured retention settings and any verified deletion request.</Para>
             </Section>
 
             <Section title="10. Cookies">
@@ -225,15 +227,15 @@ export default function PrivacyPolicyPage() {
             </Section>
 
             <Section title="12. Changes to This Policy">
-              <Para>We may update this Privacy Policy periodically. We will notify you of material changes by email and by posting the updated policy on this page with a revised "Last updated" date. Your continued use of our services after changes constitute acceptance of the updated policy.</Para>
+              <Para>We may update this Privacy Policy periodically. Material changes will be reflected on this page with a revised "Last updated" date and, where required by law or appropriate for the change, may also be communicated through the product or available account contact channels.</Para>
             </Section>
 
             <Section title="13. Contact Us">
-              <Para>For privacy-related inquiries, please contact our Data Protection Officer:</Para>
+              <Para>For privacy-related inquiries, please contact our privacy team:</Para>
               <BulletList items={[
                 'Email: privacy@meta.sanjusk.in',
                 'Subject line: Privacy Inquiry – [Your Name/Company]',
-                'Response time: Within 72 hours for routine inquiries, 30 days for formal GDPR/CCPA requests',
+                'We acknowledge and process privacy requests according to the timelines required by applicable law; verification or complex requests may require additional information.',
               ]} />
             </Section>
           </Paper>

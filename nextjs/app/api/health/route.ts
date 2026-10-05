@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db/mongo';
+import { getRedisConnection } from '@/lib/db/redis';
 
 /**
  * Liveness by default, readiness on request.
@@ -41,6 +42,30 @@ const READY_STATES: Record<number, string> = {
   3: 'disconnecting',
 };
 
+const withTimeout = async <T,>(work: Promise<T>, ms: number, fallback: T): Promise<T> =>
+  Promise.race([
+    work,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+
+const checkRedisReachable = async (): Promise<{ reachable: boolean; reason?: string }> => {
+  try {
+    const pong = await getRedisConnection().ping();
+    return String(pong || '').toUpperCase() === 'PONG'
+      ? { reachable: true }
+      : { reachable: false, reason: `PING answered ${JSON.stringify(pong)}` };
+  } catch (error: any) {
+    return { reachable: false, reason: error?.message || 'Redis PING failed' };
+  }
+};
+
+const requiredConfig = () => ({
+  mongo: Boolean(String(process.env.MONGO_URI || '').trim()),
+  redis: Boolean(String(process.env.REDIS_URL || process.env.REDIS_CLUSTER_NODES || '').trim()),
+  jwt: Boolean(String(process.env.JWT_SECRET || '').trim()),
+  tokenEncryption: Boolean(String(process.env.WHATSAPP_TOKEN_ENCRYPTION_KEY || '').trim()),
+});
+
 export async function GET(req: NextRequest) {
   const strict = req.nextUrl.searchParams.get('strict') === '1';
 
@@ -50,16 +75,41 @@ export async function GET(req: NextRequest) {
 
   const readyState = mongoose.connection.readyState;
   const dbReady = readyState === 1;
+  const config = requiredConfig();
+  const configReady = Object.values(config).every(Boolean);
+
+  let redisReady: boolean | null = null;
+  let redisReason = '';
+  if (strict) {
+    const redis = await withTimeout(
+      checkRedisReachable(),
+      2500,
+      { reachable: false, reason: 'Redis health check timed out' },
+    );
+    redisReady = redis.reachable;
+    redisReason = redis.reason || '';
+  }
+
+  const ready = dbReady && configReady && (redisReady ?? true);
 
   return NextResponse.json(
     {
-      ok: strict ? dbReady : true,
+      ok: strict ? ready : true,
       alive: true,
       db: READY_STATES[readyState] || 'unknown',
       dbReady,
+      redisReady,
+      redisReason: strict && !redisReady ? redisReason : undefined,
+      configReady,
+      config: {
+        mongo: config.mongo,
+        redis: config.redis,
+        jwt: config.jwt,
+        tokenEncryption: config.tokenEncryption,
+      },
       uptimeSeconds: process.uptime(),
       timestamp: new Date().toISOString(),
     },
-    { status: strict && !dbReady ? 503 : 200 }
+    { status: strict && !ready ? 503 : 200 }
   );
 }

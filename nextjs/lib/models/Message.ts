@@ -23,6 +23,11 @@ const messageSchema = new Schema(
     caption: String,
     filename: String,
     mimeType: String,
+    // Media mirroring is best-effort. Persist the outcome so an operator sees
+    // why a provider media attachment is not previewable instead of a silent gap.
+    mediaSize: Number,
+    mediaMirrorStatus: String,
+    mediaMirrorError: String,
     time: Date,
     customerUuid: String,
     customerId: String,

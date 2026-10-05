@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
   Container, Typography, Box, Paper, Divider, TextField, MenuItem,
-  Button, Alert, Snackbar, Chip, Stack
+  Button, Alert, Snackbar, Chip, Stack, CircularProgress
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -56,7 +56,9 @@ const DataCategory = ({ title, items, retentionNote }) => (
 export default function DataDeletionPage() {
   const [form, setForm] = useState({ email: '', accountId: '', reason: '', notes: '' });
   const [errors, setErrors] = useState({});
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [snackOpen, setSnackOpen] = useState(false);
 
   const validate = () => {
@@ -77,15 +79,33 @@ export default function DataDeletionPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
-    setSubmitted(true);
-    setSnackOpen(true);
+
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      const response = await fetch('/api/privacy/deletion-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Could not record your deletion request.');
+      }
+      setSubmitted(data);
+      setSnackOpen(true);
+    } catch (error) {
+      setSubmitError(error?.message || 'Could not record your deletion request. Please contact privacy support.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -96,7 +116,7 @@ export default function DataDeletionPage() {
             <DeleteOutlineIcon sx={{ fontSize: 56, color: 'error.main', mb: 1 }} />
             <Typography variant="h3" fontWeight={800} sx={{ mb: 2 }}>Data Deletion</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560, mx: 'auto' }}>
-              You have the right to request deletion of all data we hold about you and your business. We process all deletion requests within 30 days.
+              You can request deletion of data associated with your account. Manual requests are recorded with a confirmation code, then verified before destructive account data is removed.
             </Typography>
           </Box>
 
@@ -113,7 +133,7 @@ export default function DataDeletionPage() {
                   'Billing records and payment history',
                   'User preferences and account settings',
                 ]}
-                retentionNote="Duration of account + 7 years for billing records (tax compliance)"
+                retentionNote="Kept while needed for the service and applicable accounting/legal obligations; verified deletion requests remove deletable account data."
               />
               <Divider sx={{ my: 2 }} />
               <DataCategory
@@ -124,7 +144,7 @@ export default function DataDeletionPage() {
                   'Message delivery and read receipts',
                   'Webhook event payloads received from Meta',
                 ]}
-                retentionNote="90 days from transmission date"
+                retentionNote="Automated retention is deployment-configurable; a verified deletion request removes account-owned message records."
               />
               <Divider sx={{ my: 2 }} />
               <DataCategory
@@ -135,7 +155,7 @@ export default function DataDeletionPage() {
                   'Opt-in and opt-out consent records',
                   'Tags and segments applied to contacts',
                 ]}
-                retentionNote="Retained while account is active or until deletion request"
+                retentionNote="Kept while the account is active unless a configured retention window or verified deletion request removes it."
               />
               <Divider sx={{ my: 2 }} />
               <DataCategory
@@ -146,21 +166,21 @@ export default function DataDeletionPage() {
                   'Authentication and session logs',
                   'IP addresses associated with your account activity',
                 ]}
-                retentionNote="1 year from creation"
+                retentionNote="Retention is deployment-configurable; security/audit records may be retained where needed to evidence security or deletion actions."
               />
             </Paper>
 
             <Paper elevation={0} sx={{ p: { xs: 3, md: 5 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>WhatsApp Data Disconnection</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                To revoke SanjuSK's access to your WhatsApp Business Account before requesting data deletion:
+                To revoke SK Digital's access to your WhatsApp Business Account before requesting data deletion:
               </Typography>
               <Box component="ol" sx={{ pl: 3 }}>
                 {[
                   'Log in to Meta Business Suite (business.facebook.com)',
                   'Go to Business Settings → Accounts → WhatsApp Accounts',
                   'Select your WhatsApp Business Account',
-                  'Under "Solution Providers," find SanjuSK and click "Remove"',
+                  'Under "Solution Providers," find SK Digital and click "Remove"',
                   'Confirm the removal when prompted',
                 ].map((step, i) => (
                   <Box component="li" key={i} sx={{ mb: 1 }}>
@@ -173,15 +193,15 @@ export default function DataDeletionPage() {
             <Paper elevation={0} sx={{ p: { xs: 3, md: 5 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
               <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>Facebook Login Data Deletion</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                If you used "Login with Facebook" to connect your account, you can remove SanjuSK's Facebook app permissions:
+                If you used "Login with Facebook" to connect your account, you can remove SK Digital's Facebook app permissions:
               </Typography>
               <Box component="ol" sx={{ pl: 3 }}>
                 {[
                   'Go to your Facebook account Settings',
                   'Click on "Apps and Websites" in the left sidebar',
-                  'Find "SanjuSK" in the list of connected apps',
-                  'Click "Remove" next to the SanjuSK app',
-                  'Confirm removal — this revokes all Facebook permissions granted to SanjuSK',
+                  'Find "SK Digital" in the list of connected apps',
+                  'Click "Remove" next to the SK Digital app',
+                  'Confirm removal — this revokes all Facebook permissions granted to SK Digital',
                   'Submit a data deletion request below to remove all stored data',
                 ].map((step, i) => (
                   <Box component="li" key={i} sx={{ mb: 1 }}>
@@ -193,7 +213,7 @@ export default function DataDeletionPage() {
                 Two URLs are registered with Meta, and they do different jobs. The{' '}
                 <strong>Data Deletion Callback URL</strong> is{' '}
                 <strong>{DATA_DELETION_CALLBACK_URL}</strong> — Meta posts a signed request to it
-                when someone removes SanjuSK from their Facebook settings, and it deletes that
+                when someone removes SK Digital from their Facebook settings, and it deletes that
                 account automatically and returns a confirmation code. The{' '}
                 <strong>Data Deletion Instructions URL</strong> is{' '}
                 <strong>{DATA_DELETION_INSTRUCTIONS_URL}</strong> — this page.
@@ -207,11 +227,11 @@ export default function DataDeletionPage() {
               </Typography>
               <Stack spacing={2}>
                 {[
-                  { step: '1', label: 'Request Received', desc: 'We receive your request and send a confirmation email within 24 hours.' },
-                  { step: '2', label: 'Identity Verification', desc: 'We may ask you to verify ownership of the account via email confirmation.' },
-                  { step: '3', label: 'Data Deletion Initiated', desc: 'Your account is deactivated and data deletion is queued across all systems.' },
-                  { step: '4', label: 'Deletion Complete', desc: 'All requested data is permanently deleted within 30 days. We send a completion confirmation.' },
-                  { step: '5', label: 'Backup Purge', desc: 'Encrypted backups containing your data are purged within 90 days per our backup rotation schedule.' },
+                  { step: '1', label: 'Request Recorded', desc: 'The platform stores your request and gives you a confirmation code and status link.' },
+                  { step: '2', label: 'Identity Verification', desc: 'We verify that the requester is authorised to delete the account or data.' },
+                  { step: '3', label: 'Deletion Processing', desc: 'Verified account-owned data is removed from the live application stores covered by the deletion service.' },
+                  { step: '4', label: 'Status Updated', desc: 'The confirmation-code status page is updated when processing completes or if manual follow-up is required.' },
+                  { step: '5', label: 'Backups', desc: 'Backup handling depends on the backup system enabled for the deployment. We do not claim a fixed backup-purge window unless one is actually configured.' },
                 ].map((item) => (
                   <Box key={item.step} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
                     <Chip label={item.step} color="primary" size="small" sx={{ mt: 0.25, minWidth: 28 }} />
@@ -232,10 +252,18 @@ export default function DataDeletionPage() {
 
               {submitted ? (
                 <Alert severity="success" icon={<CheckCircleOutlineIcon />} sx={{ borderRadius: 2 }}>
-                  <Typography variant="subtitle2" fontWeight={700}>Deletion Request Submitted</Typography>
-                  <Typography variant="body2">
-                    We have received your data deletion request. You will receive a confirmation email at <strong>{form.email}</strong> within 24 hours. All data will be permanently deleted within 30 days.
+                  <Typography variant="subtitle2" fontWeight={700}>Deletion request recorded</Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Your request has been stored for identity verification and processing. This submission does not itself delete the account.
                   </Typography>
+                  <Typography variant="body2">
+                    Confirmation code: <strong>{submitted.confirmationCode}</strong>
+                  </Typography>
+                  {submitted.statusUrl ? (
+                    <Button component="a" href={submitted.statusUrl} size="small" sx={{ mt: 1 }}>
+                      Check request status
+                    </Button>
+                  ) : null}
                 </Alert>
               ) : (
                 <Box component="form" onSubmit={handleSubmit}>
@@ -247,7 +275,7 @@ export default function DataDeletionPage() {
                       value={form.email}
                       onChange={handleChange}
                       error={!!errors.email}
-                      helperText={errors.email || 'The email associated with your SanjuSK account'}
+                      helperText={errors.email || 'The email associated with your SK Digital account'}
                       fullWidth
                       required
                     />
@@ -284,9 +312,10 @@ export default function DataDeletionPage() {
                       fullWidth
                       placeholder="Any specific data you want deleted, or context for your request..."
                     />
+                    {submitError ? <Alert severity="error">{submitError}</Alert> : null}
                     <Alert severity="warning">
                       <Typography variant="body2">
-                        <strong>This action is irreversible.</strong> Deleting your account will permanently remove all data and cannot be undone. Make sure you have exported any data you wish to keep before submitting.
+                        <strong>Verified deletion is irreversible.</strong> Submitting this form records the request; deletion occurs only after identity verification. Export anything you need before the request is completed.
                       </Typography>
                     </Alert>
                     <Button
@@ -296,8 +325,10 @@ export default function DataDeletionPage() {
                       size="large"
                       startIcon={<DeleteOutlineIcon />}
                       sx={{ alignSelf: 'flex-start' }}
+                      disabled={submitting}
+                      endIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
                     >
-                      Submit Deletion Request
+                      {submitting ? 'Recording request…' : 'Submit Deletion Request'}
                     </Button>
                   </Stack>
                 </Box>
@@ -314,7 +345,7 @@ export default function DataDeletionPage() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert severity="success" onClose={() => setSnackOpen(false)}>
-          Deletion request submitted. Confirmation email sent to {form.email}.
+          Deletion request recorded. Keep your confirmation code to check its status.
         </Alert>
       </Snackbar>
     </motion.div>

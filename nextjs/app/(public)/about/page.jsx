@@ -50,13 +50,13 @@ export default function AboutPage() {
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1.5, mb: 3 }}>
                 <HubRoundedIcon sx={{ fontSize: 40 }} />
-                <Typography variant="h3" fontWeight={900} sx={{ color: 'white' }}>SanjuSK</Typography>
+                <Typography variant="h3" fontWeight={900} sx={{ color: 'white' }}>SK Digital</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700} sx={{ mb: 2, color: 'rgba(255,255,255,0.95)' }}>
                 One workspace for the whole business
               </Typography>
               <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.75)', maxWidth: 620, mx: 'auto', lineHeight: 1.8 }}>
-                SanjuSK brings WhatsApp, Instagram and your Google Business Profile together with the CRM,
+                SK Digital brings WhatsApp, Instagram and your Google Business Profile together with the CRM,
                 catalogue, invoices and staff tools behind them — one workspace instead of a tool for each.
                 Messaging runs on Meta&apos;s official WhatsApp Business Platform.
               </Typography>
@@ -118,7 +118,7 @@ export default function AboutPage() {
                 {
                   icon: <SecurityIcon sx={{ fontSize: 32 }} />,
                   title: 'Enterprise Security',
-                  description: 'AES-256 encryption, TLS 1.3, webhook signature verification, MFA, IP allowlisting, and SOC 2 compliance in progress.',
+                  description: 'Encrypted WhatsApp access tokens, signed webhooks, server-side authorization, rate limits and restrictive browser security headers.',
                 },
                 {
                   icon: <GroupIcon sx={{ fontSize: 32 }} />,

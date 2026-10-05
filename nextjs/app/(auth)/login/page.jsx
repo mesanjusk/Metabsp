@@ -104,7 +104,7 @@ export default function Login() {
                 Sign in
               </Typography>
               <Typography color="text.secondary">
-                Sign in to choose the business service you want to use.
+                Sign in to see the customers, follow-ups, collections and growth actions that need attention today.
               </Typography>
             </Box>
 
@@ -156,7 +156,7 @@ export default function Login() {
 
             <SocialSignIn onSuccess={handleAuthenticated} disabled={loading} />
 
-            <Stack direction="row" justifyContent="space-between">
+            <Stack direction="row" justifyContent="space-between" spacing={1} useFlexGap flexWrap="wrap">
               <MuiLink component={NextLink} href={ROUTES.SIGNUP} variant="body2">
                 Create account
               </MuiLink>

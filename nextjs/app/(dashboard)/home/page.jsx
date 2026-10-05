@@ -273,7 +273,7 @@ export default function BusinessControlCenterPage() {
     <PageBody
       title="Business growth workspace"
       description="One customer history across conversations, CRM, sales and marketing — so you know what needs attention today."
-      actions={<Button component={NextLink} href="/inbox" variant="contained" startIcon={<ForumRoundedIcon />}>Open inbox</Button>}
+      actions={<Button component={NextLink} href="/inbox" role="link" aria-label="Open inbox" variant="contained" startIcon={<ForumRoundedIcon />}>Open inbox</Button>}
     >
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.6fr 1fr' }, mb: 3, borderRadius: 3, overflow: 'hidden', bgcolor: (t) => (t.palette.mode === 'dark' ? brand[900] : brand[100]),
         color: (t) => (t.palette.mode === 'dark' ? brand[50] : neutral[900]) }}>

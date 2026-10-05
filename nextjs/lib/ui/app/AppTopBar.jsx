@@ -228,10 +228,10 @@ export default function AppTopBar({
           </MenuItem>
         </Menu>
       </Box>
-      {/* The sidebar lists every service once it is permanently on screen, so the strip would be
-          the same eleven links a second time. Below `lg` the sidebar is a drawer you have to open,
-          and the strip is the only service navigation there is. */}
-      <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+      {/* Desktop already has the permanent sidebar. Tablets keep the horizontal service strip for
+          quick switching; phones deliberately do not — the hamburger/More drawer already exposes
+          the full toolkit and the bottom bar keeps the current service's frequent actions visible. */}
+      <Box sx={{ display: { xs: 'none', sm: 'block', lg: 'none' } }}>
         <ServiceSwitcherBar activeService={activeService} />
       </Box>
     </Box>

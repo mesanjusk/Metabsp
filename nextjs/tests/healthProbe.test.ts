@@ -22,12 +22,22 @@ vi.mock('mongoose', () => ({
 }));
 
 const connectCalls = vi.hoisted(() => ({ count: 0, reject: false }));
+const redisState = vi.hoisted(() => ({ reachable: true }));
 
 vi.mock('@/lib/db/mongo', () => ({
   connectDB: () => {
     connectCalls.count += 1;
     return connectCalls.reject ? Promise.reject(new Error('unreachable')) : Promise.resolve({});
   },
+}));
+
+vi.mock('@/lib/db/redis', () => ({
+  getRedisConnection: () => ({
+    ping: async () => {
+      if (!redisState.reachable) throw new Error('redis unavailable');
+      return 'PONG';
+    },
+  }),
 }));
 
 const { GET } = await import('@/app/api/health/route');
@@ -39,6 +49,11 @@ describe('health probe', () => {
     readyState.value = 1;
     connectCalls.count = 0;
     connectCalls.reject = false;
+    redisState.reachable = true;
+    vi.stubEnv('MONGO_URI', 'mongodb://ci-health');
+    vi.stubEnv('REDIS_URL', 'redis://ci-health');
+    vi.stubEnv('JWT_SECRET', 'ci-health-value');
+    vi.stubEnv('WHATSAPP_TOKEN_ENCRYPTION_KEY', 'ci-health-key');
   });
 
   it('reports 200 with the database connected', async () => {
@@ -61,10 +76,33 @@ describe('health probe', () => {
     await expect(response.json()).resolves.toMatchObject({ ok: false, dbReady: false });
   });
 
-  it('reports 200 in strict mode once the database is reachable', async () => {
+  it('reports 200 in strict mode once Mongo, Redis and critical config are ready', async () => {
     const response = await call('https://example.test/api/health?strict=1');
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ ok: true, dbReady: true });
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      dbReady: true,
+      redisReady: true,
+      configReady: true,
+    });
+  });
+
+  it('reports 503 in strict mode when Redis is unavailable', async () => {
+    redisState.reachable = false;
+    const response = await call('https://example.test/api/health?strict=1');
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      dbReady: true,
+      redisReady: false,
+    });
+  });
+
+  it('reports 503 in strict mode when critical configuration is missing', async () => {
+    vi.stubEnv('JWT_SECRET', '');
+    const response = await call('https://example.test/api/health?strict=1');
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ ok: false, configReady: false });
   });
 
   /**

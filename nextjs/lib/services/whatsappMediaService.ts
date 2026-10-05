@@ -7,6 +7,27 @@ import { getGraphApiVersion } from '../config/graphApi';
 
 const buildAuthHeaders = (accessToken: string) => ({ Authorization: `Bearer ${accessToken}` });
 
+export const WHATSAPP_MEDIA_MIRROR_MAX_BYTES = Math.max(
+  1024 * 1024,
+  Number(process.env.WHATSAPP_MEDIA_MIRROR_MAX_BYTES || 10 * 1024 * 1024)
+);
+
+export class MediaMirrorTooLargeError extends Error {
+  code = 'MEDIA_MIRROR_TOO_LARGE';
+  fileSize: number;
+  maxBytes: number;
+
+  constructor(fileSize: number, maxBytes = WHATSAPP_MEDIA_MIRROR_MAX_BYTES) {
+    super(`Media is too large to mirror safely (${fileSize} bytes; limit ${maxBytes} bytes)`);
+    this.name = 'MediaMirrorTooLargeError';
+    this.fileSize = fileSize;
+    this.maxBytes = maxBytes;
+  }
+}
+
+export const isMediaMirrorTooLargeError = (error: any) =>
+  error?.code === 'MEDIA_MIRROR_TOO_LARGE' || error?.name === 'MediaMirrorTooLargeError';
+
 export const fetchMediaMetadata = async ({
   mediaId,
   accessToken,
@@ -27,11 +48,23 @@ export const fetchMediaMetadata = async ({
   };
 };
 
-export const downloadMediaBinary = async ({ mediaUrl, accessToken }: { mediaUrl: string; accessToken: string }) => {
+export const downloadMediaBinary = async ({
+  mediaUrl,
+  accessToken,
+  maxBytes = WHATSAPP_MEDIA_MIRROR_MAX_BYTES,
+}: {
+  mediaUrl: string;
+  accessToken: string;
+  maxBytes?: number;
+}) => {
   const response = await axios.get(mediaUrl, {
     headers: buildAuthHeaders(accessToken),
     responseType: 'arraybuffer',
     timeout: 60000,
+    // axios aborts before an unexpectedly large provider response can consume
+    // the remaining heap of a small production instance.
+    maxContentLength: maxBytes,
+    maxBodyLength: maxBytes,
   });
 
   return {
@@ -77,7 +110,19 @@ export const uploadWhatsAppMediaToCloudinary = async ({
   const metadata = await fetchMediaMetadata({ mediaId, accessToken, graphVersion });
   if (!metadata.url) throw new Error(`Missing media URL for mediaId=${mediaId}`);
 
-  const downloaded = await downloadMediaBinary({ mediaUrl: metadata.url, accessToken });
+  const advertisedSize = Number(metadata.fileSize || 0);
+  if (advertisedSize > WHATSAPP_MEDIA_MIRROR_MAX_BYTES) {
+    throw new MediaMirrorTooLargeError(advertisedSize);
+  }
+
+  const downloaded = await downloadMediaBinary({
+    mediaUrl: metadata.url,
+    accessToken,
+    maxBytes: WHATSAPP_MEDIA_MIRROR_MAX_BYTES,
+  });
+  if (downloaded.buffer.length > WHATSAPP_MEDIA_MIRROR_MAX_BYTES) {
+    throw new MediaMirrorTooLargeError(downloaded.buffer.length);
+  }
   const upload = await uploadBufferToCloudinary({
     buffer: downloaded.buffer,
     mimeType: metadata.mimeType || downloaded.mimeType,

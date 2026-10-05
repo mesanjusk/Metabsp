@@ -96,7 +96,7 @@ const FAQS = [
   ['Is this only a WhatsApp tool?', 'No. WhatsApp is one channel inside a broader SMB workspace that also includes Instagram, Google Business Profile, CRM, store, staff, payments, institute tools, marketing, dialer and video workflows.'],
   ['Do I need a WhatsApp number before signing up?', 'No. You can create an account first, choose your business type and connect only the services you need.'],
   ['Can I keep using the WhatsApp Business app?', 'For eligible numbers, Meta’s coexistence flow can allow the WhatsApp Business app and Cloud API to work with the same number. Eligibility depends on Meta’s onboarding flow and account state.'],
-  ['Are Meta charges included in the plan price?', 'The plan price is for the SanjuSK platform. Meta messaging charges and any applicable third-party provider usage are separate and follow the provider’s current pricing.'],
+  ['Are Meta charges included in the plan price?', 'The plan price is for the SK Digital platform. Meta messaging charges and any applicable third-party provider usage are separate and follow the provider’s current pricing.'],
   ['Can I use my own domain for the E-Store?', 'The store supports public storefront URLs, and custom-domain support can be configured for businesses that need their own domain.'],
   ['Does Google review automation post every AI reply automatically?', 'No by default. Auto-reply is opt-in. You can set a minimum star rating, while lower-rated reviews can stay in an approval queue for manual review.'],
 ];

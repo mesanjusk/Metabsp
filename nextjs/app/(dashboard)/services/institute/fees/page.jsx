@@ -57,7 +57,7 @@ export default function InstituteFeesPage() {
       <Card variant="outlined" sx={{borderRadius:3}}><CardContent sx={{p:0,'&:last-child':{pb:0}}}>
         {loading ? <Typography sx={{p:3}} color="text.secondary">Loading…</Typography> : !items.length ? <Typography sx={{p:3}} color="text.secondary">No fee plans yet.</Typography> : items.map((item,index)=>{const p=pOf(item); const settled=Number(p.balance||0)<=0; return <Stack key={item._id} direction={{xs:'column',sm:'row'}} alignItems={{sm:'center'}} spacing={1.5} sx={{p:2,borderBottom:index===items.length-1?0:'1px solid',borderColor:'divider'}}>
           <Box sx={{flex:1,minWidth:0}}><Typography fontWeight={800}>{p.studentName||'Student'}</Typography><Typography variant="body2" color="text.secondary">{p.course||'Course'} · Admission {p.admission_uuid||'—'}</Typography></Box>
-          <Stack direction="row" spacing={2} alignItems="center"><Box><Typography variant="caption" color="text.secondary">Paid</Typography><Typography fontWeight={700}>₹{money(p.feePaid)}</Typography></Box><Box><Typography variant="caption" color="text.secondary">Balance</Typography><Typography fontWeight={700}>₹{money(p.balance)}</Typography></Box><Chip size="small" color={settled?'success':'warning'} label={settled?'Paid':'Due'} /></Stack>
+          <Stack direction="row" spacing={2} alignItems="center" useFlexGap flexWrap="wrap"><Box><Typography variant="caption" color="text.secondary">Paid</Typography><Typography fontWeight={700}>₹{money(p.feePaid)}</Typography></Box><Box><Typography variant="caption" color="text.secondary">Balance</Typography><Typography fontWeight={700}>₹{money(p.balance)}</Typography></Box><Chip size="small" color={settled?'success':'warning'} label={settled?'Paid':'Due'} /></Stack>
           <Button variant="outlined" startIcon={<ReceiptLongRoundedIcon />} disabled={settled} onClick={()=>openReceipt(item)}>Collect</Button>
         </Stack>;})}
       </CardContent></Card>
@@ -71,7 +71,7 @@ export default function InstituteFeesPage() {
         <TextField label="Payment date" type="date" value={receipt.paidAt} onChange={(e)=>setReceipt(r=>({...r,paidAt:e.target.value}))} InputLabelProps={{shrink:true}} />
         <TextField label="Reference" value={receipt.reference} onChange={(e)=>setReceipt(r=>({...r,reference:e.target.value}))} /><TextField label="Note" multiline minRows={2} value={receipt.note} onChange={(e)=>setReceipt(r=>({...r,note:e.target.value}))} />
         <Divider />{selected && <Typography variant="body2" color="text.secondary">After this receipt, balance will be approximately ₹{money(Math.max(0,Number(pOf(selected).balance||0)-Number(receipt.amount||0)))}</Typography>}
-      </Stack></DialogContent><DialogActions><Button onClick={()=>setSelected(null)}>Cancel</Button><Button variant="contained" startIcon={<CurrencyRupeeRoundedIcon />} onClick={collect} disabled={saving}>{saving?'Saving…':'Save Receipt'}</Button></DialogActions>
+      </Stack></DialogContent><DialogActions sx={{flexWrap:'wrap',gap:1}}><Button onClick={()=>setSelected(null)}>Cancel</Button><Button variant="contained" startIcon={<CurrencyRupeeRoundedIcon />} onClick={collect} disabled={saving}>{saving?'Saving…':'Save Receipt'}</Button></DialogActions>
     </Dialog>
   </PageBody>;
 }

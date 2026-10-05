@@ -77,7 +77,7 @@ export default function InstituteIDCardManager() {
       <Stack spacing={2}>
         {error && <Alert severity="error" onClose={()=>setError('')}>{error}</Alert>}
         <Stack direction={{xs:'column',sm:'row'}} spacing={1} justifyContent="space-between">
-          <Stack direction="row" spacing={1}><Button component={NextLink} href="/services/institute">Institute</Button><Button component={NextLink} href="/services/institute/canvas" startIcon={<DesignServicesRoundedIcon />}>Canvas editor</Button></Stack>
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap"><Button component={NextLink} href="/services/institute">Institute</Button><Button component={NextLink} href="/services/institute/canvas" startIcon={<DesignServicesRoundedIcon />}>Canvas editor</Button></Stack>
           <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={()=>setProjectOpen(true)}>New ID project</Button>
         </Stack>
 
@@ -96,7 +96,7 @@ export default function InstituteIDCardManager() {
                 <Stack spacing={1.5}>
                   <Stack direction={{xs:'column',sm:'row'}} spacing={1} justifyContent="space-between">
                     <Box><Typography variant="h6" fontWeight={850}>{selected.title}</Typography><Typography variant="body2" color="text.secondary">Academic year {selected.academic_year || '—'} · {students.length} students</Typography></Box>
-                    <Stack direction="row" spacing={1}><Button variant="outlined" onClick={()=>setImportOpen(true)}>Import CSV</Button><Button component={NextLink} href="/services/institute/canvas">Design card</Button><Button component={NextLink} href={`/services/institute/id-card-print?project=${selected.project_uuid}`} startIcon={<PrintRoundedIcon/>} disabled={!selected.design_id}>Print</Button></Stack>
+                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap"><Button variant="outlined" onClick={()=>setImportOpen(true)}>Import CSV</Button><Button component={NextLink} href="/services/institute/canvas">Design card</Button><Button component={NextLink} href={`/services/institute/id-card-print?project=${selected.project_uuid}`} startIcon={<PrintRoundedIcon/>} disabled={!selected.design_id}>Print</Button></Stack>
                   </Stack>
                   <TextField select size="small" label="Assigned ID-card template" value={selected.design_id||''} onChange={(e)=>assignDesign(e.target.value)} helperText={!designs.length?'Create a template in Canvas editor first.':'This template is used for preview, student verification and printing.'}>
                     <MenuItem value="">No template</MenuItem>{designs.map((d)=><MenuItem key={d._id} value={d._id}>{d.name}</MenuItem>)}
@@ -117,8 +117,8 @@ export default function InstituteIDCardManager() {
         </Box>
       </Stack>
 
-      <Dialog open={projectOpen} onClose={()=>setProjectOpen(false)} fullWidth maxWidth="sm"><DialogTitle>New ID-card project</DialogTitle><DialogContent><Stack spacing={2} sx={{pt:1}}><TextField label="Project title" required value={projectForm.title} onChange={(e)=>setProjectForm(f=>({...f,title:e.target.value}))}/><TextField label="Academic year" placeholder="2026-27" value={projectForm.academic_year} onChange={(e)=>setProjectForm(f=>({...f,academic_year:e.target.value}))}/></Stack></DialogContent><DialogActions><Button onClick={()=>setProjectOpen(false)}>Cancel</Button><Button variant="contained" onClick={createProject}>Create</Button></DialogActions></Dialog>
-      <Dialog open={importOpen} onClose={()=>setImportOpen(false)} fullWidth maxWidth="md"><DialogTitle>Import students from CSV</DialogTitle><DialogContent><Alert severity="info" sx={{mb:1.5}}>Supported columns include student_name/name, roll_number/roll, class_name/class and section. Extra columns are preserved.</Alert><TextField fullWidth multiline minRows={12} value={csv} onChange={(e)=>setCsv(e.target.value)} /></DialogContent><DialogActions><Button onClick={()=>setImportOpen(false)}>Cancel</Button><Button variant="contained" onClick={importStudents}>Import</Button></DialogActions></Dialog>
+      <Dialog open={projectOpen} onClose={()=>setProjectOpen(false)} fullWidth maxWidth="sm"><DialogTitle>New ID-card project</DialogTitle><DialogContent><Stack spacing={2} sx={{pt:1}}><TextField label="Project title" required value={projectForm.title} onChange={(e)=>setProjectForm(f=>({...f,title:e.target.value}))}/><TextField label="Academic year" placeholder="2026-27" value={projectForm.academic_year} onChange={(e)=>setProjectForm(f=>({...f,academic_year:e.target.value}))}/></Stack></DialogContent><DialogActions sx={{flexWrap:'wrap',gap:1}}><Button onClick={()=>setProjectOpen(false)}>Cancel</Button><Button variant="contained" onClick={createProject}>Create</Button></DialogActions></Dialog>
+      <Dialog open={importOpen} onClose={()=>setImportOpen(false)} fullWidth maxWidth="md"><DialogTitle>Import students from CSV</DialogTitle><DialogContent><Alert severity="info" sx={{mb:1.5}}>Supported columns include student_name/name, roll_number/roll, class_name/class and section. Extra columns are preserved.</Alert><TextField fullWidth multiline minRows={12} value={csv} onChange={(e)=>setCsv(e.target.value)} /></DialogContent><DialogActions sx={{flexWrap:'wrap',gap:1}}><Button onClick={()=>setImportOpen(false)}>Cancel</Button><Button variant="contained" onClick={importStudents}>Import</Button></DialogActions></Dialog>
     </PageBody>
   );
 }

@@ -37,16 +37,19 @@ export default function BusinessProfileSetupPage() {
   const [selected, setSelected] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showAllTools, setShowAllTools] = useState(false);
 
   const suggested = useMemo(() => recommendedServices(businessType || null), [businessType]);
   const visibleServices = useMemo(() => {
+    if (showAllTools) return SERVICES;
     const wanted = new Set([...suggested, ...selected]);
     return SERVICES.filter((service) => wanted.has(service.slug));
-  }, [suggested, selected]);
+  }, [showAllTools, suggested, selected]);
 
   const chooseType = (value) => {
     setBusinessType(value);
     setSelected(recommendedServices(value));
+    setShowAllTools(false);
   };
 
   const toggleService = (slug) => {
@@ -74,15 +77,27 @@ export default function BusinessProfileSetupPage() {
         <Card variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
           <Stack spacing={2}>
             <FormControl fullWidth>
-              <InputLabel>Business type</InputLabel>
-              <Select value={businessType} label="Business type" onChange={(event) => chooseType(event.target.value)}>
+              <InputLabel id="business-type-label">Business type</InputLabel>
+              <Select
+                id="business-type"
+                labelId="business-type-label"
+                value={businessType}
+                label="Business type"
+                onChange={(event) => chooseType(event.target.value)}
+              >
                 {BUSINESS_TYPES.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
               </Select>
             </FormControl>
             <TextField label="Business name (optional)" value={businessName} onChange={(event) => setBusinessName(event.target.value)} inputProps={{ maxLength: 120 }} />
             <FormControl fullWidth>
-              <InputLabel>Team size</InputLabel>
-              <Select value={teamSize} label="Team size" onChange={(event) => setTeamSize(event.target.value)}>
+              <InputLabel id="team-size-label">Team size</InputLabel>
+              <Select
+                id="team-size"
+                labelId="team-size-label"
+                value={teamSize}
+                label="Team size"
+                onChange={(event) => setTeamSize(event.target.value)}
+              >
                 {TEAM_SIZES.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
               </Select>
             </FormControl>
@@ -92,7 +107,14 @@ export default function BusinessProfileSetupPage() {
         {businessType ? (
           <Box>
             <Typography variant="h6" fontWeight={800} gutterBottom>Recommended tools</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>These are preselected for your business. You can change them now and update them later.</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ sm: 'center' }} sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Start with the essentials for your business. You can add every other tool now or later.
+              </Typography>
+              <Button size="small" variant="text" onClick={() => setShowAllTools((value) => !value)} sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', sm: 'center' } }}>
+                {showAllTools ? 'Show recommended only' : 'Show all tools'}
+              </Button>
+            </Stack>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
               {visibleServices.map((service) => {
                 const Icon = service.icon;

@@ -13,7 +13,8 @@ export default function ImageMessage({ message }) {
   const imageUrl = useMemo(() => deriveImageUrl(message), [message]);
 
   if (!imageUrl) {
-    return <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.75 }}>Image unavailable</Typography>;
+    const reason = message?.mediaMirrorError || 'Image unavailable';
+    return <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.75, overflowWrap: 'anywhere' }}>{reason}</Typography>;
   }
 
   return (
