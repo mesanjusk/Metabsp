@@ -6,6 +6,10 @@ const base = {
   overdueFollowUps: 0,
   unansweredConversations: 0,
   reactivationCandidates: 0,
+  overdueReceivablesCount: 0,
+  overdueReceivablesPaise: 0,
+  quotationPipelinePaise: 0,
+  paymentsEnabled: true,
   whatsappConnected: true,
   instagramConnected: true,
   marketingEnabled: true,
@@ -23,6 +27,22 @@ describe('growth intelligence', () => {
     expect(recommendations.map((item) => item.id)).toEqual(['reply-now', 'follow-up']);
     expect(recommendations[0]).toMatchObject({ priority: 'urgent', count: 3, href: '/inbox' });
     expect(recommendations[1]).toMatchObject({ priority: 'high', count: 5, href: '/contacts' });
+  });
+
+  it('surfaces overdue receivables as a cash-flow action', () => {
+    const recommendation = buildGrowthRecommendations({
+      ...base,
+      overdueReceivablesCount: 3,
+      overdueReceivablesPaise: 2450000,
+    }).find((item) => item.id === 'collect-overdue');
+
+    expect(recommendation).toMatchObject({
+      priority: 'high',
+      count: 3,
+      href: '/services/payments/records/payment_reminder',
+      actionLabel: 'Collect payments',
+    });
+    expect(recommendation?.detail).toContain('₹24,500');
   });
 
   it('uses the existing Pro Marketing entitlement instead of bypassing it', () => {
