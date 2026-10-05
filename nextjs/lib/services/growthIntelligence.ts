@@ -14,6 +14,10 @@ export type GrowthInputs = {
   overdueFollowUps: number;
   unansweredConversations: number;
   reactivationCandidates: number;
+  overdueReceivablesCount: number;
+  overdueReceivablesPaise: number;
+  quotationPipelinePaise: number;
+  paymentsEnabled: boolean;
   whatsappConnected: boolean;
   instagramConnected: boolean;
   marketingEnabled: boolean;
@@ -46,6 +50,20 @@ export function buildGrowthRecommendations(input: GrowthInputs): GrowthRecommend
       count: input.overdueFollowUps,
       href: '/contacts',
       actionLabel: 'Review contacts',
+    });
+  }
+
+  if (input.overdueReceivablesCount > 0) {
+    const overdueRupees = Math.round(input.overdueReceivablesPaise / 100).toLocaleString('en-IN');
+    recommendations.push({
+      id: 'collect-overdue',
+      agent: 'analyst',
+      priority: 'high',
+      title: `${input.overdueReceivablesCount} overdue payment${input.overdueReceivablesCount === 1 ? '' : 's'} need collection`,
+      detail: `₹${overdueRupees} is overdue across open orders or invoices. Protect cash flow before spending more to acquire new customers.`,
+      count: input.overdueReceivablesCount,
+      href: input.paymentsEnabled ? '/services/payments/records/payment_reminder' : '/services/payments',
+      actionLabel: input.paymentsEnabled ? 'Collect payments' : 'Open payments',
     });
   }
 
