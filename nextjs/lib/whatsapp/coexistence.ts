@@ -14,7 +14,7 @@ import Contact from '../models/Contact';
 import Message from '../models/Message';
 import { getGraphApiVersion } from '../config/graphApi';
 import { loadWhatsAppAccountFromWebhookIdentifiers } from '../services/whatsappAccountService';
-import { uploadWhatsAppMediaToCloudinary } from '../services/whatsappMediaService';
+import { isMediaMirrorTooLargeError, uploadWhatsAppMediaToCloudinary } from '../services/whatsappMediaService';
 import { parseIncoming, forwardToWebhookDestinations } from './webhookProcessing';
 import { saveAndEmitMessage } from './dispatch';
 import { emitHistorySyncProgress } from '../socket/emitter';
@@ -159,6 +159,26 @@ const mirrorEchoMedia = async ({
       },
     });
   } catch (error: any) {
+    if (isMediaMirrorTooLargeError(error)) {
+      await Message.findByIdAndUpdate(messageDocId, {
+        $set: {
+          mediaSize: Number(error.fileSize || 0),
+          mediaMirrorStatus: 'skipped_too_large',
+          mediaMirrorError: 'This attachment is too large to mirror safely. Open it in the WhatsApp Business app.',
+        },
+      }).catch(() => undefined);
+      logger.warn('[coexistence] echo media too large to mirror safely', {
+        bytes: Number(error.fileSize || 0),
+        maxBytes: Number(error.maxBytes || 0),
+      });
+      return;
+    }
+    await Message.findByIdAndUpdate(messageDocId, {
+      $set: {
+        mediaMirrorStatus: 'failed',
+        mediaMirrorError: 'Attachment preview is temporarily unavailable.',
+      },
+    }).catch(() => undefined);
     logger.error('[coexistence] echo media mirroring failed:', error.message);
   }
 };
