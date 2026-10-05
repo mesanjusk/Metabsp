@@ -1,6 +1,56 @@
 # Small Business Digital OS
 
-MetaBSP is evolving from a channel dashboard into a small-business operating layer. The design principle is simple: one customer identity, one shared business history, and separate channel/provider adapters around it.
+MetaBSP is evolving from a channel dashboard into an India-first small-business
+**growth operating system**. The design principle is simple: one customer
+identity, one shared business history, and separate channel/provider adapters
+around it.
+
+## North star
+
+The product exists for businesses that already use specialised tools but do not
+have the time, team or technical knowledge to make those tools work together.
+
+The promise is:
+
+> Keep the tools you already use. MetaBSP connects customer conversations,
+> business history and growth channels, then tells the owner who needs attention,
+> why, and what measurable business value is at stake.
+
+The daily product loop is **Reach → Convert → Retain → Measure**.
+
+The home screen should become progressively less like an app launcher and more
+like a daily action list:
+
+- customers waiting for a reply
+- leads and quotations that need follow-up
+- overdue receivables that need collection
+- past customers likely to buy again
+- reviews and local-profile actions that can improve discovery
+- channel/campaign activity tied back to leads, orders and collections where the
+  source data is reliable
+
+The customer/contact is the spine. WhatsApp, Instagram, Google Business Profile,
+marketing, accounting adapters and future channels are inputs/outputs around the
+same customer history.
+
+## Product guardrails
+
+1. **Do not replace accounting first.** Integrate with the systems merchants
+   already trust. BUSY outbound invoice/message integration exists today. Tally,
+   Marg and deeper transaction sync are separate adapters to build and verify,
+   not features to label live in advance.
+2. **Do not create a second CRM per channel.** Channel identities resolve to the
+   shared Contact whenever possible.
+3. **Do not add a module without an owner outcome.** A feature must improve
+   acquisition, conversion, retention, collection, attribution or operating
+   accountability.
+4. **Do not fake provider readiness.** A service stays planned until credentials,
+   provider/client behaviour and a real end-to-end flow are verified.
+5. **Prefer next-best-action over dashboards.** Metrics should end in a useful
+   action: reply, follow up, collect, reactivate, request a review or publish.
+6. **Protect focus.** MetaBSP is not trying to clone every Odoo module. It should
+   connect the minimum business data needed to help an Indian SME grow without a
+   dedicated marketing or IT team.
 
 ## Core data rule
 
@@ -81,11 +131,21 @@ Existing Marketing & Publisher and Instagram features remain separate channel to
 Google Business Profile is now connected rather than planned — see
 [GOOGLE_BUSINESS_PROFILE.md](./GOOGLE_BUSINESS_PROFILE.md).
 
+Accounting interoperability:
+
+- **BUSY outbound WhatsApp/invoice connector — implemented.** It is a secure,
+  send-only adapter and is not a full ledger/customer sync.
+- **BUSY customer/transaction sync — roadmap.**
+- **Tally adapter — roadmap.**
+- **Marg adapter — roadmap.**
+- Synced transactions should enrich the existing Contact/SmbRecord history,
+  never create a parallel accounting-owned customer database.
+
 Still provider-gated / intentionally not faked:
 
 - business dialer / cloud telephony provider
 - public checkout/storefront and payment gateway
-- statutory accounting/GST integrations
+- statutory GST/e-invoice/accounting write-back beyond verified adapters
 
 These should be connected only when real credentials/provider contracts are available.
 
@@ -122,3 +182,25 @@ All routes require the existing authenticated session and scope queries to the a
 A service should only be marked active/beta when it has a real usable workspace. External services stay `planned` until a real provider connection exists. Google Business Profile moved from `planned` to `beta` when it gained a real Google OAuth connection and live review/post/performance calls; the same rule still keeps anything without a provider connection out of `beta`.
 
 "Connected" is also held to that standard inside a service. A Google connection with no location selected reports as `pending`, not `connected`, because it can neither read reviews nor publish a post.
+
+
+## Delivery order from this point
+
+The roadmap is deliberately ordered by customer value rather than by number of
+modules:
+
+1. Strengthen shared customer identity and deduplication.
+2. Make WhatsApp + CRM follow-up the daily operating habit.
+3. Expand accounting adapters from the existing BUSY connector into safe
+   read/sync flows, then add Tally and Marg behind the same contract.
+4. Turn orders, quotations, balances and message history into next-best actions
+   for follow-up, collection and repeat business.
+5. Add marketing attribution only where a source can be tied reliably to a lead,
+   order or collection.
+6. Deepen Google Business Profile and Instagram/Facebook growth workflows.
+7. Add AI as an explanation/action layer over grounded data, not as a separate
+   database or a substitute for deterministic business rules.
+
+Success is not the number of available modules. Success is that a small-business
+owner can open one screen and understand **who to contact, what to do, and what
+business result it may affect**.
