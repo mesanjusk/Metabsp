@@ -142,7 +142,15 @@ describe('coexistence — echoed media', () => {
     await processEchoes(echoOf({ id: 'wamid.echo-4', type: 'image', to: '919999999999' }) as any);
 
     expect(messageCreate).toHaveBeenCalledTimes(1);
-    expect(messageFindByIdAndUpdate).not.toHaveBeenCalled();
+    expect(messageFindByIdAndUpdate).toHaveBeenCalledWith(
+      'msg-1',
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          mediaMirrorStatus: 'failed',
+          mediaMirrorError: 'Attachment preview is temporarily unavailable.',
+        }),
+      })
+    );
   });
 
   it('marks an oversized echo as intentionally unavailable instead of silently losing it', async () => {
