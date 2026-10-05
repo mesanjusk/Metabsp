@@ -44,3 +44,5 @@ export { default as StoreProfile } from './StoreProfile';
 export { default as StoreProduct } from './StoreProduct';
 export { default as StoreCategory } from './StoreCategory';
 export { default as StoreInquiry } from './StoreInquiry';
+
+export { default as DurableQueueJob } from './DurableQueueJob';
