@@ -40,7 +40,7 @@ export default function PrivacyPolicyPage() {
         <Container maxWidth="md">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <Typography variant="h3" fontWeight={800} sx={{ mb: 2 }}>Privacy Policy</Typography>
-            <Typography variant="body1" color="text.secondary">Last updated: June 2025</Typography>
+            <Typography variant="body1" color="text.secondary">Last updated: October 5, 2026</Typography>
           </Box>
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
@@ -78,11 +78,11 @@ export default function PrivacyPolicyPage() {
               ]} />
               <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Technical Data</Typography>
               <BulletList items={[
-                'IP addresses and geolocation data',
+                'IP addresses used for security, abuse prevention and rate limiting where available',
                 'Browser type, version, and operating system',
                 'API request logs including endpoints accessed and response codes',
                 'Authentication tokens and session identifiers',
-                'Device identifiers for mobile access',
+                'Browser and device information supplied by the client where available',
               ]} />
             </Section>
 
@@ -113,17 +113,19 @@ export default function PrivacyPolicyPage() {
             </Section>
 
             <Section title="4. Data Retention">
-              <Para>We retain different categories of data for different periods based on business necessity and legal requirements:</Para>
+              <Para>
+                The application has automated retention controls for messages, inactive contacts and audit logs, but the
+                retention windows are deployment-configurable rather than hard-coded. If no retention window is configured,
+                those records are not automatically expired by the retention scheduler.
+              </Para>
               <BulletList items={[
-                'Message content: 90 days from the date of transmission, then permanently deleted',
-                'Contact phone numbers and opt-in records: Retained indefinitely while your account is active, or until you request deletion',
-                'API request logs and webhook logs: 1 year from the date of the request',
-                'Account information and billing records: Duration of your account plus 7 years for tax compliance',
-                'Message delivery receipts: 1 year from transmission date',
-                'Template submission history: Duration of your account',
-                'Security and audit logs: 2 years',
+                'Message, contact and audit-log retention windows are controlled by the deployment configuration.',
+                'Account and billing records may be retained where required to provide the service or meet applicable accounting and legal obligations.',
+                'A verified deletion request removes the account-owned live data covered by our deletion service, including messages, contacts, connected accounts, API keys, webhooks, automations and SMB records.',
+                'A minimal deletion-request record may be retained to evidence that the request was received and processed.',
+                'Backup retention depends on the backup system actually enabled for the deployment; we do not promise a fixed backup purge period unless it is configured and published.',
               ]} />
-              <Para>You may request early deletion of your data at any time. See Section 8 for details on how to request data deletion.</Para>
+              <Para>You may request deletion of your account data at any time. See Section 8 for details.</Para>
             </Section>
 
             <Section title="5. Data Encryption and Security">
@@ -195,10 +197,10 @@ export default function PrivacyPolicyPage() {
                 Upon receiving a valid deletion request, we will:
               </Para>
               <BulletList items={[
-                'Permanently delete your account data within 30 days',
-                'Remove all message content and contact data',
-                'Revoke all API keys and access tokens',
-                'Send a confirmation email when deletion is complete',
+                'Record your request with a confirmation code and status page',
+                'Verify the requester before destructive manual deletion',
+                'Remove the account-owned live data covered by the deletion service after verification',
+                'Update the request status when processing completes or requires manual follow-up',
               ]} />
             </Section>
 
@@ -210,7 +212,7 @@ export default function PrivacyPolicyPage() {
                 'Contacting our support team at support@meta.sanjusk.in to initiate immediate access revocation',
                 'Deleting your SK Digital account through the Account Settings page',
               ]} />
-              <Para>Upon revocation, we will cease processing any new WhatsApp data within 24 hours and will retain historical data per our retention schedule unless a deletion request is submitted.</Para>
+              <Para>Revoking provider access stops future provider-authorized processing once the revocation takes effect. Historical data remains subject to the configured retention settings and any verified deletion request.</Para>
             </Section>
 
             <Section title="10. Cookies">
