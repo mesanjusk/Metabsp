@@ -118,7 +118,7 @@ export default function AboutPage() {
                 {
                   icon: <SecurityIcon sx={{ fontSize: 32 }} />,
                   title: 'Enterprise Security',
-                  description: 'AES-256 encryption, TLS 1.3, webhook signature verification, MFA, IP allowlisting, and SOC 2 compliance in progress.',
+                  description: 'Encrypted WhatsApp access tokens, signed webhooks, server-side authorization, rate limits and restrictive browser security headers.',
                 },
                 {
                   icon: <GroupIcon sx={{ fontSize: 32 }} />,
