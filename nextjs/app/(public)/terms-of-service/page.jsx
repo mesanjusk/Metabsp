@@ -34,7 +34,7 @@ export default function TermsOfServicePage() {
         <Container maxWidth="md">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <Typography variant="h3" fontWeight={800} sx={{ mb: 2 }}>Terms of Service</Typography>
-            <Typography variant="body1" color="text.secondary">Last updated: June 2025</Typography>
+            <Typography variant="body1" color="text.secondary">Last updated: October 5, 2026</Typography>
           </Box>
 
           <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
@@ -142,7 +142,7 @@ export default function TermsOfServicePage() {
               <BulletList items={[
                 'You retain ownership of all data you input into the Service',
                 'You grant SK Digital a limited license to process your data solely to provide the Service',
-                'Message content is retained for 90 days; contact data is retained while your account is active',
+                'Retention windows for messages, inactive contacts and audit logs are deployment-configurable; verified deletion requests remove the live account-owned data covered by the deletion service',
                 'You are responsible for obtaining all necessary consents to process end-user data through our platform',
                 'Upon account termination, you may request export of your data within 30 days',
               ]} />
@@ -156,7 +156,7 @@ export default function TermsOfServicePage() {
 
             <Section title="8. Fees and Payment">
               <Para>
-                Fees for the Service are described on our pricing page. All fees are in USD unless otherwise specified. Subscriptions renew automatically unless cancelled before the renewal date. We reserve the right to modify pricing with 30 days' written notice. Refunds are issued at our discretion for billing errors; no refunds are provided for partial months of service.
+                Fees for the Service are described on our pricing page and are shown in Indian rupees (INR) for the standard India plans unless another currency is explicitly stated. Subscription renewal and cancellation follow the terms shown for the applicable plan. We may change future pricing with reasonable notice. Provider charges, including Meta messaging charges where applicable, are separate from the SK Digital platform fee unless a plan explicitly says otherwise.
               </Para>
             </Section>
 
