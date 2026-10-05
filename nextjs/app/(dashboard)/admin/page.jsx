@@ -15,6 +15,7 @@ const MetaWebhookConfigPanel = dynamic(() => import('@/lib/ui/whatsappCloud/Meta
 const WebhookDeliveryPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WebhookDeliveryPanel'), { ssr: false, loading: () => <LoadingSkeleton /> });
 const WhatsAppAccountsAdminPanel = dynamic(() => import('@/lib/ui/whatsappCloud/WhatsAppAccountsAdminPanel'), { ssr: false, loading: () => <LoadingSkeleton /> });
 const AdminGoogleCredentialsPanel = dynamic(() => import('@/lib/ui/app/AdminGoogleCredentialsPanel'), { ssr: false, loading: () => <LoadingSkeleton /> });
+const AdminPrivacyRequestsPanel = dynamic(() => import('@/lib/ui/app/AdminPrivacyRequestsPanel'), { ssr: false, loading: () => <LoadingSkeleton /> });
 
 const TABS = [
   { value: 'overview', label: 'Platform overview' },
@@ -22,6 +23,7 @@ const TABS = [
   { value: 'services', label: 'Service access' },
   { value: 'meta', label: 'Meta configuration' },
   { value: 'google', label: 'Google configuration' },
+  { value: 'privacy', label: 'Privacy requests' },
 ];
 
 export default function AdminPage() {
@@ -57,6 +59,7 @@ export default function AdminPage() {
         </Stack>
       ) : null}
       {tab === 'google' ? <AdminGoogleCredentialsPanel /> : null}
+      {tab === 'privacy' ? <AdminPrivacyRequestsPanel /> : null}
     </PageBody>
   );
 }
