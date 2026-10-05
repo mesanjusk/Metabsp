@@ -22,12 +22,22 @@ vi.mock('mongoose', () => ({
 }));
 
 const connectCalls = vi.hoisted(() => ({ count: 0, reject: false }));
+const redisState = vi.hoisted(() => ({ reachable: true }));
 
 vi.mock('@/lib/db/mongo', () => ({
   connectDB: () => {
     connectCalls.count += 1;
     return connectCalls.reject ? Promise.reject(new Error('unreachable')) : Promise.resolve({});
   },
+}));
+
+vi.mock('@/lib/db/redis', () => ({
+  getRedisConnection: () => ({
+    ping: async () => {
+      if (!redisState.reachable) throw new Error('redis unavailable');
+      return 'PONG';
+    },
+  }),
 }));
 
 const { GET } = await import('@/app/api/health/route');
