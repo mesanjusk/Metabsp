@@ -12,7 +12,7 @@ const Section = ({ title, children }) => (
 );
 
 const Para = ({ children }) => (
-  <Typography variant="body1" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.8 }}>
+  <Typography variant="body1" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.8, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
     {children}
   </Typography>
 );
@@ -21,7 +21,7 @@ const BulletList = ({ items }) => (
   <Box component="ul" sx={{ pl: 3, mb: 1.5 }}>
     {items.map((item, i) => (
       <Box component="li" key={i} sx={{ mb: 0.5 }}>
-        <Typography variant="body1" color="text.secondary">{item}</Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{item}</Typography>
       </Box>
     ))}
   </Box>
@@ -37,7 +37,7 @@ export default function TermsOfServicePage() {
             <Typography variant="body1" color="text.secondary">Last updated: October 5, 2026</Typography>
           </Box>
 
-          <Paper elevation={0} sx={{ p: { xs: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <Paper elevation={0} sx={{ p: { xs: 2.25, sm: 3, md: 6 }, borderRadius: 3, border: '1px solid', borderColor: 'divider', minWidth: 0, overflow: 'hidden' }}>
             <Para>
               These Terms of Service ("Terms") govern your access to and use of the SK Digital platform, operated by Mahi Creation, including our website, APIs, and related services (collectively, the "Service"). By accessing or using our Service, you agree to be bound by these Terms. If you do not agree, do not use the Service.
             </Para>
@@ -178,7 +178,7 @@ export default function TermsOfServicePage() {
                 'Any interruption or cessation of transmission to or from our Service',
               ]} />
               <Para>
-                OUR TOTAL CUMULATIVE LIABILITY TO YOU FOR ALL CLAIMS ARISING FROM OR RELATED TO THESE TERMS OR THE SERVICE SHALL NOT EXCEED THE GREATER OF (A) THE AMOUNTS YOU PAID TO US IN THE THREE (3) MONTHS PRECEDING THE CLAIM, OR (B) ONE HUNDRED DOLLARS ($100).
+                TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, OUR TOTAL CUMULATIVE LIABILITY FOR CLAIMS ARISING FROM OR RELATED TO THE SERVICE WILL NOT EXCEED THE AMOUNTS YOU PAID TO US FOR THE SERVICE DURING THE THREE (3) MONTHS PRECEDING THE EVENT GIVING RISE TO THE CLAIM. NOTHING IN THESE TERMS EXCLUDES LIABILITY THAT CANNOT LEGALLY BE EXCLUDED OR LIMITED.
               </Para>
             </Section>
 
@@ -206,7 +206,7 @@ export default function TermsOfServicePage() {
 
             <Section title="13. Governing Law">
               <Para>
-                These Terms shall be governed by and construed in accordance with the laws of the State of Delaware, United States, without regard to its conflict of law provisions. Any dispute arising under these Terms shall be resolved through binding arbitration administered by JAMS in accordance with its Commercial Arbitration Rules, except that either party may seek injunctive or other equitable relief in a court of competent jurisdiction to prevent irreparable harm.
+                These Terms are governed by the laws of India, subject to any mandatory consumer or commercial protections that apply to you. Courts with competent jurisdiction in Maharashtra, India will have jurisdiction over disputes unless a separate written agreement with you specifies another lawful dispute-resolution process or venue.
               </Para>
             </Section>
 
