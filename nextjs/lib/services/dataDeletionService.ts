@@ -15,8 +15,36 @@ import {
   WhatsAppAccount,
   AutoReply,
   Workflow,
+  GoogleBusinessAccount,
+  GoogleBusinessReview,
+  RcsAgent,
+  RcsConsent,
+  RcsMessage,
+  ServiceEntitlement,
+  StoreProfile,
+  StoreProduct,
+  StoreCategory,
+  StoreInquiry,
+  InstituteRecord,
+  InstituteAdmission,
+  InstituteFee,
+  InstituteIDCardProject,
+  InstituteIDCardStudent,
+  InstituteDesign,
+  InstituteForm,
+  InstituteFormResponse,
+  CloudOtpVerification,
+  BusinessProfile,
 } from '@/lib/models';
 import SmbRecord from '@/lib/models/SmbRecord';
+import AttendanceDevice from '@/lib/models/AttendanceDevice';
+import AttendanceProfile from '@/lib/models/AttendanceProfile';
+import AttendanceRecord from '@/lib/models/AttendanceRecord';
+import AttendanceSettings from '@/lib/models/AttendanceSettings';
+import LeadSearchJob from '@/lib/models/LeadSearchJob';
+import ProspectLead from '@/lib/models/ProspectLead';
+import cloudinary from '@/lib/utils/cloudinary';
+import { derivePublicIdFromUrl } from '@/lib/services/dataRetentionService';
 import logger from '@/lib/utils/logger';
 
 /**
@@ -102,19 +130,67 @@ export async function createManualDeletionRequest({
   return request.toObject();
 }
 
-async function deleteEverythingOwnedBy(userId: mongoose.Types.ObjectId) {
+async function deleteEverythingOwnedBy(userId: mongoose.Types.ObjectId, mobile = '') {
   const accounts: any[] = await WhatsAppAccount.find({ userId }).select('_id').lean();
   const accountIds = accounts.map((a) => a._id);
   const counts: Record<string, number> = {};
   const record = (name: string, result: any) => { counts[name] = result?.deletedCount || 0; };
 
+  // Delete mirrored WhatsApp media before deleting the rows that tell us where
+  // those assets live. A database-only delete would leave customer media in
+  // Cloudinary with no remaining dashboard record pointing to it.
+  const mediaRows: any[] = await Message.find({ userId, mediaUrl: { $exists: true, $ne: '' } })
+    .select('mediaUrl mediaPublicId mediaResourceType')
+    .lean();
+  let mediaFiles = 0;
+  for (const row of mediaRows) {
+    const parsed = derivePublicIdFromUrl(String(row.mediaUrl || ''));
+    const publicId = row.mediaPublicId || parsed?.publicId;
+    if (!publicId) continue;
+    try {
+      await (cloudinary as any).uploader.destroy(publicId, {
+        resource_type: row.mediaResourceType || parsed?.resourceType || 'image',
+      });
+      mediaFiles += 1;
+    } catch (error: any) {
+      logger.warn({ err: error?.message, publicId }, '[data-deletion] could not remove mirrored media');
+    }
+  }
+  counts.mediaFiles = mediaFiles;
+
   record('messages', await Message.deleteMany({ userId }));
   record('contacts', await Contact.deleteMany({ userId }));
   record('smbRecords', await SmbRecord.deleteMany({ userId }));
+  record('businessProfiles', await BusinessProfile.deleteMany({ userId }));
   record('deliveryStatuses', await CampaignMessageStatus.deleteMany({ userId }));
   record('apiKeys', await ApiKey.deleteMany({ userId: String(userId) }));
   record('autoReplies', await AutoReply.deleteMany({ userId }));
   record('workflows', await Workflow.deleteMany({ userId }));
+  record('googleBusinessReviews', await GoogleBusinessReview.deleteMany({ userId }));
+  record('googleBusinessAccounts', await GoogleBusinessAccount.deleteMany({ userId }));
+  record('rcsMessages', await RcsMessage.deleteMany({ userId }));
+  record('rcsConsents', await RcsConsent.deleteMany({ userId }));
+  record('rcsAgents', await RcsAgent.deleteMany({ userId }));
+  record('serviceEntitlements', await ServiceEntitlement.deleteMany({ userId }));
+  record('storeInquiries', await StoreInquiry.deleteMany({ ownerUserId: userId }));
+  record('storeProducts', await StoreProduct.deleteMany({ ownerUserId: userId }));
+  record('storeCategories', await StoreCategory.deleteMany({ ownerUserId: userId }));
+  record('storeProfiles', await StoreProfile.deleteMany({ ownerUserId: userId }));
+  record('instituteFormResponses', await InstituteFormResponse.deleteMany({ ownerUserId: userId }));
+  record('instituteForms', await InstituteForm.deleteMany({ ownerUserId: userId }));
+  record('instituteIdCardStudents', await InstituteIDCardStudent.deleteMany({ ownerUserId: userId }));
+  record('instituteIdCardProjects', await InstituteIDCardProject.deleteMany({ ownerUserId: userId }));
+  record('instituteDesigns', await InstituteDesign.deleteMany({ ownerUserId: userId }));
+  record('instituteFees', await InstituteFee.deleteMany({ ownerUserId: userId }));
+  record('instituteAdmissions', await InstituteAdmission.deleteMany({ ownerUserId: userId }));
+  record('instituteRecords', await InstituteRecord.deleteMany({ ownerUserId: userId }));
+  record('attendanceRecords', await AttendanceRecord.deleteMany({ ownerUserId: userId }));
+  record('attendanceProfiles', await AttendanceProfile.deleteMany({ ownerUserId: userId }));
+  record('attendanceSettings', await AttendanceSettings.deleteMany({ ownerUserId: userId }));
+  record('attendanceDevices', await AttendanceDevice.deleteMany({ ownerUserId: userId }));
+  record('prospectLeads', await ProspectLead.deleteMany({ userId }));
+  record('leadSearchJobs', await LeadSearchJob.deleteMany({ userId }));
+  if (mobile) record('otpVerifications', await CloudOtpVerification.deleteMany({ mobile }));
 
   if (accountIds.length) {
     record('webhookDestinations', await WebhookDestination.deleteMany({ whatsappAccountId: { $in: accountIds } }));
@@ -146,10 +222,10 @@ export async function deleteByProviderId({
           { instagramUserId: String(providerUserId) },
         ],
       }).select('userId').lean();
-      if (instagramAccount?.userId) user = { _id: instagramAccount.userId };
+      if (instagramAccount?.userId) user = await User.findById(instagramAccount.userId).select('_id mobile').lean();
     } else {
       const field = provider === 'facebook' ? 'facebookId' : 'googleId';
-      user = await User.findOne({ [field]: String(providerUserId) }).select('_id').lean();
+      user = await User.findOne({ [field]: String(providerUserId) }).select('_id mobile').lean();
     }
 
     if (!user) {
@@ -163,7 +239,7 @@ export async function deleteByProviderId({
       return { confirmationCode, status: 'no_account_found', deletedCounts: {} };
     }
 
-    const deletedCounts = await deleteEverythingOwnedBy(user._id);
+    const deletedCounts = await deleteEverythingOwnedBy(user._id, String(user.mobile || ''));
 
     await DataDeletionRequest.create({
       confirmationCode,
