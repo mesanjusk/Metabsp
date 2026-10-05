@@ -3,6 +3,11 @@ import { getRedisConnection } from '../db/redis';
 import { processWebhookEnvelope } from '../whatsapp/webhookHandler';
 import logger from '../utils/logger';
 import { WEBHOOK_QUEUE_NAME } from './webhookQueue';
+import {
+  markDurableCompleted,
+  markDurableFailed,
+  markDurableProcessing,
+} from '../services/durableQueueJournal';
 
 /**
  * Consumes inbound Meta webhook envelopes and runs the real processing —
@@ -18,7 +23,18 @@ export function startWebhookWorker({
 } = {}) {
   const worker = new Worker(
     WEBHOOK_QUEUE_NAME,
-    async (job) => processWebhookEnvelope(job.data?.envelope),
+    async (job) => {
+      const durableId = String(job.data?.durableId || '');
+      if (durableId) await markDurableProcessing(durableId);
+      try {
+        const result = await processWebhookEnvelope(job.data?.envelope);
+        if (durableId) await markDurableCompleted(durableId);
+        return result;
+      } catch (error) {
+        if (durableId) await markDurableFailed(durableId, error);
+        throw error;
+      }
+    },
     {
       connection: getRedisConnection() as any,
       concurrency,
