@@ -316,7 +316,7 @@ export default function MetaAppReviewPage() {
               <Chip label="Meta App Review" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff', fontWeight: 700 }} />
             </Stack>
             <Typography variant="h3" fontWeight={800} sx={{ mb: 2, fontSize: { xs: '1.8rem', md: '2.6rem' } }}>
-              Meta App Review — SK Digital WhatsApp Business Solution Provider
+              Meta App Review — SK Digital WhatsApp Business Platform Integration
             </Typography>
             <Typography variant="h6" sx={{ opacity: 0.88, maxWidth: 720, fontWeight: 400, lineHeight: 1.6 }}>
               This page provides Meta reviewers and evaluators with full documentation of SK Digital's
