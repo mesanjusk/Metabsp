@@ -170,8 +170,9 @@ try {
       const name = String(row.name || '');
       if (!name || name.startsWith('system.')) throw new Error(`Unsafe collection name in backup: ${name}`);
 
+      const options = row.ejsonOptions ? EJSON.parse(row.ejsonOptions) : {};
       if (!existingNames.has(name)) {
-        await db.createCollection(name);
+        await db.createCollection(name, options);
         existingNames.add(name);
       } else {
         await db.collection(name).deleteMany({});
@@ -179,7 +180,7 @@ try {
 
       current = {
         name,
-        options: row.ejsonOptions ? EJSON.parse(row.ejsonOptions) : {},
+        options,
         indexes: row.ejsonIndexes ? EJSON.parse(row.ejsonIndexes) : [],
       };
       restoredCollections += 1;
