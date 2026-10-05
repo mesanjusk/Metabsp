@@ -40,6 +40,23 @@ vi.mock('@/lib/db/redis', () => ({
   }),
 }));
 
+const backupState = vi.hoisted(() => ({ ok: true, ageHours: 1 }));
+const durableQueueState = vi.hoisted(() => ({ recoverable: 0 }));
+
+vi.mock('@/lib/services/encryptedBackupService', () => ({
+  hasRecentSuccessfulBackup: async () => ({
+    ok: backupState.ok,
+    latest: backupState.ok ? { completedAt: new Date() } : null,
+    ageHours: backupState.ageHours,
+  }),
+}));
+
+vi.mock('@/lib/models/DurableQueueJob', () => ({
+  default: {
+    countDocuments: async () => durableQueueState.recoverable,
+  },
+}));
+
 const { GET } = await import('@/app/api/health/route');
 
 const call = (url: string) => GET({ nextUrl: new URL(url) } as any);
@@ -50,6 +67,11 @@ describe('health probe', () => {
     connectCalls.count = 0;
     connectCalls.reject = false;
     redisState.reachable = true;
+    backupState.ok = true;
+    backupState.ageHours = 1;
+    durableQueueState.recoverable = 0;
+    vi.stubEnv('ENABLE_SCHEDULED_BACKUPS', 'false');
+    vi.stubEnv('BACKUP_ENCRYPTION_KEY', '');
     vi.stubEnv('MONGO_URI', 'mongodb://ci-health');
     vi.stubEnv('REDIS_URL', 'redis://ci-health');
     vi.stubEnv('JWT_SECRET', 'ci-health-value');
@@ -127,6 +149,31 @@ describe('health probe', () => {
     await expect((await call('https://example.test/api/health')).json()).resolves.toMatchObject({
       db: 'connecting',
       dbReady: false,
+    });
+  });
+
+  it('reports a stale enabled backup as not ready in strict monitoring mode', async () => {
+    vi.stubEnv('ENABLE_SCHEDULED_BACKUPS', 'true');
+    vi.stubEnv('BACKUP_ENCRYPTION_KEY', 'Y2ktYnVpbGQtb25seS0zMi1ieXRlLWtleS0xMjM0NQ==');
+    backupState.ok = false;
+    backupState.ageHours = 40;
+
+    const response = await call('https://example.test/api/health?strict=1');
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      backupReady: false,
+      backupAgeHours: 40,
+    });
+  });
+
+  it('surfaces stale durable queue work for monitoring without breaking liveness', async () => {
+    durableQueueState.recoverable = 7;
+    const response = await call('https://example.test/api/health?strict=1');
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      durableQueueRecoverable: 7,
     });
   });
 });
