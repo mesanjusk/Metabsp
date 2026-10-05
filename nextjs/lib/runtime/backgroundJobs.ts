@@ -12,6 +12,7 @@ import { startGoogleReviewAutomationScheduler } from '../googleBusiness/reviewAu
 import { runPreflightOnBoot } from '../services/preflightCheckService';
 import { runBootSelfCheck } from '../services/bootSelfCheck';
 import { startVideoWorkers } from '../video/core/queue/video-workers';
+import { startDurableQueueReplayScheduler } from '../services/durableQueueReplayService';
 
 /**
  * Everything that must keep running between requests, started once per process.
@@ -48,6 +49,7 @@ export function startBackgroundJobs(): void {
   startWhatsAppSendWorker();
   startWebhookWorker();
   startLeadFinderWorker();
+  startDurableQueueReplayScheduler();
 
   // The Video Studio's queues. Ported with the studio but never started, which made every
   // video job a write to Mongo that nothing would ever pick up — see lib/video/core/queue/video-workers.ts.

@@ -1,5 +1,11 @@
 import { Queue, QueueEvents } from 'bullmq';
 import { getRedisConnection } from '../db/redis';
+import {
+  ensureDurableQueueJob,
+  markDurableQueued,
+  randomDurableSendId,
+  stableDurableSendId,
+} from '../services/durableQueueJournal';
 
 // Ported from backend/src/queues/whatsappSendQueue.js — PRODUCER SIDE ONLY.
 // The consumer (BullMQ Worker) stays on the always-on backend/ host
@@ -34,6 +40,17 @@ function getQueueEvents(): QueueEvents {
     queueEvents = new QueueEvents(QUEUE_NAME, { connection: getRedisConnection() as any });
   }
   return queueEvents;
+}
+
+export class DurableQueuePendingError extends Error {
+  code = 'DURABLE_QUEUE_PENDING';
+  durableIds: string[];
+
+  constructor(message: string, durableIds: string[]) {
+    super(message);
+    this.name = 'DurableQueuePendingError';
+    this.durableIds = durableIds;
+  }
 }
 
 interface JobDataInput {
@@ -78,21 +95,62 @@ export async function enqueueBroadcastRecipients({
     ? [String(accountId), String(userId), String(campaignId)].join('_').replace(/[^a-zA-Z0-9_-]/g, '')
     : '';
 
-  const jobs = recipients.map((to, index) => ({
+  const prepared = await Promise.all(
+    recipients.map(async (to, index) => {
+      const data = buildJobData({ accountId, userId, to, messageType, body, templateName, language, components, campaignId });
+      const stableKey = stableCampaignKey
+        ? `${stableCampaignKey}|${index}|${String(to).replace(/[^0-9]/g, '')}`
+        : `${String(accountId)}|${String(userId)}|${Date.now()}|${index}|${to}`;
+      const durableId = stableCampaignKey ? stableDurableSendId(stableKey) : randomDurableSendId();
+      const journal: any = await ensureDurableQueueJob({
+        id: durableId,
+        kind: 'whatsapp_send',
+        payload: data,
+        availableAt: new Date(),
+      });
+      return { data, durableId, completed: journal?.state === 'completed' };
+    })
+  );
+
+  const alreadyCompleted = prepared.filter((item) => item.completed);
+  const pending = prepared.filter((item) => !item.completed);
+  if (!pending.length) {
+    return alreadyCompleted.map((item) => ({
+      id: item.durableId,
+      data: item.data,
+      durableCompleted: true,
+      waitUntilFinished: async () => ({ durableCompleted: true }),
+    }));
+  }
+
+  const jobs = pending.map((item) => ({
     name: 'send',
-    data: buildJobData({ accountId, userId, to, messageType, body, templateName, language, components, campaignId }),
-    ...(stableCampaignKey
-      ? {
-          // A scheduler crash after enqueue but before its Mongo status update
-          // can safely retry: BullMQ will reuse the same job ids rather than
-          // sending the campaign twice.
-          opts: {
-            jobId: `${stableCampaignKey}_${index}_${String(to).replace(/[^0-9]/g, '')}`,
-          },
-        }
-      : {}),
+    data: { ...item.data, durableId: item.durableId },
+    opts: { jobId: item.durableId },
   }));
-  return q.addBulk(jobs);
+
+  try {
+    const queued = await q.addBulk(jobs);
+    await Promise.all(pending.map((item) => markDurableQueued(item.durableId)));
+    return [
+      ...alreadyCompleted.map((item) => ({
+        id: item.durableId,
+        data: item.data,
+        durableCompleted: true,
+        waitUntilFinished: async () => ({ durableCompleted: true }),
+      })),
+      ...queued,
+    ];
+  } catch (error: any) {
+    // Mongo already owns a durable copy of every intended send. Surface an
+    // explicit "accepted for retry" condition so an immediate broadcast can
+    // tell the user it is pending instead of reporting a hard failure while a
+    // background replay later sends unexpectedly.
+    throw new DurableQueuePendingError(
+      `Redis is temporarily unavailable; ${pending.length} send(s) are safely journaled for retry`,
+      pending.map((item) => item.durableId)
+    );
+  }
 }
 
 // Enqueues a single delayed send — used by the webhook route for
@@ -106,7 +164,32 @@ export async function enqueueBroadcastRecipients({
 // for broadcast sends — no new worker/queue needed.
 export async function enqueueDelayedReply(data: JobDataInput, delayMs: number) {
   const q = getQueue();
-  return q.add('send', buildJobData(data), { delay: Math.max(0, delayMs) });
+  const payload = buildJobData(data);
+  const durableId = randomDurableSendId();
+  const delay = Math.max(0, delayMs);
+  const availableAt = new Date(Date.now() + delay);
+
+  await ensureDurableQueueJob({
+    id: durableId,
+    kind: 'whatsapp_send',
+    payload,
+    availableAt,
+  });
+
+  try {
+    const job = await q.add(
+      'send',
+      { ...payload, durableId },
+      { jobId: durableId, delay }
+    );
+    await markDurableQueued(durableId);
+    return job;
+  } catch (error: any) {
+    // The Mongo row is enough to guarantee later delivery. Returning a small
+    // pending object keeps workflow/auto-reply processing successful while the
+    // replay scheduler waits for Redis to recover.
+    return { id: durableId, data: payload, durablePending: true, error: error?.message || String(error) };
+  }
 }
 
 // Waits for a specific batch of jobs to reach a terminal state — same

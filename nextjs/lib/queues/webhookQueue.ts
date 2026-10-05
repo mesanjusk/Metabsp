@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq';
 import { getRedisConnection } from '../db/redis';
+import { markDurableQueued } from '../services/durableQueueJournal';
 
 /**
  * Inbound Meta webhook envelopes, queued so the HTTP handler can acknowledge
@@ -35,8 +36,14 @@ export function getWebhookQueue(): Queue {
   return queue;
 }
 
-export async function enqueueWebhookEnvelope(envelope: unknown) {
-  return getWebhookQueue().add('inbound', { envelope });
+export async function enqueueWebhookEnvelope(envelope: unknown, { durableId = '' } = {}) {
+  const job = await getWebhookQueue().add(
+    'inbound',
+    { envelope, durableId },
+    durableId ? { jobId: durableId } : undefined
+  );
+  if (durableId) await markDurableQueued(durableId);
+  return job;
 }
 
 export async function closeWebhookQueue() {

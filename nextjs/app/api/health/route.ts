@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db/mongo';
 import { getRedisConnection } from '@/lib/db/redis';
+import { hasRecentSuccessfulBackup } from '@/lib/services/encryptedBackupService';
+import DurableQueueJob from '@/lib/models/DurableQueueJob';
 
 /**
  * Liveness by default, readiness on request.
@@ -64,6 +66,9 @@ const requiredConfig = () => ({
   redis: Boolean(String(process.env.REDIS_URL || process.env.REDIS_CLUSTER_NODES || '').trim()),
   jwt: Boolean(String(process.env.JWT_SECRET || '').trim()),
   tokenEncryption: Boolean(String(process.env.WHATSAPP_TOKEN_ENCRYPTION_KEY || '').trim()),
+  backupEncryption: String(process.env.ENABLE_SCHEDULED_BACKUPS || '').toLowerCase() === 'true'
+    ? Boolean(String(process.env.BACKUP_ENCRYPTION_KEY || '').trim())
+    : true,
 });
 
 export async function GET(req: NextRequest) {
@@ -80,6 +85,10 @@ export async function GET(req: NextRequest) {
 
   let redisReady: boolean | null = null;
   let redisReason = '';
+  let backupReady: boolean | null = null;
+  let backupAgeHours: number | null = null;
+  let durableQueueRecoverable = 0;
+
   if (strict) {
     const redis = await withTimeout(
       checkRedisReachable(),
@@ -88,9 +97,32 @@ export async function GET(req: NextRequest) {
     );
     redisReady = redis.reachable;
     redisReason = redis.reason || '';
+
+    if (dbReady) {
+      const backupEnabled = String(process.env.ENABLE_SCHEDULED_BACKUPS || '').toLowerCase() === 'true';
+      if (backupEnabled) {
+        const backup = await withTimeout(
+          hasRecentSuccessfulBackup(),
+          2500,
+          { ok: false, latest: null, ageHours: null },
+        );
+        backupReady = Boolean(backup.ok);
+        backupAgeHours = backup.ageHours === null ? null : Number(backup.ageHours);
+      }
+
+      durableQueueRecoverable = await withTimeout(
+        DurableQueueJob.countDocuments({
+          state: { $in: ['pending', 'failed', 'queued', 'processing'] },
+          updatedAt: { $lt: new Date(Date.now() - 5 * 60 * 1000) },
+        }),
+        2500,
+        -1,
+      );
+    }
   }
 
-  const ready = dbReady && configReady && (redisReady ?? true);
+  const backupGate = backupReady === null ? true : backupReady;
+  const ready = dbReady && configReady && (redisReady ?? true) && backupGate;
 
   return NextResponse.json(
     {
@@ -100,12 +132,16 @@ export async function GET(req: NextRequest) {
       dbReady,
       redisReady,
       redisReason: strict && !redisReady ? redisReason : undefined,
+      backupReady,
+      backupAgeHours,
+      durableQueueRecoverable: strict ? durableQueueRecoverable : undefined,
       configReady,
       config: {
         mongo: config.mongo,
         redis: config.redis,
         jwt: config.jwt,
         tokenEncryption: config.tokenEncryption,
+        backupEncryption: config.backupEncryption,
       },
       uptimeSeconds: process.uptime(),
       timestamp: new Date().toISOString(),

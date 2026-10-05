@@ -4,7 +4,11 @@ import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import { checkUserRateLimit } from '@/lib/http/rateLimit';
 import { resolveCurrentWhatsAppAccountForUser } from '@/lib/whatsapp/currentAccount';
-import { enqueueBroadcastRecipients, waitForJobResults } from '@/lib/queues/whatsappSendQueue';
+import {
+  DurableQueuePendingError,
+  enqueueBroadcastRecipients,
+  waitForJobResults,
+} from '@/lib/queues/whatsappSendQueue';
 import { normalizePhone } from '@/lib/whatsapp/dispatch';
 import SmbRecord from '@/lib/models/SmbRecord';
 import AppError from '@/lib/utils/AppError';
@@ -171,17 +175,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const jobs = await enqueueBroadcastRecipients({
-      accountId,
-      userId: authed.id,
-      recipients: uniqueRecipients,
-      messageType: normalizedMessageType,
-      body: resolvedBody,
-      templateName,
-      language,
-      components,
-      campaignId: finalCampaignId,
-    });
+    let jobs: any[] = [];
+    try {
+      jobs = await enqueueBroadcastRecipients({
+        accountId,
+        userId: authed.id,
+        recipients: uniqueRecipients,
+        messageType: normalizedMessageType,
+        body: resolvedBody,
+        templateName,
+        language,
+        components,
+        campaignId: finalCampaignId,
+      });
+    } catch (error: any) {
+      if (error instanceof DurableQueuePendingError || error?.code === 'DURABLE_QUEUE_PENDING') {
+        return NextResponse.json(
+          {
+            success: true,
+            scheduled: false,
+            queuedForRetry: true,
+            campaignId: finalCampaignId,
+            total: uniqueRecipients.length,
+            sent: 0,
+            failed: 0,
+            pending: uniqueRecipients.length,
+            message: 'Messages are safely queued for retry while the delivery queue recovers.',
+          },
+          { status: 202 }
+        );
+      }
+      throw error;
+    }
+
     const results = await waitForJobResults(jobs);
 
     return NextResponse.json({
