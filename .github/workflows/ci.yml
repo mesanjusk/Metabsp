@@ -70,12 +70,13 @@ jobs:
       - name: Install Chromium for mobile launch smoke
         run: npx playwright install --with-deps chromium
 
-      - name: Mobile browser smoke
+      - name: Mobile browser smoke and first-customer journey
         run: |
           RUN_BACKGROUND_JOBS=false npm run start:next -- -p 3100 > /tmp/skdigital-mobile.log 2>&1 &
           APP_PID=$!
           trap 'kill $APP_PID 2>/dev/null || true' EXIT
           MOBILE_SMOKE_BASE_URL=http://127.0.0.1:3100 npm run test:mobile
+          LAUNCH_JOURNEY_BASE_URL=http://127.0.0.1:3100 npm run test:launch-journey
 
   audit:
     runs-on: ubuntu-latest
@@ -86,7 +87,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: nextjs/package-lock.json
       - run: npm ci
