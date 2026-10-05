@@ -170,7 +170,7 @@ export default function GrowthIntelligence() {
             </Typography>
           </Box>
           {!loading ? (
-            <Stack direction="row" spacing={0.75}>
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
               {summary.actionableValuePaise ? <Chip size="small" label={`${money(summary.actionableValuePaise)} actionable`} variant="outlined" /> : null}
               {summary.overdueReceivablesPaise ? <Chip size="small" color="warning" label={`${money(summary.overdueReceivablesPaise)} overdue`} variant="outlined" /> : null}
               {summary.urgentCount ? <Chip size="small" icon={<PriorityHighRoundedIcon />} label={`${summary.urgentCount} urgent`} /> : null}
