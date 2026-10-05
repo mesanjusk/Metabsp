@@ -41,7 +41,7 @@ import logger from '@/lib/utils/logger';
  */
 export interface DeletionOutcome {
   confirmationCode: string;
-  status: 'completed' | 'no_account_found' | 'failed';
+  status: 'pending' | 'completed' | 'no_account_found' | 'failed';
   deletedCounts: Record<string, number>;
 }
 
@@ -67,6 +67,40 @@ export function parseSignedRequest(signedRequest: string, appSecret: string): an
 }
 
 const newConfirmationCode = () => crypto.randomBytes(12).toString('hex');
+
+export async function createManualDeletionRequest({
+  requesterEmail,
+  accountId = '',
+  reason = '',
+  notes = '',
+}: {
+  requesterEmail: string;
+  accountId?: string;
+  reason?: string;
+  notes?: string;
+}) {
+  const confirmationCode = newConfirmationCode();
+  const request = await DataDeletionRequest.create({
+    confirmationCode,
+    provider: 'manual',
+    requestType: 'manual',
+    requesterEmail: String(requesterEmail || '').trim().toLowerCase(),
+    accountId: String(accountId || '').trim().slice(0, 120),
+    reason: String(reason || '').trim().slice(0, 120),
+    notes: String(notes || '').trim().slice(0, 2000),
+    status: 'pending',
+  });
+
+  await AuditLog.create({
+    action: 'data_deletion.manual_request',
+    resource: 'data_deletion',
+    outcome: 'success',
+    metadata: { confirmationCode },
+  }).catch(() => {});
+
+  logger.info({ confirmationCode }, '[data-deletion] manual privacy request recorded');
+  return request.toObject();
+}
 
 async function deleteEverythingOwnedBy(userId: mongoose.Types.ObjectId) {
   const accounts: any[] = await WhatsAppAccount.find({ userId }).select('_id').lean();
