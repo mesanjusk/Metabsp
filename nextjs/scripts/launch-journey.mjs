@@ -118,7 +118,7 @@ try {
     await page.waitForURL(/\/home/, { timeout: 10_000 });
 
     assert(await page.getByText('Business growth workspace', { exact: true }).count(), 'Home did not show the growth workspace after onboarding.');
-    const inboxAction = page.getByRole('link', { name: 'Open inbox' });
+    const inboxAction = page.getByLabel('Open inbox');
     await inboxAction.waitFor({ state: 'visible', timeout: 5_000 });
     assert(await inboxAction.getAttribute('href') === '/inbox', 'Home Open inbox action does not target /inbox.');
     assert(pageErrors.length === 0, `Browser errors at ${viewport.width}px: ${pageErrors.join(' | ')}`);
