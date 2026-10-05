@@ -3,8 +3,13 @@ import crypto from 'crypto';
 import { NextRequest } from 'next/server';
 
 const enqueueWebhookEnvelope = vi.fn(async () => ({ id: '1' }));
+const ensureDurableQueueJob = vi.fn(async () => ({ _id: 'webhook-test', state: 'pending' }));
 vi.mock('@/lib/queues/webhookQueue', () => ({ enqueueWebhookEnvelope }));
 vi.mock('@/lib/queues/whatsappSendQueue', () => ({ enqueueDelayedReply: vi.fn() }));
+vi.mock('@/lib/services/durableQueueJournal', () => ({
+  durableWebhookId: () => 'webhook-test',
+  ensureDurableQueueJob,
+}));
 
 // Read once at module load by the handler, so it has to be set before the
 // import below. Short enough to keep the "Redis never answers" test honest
@@ -68,6 +73,9 @@ describe('Meta webhook — verification handshake', () => {
 describe('Meta webhook — signature enforcement and fast acknowledgement', () => {
   beforeEach(() => {
     enqueueWebhookEnvelope.mockClear();
+    enqueueWebhookEnvelope.mockImplementation(async () => ({ id: '1' }) as any);
+    ensureDurableQueueJob.mockClear();
+    ensureDurableQueueJob.mockImplementation(async () => ({ _id: 'webhook-test', state: 'pending' }) as any);
     delete process.env.WHATSAPP_APP_SECRET;
     process.env.META_APP_SECRET = APP_SECRET;
     process.env.WHATSAPP_ENFORCE_WEBHOOK_SIGNATURE = 'true';
@@ -111,8 +119,13 @@ describe('Meta webhook — signature enforcement and fast acknowledgement', () =
     const res = await handleReceiveWebhook(post(body, { 'x-hub-signature-256': sign(JSON.stringify(body)) }));
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ received: true, queued: true });
-    expect(enqueueWebhookEnvelope).toHaveBeenCalledWith(body);
+    expect(await res.json()).toEqual({ received: true, queued: true, durable: true });
+    expect(ensureDurableQueueJob).toHaveBeenCalledWith({
+      id: 'webhook-test',
+      kind: 'webhook',
+      payload: body,
+    });
+    expect(enqueueWebhookEnvelope).toHaveBeenCalledWith(body, { durableId: 'webhook-test' });
   });
 
   it('acknowledges but ignores a non-WhatsApp object sharing the same URL', async () => {
@@ -124,26 +137,21 @@ describe('Meta webhook — signature enforcement and fast acknowledgement', () =
     expect(enqueueWebhookEnvelope).not.toHaveBeenCalled();
   });
 
-  it('never answers 5xx when the queue is down — it falls back to inline processing', async () => {
-    // A 5xx is what eventually gets a webhook subscription disabled by Meta,
-    // so a Redis outage must not produce one. The payload is processed in the
-    // request instead, which is slower but keeps the message.
+  it('acknowledges safely when Redis is down after Mongo journals the payload', async () => {
     enqueueWebhookEnvelope.mockRejectedValueOnce(new Error('redis down'));
     const body = { object: 'whatsapp_business_account', entry: [] };
 
     const res = await handleReceiveWebhook(post(body, { 'x-hub-signature-256': sign(JSON.stringify(body)) }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ received: true, queued: false });
+    expect(await res.json()).toEqual({
+      received: true,
+      queued: false,
+      durable: true,
+      replayPending: true,
+    });
   });
 
-  it('falls back to inline processing when the enqueue never settles at all', async () => {
-    // The failure the test above cannot express, and the one that actually
-    // happens: the shared Redis connection is built with
-    // maxRetriesPerRequest:null and the offline queue on, so a command issued
-    // while Redis is unreachable is buffered and retried forever. It does not
-    // reject — it hangs. Without a bound, the request hung with it until the
-    // platform killed it, Meta recorded a timeout instead of a 200, and
-    // enough of those disable the subscription.
+  it('uses the Mongo journal when Redis enqueue never settles', async () => {
     enqueueWebhookEnvelope.mockImplementationOnce(() => new Promise(() => {}) as any);
     const body = { object: 'whatsapp_business_account', entry: [] };
 
@@ -151,8 +159,22 @@ describe('Meta webhook — signature enforcement and fast acknowledgement', () =
     const res = await handleReceiveWebhook(post(body, { 'x-hub-signature-256': sign(JSON.stringify(body)) }));
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ received: true, queued: false });
-    // Bounded by the timeout rather than by the promise, which is the point.
+    expect(await res.json()).toEqual({
+      received: true,
+      queued: false,
+      durable: true,
+      replayPending: true,
+    });
     expect(Date.now() - startedAt).toBeLessThan(ENQUEUE_TIMEOUT_MS + 2000);
+  });
+
+  it('asks Meta to retry when neither Mongo nor Redis can durably accept the payload', async () => {
+    ensureDurableQueueJob.mockRejectedValueOnce(new Error('mongo down'));
+    enqueueWebhookEnvelope.mockRejectedValueOnce(new Error('redis down'));
+    const body = { object: 'whatsapp_business_account', entry: [] };
+
+    const res = await handleReceiveWebhook(post(body, { 'x-hub-signature-256': sign(JSON.stringify(body)) }));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ received: false, retry: true });
   });
 });
