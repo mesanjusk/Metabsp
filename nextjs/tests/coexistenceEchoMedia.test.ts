@@ -64,7 +64,10 @@ vi.mock('@/lib/services/whatsappAccountService', () => ({
   loadWhatsAppAccountFromWebhookIdentifiers: vi.fn(async () => accountContext),
 }));
 
-vi.mock('@/lib/services/whatsappMediaService', () => ({ uploadWhatsAppMediaToCloudinary }));
+vi.mock('@/lib/services/whatsappMediaService', () => ({
+  uploadWhatsAppMediaToCloudinary,
+  isMediaMirrorTooLargeError: (error: any) => error?.code === 'MEDIA_MIRROR_TOO_LARGE',
+}));
 vi.mock('@/lib/config/graphApi', () => ({
   getGraphApiVersion: () => 'v19.0',
   getWebhookVerifyToken: () => 'verify',
@@ -140,6 +143,27 @@ describe('coexistence — echoed media', () => {
 
     expect(messageCreate).toHaveBeenCalledTimes(1);
     expect(messageFindByIdAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('marks an oversized echo as intentionally unavailable instead of silently losing it', async () => {
+    const error: any = new Error('too large');
+    error.code = 'MEDIA_MIRROR_TOO_LARGE';
+    error.fileSize = 27_000_000;
+    error.maxBytes = 10 * 1024 * 1024;
+    uploadWhatsAppMediaToCloudinary.mockRejectedValueOnce(error);
+
+    await processEchoes(echoOf({ id: 'wamid.echo-big', type: 'video', to: '919999999999' }) as any);
+
+    expect(messageCreate).toHaveBeenCalledTimes(1);
+    expect(messageFindByIdAndUpdate).toHaveBeenCalledWith(
+      'msg-1',
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          mediaMirrorStatus: 'skipped_too_large',
+          mediaSize: 27_000_000,
+        }),
+      })
+    );
   });
 
   it('does not fetch media for a history backfill', async () => {
