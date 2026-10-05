@@ -27,8 +27,8 @@ jobs:
       - name: Resolve exact dependency tree
         run: |
           git fetch origin main --depth=1
-          git checkout origin/main -- package-lock.json
-          git reset -- package-lock.json
+          git checkout origin/main -- nextjs/package-lock.json
+          git reset -- nextjs/package-lock.json
           npm install --package-lock-only --package-lock=true --ignore-scripts
 
       - name: Show production audit
@@ -36,12 +36,12 @@ jobs:
 
       - name: Commit refreshed lockfile
         run: |
-          if git diff --quiet -- package-lock.json; then
+          if git diff --quiet -- nextjs/package-lock.json; then
             echo "Lockfile already current."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
+          git add nextjs/package-lock.json
           git commit -m "chore: refresh dependency lockfile"
           git push origin HEAD:feat/launch-readiness-hardening-20261005
