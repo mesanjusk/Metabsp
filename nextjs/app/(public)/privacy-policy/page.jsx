@@ -100,7 +100,7 @@ export default function PrivacyPolicyPage() {
             </Section>
 
             <Section title="3. How User Consent is Collected">
-              <Para>As a WhatsApp Business Solution Provider, we require all businesses using our platform to comply with WhatsApp's Business Policy and Messaging Policy, which mandate that businesses obtain explicit opt-in consent from end users before messaging them.</Para>
+              <Para>Because SK Digital integrates with Meta's official WhatsApp Business Platform, businesses using WhatsApp features must comply with WhatsApp's Business Policy and Messaging Policy, including the applicable consent and messaging requirements.</Para>
               <Para>Businesses using SK Digital are responsible for:</Para>
               <BulletList items={[
                 'Obtaining clear, affirmative consent from contacts before sending them WhatsApp messages',
