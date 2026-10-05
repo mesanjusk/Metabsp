@@ -34,9 +34,9 @@ import {
   InstituteForm,
   InstituteFormResponse,
   CloudOtpVerification,
-  BusinessProfile,
 } from '@/lib/models';
 import SmbRecord from '@/lib/models/SmbRecord';
+import BusinessProfile from '@/lib/models/BusinessProfile';
 import AttendanceDevice from '@/lib/models/AttendanceDevice';
 import AttendanceProfile from '@/lib/models/AttendanceProfile';
 import AttendanceRecord from '@/lib/models/AttendanceRecord';
