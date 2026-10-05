@@ -37,16 +37,19 @@ export default function BusinessProfileSetupPage() {
   const [selected, setSelected] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showAllTools, setShowAllTools] = useState(false);
 
   const suggested = useMemo(() => recommendedServices(businessType || null), [businessType]);
   const visibleServices = useMemo(() => {
+    if (showAllTools) return SERVICES;
     const wanted = new Set([...suggested, ...selected]);
     return SERVICES.filter((service) => wanted.has(service.slug));
-  }, [suggested, selected]);
+  }, [showAllTools, suggested, selected]);
 
   const chooseType = (value) => {
     setBusinessType(value);
     setSelected(recommendedServices(value));
+    setShowAllTools(false);
   };
 
   const toggleService = (slug) => {
@@ -92,7 +95,14 @@ export default function BusinessProfileSetupPage() {
         {businessType ? (
           <Box>
             <Typography variant="h6" fontWeight={800} gutterBottom>Recommended tools</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>These are preselected for your business. You can change them now and update them later.</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems={{ sm: 'center' }} sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Start with the essentials for your business. You can add every other tool now or later.
+              </Typography>
+              <Button size="small" variant="text" onClick={() => setShowAllTools((value) => !value)} sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', sm: 'center' } }}>
+                {showAllTools ? 'Show recommended only' : 'Show all tools'}
+              </Button>
+            </Stack>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
               {visibleServices.map((service) => {
                 const Icon = service.icon;
