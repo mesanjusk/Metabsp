@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const baseUrl = process.env.MOBILE_SMOKE_BASE_URL || 'http://127.0.0.1:3100';
+const baseUrl = process.env.MOBILE_SMOKE_BASE_URL || 'http://localhost:3100';
 const widths = [320, 375, 390];
 const protectedRoutes = [
   '/home',
