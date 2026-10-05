@@ -14,6 +14,11 @@ import { findDeletionRequest } from '@/lib/services/dataDeletionService';
 export const dynamic = 'force-dynamic';
 
 const STATUS_COPY = {
+  pending: {
+    severity: 'info',
+    title: 'Request received',
+    body: 'Your deletion request has been recorded and is awaiting identity verification and processing. This page will show the final status when processing is complete.',
+  },
   completed: {
     severity: 'success',
     title: 'Deletion completed',
