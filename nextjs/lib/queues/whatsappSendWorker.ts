@@ -5,6 +5,11 @@ import { loadAccountContextById } from '../services/whatsappAccountService';
 import { dispatchTextMessage, dispatchTemplateMessage } from '../whatsapp/dispatch';
 import logger from '../utils/logger';
 import { QUEUE_NAME } from './whatsappSendQueue';
+import {
+  markDurableCompleted,
+  markDurableFailed,
+  markDurableProcessing,
+} from '../services/durableQueueJournal';
 
 /**
  * Consumer for the broadcast/delayed-send queue.
@@ -18,15 +23,24 @@ import { QUEUE_NAME } from './whatsappSendQueue';
  * must both be up for messaging to work.
  */
 export async function processSendJob(job: any) {
-  const { accountId, userId, to, messageType, body, templateName, language, components, campaignId } = job.data;
+  const { accountId, userId, to, messageType, body, templateName, language, components, campaignId, durableId } = job.data;
 
-  await connectDB();
-  const accountContext = await loadAccountContextById(accountId);
+  if (durableId) await markDurableProcessing(String(durableId));
 
-  if (String(messageType).toLowerCase() === 'template') {
-    return dispatchTemplateMessage({ accountContext, userId, to, templateName, language, components, campaignId });
+  try {
+    await connectDB();
+    const accountContext = await loadAccountContextById(accountId);
+
+    const result = String(messageType).toLowerCase() === 'template'
+      ? await dispatchTemplateMessage({ accountContext, userId, to, templateName, language, components, campaignId })
+      : await dispatchTextMessage({ accountContext, userId, to, body, campaignId });
+
+    if (durableId) await markDurableCompleted(String(durableId));
+    return result;
+  } catch (error) {
+    if (durableId) await markDurableFailed(String(durableId), error);
+    throw error;
   }
-  return dispatchTextMessage({ accountContext, userId, to, body, campaignId });
 }
 
 /**
