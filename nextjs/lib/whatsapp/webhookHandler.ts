@@ -19,6 +19,10 @@ import { extractCoexistenceEvents, processCoexistenceEvents } from './coexistenc
 import { enqueueDelayedReply } from '../queues/whatsappSendQueue';
 import { enqueueWebhookEnvelope } from '../queues/webhookQueue';
 import { recordWebhookOutcome } from './webhookTelemetry';
+import {
+  durableWebhookId,
+  ensureDurableQueueJob,
+} from '../services/durableQueueJournal';
 
 const RESOLVED_API_VERSION = getGraphApiVersion();
 
@@ -39,6 +43,7 @@ const RESOLVED_API_VERSION = getGraphApiVersion();
  * costs a slow acknowledgement rather than a dropped message.
  */
 const ENQUEUE_TIMEOUT_MS = Number(process.env.WEBHOOK_ENQUEUE_TIMEOUT_MS) || 2500;
+const JOURNAL_TIMEOUT_MS = Number(process.env.WEBHOOK_JOURNAL_TIMEOUT_MS) || 2000;
 
 class EnqueueTimeoutError extends Error {
   constructor(ms: number) {
@@ -47,13 +52,30 @@ class EnqueueTimeoutError extends Error {
   }
 }
 
-async function enqueueWithinTimeout(body: any): Promise<void> {
+async function enqueueWithinTimeout(body: any, durableId = ''): Promise<void> {
   let timer: NodeJS.Timeout | undefined;
   try {
     await Promise.race([
-      enqueueWebhookEnvelope(body),
+      enqueueWebhookEnvelope(body, { durableId }),
       new Promise<never>((_resolve, reject) => {
         timer = setTimeout(() => reject(new EnqueueTimeoutError(ENQUEUE_TIMEOUT_MS)), ENQUEUE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function journalWithinTimeout(id: string, body: any): Promise<any> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      ensureDurableQueueJob({ id, kind: 'webhook', payload: body }),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Mongo durable journal did not accept the webhook within ${JOURNAL_TIMEOUT_MS}ms`)),
+          JOURNAL_TIMEOUT_MS
+        );
       }),
     ]);
   } finally {
@@ -121,9 +143,11 @@ export async function handleVerifyWebhook(req: NextRequest): Promise<NextRespons
  * halves: an immediate ack, and processing that survives a restart because it
  * is persisted in Redis before the ack is sent.
  *
- * If enqueueing itself fails (Redis unavailable), the payload is processed
- * inline rather than dropped — a slow ack is recoverable, a lost customer
- * message is not.
+ * Before acknowledging Meta, the payload is journaled in Mongo and then
+ * enqueued in Redis. Redis is therefore a dispatch cache rather than the only
+ * copy of an accepted customer message. If Redis is unavailable after Mongo
+ * accepts the envelope, the replay scheduler delivers it later. If both
+ * datastores are unavailable, the route returns 503 so Meta retries.
  */
 export async function handleReceiveWebhook(req: NextRequest): Promise<NextResponse> {
   // Raw body text is required for HMAC verification — must read it before
@@ -187,21 +211,55 @@ export async function handleReceiveWebhook(req: NextRequest): Promise<NextRespon
 
     void recordWebhookOutcome('accepted');
 
+    const durableId = durableWebhookId(rawBody);
+    let journaled = false;
+    let journal: any = null;
+
     try {
-      await enqueueWithinTimeout(body);
-      return NextResponse.json({ received: true, queued: true }, { status: 200 });
-    } catch (queueError: any) {
-      logger.error(
-        '[whatsapp] webhook enqueue failed, processing inline instead:',
-        queueError.message
+      journal = await journalWithinTimeout(durableId, body);
+      journaled = true;
+      if (journal?.state === 'completed') {
+        return NextResponse.json(
+          { received: true, queued: false, durable: true, duplicate: true },
+          { status: 200 }
+        );
+      }
+    } catch (journalError: any) {
+      logger.error('[whatsapp] durable webhook journal unavailable:', journalError?.message || journalError);
+    }
+
+    try {
+      await enqueueWithinTimeout(body, journaled ? durableId : '');
+      return NextResponse.json(
+        { received: true, queued: true, durable: journaled },
+        { status: 200 }
       );
-      // A timed-out enqueue may still land later, in which case the worker
-      // processes an envelope this request has already handled. That is safe
-      // and deliberate: saveAndEmitMessage de-duplicates on messageId before
-      // any side effect, so the duplicate costs a database read rather than a
-      // second auto-reply. Losing the message is the outcome worth avoiding.
-      await processWebhookEnvelope(body);
-      return NextResponse.json({ received: true, queued: false }, { status: 200 });
+    } catch (queueError: any) {
+      if (journaled) {
+        // Mongo is now the source of truth. The replay scheduler will requeue
+        // this payload after Redis recovers, so acknowledging Meta is safe.
+        logger.warn(
+          '[whatsapp] Redis enqueue unavailable; webhook is safe in Mongo durable journal and will replay:',
+          queueError?.message || queueError
+        );
+        return NextResponse.json(
+          { received: true, queued: false, durable: true, replayPending: true },
+          { status: 200 }
+        );
+      }
+
+      // Neither datastore accepted the payload. Do NOT return 200: that would
+      // tell Meta the message is safe when it is not. A 503 asks Meta to retry
+      // the same signed event, whose deterministic journal id makes the retry
+      // idempotent when storage recovers.
+      logger.error(
+        '[whatsapp] webhook durability failed in both Mongo and Redis; requesting Meta retry:',
+        queueError?.message || queueError
+      );
+      return NextResponse.json(
+        { received: false, retry: true, message: 'Temporary webhook durability failure' },
+        { status: 503 }
+      );
     }
   } catch (error: any) {
     logger.error('[whatsapp] webhook error:', error);
