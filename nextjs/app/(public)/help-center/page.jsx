@@ -18,8 +18,8 @@ const FAQ_DATA = [
     color: 'primary',
     items: [
       {
-        q: 'What is SanjuSK and how does it work?',
-        a: 'SanjuSK is one workspace for running a small business. Customers reach you on WhatsApp, Instagram or your Google Business Profile, and you answer all three from one dashboard — alongside the CRM, product catalogue, quotations and invoices, staff tasks and automations that follow from a conversation. WhatsApp shares the contact record with the CRM, so a lead answered there is the same customer you invoice; Instagram is answered in the same dashboard but is not yet written to that record. WhatsApp messaging runs on Meta\'s official WhatsApp Business Platform (Cloud API): you connect your own WhatsApp Business Account and keep ownership of it, and we handle the API infrastructure, authentication and delivery.',
+        q: 'What is SK Digital and how does it work?',
+        a: 'SK Digital is one workspace for running a small business. Customers reach you on WhatsApp, Instagram or your Google Business Profile, and you answer all three from one dashboard — alongside the CRM, product catalogue, quotations and invoices, staff tasks and automations that follow from a conversation. WhatsApp shares the contact record with the CRM, so a lead answered there is the same customer you invoice; Instagram is answered in the same dashboard but is not yet written to that record. WhatsApp messaging runs on Meta\'s official WhatsApp Business Platform (Cloud API): you connect your own WhatsApp Business Account and keep ownership of it, and we handle the API infrastructure, authentication and delivery.',
       },
       {
         q: 'How do I create an account?',
@@ -34,11 +34,11 @@ const FAQ_DATA = [
         a: 'Any number that can receive a verification code by SMS or voice call — mobile, landline or VoIP. Which numbers are eligible depends on the path you take. Ordinary Cloud API onboarding needs a number that is not registered on the WhatsApp personal or Business app, and once it moves to the API it cannot also be used on the app. Coexistence is the exception: a number already running on the WhatsApp Business app can join the platform and keep working there, by scanning a QR code in the app rather than being moved. Do not remove a number from the Business app before checking whether coexistence covers it.',
       },
       {
-        q: 'What is the difference between SanjuSK plans?',
+        q: 'What is the difference between SK Digital plans?',
         a: 'Starter is ₹999/month and covers the core workspace for small businesses, including WhatsApp, Instagram, Google Business Profile, Mini CRM, E-Store, Business Dialer, Video Studio, API access and 1,000 included platform messages. Growth is ₹2,999/month and adds Pro services such as Marketing & Publisher, Staff & Tasks, Payments & Documents and Institute Management, with 5,000 included platform messages.',
       },
       {
-        q: 'Can I try SanjuSK before paying?',
+        q: 'Can I try SK Digital before paying?',
         a: 'You can create an account without a credit card, complete your business profile and explore the workspace before choosing a paid production plan. Some provider features require connecting your own Meta, Google or other provider account.',
       },
     ],
@@ -49,7 +49,7 @@ const FAQ_DATA = [
     items: [
       {
         q: 'What is the Embedded Signup process?',
-        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a platform like SanjuSK: you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize SanjuSK to send messages on your behalf. It runs here in a Meta-hosted window, so no credentials are typed into our site. Connecting with an access token from Meta Business Manager remains available if your administrator prefers it.',
+        a: 'Embedded Signup is Meta\'s official flow for connecting a WhatsApp Business Account to a platform like SK Digital: you log in with Facebook, select or create a Business Manager, verify your business phone number, and authorize SK Digital to send messages on your behalf. It runs here in a Meta-hosted window, so no credentials are typed into our site. Connecting with an access token from Meta Business Manager remains available if your administrator prefers it.',
       },
       {
         q: 'How long does business verification take?',
@@ -83,7 +83,7 @@ const FAQ_DATA = [
       },
       {
         q: 'Why was my template rejected?',
-        a: 'Common rejection reasons include: content that violates WhatsApp Business Policy (gambling, adult content, alcohol promotions to minors), misleading content, poor grammar, templates that try to collect sensitive information, or templates that look like phishing. SanjuSK provides rejection feedback to help you revise and resubmit.',
+        a: 'Common rejection reasons include: content that violates WhatsApp Business Policy (gambling, adult content, alcohol promotions to minors), misleading content, poor grammar, templates that try to collect sensitive information, or templates that look like phishing. SK Digital provides rejection feedback to help you revise and resubmit.',
       },
       {
         q: 'How do I use variables in templates?',
@@ -91,7 +91,7 @@ const FAQ_DATA = [
       },
       {
         q: 'What is the difference between template categories?',
-        a: 'WhatsApp has three template categories: UTILITY (transactional messages like order confirmations, shipping updates, appointment reminders — lowest cost), AUTHENTICATION (OTP messages), and MARKETING (promotional content, offers — higher cost per conversation). SanjuSK displays the pricing difference when you create templates.',
+        a: 'WhatsApp has three template categories: UTILITY (transactional messages like order confirmations, shipping updates, appointment reminders — lowest cost), AUTHENTICATION (OTP messages), and MARKETING (promotional content, offers — higher cost per conversation). SK Digital displays the pricing difference when you create templates.',
       },
       {
         q: 'Can I edit an approved template?',
@@ -105,11 +105,11 @@ const FAQ_DATA = [
     items: [
       {
         q: 'How does WhatsApp provider pricing work?',
-        a: 'SanjuSK charges the platform subscription separately from Meta. WhatsApp messaging charges follow Meta\'s current pricing rules for the business and destination, and may change independently of the SanjuSK plan. The dashboard should be treated as the workspace fee plus applicable provider usage.',
+        a: 'SK Digital charges the platform subscription separately from Meta. WhatsApp messaging charges follow Meta\'s current pricing rules for the business and destination, and may change independently of the SK Digital plan. The dashboard should be treated as the workspace fee plus applicable provider usage.',
       },
       {
         q: 'When am I charged?',
-        a: 'SanjuSK plan pricing is monthly: ₹999 for Starter or ₹2,999 for Growth. Connected providers such as Meta can have separate usage charges under their own current pricing, so provider usage is not represented as unlimited by the platform subscription.',
+        a: 'SK Digital plan pricing is monthly: ₹999 for Starter or ₹2,999 for Growth. Connected providers such as Meta can have separate usage charges under their own current pricing, so provider usage is not represented as unlimited by the platform subscription.',
       },
       {
         q: 'What payment methods do you accept?',
@@ -120,8 +120,8 @@ const FAQ_DATA = [
         a: 'You can cancel your subscription at any time from Account Settings → Subscription → Cancel Plan. Your access continues until the end of the current billing period. No refunds are provided for partial months. After cancellation, your data is retained for 30 days before deletion.',
       },
       {
-        q: 'What usage is included in my SanjuSK plan?',
-        a: 'Starter includes 1,000 platform messages per month and Growth includes 5,000. These are SanjuSK platform allowances and are separate from any Meta or other provider charges that may apply to the connected service.',
+        q: 'What usage is included in my SK Digital plan?',
+        a: 'Starter includes 1,000 platform messages per month and Growth includes 5,000. These are SK Digital platform allowances and are separate from any Meta or other provider charges that may apply to the connected service.',
       },
     ],
   },
@@ -138,7 +138,7 @@ const FAQ_DATA = [
         a: 'It is available to every account with no extra step. A key acts as its owner, on the WhatsApp number that owner connected, and can never see or send from anyone else\'s — an account or phone number in a request body is never trusted to widen that.',
       },
       {
-        q: 'What is the base URL for the SanjuSK API?',
+        q: 'What is the base URL for the SK Digital API?',
         a: 'https://meta.sanjusk.in/api/v1. Every request carries your API key as a bearer token: "Authorization: Bearer mbsp_your_key_here". Requests and responses are JSON. Start with GET /api/v1/status — it confirms the key works and names the number it sends from.',
       },
       {
@@ -162,7 +162,7 @@ const FAQ_DATA = [
         a: 'The delivery is retried twice more, after 5 seconds and again after 15. If all three attempts fail, the destination is marked failing and the last error is shown against it in Developers → Webhook destinations. Answer within a few seconds and do your real work afterwards — a slow endpoint is treated the same as a broken one.',
       },
       {
-        q: 'Does SanjuSK have an official SDK?',
+        q: 'Does SK Digital have an official SDK?',
         a: 'Not yet. The API is plain HTTPS with JSON, so any HTTP client works — the Developers → API reference tab has copy-paste curl for every endpoint, and the developer docs include a Node.js webhook handler you can lift directly.',
       },
     ],
@@ -177,11 +177,11 @@ const FAQ_DATA = [
       },
       {
         q: 'I\'m getting a "Message Failed" error. What does the error code mean?',
-        a: 'Error codes from Meta are documented at developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes. Common codes: 130429 (rate limit hit), 131030 (recipient number not WhatsApp), 131047 (message expired), 131051 (unsupported message type). SanjuSK also shows human-readable descriptions alongside error codes in the dashboard.',
+        a: 'Error codes from Meta are documented at developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes. Common codes: 130429 (rate limit hit), 131030 (recipient number not WhatsApp), 131047 (message expired), 131051 (unsupported message type). SK Digital also shows human-readable descriptions alongside error codes in the dashboard.',
       },
       {
         q: 'My webhook is not receiving events.',
-        a: 'Troubleshooting steps: (1) Verify the webhook URL is publicly accessible (not localhost). (2) Confirm your server returns HTTP 200 within 10 seconds. (3) Check the webhook logs in SanjuSK dashboard for delivery attempts. (4) Verify your server is validating the HMAC signature correctly (signature mismatch causes delivery to stop). (5) Check that your server is not blocking our IP ranges.',
+        a: 'Troubleshooting steps: (1) Verify the webhook URL is publicly accessible (not localhost). (2) Confirm your server returns HTTP 200 within 10 seconds. (3) Check the webhook logs in SK Digital dashboard for delivery attempts. (4) Verify your server is validating the HMAC signature correctly (signature mismatch causes delivery to stop). (5) Check that your server is not blocking our IP ranges.',
       },
       {
         q: 'My phone number quality rating dropped. What does this mean?',
@@ -189,7 +189,7 @@ const FAQ_DATA = [
       },
       {
         q: 'How do I migrate from another WhatsApp provider?',
-        a: 'You can migrate your existing WABA to SanjuSK by connecting it with an access token, phone number ID and business account ID — migrating through Embedded Signup is coming soon. You will need access to the Facebook Business Manager that owns the WABA. Phone numbers, templates, and business profile settings will carry over. Message history is not migrated. Contact support@meta.sanjusk.in for migration assistance.',
+        a: 'You can migrate your existing WABA to SK Digital by connecting it with an access token, phone number ID and business account ID — migrating through Embedded Signup is coming soon. You will need access to the Facebook Business Manager that owns the WABA. Phone numbers, templates, and business profile settings will carry over. Message history is not migrated. Contact support@meta.sanjusk.in for migration assistance.',
       },
     ],
   },
@@ -220,7 +220,7 @@ export default function HelpCenterPage() {
           <Container maxWidth="md">
             <Typography variant="h3" fontWeight={800} sx={{ mb: 1.5, color: 'white' }}>Help Center</Typography>
             <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.7)', mb: 4 }}>
-              Find answers to common questions about SanjuSK and the WhatsApp Business Platform
+              Find answers to common questions about SK Digital and the WhatsApp Business Platform
             </Typography>
             <TextField
               value={search}
