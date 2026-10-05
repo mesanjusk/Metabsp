@@ -13,7 +13,10 @@ export default function FileMessage({ message }) {
   const url = getFileUrl(message);
   const name = getFilename(message);
 
-  if (!url) return <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.75 }}>Document unavailable</Typography>;
+  if (!url) {
+    const reason = message?.mediaMirrorError || 'Document unavailable';
+    return <Typography variant="body2" sx={{ fontStyle: 'italic', opacity: 0.75, overflowWrap: 'anywhere' }}>{reason}</Typography>;
+  }
 
   return (
     <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2, bgcolor: 'background.paper' }}>
