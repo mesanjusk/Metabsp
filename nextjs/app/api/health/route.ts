@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db/mongo';
-import { checkRedisReachable } from '@/lib/services/bootSelfCheck';
+import { getRedisConnection } from '@/lib/db/redis';
 
 /**
  * Liveness by default, readiness on request.
@@ -47,6 +47,17 @@ const withTimeout = async <T,>(work: Promise<T>, ms: number, fallback: T): Promi
     work,
     new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
   ]);
+
+const checkRedisReachable = async (): Promise<{ reachable: boolean; reason?: string }> => {
+  try {
+    const pong = await getRedisConnection().ping();
+    return String(pong || '').toUpperCase() === 'PONG'
+      ? { reachable: true }
+      : { reachable: false, reason: `PING answered ${JSON.stringify(pong)}` };
+  } catch (error: any) {
+    return { reachable: false, reason: error?.message || 'Redis PING failed' };
+  }
+};
 
 const requiredConfig = () => ({
   mongo: Boolean(String(process.env.MONGO_URI || '').trim()),
