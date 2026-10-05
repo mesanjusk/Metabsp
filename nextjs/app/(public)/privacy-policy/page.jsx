@@ -129,13 +129,13 @@ export default function PrivacyPolicyPage() {
             </Section>
 
             <Section title="5. Data Encryption and Security">
-              <Para>We implement industry-standard security measures to protect your data:</Para>
+              <Para>We publish only controls that are implemented by the current application or its production transport:</Para>
               <BulletList items={[
-                'AES-256 encryption for all data at rest, including databases and file storage',
-                'TLS 1.3 for all data in transit between your systems, our platform, and Meta\'s APIs',
-                'Encrypted storage of API keys, access tokens, and webhook secrets',
-                'Database encryption at the disk level using AES-256',
-                'Encrypted backups stored in geographically separate locations',
+                'WhatsApp access tokens and values passed through the sensitive-value helper are encrypted with application-layer AES-256-GCM.',
+                'Customer API keys are stored as one-way hashes; the plaintext key is returned only when it is created.',
+                'The web application applies a nonce-based Content Security Policy and additional browser security headers.',
+                'Meta callbacks and customer webhook deliveries use cryptographic signature-verification paths where applicable.',
+                'Production browser and provider connections are served over HTTPS/TLS.',
               ]} />
             </Section>
 
