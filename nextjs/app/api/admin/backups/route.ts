@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       BackupSnapshot.find({})
         .sort({ startedAt: -1 })
         .limit(20)
-        .select('status startedAt completedAt publicId bytes sha256 collectionCount documentCount error formatVersion')
+        .select('status startedAt completedAt publicId bytes sha256 collectionCount documentCount error formatVersion remoteVerified')
         .lean(),
     ]);
 
