@@ -1,8 +1,8 @@
 {
   "packageId": "in.sanjusk.business",
   "host": "REPLACE_WITH_PRODUCTION_HOST",
-  "name": "SanjuSK Business Suite",
-  "launcherName": "SanjuSK",
+  "name": "SK Digital Business Growth OS",
+  "launcherName": "SK Digital",
   "display": "standalone",
   "themeColor": "#0B7C64",
   "themeColorDark": "#0D1017",
@@ -23,14 +23,26 @@
   "appVersionName": "1.0.0",
   "appVersionCode": 1,
   "shortcuts": [
-    { "name": "Inbox", "shortName": "Inbox", "url": "/inbox", "chosenIconUrl": "https://REPLACE_WITH_PRODUCTION_HOST/icons/icon-192.png" },
-    { "name": "Contacts", "shortName": "Contacts", "url": "/contacts", "chosenIconUrl": "https://REPLACE_WITH_PRODUCTION_HOST/icons/icon-192.png" }
+    {
+      "name": "Inbox",
+      "shortName": "Inbox",
+      "url": "/inbox",
+      "chosenIconUrl": "https://REPLACE_WITH_PRODUCTION_HOST/icons/icon-192.png"
+    },
+    {
+      "name": "Contacts",
+      "shortName": "Contacts",
+      "url": "/contacts",
+      "chosenIconUrl": "https://REPLACE_WITH_PRODUCTION_HOST/icons/icon-192.png"
+    }
   ],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://REPLACE_WITH_PRODUCTION_HOST/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
-  "alphaDependencies": { "enabled": false },
+  "alphaDependencies": {
+    "enabled": false
+  },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
