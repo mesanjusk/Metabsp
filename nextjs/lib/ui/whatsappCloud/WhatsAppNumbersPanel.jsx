@@ -134,9 +134,9 @@ export default function WhatsAppNumbersPanel({
 
   return (
     <Box>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
         <Typography variant="subtitle1" fontWeight={700}>Connected WhatsApp numbers</Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
           {EMBEDDED_SIGNUP_ENABLED ? (
             <Button size="small" variant="outlined" onClick={onConnect} disabled={accountActionLoading}>
               Connect another number
@@ -170,31 +170,12 @@ export default function WhatsAppNumbersPanel({
             const id = account.id || account._id;
             const isBusy = pendingAccountId === id;
             return (
-              <ListItem
-                key={id}
-                divider
-                secondaryAction={
-                  <Stack direction="row" spacing={1}>
-                    {!account.isActive ? (
-                      <Button size="small" variant="outlined" onClick={() => handleActivate(id)} disabled={isBusy}>
-                        {isBusy ? 'Switching…' : 'Switch to this'}
-                      </Button>
-                    ) : (
-                      <Chip size="small" color="primary" label="Active" />
-                    )}
-                    <Button size="small" variant="text" onClick={() => setSystemUserModalAccountId(id)} disabled={isBusy}>
-                      System User token
-                    </Button>
-                    <Button size="small" color="error" variant="text" onClick={() => handleRemove(id)} disabled={isBusy}>
-                      Remove
-                    </Button>
-                  </Stack>
-                }
-              >
+              <ListItem key={id} divider sx={{ display: 'block', py: 1.5, px: 0 }}>
                 <ListItemText
+                  sx={{ m: 0, minWidth: 0 }}
                   primary={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="body2" fontWeight={600}>{accountLabel(account)}</Typography>
+                    <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
+                      <Typography variant="body2" fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>{accountLabel(account)}</Typography>
                       <Chip size="small" label={account.status || 'unknown'} color={STATUS_COLOR[account.status] || 'default'} variant="outlined" />
                       {account.tokenSource === 'system_user' ? (
                         <Chip size="small" label="System User token" color="info" variant="outlined" />
@@ -203,6 +184,21 @@ export default function WhatsAppNumbersPanel({
                   }
                   secondary={account.displayPhoneNumber || account.phoneNumberId}
                 />
+                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+                  {!account.isActive ? (
+                    <Button size="small" variant="outlined" onClick={() => handleActivate(id)} disabled={isBusy}>
+                      {isBusy ? 'Switching…' : 'Switch to this'}
+                    </Button>
+                  ) : (
+                    <Chip size="small" color="primary" label="Active" />
+                  )}
+                  <Button size="small" variant="text" onClick={() => setSystemUserModalAccountId(id)} disabled={isBusy}>
+                    System User token
+                  </Button>
+                  <Button size="small" color="error" variant="text" onClick={() => handleRemove(id)} disabled={isBusy}>
+                    Remove
+                  </Button>
+                </Stack>
               </ListItem>
             );
           })}
@@ -229,7 +225,7 @@ export default function WhatsAppNumbersPanel({
               value={systemUserForm.systemUserId}
               onChange={(e) => setSystemUserForm((prev) => ({ ...prev, systemUserId: e.target.value }))}
             />
-            <Stack direction="row" justifyContent="flex-end" spacing={1}>
+            <Stack direction="row" justifyContent="flex-end" spacing={1} useFlexGap flexWrap="wrap">
               <Button type="button" onClick={closeSystemUserModal} variant="outlined">Cancel</Button>
               <Button type="submit" variant="contained" disabled={isSavingSystemUserToken}>
                 {isSavingSystemUserToken ? 'Verifying…' : 'Verify & save'}
