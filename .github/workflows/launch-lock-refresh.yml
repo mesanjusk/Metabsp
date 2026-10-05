@@ -28,6 +28,7 @@ jobs:
         run: |
           git fetch origin main --depth=1
           git checkout origin/main -- package-lock.json
+          git reset -- package-lock.json
           npm install --package-lock-only --package-lock=true --ignore-scripts
 
       - name: Show production audit
