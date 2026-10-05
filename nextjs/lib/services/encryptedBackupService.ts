@@ -41,7 +41,7 @@ async function* backupLines(db: any, counters: { collections: number; documents:
   const collectionDefs = (await db.listCollections({}).toArray())
     .filter((item: any) => {
       const name = String(item.name || '');
-      return name && !name.startsWith('system.') && name !== 'backupsnapshots';
+      return item.type === 'collection' && name && !name.startsWith('system.') && name !== 'backupsnapshots';
     })
     .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)));
 
