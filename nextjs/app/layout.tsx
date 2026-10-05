@@ -5,12 +5,12 @@ import { ToastContainer } from '@/lib/ui/components/Toast';
 import PwaProvider from '@/lib/ui/app/PwaProvider';
 
 export const metadata = {
-  title: 'SanjuSK — WhatsApp Business Solution Provider',
-  applicationName: 'SanjuSK',
+  title: 'SK Digital — Business Growth OS',
+  applicationName: 'SK Digital',
   manifest: '/manifest.webmanifest',
   // Names the installed app on an iOS home screen and keeps it in standalone mode; iOS reads none
   // of this from the web manifest.
-  appleWebApp: { capable: true, title: 'SanjuSK', statusBarStyle: 'default' as const },
+  appleWebApp: { capable: true, title: 'SK Digital', statusBarStyle: 'default' as const },
   icons: {
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },
@@ -19,7 +19,7 @@ export const metadata = {
     apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
   },
   description:
-    'A WhatsApp Business Solution Provider on Meta’s official Cloud API: shared inbox, message templates, broadcasts, automations and a REST API.',
+    'A connected business growth workspace for customers, conversations, follow-ups, sales, collections and marketing — with official WhatsApp Cloud API at its core.',
   // Meta reads this from the home page to prove we control the domain, which
   // is what unlocks the Business Manager domain-scoped permissions. It lives
   // in the root metadata rather than in the landing page so it is present on
