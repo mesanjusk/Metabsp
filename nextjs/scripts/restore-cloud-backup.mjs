@@ -55,11 +55,11 @@ async function resolveBackupAsset() {
   const result = await cloudinary.api.resources({
     resource_type: 'raw',
     type: 'upload',
-    prefix: `${folder}/skdigital-`,
+    prefix: `${folder}/verified-`,
     max_results: 100,
   });
   const resources = Array.isArray(result.resources) ? result.resources : [];
-  if (!resources.length) throw new Error(`No encrypted backups found under ${folder}/`);
+  if (!resources.length) throw new Error(`No remotely verified encrypted backups found under ${folder}/`);
   resources.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   return resources[0];
 }
