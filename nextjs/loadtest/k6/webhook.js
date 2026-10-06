@@ -5,14 +5,14 @@
 // only — it writes real Message documents for the payload it sends.
 //
 // Usage:
-//   BASE_URL=http://localhost:5000 META_APP_SECRET=your-secret \
+//   BASE_URL=http://localhost:3000 META_APP_SECRET=your-secret \
 //     k6 run loadtest/k6/webhook.js
 // (requires k6 installed separately — https://k6.io/docs/get-started/installation/)
 import http from 'k6/http';
 import crypto from 'k6/crypto';
 import { check, sleep } from 'k6';
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 const APP_SECRET = __ENV.META_APP_SECRET;
 
 if (!APP_SECRET) {
