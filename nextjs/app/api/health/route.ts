@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
     if (dbReady) {
       const backupEnabled = String(process.env.ENABLE_SCHEDULED_BACKUPS || '').toLowerCase() === 'true';
       if (backupEnabled) {
-        const backup = await withTimeout(
+        const backup = await withTimeout<any>(
           hasRecentSuccessfulBackup(),
           2500,
           { ok: false, latest: null, ageHours: null },

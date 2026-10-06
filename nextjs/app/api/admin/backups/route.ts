@@ -3,9 +3,9 @@ import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import AppError from '@/lib/utils/AppError';
-import BackupSnapshot from '@/lib/models/BackupSnapshot';
 import {
   hasRecentSuccessfulBackup,
+  listVerifiedBackups,
   runEncryptedCloudBackup,
 } from '@/lib/services/encryptedBackupService';
 
@@ -22,11 +22,7 @@ export async function GET(req: NextRequest) {
 
     const [health, snapshots] = await Promise.all([
       hasRecentSuccessfulBackup(),
-      BackupSnapshot.find({})
-        .sort({ startedAt: -1 })
-        .limit(20)
-        .select('status startedAt completedAt publicId bytes sha256 collectionCount documentCount error formatVersion remoteVerified')
-        .lean(),
+      listVerifiedBackups({ limit: 20 }),
     ]);
 
     return NextResponse.json({

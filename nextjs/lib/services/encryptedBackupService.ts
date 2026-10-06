@@ -7,7 +7,6 @@ import { pipeline } from 'stream/promises';
 import { createGzip } from 'zlib';
 import mongoose from 'mongoose';
 import { connectDB } from '../db/mongo';
-import BackupSnapshot from '../models/BackupSnapshot';
 import cloudinary from '../utils/cloudinary';
 import logger from '../utils/logger';
 
@@ -115,29 +114,48 @@ async function verifyRemoteArtifact(url: string, expectedSha256: string, expecte
   return { bytes, sha256 };
 }
 
+async function cloudBackupResources({ maxResults = 100 } = {}) {
+  assertCloudinaryConfigured();
+  const result: any = await (cloudinary as any).api.resources({
+    resource_type: 'raw',
+    type: 'upload',
+    prefix: `${BACKUP_FOLDER}/verified-`,
+    max_results: Math.max(1, Math.min(100, maxResults)),
+    direction: 'desc',
+  });
+  return (Array.isArray(result?.resources) ? result.resources : [])
+    .slice()
+    .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+}
+
+export async function listVerifiedBackups({ limit = 20 } = {}) {
+  const resources: any[] = await cloudBackupResources({ maxResults: Math.max(limit, 30) });
+  return resources.slice(0, limit).map((item: any) => ({
+    publicId: String(item.public_id || ''),
+    createdAt: item.created_at ? new Date(item.created_at).toISOString() : null,
+    bytes: Number(item.bytes || 0),
+    secureUrl: String(item.secure_url || ''),
+    format: String(item.format || ''),
+    remoteVerified: true,
+  }));
+}
+
 async function pruneOldBackups() {
   const retentionDays = Math.max(7, Number(process.env.BACKUP_RETENTION_DAYS || 30));
-  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
-  const old: any[] = await BackupSnapshot.find({
-    status: 'success',
-    completedAt: { $lt: cutoff },
-    publicId: { $ne: '' },
-  })
-    .sort({ completedAt: 1 })
-    .limit(100)
-    .lean();
+  const cutoffMs = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const resources: any[] = await cloudBackupResources({ maxResults: 100 });
+  const old = resources.filter((item: any) => new Date(item.created_at || 0).getTime() < cutoffMs);
 
   let removed = 0;
   for (const item of old) {
     try {
-      await (cloudinary as any).uploader.destroy(item.publicId, {
+      await (cloudinary as any).uploader.destroy(String(item.public_id || ''), {
         resource_type: 'raw',
         invalidate: true,
       });
-      await BackupSnapshot.deleteOne({ _id: item._id });
       removed += 1;
     } catch (error: any) {
-      logger.warn(`[backup] Could not prune ${item.publicId}: ${error?.message || error}`);
+      logger.warn(`[backup] Could not prune ${item.public_id}: ${error?.message || error}`);
     }
   }
   return removed;
@@ -146,9 +164,8 @@ async function pruneOldBackups() {
 export async function hasRecentSuccessfulBackup({
   maxAgeHours = Number(process.env.BACKUP_MAX_AGE_HOURS || 26),
 } = {}) {
-  await connectDB();
-  const latest: any = await BackupSnapshot.findOne({ status: 'success', remoteVerified: true }).sort({ completedAt: -1 }).lean();
-  const completedAt = latest?.completedAt ? new Date(latest.completedAt) : null;
+  const latest = (await listVerifiedBackups({ limit: 1 }))[0] || null;
+  const completedAt = latest?.createdAt ? new Date(latest.createdAt) : null;
   const ageMs = completedAt ? Date.now() - completedAt.getTime() : Number.POSITIVE_INFINITY;
   return {
     ok: Boolean(completedAt && ageMs <= maxAgeHours * 60 * 60 * 1000),
@@ -164,17 +181,12 @@ export async function runEncryptedCloudBackup() {
   const db: any = mongoose.connection.db;
   if (!db) throw new Error('MongoDB connection has no active database handle');
 
-  const snapshot: any = await BackupSnapshot.create({
-    status: 'running',
-    startedAt: new Date(),
-    formatVersion: 1,
-  });
-
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const base = path.join(os.tmpdir(), `skdigital-backup-${timestamp}-${process.pid}`);
   const gzipPath = `${base}.jsonl.gz`;
   const encryptedPath = `${base}.skdb`;
   const counters = { collections: 0, documents: 0 };
+  let pendingRemotePublicId = '';
 
   try {
     await pipeline(
@@ -186,36 +198,30 @@ export async function runEncryptedCloudBackup() {
     await encryptFile(gzipPath, encryptedPath, key);
     const stat = await fs.promises.stat(encryptedPath);
     const sha256 = await fileSha256(encryptedPath);
-    const publicId = `skdigital-${timestamp}`;
+    const pendingPublicId = `pending-${timestamp}`;
+    const verifiedPublicId = `${BACKUP_FOLDER}/verified-${timestamp}`;
 
     const upload: any = await (cloudinary as any).uploader.upload(encryptedPath, {
       resource_type: 'raw',
       folder: BACKUP_FOLDER,
-      public_id: publicId,
+      public_id: pendingPublicId,
       overwrite: false,
     });
 
+    const uploadedPublicId = String(upload.public_id || '');
+    pendingRemotePublicId = uploadedPublicId;
     await verifyRemoteArtifact(String(upload.secure_url || ''), sha256, stat.size);
 
-    const completedAt = new Date();
-    await BackupSnapshot.updateOne(
-      { _id: snapshot._id },
-      {
-        $set: {
-          status: 'success',
-          completedAt,
-          publicId: String(upload.public_id || ''),
-          secureUrl: String(upload.secure_url || ''),
-          bytes: Number(stat.size || upload.bytes || 0),
-          sha256,
-          collectionCount: counters.collections,
-          documentCount: counters.documents,
-          error: '',
-          remoteVerified: true,
-        },
-      }
+    // Only a remotely downloaded + SHA/byte verified artifact is renamed into
+    // the "verified-" namespace. Health/admin status reads only that namespace,
+    // so an interrupted/partial upload can never masquerade as a valid backup.
+    const renamed: any = await (cloudinary as any).uploader.rename(
+      uploadedPublicId,
+      verifiedPublicId,
+      { resource_type: 'raw', overwrite: false }
     );
 
+    pendingRemotePublicId = '';
     const pruned = await pruneOldBackups();
     logger.info(
       `[backup] Encrypted off-host backup complete: ${counters.collections} collections, ${counters.documents} documents, ${stat.size} bytes, pruned ${pruned}`
@@ -223,26 +229,23 @@ export async function runEncryptedCloudBackup() {
 
     return {
       ran: true,
-      publicId: String(upload.public_id || ''),
-      bytes: stat.size,
+      publicId: String(renamed?.public_id || verifiedPublicId),
+      bytes: Number(renamed?.bytes || stat.size),
       sha256,
       collectionCount: counters.collections,
       documentCount: counters.documents,
       pruned,
     };
   } catch (error: any) {
-    await BackupSnapshot.updateOne(
-      { _id: snapshot._id },
-      {
-        $set: {
-          status: 'failed',
-          completedAt: new Date(),
-          error: String(error?.message || error).slice(0, 2000),
-          collectionCount: counters.collections,
-          documentCount: counters.documents,
-        },
-      }
-    ).catch(() => undefined);
+    if (pendingRemotePublicId) {
+      await (cloudinary as any).uploader.destroy(pendingRemotePublicId, {
+        resource_type: 'raw',
+        invalidate: true,
+      }).catch(() => undefined);
+    }
+    // Failure is intentionally not written to Mongo: this deployment is
+    // already at the Atlas collection cap. Logs are the failure record, while
+    // the Cloudinary "verified-" namespace is the durable success ledger.
     throw error;
   } finally {
     await Promise.all([
