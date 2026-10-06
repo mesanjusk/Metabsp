@@ -4,8 +4,7 @@ import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import AppError from '@/lib/utils/AppError';
-
-const ATLAS_COLLECTION_LIMIT = Math.max(1, Number(process.env.MONGO_COLLECTION_LIMIT || 500));
+import { getMongoCollectionCapacity } from '@/lib/services/mongoCollectionCapacity';
 
 const prefixOf = (name: string) => {
   const match = name.match(/^[a-zA-Z_]+/);
@@ -21,7 +20,12 @@ export async function GET(req: NextRequest) {
     const db: any = mongoose.connection.db;
     if (!db) throw new AppError('MongoDB is not connected', 503);
 
-    const collections = (await db.listCollections({}, { nameOnly: true }).toArray())
+    const [capacity, collectionsRaw] = await Promise.all([
+      getMongoCollectionCapacity(),
+      db.listCollections({}, { nameOnly: true }).toArray(),
+    ]);
+
+    const collections = collectionsRaw
       .map((item: any) => String(item.name || ''))
       .filter(Boolean)
       .sort();
@@ -39,14 +43,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        limit: ATLAS_COLLECTION_LIMIT,
-        count: collections.length,
-        headroom: ATLAS_COLLECTION_LIMIT - collections.length,
-        overLimit: collections.length > ATLAS_COLLECTION_LIMIT,
-        atRisk: collections.length >= Math.floor(ATLAS_COLLECTION_LIMIT * 0.9),
-        groups: grouped.slice(0, 100),
-        collections,
-        note: 'This endpoint is read-only. No collection is ever deleted automatically.',
+        cluster: capacity,
+        currentDatabase: {
+          name: db.databaseName || null,
+          count: collections.length,
+          groups: grouped.slice(0, 100),
+          collections,
+        },
+        note: 'Cluster capacity is measured with Atlas atlasSize; collection names shown here are only for the current application database. This endpoint is read-only and never deletes anything.',
       },
     });
   } catch (error) {
