@@ -6,6 +6,7 @@ import AppError from '@/lib/utils/AppError';
 import { hasRecentSuccessfulBackup } from '@/lib/services/encryptedBackupService';
 import { countRecoverableDurableJobs } from '@/lib/services/durableQueueJournal';
 import { runPreflightChecks } from '@/lib/services/preflightCheckService';
+import { getMongoCollectionCapacity } from '@/lib/services/mongoCollectionCapacity';
 
 const evidenceDate = (name: string, maxAgeDays: number) => {
   const raw = String(process.env[name] || '').trim();
@@ -28,10 +29,11 @@ export async function GET(req: NextRequest) {
     const authed = await requireAuth(req);
     if (!authed.isAdmin) throw new AppError('Admin access required', 403);
 
-    const [preflight, backup, recoverable] = await Promise.all([
+    const [preflight, backup, recoverable, mongoCollectionCapacity] = await Promise.all([
       runPreflightChecks({ includeWabaSubscriptions: true }),
       hasRecentSuccessfulBackup(),
       countRecoverableDurableJobs(),
+      getMongoCollectionCapacity(),
     ]);
 
     const external = {
@@ -45,6 +47,13 @@ export async function GET(req: NextRequest) {
     if (preflight.severity === 'error') blockers.push('Meta/WhatsApp preflight has blocking errors');
     if (!backup.ok) blockers.push('No recent remotely verified encrypted backup');
     if (recoverable > 0) blockers.push(`${recoverable} durable queue job(s) are stale/recoverable`);
+    if (!mongoCollectionCapacity.ready) {
+      blockers.push(
+        mongoCollectionCapacity.count === null
+          ? 'Mongo collection capacity could not be verified'
+          : `Mongo collection capacity exhausted: ${mongoCollectionCapacity.count}/${mongoCollectionCapacity.limit} collections. Review /api/admin/database-audit before adding or deleting anything.`
+      );
+    }
     if (!external.realMetaE2E.current) blockers.push('Real Meta inbound/outbound/onboarding E2E evidence is missing or stale');
     if (!external.restoreDrill.current) blockers.push('Scratch-database restore drill evidence is missing or stale');
 
@@ -61,6 +70,7 @@ export async function GET(req: NextRequest) {
           latest: backup.latest || null,
         },
         durableQueue: { recoverable },
+        mongoCollectionCapacity,
         external,
       },
     });

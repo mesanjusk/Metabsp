@@ -57,6 +57,8 @@ services:
         value: production
       - key: MONGO_URI
         sync: false
+      - key: MONGO_COLLECTION_LIMIT
+        value: "500"
       - key: REDIS_URL
         fromService:
           type: redis

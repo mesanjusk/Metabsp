@@ -4,6 +4,7 @@ import { connectDB } from '@/lib/db/mongo';
 import { getRedisConnection } from '@/lib/db/redis';
 import { hasRecentSuccessfulBackup } from '@/lib/services/encryptedBackupService';
 import { countRecoverableDurableJobs } from '@/lib/services/durableQueueJournal';
+import { getMongoCollectionCapacity } from '@/lib/services/mongoCollectionCapacity';
 
 /**
  * Liveness by default, readiness on request.
@@ -88,6 +89,7 @@ export async function GET(req: NextRequest) {
   let backupReady: boolean | null = null;
   let backupAgeHours: number | null = null;
   let durableQueueRecoverable = 0;
+  let mongoCollectionCapacity: any = null;
 
   if (strict) {
     const redis = await withTimeout(
@@ -115,11 +117,26 @@ export async function GET(req: NextRequest) {
         2500,
         -1,
       );
+
+      mongoCollectionCapacity = await withTimeout<any>(
+        getMongoCollectionCapacity(),
+        2500,
+        {
+          available: false,
+          limit: Number(process.env.MONGO_COLLECTION_LIMIT || 500),
+          count: null,
+          headroom: null,
+          overLimit: false,
+          atRisk: true,
+          ready: false,
+        },
+      );
     }
   }
 
   const backupGate = backupReady === null ? true : backupReady;
-  const ready = dbReady && configReady && (redisReady ?? true) && backupGate;
+  const collectionGate = mongoCollectionCapacity === null ? true : Boolean(mongoCollectionCapacity.ready);
+  const ready = dbReady && configReady && (redisReady ?? true) && backupGate && collectionGate;
 
   return NextResponse.json(
     {
@@ -132,6 +149,7 @@ export async function GET(req: NextRequest) {
       backupReady,
       backupAgeHours,
       durableQueueRecoverable: strict ? durableQueueRecoverable : undefined,
+      mongoCollectionCapacity: strict ? mongoCollectionCapacity : undefined,
       configReady,
       config: {
         mongo: config.mongo,
