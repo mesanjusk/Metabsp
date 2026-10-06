@@ -1,11 +1,12 @@
-// k6 load test: GET /health
+// k6 load test: GET /api/health
 //
-// Usage: BASE_URL=http://localhost:5000 k6 run loadtest/k6/health.js
-// (requires k6 installed separately — https://k6.io/docs/get-started/installation/)
+// Run from nextjs/:
+//   BASE_URL=http://localhost:3000 k6 run loadtest/k6/health.js
+// k6 is a standalone binary: https://k6.io/docs/get-started/installation/
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
 export const options = {
   scenarios: {
@@ -20,16 +21,22 @@ export const options = {
     },
   },
   thresholds: {
-    http_req_duration: ['p(95)<300'], // 95% of requests under 300ms
-    http_req_failed: ['rate<0.01'], // less than 1% failures
+    http_req_duration: ['p(95)<300'],
+    http_req_failed: ['rate<0.01'],
   },
 };
 
 export default function () {
-  const res = http.get(`${BASE_URL}/health`);
+  const res = http.get(BASE_URL.replace(/\/$/, '') + '/api/health');
+  let body;
+  try {
+    body = JSON.parse(res.body);
+  } catch (_) {
+    body = {};
+  }
   check(res, {
-    'status is 200 or 503': (r) => r.status === 200 || r.status === 503,
-    'has ok field': (r) => JSON.parse(r.body).ok !== undefined,
+    'status is 200': (r) => r.status === 200,
+    'health response includes process state': () => body.alive === true && typeof body.dbReady === 'boolean',
   });
   sleep(0.1);
 }
