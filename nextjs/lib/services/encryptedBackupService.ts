@@ -7,7 +7,7 @@ import { pipeline } from 'stream/promises';
 import { createGzip } from 'zlib';
 import mongoose from 'mongoose';
 import { connectDB } from '../db/mongo';
-import BackupSnapshot from '../models/BackupSnapshot';
+import SmbRecord from '../models/SmbRecord';
 import cloudinary from '../utils/cloudinary';
 import logger from '../utils/logger';
 
@@ -15,6 +15,8 @@ const MAGIC = Buffer.from('SKDB1');
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const BACKUP_FOLDER = String(process.env.BACKUP_CLOUDINARY_FOLDER || 'system_backups').trim() || 'system_backups';
+const STORAGE_KIND = 'system_backup_snapshot';
+const SMB_COLLECTION_NAME = SmbRecord.collection.name;
 
 function backupKey(): Buffer {
   const raw = String(process.env.BACKUP_ENCRYPTION_KEY || '').trim();
@@ -36,12 +38,40 @@ function ejson() {
   return EJSON;
 }
 
+const snapshotView = (record: any) => {
+  if (!record) return null;
+  const data = record.data || {};
+  return {
+    id: String(record._id || ''),
+    status: String(record.status || ''),
+    startedAt: data.startedAt || record.createdAt || null,
+    completedAt: record.completedAt || null,
+    publicId: String(data.publicId || ''),
+    bytes: Number(data.bytes || 0),
+    sha256: String(data.sha256 || ''),
+    collectionCount: Number(data.collectionCount || 0),
+    documentCount: Number(data.documentCount || 0),
+    error: String(data.error || ''),
+    formatVersion: Number(data.formatVersion || 1),
+    remoteVerified: Boolean(data.remoteVerified),
+  };
+};
+
 async function* backupLines(db: any, counters: { collections: number; documents: number }) {
   const EJSON = ejson();
   const collectionDefs = (await db.listCollections({}).toArray())
     .filter((item: any) => {
       const name = String(item.name || '');
-      return item.type === 'collection' && name && !name.startsWith('system.') && name !== 'backupsnapshots';
+      // The old failed implementation may have created neither collection
+      // because Atlas is already above its collection cap, but exclude the
+      // names defensively if the database is later migrated to a larger tier.
+      return (
+        item.type === 'collection' &&
+        name &&
+        !name.startsWith('system.') &&
+        name !== 'backupsnapshots' &&
+        name !== 'durablequeuejobs'
+      );
     })
     .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)));
 
@@ -63,10 +93,23 @@ async function* backupLines(db: any, counters: { collections: number; documents:
       ejsonOptions: EJSON.stringify(definition.options || {}, { relaxed: false }),
       ejsonIndexes: EJSON.stringify(indexes || [], { relaxed: false }),
     }) + '\n';
-    const cursor = db.collection(name).find({});
+
+    // Do not put backup bookkeeping or in-flight queue state inside the
+    // disaster-recovery snapshot. Restoring those rows could cause a stale
+    // outbound WhatsApp send to replay after a database restore.
+    const query =
+      name === SMB_COLLECTION_NAME
+        ? { kind: { $nin: ['system_backup_snapshot', 'system_durable_queue'] } }
+        : {};
+
+    const cursor = db.collection(name).find(query);
     for await (const doc of cursor) {
       counters.documents += 1;
-      yield JSON.stringify({ type: 'document', collection: name, ejson: EJSON.stringify(doc, { relaxed: false }) }) + '\n';
+      yield JSON.stringify({
+        type: 'document',
+        collection: name,
+        ejson: EJSON.stringify(doc, { relaxed: false }),
+      }) + '\n';
     }
   }
 }
@@ -118,10 +161,11 @@ async function verifyRemoteArtifact(url: string, expectedSha256: string, expecte
 async function pruneOldBackups() {
   const retentionDays = Math.max(7, Number(process.env.BACKUP_RETENTION_DAYS || 30));
   const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
-  const old: any[] = await BackupSnapshot.find({
+  const old: any[] = await SmbRecord.find({
+    kind: STORAGE_KIND,
     status: 'success',
     completedAt: { $lt: cutoff },
-    publicId: { $ne: '' },
+    'data.publicId': { $exists: true, $ne: '' },
   })
     .sort({ completedAt: 1 })
     .limit(100)
@@ -129,27 +173,46 @@ async function pruneOldBackups() {
 
   let removed = 0;
   for (const item of old) {
+    const publicId = String(item?.data?.publicId || '');
     try {
-      await (cloudinary as any).uploader.destroy(item.publicId, {
+      await (cloudinary as any).uploader.destroy(publicId, {
         resource_type: 'raw',
         invalidate: true,
       });
-      await BackupSnapshot.deleteOne({ _id: item._id });
+      await SmbRecord.deleteOne({ _id: item._id, kind: STORAGE_KIND });
       removed += 1;
     } catch (error: any) {
-      logger.warn(`[backup] Could not prune ${item.publicId}: ${error?.message || error}`);
+      logger.warn(`[backup] Could not prune ${publicId}: ${error?.message || error}`);
     }
   }
   return removed;
+}
+
+export async function listBackupSnapshots({ limit = 20 } = {}) {
+  await connectDB();
+  const rows: any[] = await SmbRecord.find({ kind: STORAGE_KIND })
+    .sort({ createdAt: -1 })
+    .limit(Math.max(1, Math.min(Number(limit) || 20, 100)))
+    .lean();
+  return rows.map(snapshotView).filter(Boolean);
 }
 
 export async function hasRecentSuccessfulBackup({
   maxAgeHours = Number(process.env.BACKUP_MAX_AGE_HOURS || 26),
 } = {}) {
   await connectDB();
-  const latest: any = await BackupSnapshot.findOne({ status: 'success', remoteVerified: true }).sort({ completedAt: -1 }).lean();
+  const latestRecord: any = await SmbRecord.findOne({
+    kind: STORAGE_KIND,
+    status: 'success',
+    'data.remoteVerified': true,
+  })
+    .sort({ completedAt: -1 })
+    .lean();
+
+  const latest = snapshotView(latestRecord);
   const completedAt = latest?.completedAt ? new Date(latest.completedAt) : null;
   const ageMs = completedAt ? Date.now() - completedAt.getTime() : Number.POSITIVE_INFINITY;
+
   return {
     ok: Boolean(completedAt && ageMs <= maxAgeHours * 60 * 60 * 1000),
     latest,
@@ -164,13 +227,28 @@ export async function runEncryptedCloudBackup() {
   const db: any = mongoose.connection.db;
   if (!db) throw new Error('MongoDB connection has no active database handle');
 
-  const snapshot: any = await BackupSnapshot.create({
+  const startedAt = new Date();
+  const timestamp = startedAt.toISOString().replace(/[:.]/g, '-');
+  const snapshot: any = await SmbRecord.create({
+    userId: null,
+    kind: STORAGE_KIND,
+    title: `Encrypted database backup ${timestamp}`,
     status: 'running',
-    startedAt: new Date(),
-    formatVersion: 1,
+    source: 'system',
+    reference: timestamp,
+    data: {
+      startedAt,
+      formatVersion: 1,
+      remoteVerified: false,
+      publicId: '',
+      bytes: 0,
+      sha256: '',
+      collectionCount: 0,
+      documentCount: 0,
+      error: '',
+    },
   });
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const base = path.join(os.tmpdir(), `skdigital-backup-${timestamp}-${process.pid}`);
   const gzipPath = `${base}.jsonl.gz`;
   const encryptedPath = `${base}.skdb`;
@@ -198,27 +276,27 @@ export async function runEncryptedCloudBackup() {
     await verifyRemoteArtifact(String(upload.secure_url || ''), sha256, stat.size);
 
     const completedAt = new Date();
-    await BackupSnapshot.updateOne(
-      { _id: snapshot._id },
+    await SmbRecord.updateOne(
+      { _id: snapshot._id, kind: STORAGE_KIND },
       {
         $set: {
           status: 'success',
           completedAt,
-          publicId: String(upload.public_id || ''),
-          secureUrl: String(upload.secure_url || ''),
-          bytes: Number(stat.size || upload.bytes || 0),
-          sha256,
-          collectionCount: counters.collections,
-          documentCount: counters.documents,
-          error: '',
-          remoteVerified: true,
+          'data.publicId': String(upload.public_id || ''),
+          'data.secureUrl': String(upload.secure_url || ''),
+          'data.bytes': Number(stat.size || upload.bytes || 0),
+          'data.sha256': sha256,
+          'data.collectionCount': counters.collections,
+          'data.documentCount': counters.documents,
+          'data.error': '',
+          'data.remoteVerified': true,
         },
       }
     );
 
     const pruned = await pruneOldBackups();
     logger.info(
-      `[backup] Encrypted off-host backup complete: ${counters.collections} collections, ${counters.documents} documents, ${stat.size} bytes, pruned ${pruned}`
+      `[backup] Encrypted off-host backup complete: ${counters.collections} collections, ${counters.documents} documents, ${stat.size} bytes, remote SHA-256 verified, pruned ${pruned}`
     );
 
     return {
@@ -228,18 +306,20 @@ export async function runEncryptedCloudBackup() {
       sha256,
       collectionCount: counters.collections,
       documentCount: counters.documents,
+      remoteVerified: true,
       pruned,
     };
   } catch (error: any) {
-    await BackupSnapshot.updateOne(
-      { _id: snapshot._id },
+    await SmbRecord.updateOne(
+      { _id: snapshot._id, kind: STORAGE_KIND },
       {
         $set: {
           status: 'failed',
           completedAt: new Date(),
-          error: String(error?.message || error).slice(0, 2000),
-          collectionCount: counters.collections,
-          documentCount: counters.documents,
+          'data.error': String(error?.message || error).slice(0, 2000),
+          'data.collectionCount': counters.collections,
+          'data.documentCount': counters.documents,
+          'data.remoteVerified': false,
         },
       }
     ).catch(() => undefined);
