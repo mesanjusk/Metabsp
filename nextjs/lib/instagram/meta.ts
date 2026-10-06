@@ -37,7 +37,10 @@ export function buildInstagramAuthorizationUrl(state: string) {
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', INSTAGRAM_SCOPES.join(','));
   url.searchParams.set('state', state);
-  url.searchParams.set('force_reauth', 'true');
+  // Business Login for Instagram uses force_authentication=1. This is the
+  // parameter emitted by Meta's current Instagram Login setup and reliably
+  // presents the professional-account authorization screen.
+  url.searchParams.set('force_authentication', '1');
   url.searchParams.set('enable_fb_login', '0');
   return url.toString();
 }
@@ -141,6 +144,33 @@ export async function subscribeInstagramWebhooks(instagramUserId: string, access
   } catch (_error) {
     return false;
   }
+}
+
+
+export async function repairInstagramAccountConnection(account: any) {
+  if (!account) return account;
+
+  const accessToken = decryptSensitiveValue(account.accessTokenEncrypted);
+  const profile: any = await fetchInstagramProfile(accessToken);
+  const resolvedUserId = String(profile?.user_id || profile?.id || account.instagramUserId || '');
+  const webhookSubscribed = resolvedUserId
+    ? await subscribeInstagramWebhooks(resolvedUserId, accessToken)
+    : Boolean(account.webhookSubscribed);
+
+  const set: Record<string, unknown> = {
+    webhookSubscribed: webhookSubscribed || Boolean(account.webhookSubscribed),
+    lastSyncAt: new Date(),
+  };
+
+  if (resolvedUserId) set.instagramUserId = resolvedUserId;
+  if (profile?.id) set.instagramAppScopedId = String(profile.id);
+  if (profile?.username) set.username = String(profile.username);
+  if (profile?.name) set.name = String(profile.name);
+  if (profile?.account_type) set.accountType = String(profile.account_type);
+  if (profile?.profile_picture_url) set.profilePictureUrl = String(profile.profile_picture_url);
+
+  await InstagramAccount.findByIdAndUpdate(account._id, { $set: set });
+  return InstagramAccount.findById(account._id);
 }
 
 export async function getActiveInstagramAccount(userId: string) {
