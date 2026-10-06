@@ -51,6 +51,22 @@ describe('scheduler leader lock', () => {
     expect(task).toHaveBeenCalledOnce();
   });
 
+  it('fails open when Redis buffers the lock command forever', async () => {
+    set.mockImplementation(() => new Promise(() => {}));
+    const task = vi.fn(async () => 'ran after timeout');
+
+    const startedAt = Date.now();
+    expect(
+      await withLeaderLock('scheduled-backup', task, {
+        lockCheckTimeoutMs: 25,
+      })
+    ).toBe('ran after timeout');
+
+    expect(task).toHaveBeenCalledOnce();
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+  });
+
+
   it('honours a caller-supplied TTL for a long-running task', async () => {
     set.mockImplementation(async () => 'OK');
     await withLeaderLock('scheduled-backup', async () => null, { ttlMs: 20 * 60 * 1000 });
