@@ -42,6 +42,7 @@ vi.mock('@/lib/db/redis', () => ({
 
 const backupState = vi.hoisted(() => ({ ok: true, ageHours: 1 }));
 const durableQueueState = vi.hoisted(() => ({ recoverable: 0 }));
+const mongoCapacityState = vi.hoisted(() => ({ count: 100, limit: 500 }));
 
 vi.mock('@/lib/services/encryptedBackupService', () => ({
   hasRecentSuccessfulBackup: async () => ({
@@ -53,6 +54,21 @@ vi.mock('@/lib/services/encryptedBackupService', () => ({
 
 vi.mock('@/lib/services/durableQueueJournal', () => ({
   countRecoverableDurableJobs: async () => durableQueueState.recoverable,
+}));
+
+vi.mock('@/lib/services/mongoCollectionCapacity', () => ({
+  getMongoCollectionCapacity: async () => {
+    const { count, limit } = mongoCapacityState;
+    return {
+      available: true,
+      count,
+      limit,
+      headroom: limit - count,
+      overLimit: count > limit,
+      atRisk: count >= Math.floor(limit * 0.9),
+      ready: count < limit,
+    };
+  },
 }));
 
 const { GET } = await import('@/app/api/health/route');
@@ -68,6 +84,8 @@ describe('health probe', () => {
     backupState.ok = true;
     backupState.ageHours = 1;
     durableQueueState.recoverable = 0;
+    mongoCapacityState.count = 100;
+    mongoCapacityState.limit = 500;
     vi.stubEnv('ENABLE_SCHEDULED_BACKUPS', 'false');
     vi.stubEnv('BACKUP_ENCRYPTION_KEY', '');
     vi.stubEnv('MONGO_URI', 'mongodb://ci-health');
@@ -172,6 +190,21 @@ describe('health probe', () => {
     await expect(response.json()).resolves.toMatchObject({
       ok: true,
       durableQueueRecoverable: 7,
+    });
+  });
+
+  it('reports strict readiness failure when Mongo is at its collection cap', async () => {
+    mongoCapacityState.count = 500;
+    const response = await call('https://example.test/api/health?strict=1');
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      mongoCollectionCapacity: {
+        count: 500,
+        limit: 500,
+        headroom: 0,
+        ready: false,
+      },
     });
   });
 });
