@@ -1,64 +1,96 @@
-# Load & stress testing
+# Load & capacity testing
 
-Two toolchains, same two target endpoints — pick whichever is already in
-your workflow. Neither is installed as a hard dependency of the app; both
-scripts are opt-in tooling for benchmarking.
+Run these tests against a local environment or a staging deployment that matches
+the planned production database, Redis, and web-service tiers. **Do not run
+synthetic webhook or stress traffic against production.** The webhook test
+creates synthetic queue/message work, and high request volume can affect shared
+staging services.
 
-| Endpoint | autocannon | k6 |
+The Node scripts use Node's built-in fetch; no autocannon package is required.
+Run commands from nextjs/:
+
+| Test | Command | What it covers |
 |---|---|---|
-| `GET /health` | `npm run loadtest:health --workspace=backend` | `npm run loadtest:health:k6 --workspace=backend` |
-| `POST /webhook` | `npm run loadtest:webhook --workspace=backend` | `npm run loadtest:webhook:k6 --workspace=backend` |
+| Process health | npm run loadtest:health | GET /api/health; process and health-snapshot path |
+| Signed WhatsApp webhook | META_APP_SECRET=... npm run loadtest:webhook | POST /webhook; HMAC verification and webhook acceptance |
+| Authenticated API | AUTH_TOKENS_FILE=/secure/path/staging-jwts.txt npm run loadtest:api | Read-only, tenant-scoped GET /api/whatsapp/contacts by default |
+| k6 health | k6 run loadtest/k6/health.js | Repeatable VU ramp and latency/error thresholds |
+| k6 webhook | META_APP_SECRET=... k6 run loadtest/k6/webhook.js | Signed webhook VU ramp |
 
-**autocannon** ships as a devDependency (`npm install` already gets it) —
-no separate binary to install. **k6** is a standalone Go binary, installed
-separately: see https://k6.io/docs/get-started/installation/ (not
-installed in this sandbox, so the k6 scripts here are written but
-unexecuted here — verify them in an environment with k6 available before
-relying on their exact thresholds).
+Use the production-shaped staging origin with explicit opt-in:
 
-## Why these two endpoints
+~~~bash
+BASE_URL=https://staging.example.com \
+ALLOW_REMOTE_LOAD_TEST=true \
+LOADTEST_CONNECTIONS=50 \
+LOADTEST_DURATION=30 \
+npm run loadtest:health
+~~~
 
-- `/health` — no auth, no side effects. Establishes a latency/throughput
-  floor for the process itself (routing + a Mongo ping) before layering on
-  anything more expensive.
-- `/webhook` — the highest-traffic real endpoint in production. Every
-  inbound Meta message and status update hits it, and it does HMAC
-  signature verification on every single request before touching the
-  database — the endpoint most worth benchmarking specifically.
+The Node scripts default to http://localhost:3000, the app's local port.
+They refuse non-local targets unless ALLOW_REMOTE_LOAD_TEST=true is set.
+That flag only removes the guard; it does not make a target safe. Confirm the
+URL is an environment you control before running a test.
 
-Authenticated JSON API routes (messaging, contacts, billing, ...) aren't
-covered here: benchmarking them needs a valid JWT for a seeded test user,
-which is a setup step specific to whatever environment you're testing
-against rather than something this repo can script generically. Get a
-token the normal way (log in against the target environment) and pass it
-via an `Authorization: Bearer` header in a copy of these scripts.
+## Authenticated API test
 
-## Running against the webhook endpoint
+Create a local text file containing one JWT for each seeded staging account,
+one token per line. Do not commit or upload this file. Blank lines and lines
+starting with # are ignored. The script rotates requests across those tokens
+and never prints them.
 
-`META_APP_SECRET` must match whatever the **target server** is configured
-with, so the precomputed signature actually verifies:
+~~~bash
+BASE_URL=https://staging.example.com \
+ALLOW_REMOTE_LOAD_TEST=true \
+AUTH_TOKENS_FILE=/secure/path/staging-jwts.txt \
+LOADTEST_CONNECTIONS=100 \
+LOADTEST_DURATION=60 \
+npm run loadtest:api
+~~~
 
-```bash
-BASE_URL=http://localhost:5000 META_APP_SECRET=your-secret \
-  npm run loadtest:webhook --workspace=backend
-```
+The default read-only route is /api/whatsapp/contacts?page=1&limit=50.
+Override it with LOADTEST_PATH=/same-origin/path. Use test accounts with
+representative seeded data; one account cannot establish multi-tenant capacity.
+Do not place real customer data or credentials in the load-test environment.
 
-Only ever point this at a local or staging instance — it writes real
-`Message` documents for the synthetic payload it sends, and repeated runs
-will accumulate test data.
+## Webhook test
 
-## Interpreting results
+META_APP_SECRET must match the staging server configuration so signatures
+verify. The Node test generates unique synthetic message IDs. It does not call
+the WhatsApp send API, but accepted requests can still create staging queue or
+journal records; remove those test records after the run.
 
-- **autocannon** prints p50/p97.5/p99 latency and requests/sec; both
-  scripts exit non-zero if any response was non-2xx (investigate before
-  trusting the latency numbers if that happens — a 5xx under load usually
-  means something broke, not that it was just slow).
-- **k6** is configured with explicit thresholds (`p(95)<300ms` for
-  `/health`, `p(95)<500ms` for `/webhook`, `<1%` error rate) — it exits
-  non-zero if a threshold is breached, which is the signal to treat as a
-  regression in CI or a pre-launch gate.
+~~~bash
+BASE_URL=https://staging.example.com \
+ALLOW_REMOTE_LOAD_TEST=true \
+META_APP_SECRET=staging-app-secret \
+LOADTEST_CONNECTIONS=20 \
+LOADTEST_DURATION=30 \
+npm run loadtest:webhook
+~~~
 
-Neither script claims a specific number this repo can guarantee in your
-environment — CPU, network, and database placement all matter more than
-the code paths being tested. Run them against your actual target
-infrastructure before quoting a number to anyone.
+## Capacity run procedure
+
+Start low, then increase concurrency (for example, 25 → 50 → 100 → 250 → 500
+→ 1,000 virtual users) while watching service CPU/memory, MongoDB connections
+and latency, Redis queue delay, webhook response times, errors, and background
+worker backlog. Stop a step if errors rise, latency worsens sharply, or work
+does not drain after the test. Do not infer support for a number of registered
+accounts from virtual-user count alone; record the tested account count and
+concurrency separately.
+
+The Node runner prints request rate, p50/p95/p99 latency, HTTP status counts,
+and transport errors. The k6 scripts use thresholds of p95 under 300 ms for
+health and under 500 ms for webhook, with an error rate under 1%. These are
+test thresholds, not a capacity guarantee.
+
+These scripts do not prove full-product capacity. They do not load every
+dashboard module, campaign send path, Socket.IO inbox traffic, media transfer,
+or third-party provider. Never use the webhook benchmark to send real customer
+messages. Run representative end-to-end flows separately with synthetic data
+and provider sandboxes.
+
+For an actual public-launch claim, keep the results with the tested commit,
+deployment tier, database/Redis tier, seeded tenant count, virtual-user count,
+duration, and any scaling changes. The repo cannot guarantee a throughput
+number without results from the intended deployment.
