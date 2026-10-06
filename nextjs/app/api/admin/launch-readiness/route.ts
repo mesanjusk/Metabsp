@@ -3,8 +3,8 @@ import { connectDB } from '@/lib/db/mongo';
 import { requireAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/http/errorResponse';
 import AppError from '@/lib/utils/AppError';
-import DurableQueueJob from '@/lib/models/DurableQueueJob';
 import { hasRecentSuccessfulBackup } from '@/lib/services/encryptedBackupService';
+import { countRecoverableDurableJobs } from '@/lib/services/durableQueueJournal';
 import { runPreflightChecks } from '@/lib/services/preflightCheckService';
 
 const evidenceDate = (name: string, maxAgeDays: number) => {
@@ -31,10 +31,7 @@ export async function GET(req: NextRequest) {
     const [preflight, backup, recoverable] = await Promise.all([
       runPreflightChecks({ includeWabaSubscriptions: true }),
       hasRecentSuccessfulBackup(),
-      DurableQueueJob.countDocuments({
-        state: { $in: ['pending', 'failed', 'queued', 'processing'] },
-        updatedAt: { $lt: new Date(Date.now() - 5 * 60 * 1000) },
-      }),
+      countRecoverableDurableJobs(),
     ]);
 
     const external = {
