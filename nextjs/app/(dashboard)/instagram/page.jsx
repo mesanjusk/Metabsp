@@ -280,7 +280,7 @@ export default function InstagramPage() {
                   Connect Instagram account
                 </Button>
                 <Typography variant="caption" color="text.secondary">
-                  Only Instagram professional accounts are supported. Consumer/personal accounts are not supported by this API.
+                  Only Instagram Business or Creator accounts are supported. You never need to paste an access token or app secret here.
                 </Typography>
               </Stack>
             </CardContent>
@@ -302,7 +302,7 @@ export default function InstagramPage() {
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Chip label={account.webhookSubscribed ? 'Webhooks subscribed' : 'Webhook subscription pending'} color={account.webhookSubscribed ? 'success' : 'warning'} size="small" />
                     {connectionNeedsAttention ? (
-                      <Button size="small" variant="contained" startIcon={<InstagramIcon />} onClick={connect} disabled={busy}>Reconnect</Button>
+                      <Button size="small" variant="contained" startIcon={<InstagramIcon />} onClick={connect} disabled={busy}>Reconnect Instagram</Button>
                     ) : null}
                     <Button size="small" variant="outlined" startIcon={<LinkOffRoundedIcon />} onClick={disconnect} disabled={busy}>Disconnect</Button>
                   </Stack>

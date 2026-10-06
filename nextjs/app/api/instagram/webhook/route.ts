@@ -7,7 +7,7 @@ function verifySignature(rawBody: string, signatureHeader: string | null): boole
   const enforce = process.env.INSTAGRAM_ENFORCE_WEBHOOK_SIGNATURE !== 'false';
   if (!enforce) return true;
 
-  const secret = process.env.INSTAGRAM_APP_SECRET;
+  const secret = process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET;
   if (!secret || !signatureHeader?.startsWith('sha256=')) return false;
 
   const expected = `sha256=${crypto.createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex')}`;
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const mode = req.nextUrl.searchParams.get('hub.mode');
   const token = req.nextUrl.searchParams.get('hub.verify_token');
   const challenge = req.nextUrl.searchParams.get('hub.challenge');
-  const expected = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN;
+  const expected = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
 
   if (mode === 'subscribe' && expected && token === expected && challenge) {
     return new NextResponse(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } });

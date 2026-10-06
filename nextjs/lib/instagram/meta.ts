@@ -13,8 +13,12 @@ export const INSTAGRAM_SCOPES = [
 export const INSTAGRAM_WEBHOOK_FIELDS = ['messages', 'messaging_postbacks', 'comments', 'mentions'] as const;
 
 export function getInstagramConfig() {
-  const appId = process.env.INSTAGRAM_APP_ID;
-  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+  // Prefer dedicated Instagram credentials, but allow the main Meta app
+  // credentials when Instagram API is enabled on that same Meta app. This
+  // keeps production onboarding working on existing MetaBSP deployments that
+  // already have META_APP_ID/META_APP_SECRET configured for WhatsApp.
+  const appId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
+  const appSecret = process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET;
   const version = process.env.INSTAGRAM_API_VERSION || 'v26.0';
   const publicOrigin = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
   const redirectUri = process.env.INSTAGRAM_REDIRECT_URI || (publicOrigin ? `${publicOrigin}/api/instagram/oauth/callback` : '');
