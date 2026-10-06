@@ -2,7 +2,7 @@ import mongoose, { Schema } from 'mongoose';
 
 const rcsAgentSchema = new Schema(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     tenantId: { type: Schema.Types.ObjectId, ref: 'Organization', default: null, index: true },
     agentId: { type: String, required: true, trim: true },
     displayName: { type: String, default: '', trim: true },
