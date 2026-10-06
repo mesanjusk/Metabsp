@@ -1,6 +1,12 @@
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import { connectDB } from '../db/mongo';
-import DurableQueueJob, { type DurableQueueKind } from '../models/DurableQueueJob';
+import SmbRecord from '../models/SmbRecord';
+
+export type DurableQueueKind = 'webhook' | 'whatsapp_send';
+export type DurableQueueState = 'pending' | 'queued' | 'processing' | 'completed' | 'failed';
+
+const STORAGE_KIND = 'system_durable_queue';
 
 const COMPLETED_RETENTION_MS = Math.max(
   24 * 60 * 60 * 1000,
@@ -15,6 +21,34 @@ export const randomDurableSendId = () => `send-${crypto.randomUUID()}`;
 export const stableDurableSendId = (stableKey: string) =>
   `send-${crypto.createHash('sha256').update(stableKey).digest('hex')}`;
 
+const storageId = (id: string) =>
+  new mongoose.Types.ObjectId(
+    crypto.createHash('sha256').update(String(id)).digest('hex').slice(0, 24)
+  );
+
+const toDurableJob = (record: any) => {
+  if (!record) return null;
+  const data = record.data || {};
+  return {
+    _id: String(record.reference || ''),
+    storageId: String(record._id),
+    kind: data.kind as DurableQueueKind,
+    state: String(record.status || 'pending') as DurableQueueState,
+    payload: data.payload,
+    availableAt: record.dueAt || record.createdAt,
+    queuedAt: data.queuedAt || null,
+    processingAt: data.processingAt || null,
+    completedAt: record.completedAt || null,
+    lastAttemptAt: data.lastAttemptAt || null,
+    nextAttemptAt: data.nextAttemptAt || null,
+    attempts: Number(data.attempts || 0),
+    lastError: String(data.lastError || ''),
+    cleanupAfter: data.cleanupAfter || null,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+};
+
 export async function ensureDurableQueueJob({
   id,
   kind,
@@ -28,22 +62,37 @@ export async function ensureDurableQueueJob({
 }) {
   await connectDB();
 
-  const existing: any = await DurableQueueJob.findById(id).lean();
-  if (existing) return existing;
+  const _id = storageId(id);
+  const existing: any = await SmbRecord.findOne({ _id, kind: STORAGE_KIND }).lean();
+  if (existing) return toDurableJob(existing);
 
   try {
-    return await DurableQueueJob.create({
-      _id: id,
-      kind,
-      state: 'pending',
-      payload,
-      availableAt,
+    const created: any = await SmbRecord.create({
+      _id,
+      userId: null,
+      kind: STORAGE_KIND,
+      title: kind === 'webhook' ? 'Durable inbound webhook' : 'Durable WhatsApp send',
+      status: 'pending',
+      source: 'system',
+      reference: id,
+      dueAt: availableAt,
+      data: {
+        kind,
+        payload,
+        attempts: 0,
+        lastError: '',
+        queuedAt: null,
+        processingAt: null,
+        lastAttemptAt: null,
+        nextAttemptAt: null,
+        cleanupAfter: null,
+      },
     });
+    return toDurableJob(created.toObject());
   } catch (error: any) {
-    // Two Meta retries or scheduler replicas can race the first insert. The
-    // deterministic _id turns that race into a harmless re-read.
     if (error?.code === 11000) {
-      return DurableQueueJob.findById(id).lean();
+      const raced: any = await SmbRecord.findOne({ _id, kind: STORAGE_KIND }).lean();
+      return toDurableJob(raced);
     }
     throw error;
   }
@@ -51,36 +100,49 @@ export async function ensureDurableQueueJob({
 
 export async function markDurableQueued(id: string) {
   await connectDB();
-  await DurableQueueJob.updateOne(
-    { _id: id, state: { $in: ['pending', 'failed', 'queued'] } },
+  await SmbRecord.updateOne(
     {
-      $set: { state: 'queued', queuedAt: new Date(), lastError: '', nextAttemptAt: null },
+      _id: storageId(id),
+      kind: STORAGE_KIND,
+      status: { $in: ['pending', 'failed', 'queued'] },
+    },
+    {
+      $set: {
+        status: 'queued',
+        'data.queuedAt': new Date(),
+        'data.lastError': '',
+        'data.nextAttemptAt': null,
+      },
     }
   );
 }
 
 export async function markDurableProcessing(id: string) {
   await connectDB();
-  await DurableQueueJob.updateOne(
-    { _id: id, state: { $ne: 'completed' } },
+  await SmbRecord.updateOne(
+    { _id: storageId(id), kind: STORAGE_KIND, status: { $ne: 'completed' } },
     {
-      $set: { state: 'processing', processingAt: new Date(), lastAttemptAt: new Date() },
-      $inc: { attempts: 1 },
+      $set: {
+        status: 'processing',
+        'data.processingAt': new Date(),
+        'data.lastAttemptAt': new Date(),
+      },
+      $inc: { 'data.attempts': 1 },
     }
   );
 }
 
 export async function markDurableCompleted(id: string) {
   await connectDB();
-  await DurableQueueJob.updateOne(
-    { _id: id },
+  await SmbRecord.updateOne(
+    { _id: storageId(id), kind: STORAGE_KIND },
     {
       $set: {
-        state: 'completed',
+        status: 'completed',
         completedAt: new Date(),
-        lastError: '',
-        nextAttemptAt: null,
-        cleanupAfter: new Date(Date.now() + COMPLETED_RETENTION_MS),
+        'data.lastError': '',
+        'data.nextAttemptAt': null,
+        'data.cleanupAfter': new Date(Date.now() + COMPLETED_RETENTION_MS),
       },
     }
   );
@@ -92,17 +154,41 @@ export async function markDurableFailed(
   { retryDelayMs = 5 * 60 * 1000 } = {}
 ) {
   await connectDB();
-  await DurableQueueJob.updateOne(
-    { _id: id, state: { $ne: 'completed' } },
+  await SmbRecord.updateOne(
+    { _id: storageId(id), kind: STORAGE_KIND, status: { $ne: 'completed' } },
     {
       $set: {
-        state: 'failed',
-        lastError: String((error as any)?.message || error || 'Unknown queue processing error').slice(0, 2000),
-        nextAttemptAt: new Date(Date.now() + retryDelayMs),
+        status: 'failed',
+        'data.lastError': String((error as any)?.message || error || 'Unknown queue processing error').slice(0, 2000),
+        'data.nextAttemptAt': new Date(Date.now() + retryDelayMs),
       },
     }
   );
 }
+
+const recoverableFilter = ({
+  queuedStaleMs = 60 * 1000,
+  processingStaleMs = 5 * 60 * 1000,
+} = {}) => {
+  const now = new Date();
+  return {
+    kind: STORAGE_KIND,
+    dueAt: { $lte: now },
+    $or: [
+      { status: 'pending' },
+      {
+        status: 'failed',
+        $or: [
+          { 'data.nextAttemptAt': null },
+          { 'data.nextAttemptAt': { $exists: false } },
+          { 'data.nextAttemptAt': { $lte: now } },
+        ],
+      },
+      { status: 'queued', 'data.queuedAt': { $lt: new Date(Date.now() - queuedStaleMs) } },
+      { status: 'processing', 'data.processingAt': { $lt: new Date(Date.now() - processingStaleMs) } },
+    ],
+  };
+};
 
 export async function getRecoverableDurableJobs({
   limit = 100,
@@ -110,26 +196,27 @@ export async function getRecoverableDurableJobs({
   processingStaleMs = 5 * 60 * 1000,
 } = {}) {
   await connectDB();
-  const now = new Date();
-  return DurableQueueJob.find({
-    availableAt: { $lte: now },
-    $or: [
-      { state: 'pending' },
-      { state: 'failed', $or: [{ nextAttemptAt: null }, { nextAttemptAt: { $lte: now } }] },
-      { state: 'queued', queuedAt: { $lt: new Date(Date.now() - queuedStaleMs) } },
-      { state: 'processing', processingAt: { $lt: new Date(Date.now() - processingStaleMs) } },
-    ],
-  })
-    .sort({ availableAt: 1, createdAt: 1 })
+  const rows: any[] = await SmbRecord.find(
+    recoverableFilter({ queuedStaleMs, processingStaleMs })
+  )
+    .sort({ dueAt: 1, createdAt: 1 })
     .limit(limit)
     .lean();
+
+  return rows.map(toDurableJob).filter(Boolean);
+}
+
+export async function countRecoverableDurableJobs() {
+  await connectDB();
+  return SmbRecord.countDocuments(recoverableFilter());
 }
 
 export async function cleanupDurableQueueJournal() {
   await connectDB();
-  const result = await DurableQueueJob.deleteMany({
-    state: 'completed',
-    cleanupAfter: { $lte: new Date() },
+  const result = await SmbRecord.deleteMany({
+    kind: STORAGE_KIND,
+    status: 'completed',
+    'data.cleanupAfter': { $lte: new Date() },
   });
   return { deleted: result.deletedCount || 0 };
 }
