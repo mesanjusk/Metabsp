@@ -17,19 +17,38 @@ const DEFAULT_TTL_MS = 5 * 60 * 1000; // generous cap for a single scheduled bat
 export async function withLeaderLock<T>(
   lockName: string,
   fn: () => Promise<T> | T,
-  { ttlMs = DEFAULT_TTL_MS }: { ttlMs?: number } = {}
+  {
+    ttlMs = DEFAULT_TTL_MS,
+    lockCheckTimeoutMs = Number(process.env.SCHEDULER_LOCK_CHECK_TIMEOUT_MS || 2000),
+  }: { ttlMs?: number; lockCheckTimeoutMs?: number } = {}
 ): Promise<T | undefined> {
   const redis = getRedisConnection();
   const key = `scheduler-lock:${lockName}`;
   let acquired = true;
 
   try {
-    const result = await (redis as any).set(key, INSTANCE_ID, 'PX', ttlMs, 'NX');
-    acquired = result === 'OK';
+    let timer: NodeJS.Timeout | undefined;
+    const timeoutMs = Math.max(250, Number(lockCheckTimeoutMs) || 2000);
+    try {
+      const result = await Promise.race([
+        (redis as any).set(key, INSTANCE_ID, 'PX', ttlMs, 'NX'),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`Redis leader-lock check timed out after ${timeoutMs}ms`)),
+            timeoutMs
+          );
+          timer.unref?.();
+        }),
+      ]);
+      acquired = result === 'OK';
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   } catch (error: any) {
-    // Redis unreachable — fail open (run anyway) rather than silently never
-    // running scheduled work because the lock check itself failed. Duplicate
-    // execution during a Redis outage is the same risk this app accepted
+    // Redis unreachable OR indefinitely buffering commands — fail open (run
+    // anyway) rather than silently never running scheduled work because the
+    // lock check itself failed. Duplicate execution during a Redis outage is
+    // the same risk this app accepted
     // before leader election existed; this adds protection during normal
     // operation, not a hard dependency on Redis being up.
     logger.error(`[scheduler-lock] ${lockName}: lock check failed, running anyway:`, error.message);
