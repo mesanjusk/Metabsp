@@ -24,7 +24,8 @@
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "test:mobile": "node scripts/mobile-smoke.mjs",
     "test:launch-journey": "node scripts/launch-journey.mjs",
-    "restore:cloud": "node scripts/restore-cloud-backup.mjs"
+    "restore:cloud": "node scripts/restore-cloud-backup.mjs",
+    "audit:mongo-collections": "node scripts/mongo-collection-audit.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
