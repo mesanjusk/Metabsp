@@ -51,10 +51,8 @@ vi.mock('@/lib/services/encryptedBackupService', () => ({
   }),
 }));
 
-vi.mock('@/lib/models/DurableQueueJob', () => ({
-  default: {
-    countDocuments: async () => durableQueueState.recoverable,
-  },
+vi.mock('@/lib/services/durableQueueJournal', () => ({
+  countRecoverableDurableJobs: async () => durableQueueState.recoverable,
 }));
 
 const { GET } = await import('@/app/api/health/route');
