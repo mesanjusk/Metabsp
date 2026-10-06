@@ -186,6 +186,7 @@ export async function runEncryptedCloudBackup() {
   const gzipPath = `${base}.jsonl.gz`;
   const encryptedPath = `${base}.skdb`;
   const counters = { collections: 0, documents: 0 };
+  let pendingRemotePublicId = '';
 
   try {
     await pipeline(
@@ -208,6 +209,7 @@ export async function runEncryptedCloudBackup() {
     });
 
     const uploadedPublicId = String(upload.public_id || '');
+    pendingRemotePublicId = uploadedPublicId;
     await verifyRemoteArtifact(String(upload.secure_url || ''), sha256, stat.size);
 
     // Only a remotely downloaded + SHA/byte verified artifact is renamed into
@@ -219,6 +221,7 @@ export async function runEncryptedCloudBackup() {
       { resource_type: 'raw', overwrite: false }
     );
 
+    pendingRemotePublicId = '';
     const pruned = await pruneOldBackups();
     logger.info(
       `[backup] Encrypted off-host backup complete: ${counters.collections} collections, ${counters.documents} documents, ${stat.size} bytes, pruned ${pruned}`
@@ -234,6 +237,12 @@ export async function runEncryptedCloudBackup() {
       pruned,
     };
   } catch (error: any) {
+    if (pendingRemotePublicId) {
+      await (cloudinary as any).uploader.destroy(pendingRemotePublicId, {
+        resource_type: 'raw',
+        invalidate: true,
+      }).catch(() => undefined);
+    }
     // Failure is intentionally not written to Mongo: this deployment is
     // already at the Atlas collection cap. Logs are the failure record, while
     // the Cloudinary "verified-" namespace is the durable success ledger.
