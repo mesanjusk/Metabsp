@@ -24,7 +24,7 @@ function percentile(values, fraction) {
 
 function printSummary({ name, durationSeconds, connections, startedAt, latencies, statuses, errors }) {
   const elapsedSeconds = Math.max((performance.now() - startedAt) / 1000, 0.001);
-  const total = latencies.length + errors;
+  const total = latencies.length;
   console.log('\n' + name);
   console.log('duration=' + elapsedSeconds.toFixed(1) + 's virtualUsers=' + connections + ' requests=' + total);
   console.log('requestsPerSecond=' + (total / elapsedSeconds).toFixed(1));
