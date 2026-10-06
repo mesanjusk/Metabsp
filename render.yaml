@@ -139,6 +139,24 @@ services:
       - key: WHATSAPP_TOKEN_ENCRYPTION_KEY
         sync: false
 
+
+      # ── Instagram API with Instagram Login ─────────────────────────────
+      # One Meta/Instagram app is shared by every MetaBSP tenant. Customers
+      # never paste app secrets or access tokens; they authorize their own
+      # professional account through Business Login for Instagram.
+      - key: INSTAGRAM_APP_ID
+        sync: false
+      - key: INSTAGRAM_APP_SECRET
+        sync: false
+      - key: INSTAGRAM_API_VERSION
+        value: v26.0
+      - key: INSTAGRAM_REDIRECT_URI
+        value: https://meta.sanjusk.in/api/instagram/oauth/callback
+      - key: INSTAGRAM_WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: INSTAGRAM_ENFORCE_WEBHOOK_SIGNATURE
+        value: "true"
+
       # ── Google RCS for Business ────────────────────────────────────────
       # Service-account JSON may be stored raw JSON or base64-encoded. Prefer
       # the base64 form in Render so multiline private keys are not mangled.
