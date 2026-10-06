@@ -10,7 +10,7 @@ const rcsMessageSchema = new Schema(
     channel: { type: String, enum: ['rcs', 'whatsapp', 'sms'], default: 'rcs', index: true },
     kind: { type: String, enum: ['message', 'event', 'fallback'], default: 'message' },
     messageId: { type: String, default: '', trim: true, index: true },
-    eventId: { type: String, trim: true, index: true, sparse: true },
+    eventId: { type: String, trim: true },
     eventType: { type: String, default: '', trim: true, index: true },
     text: { type: String, default: '' },
     trafficType: { type: String, default: '', trim: true },
