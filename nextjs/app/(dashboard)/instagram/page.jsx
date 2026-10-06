@@ -108,6 +108,8 @@ export default function InstagramPage() {
   }, [account?.status]);
 
   const granted = useMemo(() => new Set(account?.permissions || []), [account]);
+  const accountHandle = account?.username ? `@${account.username}` : 'Instagram professional account';
+  const connectionNeedsAttention = Boolean(account && (!account.username || !account.webhookSubscribed));
 
   const connect = async () => {
     setBusy(true);
@@ -291,14 +293,17 @@ export default function InstagramPage() {
                   <Stack direction="row" spacing={1.5} alignItems="center">
                     <Avatar src={account.profilePictureUrl || undefined}><InstagramIcon /></Avatar>
                     <Box>
-                      <Typography fontWeight={700}>{account.name || `@${account.username}`}</Typography>
+                      <Typography fontWeight={700}>{account.name || accountHandle}</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        @{account.username || 'instagram'}{account.accountType ? ` · ${account.accountType}` : ''}
+                        {account.username ? `@${account.username}` : 'Profile details will appear after Instagram finishes syncing'}{account.accountType ? ` · ${account.accountType}` : ''}
                       </Typography>
                     </Box>
                   </Stack>
-                  <Stack direction="row" spacing={1}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <Chip label={account.webhookSubscribed ? 'Webhooks subscribed' : 'Webhook subscription pending'} color={account.webhookSubscribed ? 'success' : 'warning'} size="small" />
+                    {connectionNeedsAttention ? (
+                      <Button size="small" variant="contained" startIcon={<InstagramIcon />} onClick={connect} disabled={busy}>Reconnect</Button>
+                    ) : null}
                     <Button size="small" variant="outlined" startIcon={<LinkOffRoundedIcon />} onClick={disconnect} disabled={busy}>Disconnect</Button>
                   </Stack>
                 </Stack>
