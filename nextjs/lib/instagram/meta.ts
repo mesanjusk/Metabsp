@@ -13,18 +13,18 @@ export const INSTAGRAM_SCOPES = [
 export const INSTAGRAM_WEBHOOK_FIELDS = ['messages', 'messaging_postbacks', 'comments', 'mentions'] as const;
 
 export function getInstagramConfig() {
-  // Prefer dedicated Instagram credentials, but allow the main Meta app
-  // credentials when Instagram API is enabled on that same Meta app. This
-  // keeps production onboarding working on existing MetaBSP deployments that
-  // already have META_APP_ID/META_APP_SECRET configured for WhatsApp.
-  const appId = process.env.INSTAGRAM_APP_ID || process.env.META_APP_ID;
-  const appSecret = process.env.INSTAGRAM_APP_SECRET || process.env.META_APP_SECRET;
+  // Instagram Login requires the App ID/Secret of the Meta app that actually
+  // has the Instagram API product configured. Do not silently reuse the
+  // WhatsApp/Meta app credentials: Instagram rejects the OAuth request as
+  // "Invalid platform app" when that app is not an Instagram Login app.
+  const appId = process.env.INSTAGRAM_APP_ID;
+  const appSecret = process.env.INSTAGRAM_APP_SECRET;
   const version = process.env.INSTAGRAM_API_VERSION || 'v26.0';
   const publicOrigin = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
   const redirectUri = process.env.INSTAGRAM_REDIRECT_URI || (publicOrigin ? `${publicOrigin}/api/instagram/oauth/callback` : '');
 
   if (!appId || !appSecret) {
-    throw new AppError('Instagram App ID/Secret are not configured', 503);
+    throw new AppError('Instagram Login is not configured for this deployment. Add INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET from the Meta app that has Instagram API with Instagram Login enabled.', 503);
   }
   if (!redirectUri) {
     throw new AppError('INSTAGRAM_REDIRECT_URI or FRONTEND_URL must be configured', 503);
