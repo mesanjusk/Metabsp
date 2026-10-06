@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db/mongo';
 import { getRedisConnection } from '@/lib/db/redis';
 import { hasRecentSuccessfulBackup } from '@/lib/services/encryptedBackupService';
-import DurableQueueJob from '@/lib/models/DurableQueueJob';
+import { countRecoverableDurableJobs } from '@/lib/services/durableQueueJournal';
 
 /**
  * Liveness by default, readiness on request.
@@ -111,10 +111,7 @@ export async function GET(req: NextRequest) {
       }
 
       durableQueueRecoverable = await withTimeout(
-        DurableQueueJob.countDocuments({
-          state: { $in: ['pending', 'failed', 'queued', 'processing'] },
-          updatedAt: { $lt: new Date(Date.now() - 5 * 60 * 1000) },
-        }),
+        countRecoverableDurableJobs(),
         2500,
         -1,
       );
