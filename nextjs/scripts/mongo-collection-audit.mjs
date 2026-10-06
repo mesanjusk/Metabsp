@@ -29,6 +29,13 @@ try {
   const db = mongoose.connection.db;
   if (!db) throw new Error('MongoDB connection has no database handle');
 
+  const atlasSize = await db.command({ atlasSize: 1 });
+  const clusterCount = Number(atlasSize?.totals?.collections);
+  const numDatabases = Number(atlasSize?.totals?.numDatabases);
+  if (!Number.isFinite(clusterCount)) {
+    throw new Error('Atlas atlasSize did not return totals.collections');
+  }
+
   const collections = (await db.listCollections({}, { nameOnly: true }).toArray())
     .map((item) => String(item.name || ''))
     .filter(Boolean)
@@ -45,19 +52,27 @@ try {
     .sort((a, b) => b.count - a.count || a.prefix.localeCompare(b.prefix));
 
   const result = {
-    count: collections.length,
-    limit,
-    headroom: limit - collections.length,
-    overLimit: collections.length > limit,
-    atRisk: collections.length >= Math.floor(limit * 0.9),
-    groups: grouped,
-    collections,
+    cluster: {
+      count: clusterCount,
+      limit,
+      headroom: limit - clusterCount,
+      overLimit: clusterCount > limit,
+      atRisk: clusterCount >= Math.floor(limit * 0.9),
+      numDatabases: Number.isFinite(numDatabases) ? numDatabases : null,
+      source: 'atlasSize',
+    },
+    currentDatabase: {
+      name: db.databaseName || null,
+      count: collections.length,
+      groups: grouped,
+      collections,
+    },
   };
 
   console.log(JSON.stringify(result, null, 2));
-  if (result.count >= limit) {
+  if (result.cluster.count >= limit) {
     console.error(
-      `Mongo collection capacity is exhausted (${result.count}/${limit}). Review names above before deleting anything.`
+      `Atlas cluster collection capacity is exhausted (${result.cluster.count}/${limit}). Review legacy databases/collections before deleting anything.`
     );
     process.exitCode = 1;
   }
