@@ -7,6 +7,7 @@ import { pipeline } from 'stream/promises';
 import { createGzip } from 'zlib';
 import mongoose from 'mongoose';
 import { connectDB } from '../db/mongo';
+import SmbRecord from '../models/SmbRecord';
 import cloudinary from '../utils/cloudinary';
 import logger from '../utils/logger';
 
@@ -14,6 +15,7 @@ const MAGIC = Buffer.from('SKDB1');
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const BACKUP_FOLDER = String(process.env.BACKUP_CLOUDINARY_FOLDER || 'system_backups').trim() || 'system_backups';
+const SMB_COLLECTION_NAME = SmbRecord.collection.name;
 
 function backupKey(): Buffer {
   const raw = String(process.env.BACKUP_ENCRYPTION_KEY || '').trim();
@@ -62,7 +64,8 @@ async function* backupLines(db: any, counters: { collections: number; documents:
       ejsonOptions: EJSON.stringify(definition.options || {}, { relaxed: false }),
       ejsonIndexes: EJSON.stringify(indexes || [], { relaxed: false }),
     }) + '\n';
-    const cursor = db.collection(name).find({});
+    const query = name === SMB_COLLECTION_NAME ? { kind: { $ne: 'system_durable_queue' } } : {};
+    const cursor = db.collection(name).find(query);
     for await (const doc of cursor) {
       counters.documents += 1;
       yield JSON.stringify({ type: 'document', collection: name, ejson: EJSON.stringify(doc, { relaxed: false }) }) + '\n';
