@@ -25,12 +25,22 @@ export const SMB_RECORD_KINDS = [
   'social_approval',
   'social_schedule',
   'whatsapp_campaign',
+  'system_durable_queue',
+  'system_backup_snapshot',
   'note',
 ] as const;
 
 const smbRecordSchema = new Schema(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+      required: function requiredUserForBusinessRecords(this: any) {
+        return !['system_durable_queue', 'system_backup_snapshot'].includes(String(this.kind || ''));
+      },
+    },
     contactId: { type: Schema.Types.ObjectId, ref: 'Contact', default: null, index: true },
     parentId: { type: Schema.Types.ObjectId, ref: 'SmbRecord', default: null, index: true },
     kind: { type: String, enum: SMB_RECORD_KINDS, required: true, index: true },
