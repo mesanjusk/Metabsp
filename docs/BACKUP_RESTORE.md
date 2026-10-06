@@ -6,7 +6,7 @@ MongoDB is the system of record. Redis is now a dispatch/cache layer for
 WhatsApp queue work rather than the only durable copy.
 
 Accepted inbound WhatsApp webhook envelopes and outbound WhatsApp sends are
-journaled in Mongo (`DurableQueueJob`) before/alongside BullMQ. If the Render
+journaled as `system_durable_queue` records inside the existing `SmbRecord` collection before/alongside BullMQ. If the Render
 Redis instance restarts with persistence disabled, the durable replay scheduler
 reconstructs stale/lost jobs with the same deterministic job IDs.
 
@@ -37,7 +37,7 @@ without a valid backup key or Cloudinary configuration.
 
 ## Schedule and monitoring
 
-The backup scheduler checks hourly. It runs a snapshot when the latest
+The backup scheduler checks hourly. Backup history is stored as `system_backup_snapshot` records inside the existing `SmbRecord` collection, so enabling resilience does not create any new Mongo collections. It runs a snapshot when the latest
 successful backup is older than `BACKUP_MIN_INTERVAL_HOURS`, so service deploys
 do not create duplicate daily archives and a missed run is caught quickly.
 
