@@ -25,7 +25,8 @@
     "test:mobile": "node scripts/mobile-smoke.mjs",
     "test:launch-journey": "node scripts/launch-journey.mjs",
     "restore:cloud": "node scripts/restore-cloud-backup.mjs",
-    "audit:mongo-collections": "node scripts/mongo-collection-audit.mjs"
+    "audit:mongo-collections": "node scripts/mongo-collection-audit.mjs",
+    "loadtest:api": "node loadtest/authenticated-api.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
