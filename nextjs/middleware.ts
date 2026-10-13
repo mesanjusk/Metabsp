@@ -118,6 +118,21 @@ export function middleware(req: NextRequest) {
   } else {
     response = NextResponse.next({ request: { headers: requestHeaders } });
   }
+  // Never advertise authenticated workspaces or account/login pages to search engines.
+  // Do not block these routes in robots.txt just to express noindex: crawlers
+  // need to see X-Robots-Tag to honour the privacy directive.
+  const routePath = req.nextUrl.pathname;
+  const noindexPrefixes = [
+    '/login', '/signup', '/forgot-password', '/reset-password',
+    '/home', '/admin', '/inbox', '/contacts', '/templates',
+    '/broadcasts', '/automations', '/analytics', '/numbers', '/developers',
+    '/settings', '/services', '/business', '/instagram', '/whatsapp',
+    '/setup', '/api', '/webhook', '/forms', '/idcard-preview',
+    '/data-deletion/status',
+  ];
+  if (noindexPrefixes.some((prefix) => routePath === prefix || routePath.startsWith(prefix + '/'))) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  }
   return withCsp(req, applyCors(req, response), nonce, csp);
 }
 
