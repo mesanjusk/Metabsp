@@ -15,3 +15,5 @@ Disallow: /settings
 Disallow: /admin
 Disallow: /api/
 Disallow: /webhook
+
+Sitemap: https://meta.sanjusk.in/sitemap.xml
