@@ -67,6 +67,10 @@ function buildCsp(nonce, { isDev = process.env.NODE_ENV !== 'production' } = {})
     "font-src 'self' https://fonts.gstatic.com data:",
     `img-src 'self' data: blob: https: ${CLOUDINARY}`,
     `connect-src 'self' ws: wss: ${META_API} ${CLOUDINARY}`,
+    // <audio>/<video> do not use connect-src. Without media-src, CSP falls back
+    // to default-src 'self' and blocks Cloudinary voice notes (and videos).
+    // blob: is needed for locally attached media while a send is pending.
+    "media-src 'self' blob: https://res.cloudinary.com",
     `frame-src 'self' ${META_FRAMES}`,
     // Without this the service worker is blocked outright and there is no PWA, no installable
     // app, and therefore no APK or Windows package either. `worker-src` falls back to `script-src`,
