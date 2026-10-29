@@ -66,6 +66,13 @@ describe('per-request Content-Security-Policy', () => {
     expect(directives(csp)['frame-src']).toContain('https://www.facebook.com');
   });
 
+  it('allows voice notes and videos from Cloudinary without opening arbitrary media hosts', () => {
+    const mediaSrc = directives(buildCsp(NONCE, { isDev: false }))['media-src'];
+    expect(mediaSrc.split(' ')).toEqual(["'self'", 'blob:', 'https://res.cloudinary.com']);
+    expect(mediaSrc).not.toContain('https: ');
+    expect(directives(buildCsp(NONCE))['default-src']).toBe("'self'");
+  });
+
   it('blocks plugins and restricts form targets and the base URI', () => {
     const csp = buildCsp(NONCE);
     expect(csp).toContain("object-src 'none'");
