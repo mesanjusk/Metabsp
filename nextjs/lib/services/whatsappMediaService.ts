@@ -83,10 +83,15 @@ export const uploadBufferToCloudinary = ({
   folder?: string;
 }): Promise<any> =>
   new Promise((resolve, reject) => {
-    const isImage = mimeType.startsWith('image/');
+    const normalizedMimeType = mimeType.toLowerCase();
+    const isImage = normalizedMimeType.startsWith('image/');
+    const isPlayableMedia = normalizedMimeType.startsWith('audio/') || normalizedMimeType.startsWith('video/');
 
     const uploadStream = (cloudinary as any).uploader.upload_stream(
-      { folder, resource_type: isImage ? 'image' : 'raw' },
+      // Cloudinary serves audio and video from the `video` resource type.
+      // Uploading voice notes as `raw` makes browsers receive generic
+      // attachments rather than reliably playable media.
+      { folder, resource_type: isImage ? 'image' : isPlayableMedia ? 'video' : 'raw' },
       (error: any, result: any) => {
         if (error) return reject(error);
         return resolve(result);
