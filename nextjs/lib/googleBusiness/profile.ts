@@ -24,7 +24,8 @@ export const PERFORMANCE_METRICS = [
   'CALL_CLICKS',
   'WEBSITE_CLICKS',
   'BUSINESS_DIRECTION_REQUESTS',
-  'BUSINESS_CONVERSATIONS',
+  // BUSINESS_CONVERSATIONS is deprecated in Google's published enum.
+  'MESSAGING_CLICKS',
 ] as const;
 
 const IMPRESSION_METRICS = new Set<string>([
@@ -98,8 +99,23 @@ export function normalizeLocation(location: any) {
     hasVoiceOfMerchant: Boolean(location?.metadata?.hasVoiceOfMerchant),
     canOperateLocalPost: location?.metadata?.canOperateLocalPost !== false,
     primaryCategory: String(location?.categories?.primaryCategory?.displayName || ''),
+    additionalCategories: (location?.categories?.additionalCategories || [])
+      .map((category: any) => String(category?.displayName || ''))
+      .filter(Boolean),
     description: String(location?.profile?.description || ''),
   };
+}
+
+/** Fetch the selected location directly, without assuming it is in page one of an agency's locations. */
+export async function getGoogleLocation(accessToken: string, locationName: string) {
+  const location = bareId(locationName);
+  if (!location) throw new AppError('Select a Google Business Profile location first', 409);
+  const data = await googleRequest<any>(
+    `${GOOGLE_HOSTS.businessInformation}/locations/${location}`,
+    accessToken,
+    { params: { readMask: LOCATION_READ_MASK } }
+  );
+  return normalizeLocation(data);
 }
 
 export async function listGoogleLocations(accessToken: string, accountName: string) {
@@ -150,9 +166,9 @@ export function summarizeReviews(reviews: NormalizedReview[], averageRating = 0,
   };
 }
 
-export async function listGoogleReviews(accessToken: string, path: string, pageSize = 50) {
+export async function listGoogleReviews(accessToken: string, path: string, pageSize = 50, pageToken = '') {
   const data = await googleRequest<any>(`${GOOGLE_HOSTS.legacy}/${path}/reviews`, accessToken, {
-    params: { pageSize, orderBy: 'updateTime desc' },
+    params: { pageSize, orderBy: 'updateTime desc', ...(pageToken ? { pageToken } : {}) },
   });
   const reviews = (data?.reviews || []).map(normalizeReview);
   return {
@@ -160,6 +176,61 @@ export async function listGoogleReviews(accessToken: string, path: string, pageS
     summary: summarizeReviews(reviews, data?.averageRating, data?.totalReviewCount),
     nextPageToken: String(data?.nextPageToken || ''),
   };
+}
+
+/**
+ * Collect every available page for an evidence-based audit. Never describe
+ * first-page reply counts as totals for the business: the first page is only
+ * 50 reviews, while Google's totalReviewCount often exceeds it.
+ *
+ * The hard cap protects quota and request latency. The caller receives an
+ * explicit 'complete: false' if Google still has pages; it must label the
+ * resulting counts and rate as a sample rather than a business-wide fact.
+ */
+export async function collectGoogleReviewPages(
+  fetchPage: (pageToken: string) => Promise<Awaited<ReturnType<typeof listGoogleReviews>>>,
+  maxPages = 20
+) {
+  const reviews: NormalizedReview[] = [];
+  const reviewIds = new Set<string>();
+  const pageTokens = new Set<string>();
+  let pageToken = '';
+  let pagesFetched = 0;
+  let complete = false;
+  let averageRating = 0;
+  let totalReviewCount = 0;
+
+  for (let page = 0; page < Math.max(1, Math.min(Math.floor(maxPages), 40)); page += 1) {
+    const result = await fetchPage(pageToken);
+    pagesFetched += 1;
+    if (page === 0) {
+      averageRating = result.summary.averageRating;
+      totalReviewCount = result.summary.totalReviewCount;
+    }
+    for (const review of result.reviews) {
+      if (!review.reviewId || reviewIds.has(review.reviewId)) continue;
+      reviewIds.add(review.reviewId);
+      reviews.push(review);
+    }
+    if (!result.nextPageToken) {
+      complete = true;
+      break;
+    }
+    if (pageTokens.has(result.nextPageToken)) break;
+    pageTokens.add(result.nextPageToken);
+    pageToken = result.nextPageToken;
+  }
+
+  return {
+    reviews,
+    summary: summarizeReviews(reviews, averageRating, totalReviewCount),
+    complete,
+    pagesFetched,
+  };
+}
+
+export async function listAllGoogleReviews(accessToken: string, path: string, maxPages = 20) {
+  return collectGoogleReviewPages((token) => listGoogleReviews(accessToken, path, 50, token), maxPages);
 }
 
 export async function replyToGoogleReview(accessToken: string, path: string, reviewId: string, comment: string) {
@@ -313,8 +384,8 @@ export function summarizePerformance(response: any) {
   const calls = totals.CALL_CLICKS || 0;
   const websiteClicks = totals.WEBSITE_CLICKS || 0;
   const directions = totals.BUSINESS_DIRECTION_REQUESTS || 0;
-  const conversations = totals.BUSINESS_CONVERSATIONS || 0;
-  const actions = calls + websiteClicks + directions + conversations;
+  const messagingClicks = totals.MESSAGING_CLICKS || 0;
+  const actions = calls + websiteClicks + directions + messagingClicks;
 
   // A daily impressions line, summed across the four splits, for the chart.
   const impressionsByDay = new Map<string, number>();
@@ -330,7 +401,7 @@ export function summarizePerformance(response: any) {
       calls,
       websiteClicks,
       directions,
-      conversations,
+      messagingClicks,
       actions,
       // Percent of people who saw the profile and then did something. This is
       // the number that tells an owner whether the profile is doing its job.

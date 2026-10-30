@@ -195,6 +195,7 @@ const SERVICE_EXTRAS = {
   // These four were tabs inside one 750-line page. They share their OAuth and location state, so
   // they are still one component — but each is a route, so each can be linked and listed here.
   'google-business': [
+    { href: '/services/google-business/audit', label: 'Profile audit', icon: InsightsRoundedIcon },
     { href: '/services/google-business/reviews', label: 'Reviews', icon: RateReviewRoundedIcon },
     { href: '/services/google-business/posts', label: 'Posts', icon: ArticleRoundedIcon },
     { href: '/services/google-business/review-requests', label: 'Ask for reviews', icon: SendRoundedIcon },

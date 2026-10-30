@@ -33,6 +33,7 @@ import {
   disconnectGoogleBusiness,
   draftGoogleContent,
   fetchGoogleBusinessAccount,
+  fetchGoogleBusinessAudit,
   fetchGoogleBusinessLocations,
   fetchGoogleBusinessOAuthUrl,
   fetchGoogleBusinessPerformance,
@@ -80,7 +81,7 @@ function Metric({ label, value, hint }) {
 /**
  * Google Business Profile, one screen at a time.
  *
- * The four screens below used to be tabs inside this page: a single URL for all of them, nothing
+ * The screens below used to be tabs inside this page: a single URL for all of them, nothing
  * linkable, and none of them in the sidebar where the rest of the product keeps its navigation.
  * They are routes now, and `tab` says which one the route asked for. Everything else — the OAuth
  * state, the account and location pickers, the loaders — is shared, so it stays one component
@@ -90,6 +91,10 @@ const SCREENS = {
   overview: {
     title: 'Google Business Profile',
     description: 'How your profile is doing on Google Search and Maps over the last 30 days.',
+  },
+  audit: {
+    title: 'Google Business Profile audit',
+    description: 'Verified profile facts and review counts, with unsupported ranking claims clearly marked.',
   },
   reviews: {
     title: 'Reviews',
@@ -118,6 +123,7 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
 
   const [locationOptions, setLocationOptions] = useState({ accounts: [], locations: [], activeAccount: '' });
   const [performance, setPerformance] = useState(null);
+  const [audit, setAudit] = useState(null);
   const [reviews, setReviews] = useState({ reviews: [], summary: null, newReviewUri: '' });
   const [replyDrafts, setReplyDrafts] = useState({});
   const [reviewSettings, setReviewSettings] = useState({
@@ -196,9 +202,28 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
     setBusy(false);
   }, []);
 
+  const loadAudit = useCallback(async () => {
+    setBusy(true);
+    setError('');
+    try {
+      setAudit(payload(await fetchGoogleBusinessAudit()));
+    } catch (requestError) {
+      setError(errorText(requestError, 'Could not load the verified Google Business audit.'));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (connected && locationSelected) loadWorkspace();
-  }, [connected, locationSelected, loadWorkspace]);
+    // The audit must not trigger the normal reviews endpoint: it syncs records,
+    // drafts with AI and can auto-publish replies for opted-in accounts.
+    // This page is deliberately read-only, including during initial loading.
+    if (tab !== 'audit' && connected && locationSelected) loadWorkspace();
+  }, [tab, connected, locationSelected, loadWorkspace]);
+
+  useEffect(() => {
+    if (tab === 'audit' && connected && locationSelected) loadAudit();
+  }, [tab, connected, locationSelected, loadAudit]);
 
   useEffect(() => {
     if (!connected) return;
@@ -249,6 +274,7 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
       await disconnectGoogleBusiness();
       setAccount(null);
       setPerformance(null);
+      setAudit(null);
       setReviews({ reviews: [], summary: null, newReviewUri: '' });
       setPosts([]);
       setNotice('Google Business Profile disconnected and the access revoked at Google.');
@@ -415,7 +441,7 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
       title={screen.title}
       description={screen.description}
       actions={connected && locationSelected ? (
-        <Button size="small" startIcon={<RefreshRoundedIcon />} onClick={loadWorkspace} disabled={busy}>
+        <Button size="small" startIcon={<RefreshRoundedIcon />} onClick={tab === 'audit' ? loadAudit : loadWorkspace} disabled={busy}>
           Refresh
         </Button>
       ) : null}
@@ -590,6 +616,83 @@ export default function GoogleBusinessWorkspace({ tab = 'overview' }) {
               <Card variant="outlined">
                 <CardContent>
                   {busy ? <CircularProgress size={20} sx={{ mb: 2 }} /> : null}
+
+                  {tab === 'audit' ? (
+                    <Stack spacing={2}>
+                      <Alert severity="info">
+                        This audit reads your own Google Business Profile data. It does not invent a ranking
+                        score or treat third-party keyword thresholds as Google's rules.
+                      </Alert>
+                      {!audit ? (
+                        <Typography color="text.secondary">
+                          {busy ? 'Checking the connected profile and review pages…' : 'Audit data is not available yet.'}
+                        </Typography>
+                      ) : (
+                        <>
+                          {!audit.reviews.complete ? (
+                            <Alert severity="warning">
+                              Review coverage is incomplete: {audit.reviews.loaded} loaded out of {audit.reviews.googleTotal}
+                              {' '}reported by Google. Reply-rate and review-pace totals are withheld rather than guessed.
+                              {audit.reviews.coverageWarning ? ` ${audit.reviews.coverageWarning}` : ''}
+                            </Alert>
+                          ) : null}
+                          <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+                            <Metric label="Google reviews" value={audit.reviews.googleTotal} hint="Official reported total" />
+                            <Metric
+                              label="Unanswered"
+                              value={audit.reviews.complete ? audit.reviews.unanswered : 'Partial'}
+                              hint={audit.reviews.complete ? `${audit.reviews.replied} replied` : 'Coverage not complete'}
+                            />
+                            <Metric
+                              label="Reply rate"
+                              value={audit.reviews.replyRate === null ? '—' : `${audit.reviews.replyRate}%`}
+                              hint="Calculated from the full review set"
+                            />
+                            <Metric
+                              label="New reviews/week"
+                              value={audit.reviews.weeklyRate === null ? '—' : audit.reviews.weeklyRate}
+                              hint="Average over the last 12 weeks"
+                            />
+                          </Stack>
+                          <Card variant="outlined">
+                            <CardContent>
+                              <Stack spacing={0.75}>
+                                <Typography fontWeight={750}>{audit.profile.title || 'Connected business'}</Typography>
+                                <Typography variant="body2" color="text.secondary">{audit.profile.address || 'No address returned'}</Typography>
+                                <Typography variant="body2">Primary category: {audit.profile.primaryCategory || 'Not returned'}</Typography>
+                                <Typography variant="body2">
+                                  Additional categories: {audit.profile.additionalCategories.join(', ') || 'None returned'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {audit.profile.hasVoiceOfMerchant ? 'Profile has voice of merchant' : 'Verification/voice-of-merchant requires review'}
+                                  {' · '}Checked {new Date(audit.auditedAt).toLocaleString()}
+                                </Typography>
+                              </Stack>
+                            </CardContent>
+                          </Card>
+                          <Typography variant="h6" fontWeight={700}>Checking the eight audit claims</Typography>
+                          {audit.checks.map((check) => (
+                            <Card key={check.id} variant="outlined">
+                              <CardContent>
+                                <Stack spacing={0.75}>
+                                  <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} alignItems="center">
+                                    <Typography fontWeight={700}>{check.title}</Typography>
+                                    <Chip
+                                      size="small"
+                                      color={check.status === 'measured' ? 'success' : check.status === 'guidance' ? 'info' : 'warning'}
+                                      label={check.status === 'measured' ? 'Google data' : check.status === 'guidance' ? 'Guidance' : 'Not verified'}
+                                    />
+                                  </Stack>
+                                  <Typography variant="body2" fontWeight={650}>{check.result}</Typography>
+                                  <Typography variant="body2" color="text.secondary">{check.explanation}</Typography>
+                                </Stack>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </>
+                      )}
+                    </Stack>
+                  ) : null}
 
                   {tab === 'overview' ? (
                     <Stack spacing={2.5}>
