@@ -3,6 +3,7 @@ import AppError from '@/lib/utils/AppError';
 import {
   bareId,
   buildLocalPostPayload,
+  collectGoogleReviewPages,
   formatAddress,
   locationPath,
   normalizeLocation,
@@ -11,6 +12,7 @@ import {
   summarizePerformance,
   summarizeReviews,
 } from '@/lib/googleBusiness/profile';
+import { buildGoogleBusinessAudit } from '@/lib/googleBusiness/audit';
 import { buildGoogleAuthorizationUrl, getGoogleBusinessConfig } from '@/lib/googleBusiness/google';
 
 describe('google business resource names', () => {
@@ -87,6 +89,75 @@ describe('review summary', () => {
   });
 });
 
+describe('complete review coverage for a factual audit', () => {
+  const first = Array.from({ length: 50 }, (_, index) =>
+    normalizeReview({
+      reviewId: `review-${index}`,
+      starRating: 'FIVE',
+      createTime: '2026-10-15T10:00:00Z',
+      ...(index < 22 ? { reviewReply: { comment: 'Thank you!' } } : {}),
+    })
+  );
+  const second = Array.from({ length: 22 }, (_, index) =>
+    normalizeReview({ reviewId: `review-${index + 50}`, starRating: 'FIVE', createTime: '2026-10-15T10:00:00Z' })
+  );
+  const getPage = async (token: string) => {
+    const reviews = token ? second : first;
+    return {
+      reviews,
+      summary: summarizeReviews(reviews, 4.9, 72),
+      nextPageToken: token ? '' : 'page-two',
+    };
+  };
+
+  it('counts all 72 reviews before reporting 50 unanswered and a 31% reply rate', async () => {
+    const pages = await collectGoogleReviewPages(getPage);
+    expect(pages).toMatchObject({
+      complete: true,
+      pagesFetched: 2,
+      summary: { fetched: 72, totalReviewCount: 72, unanswered: 50, replyRate: 31 },
+    });
+    const audit = buildGoogleBusinessAudit(
+      normalizeLocation({
+        name: 'locations/456',
+        title: 'SK Digital',
+        categories: {
+          primaryCategory: { displayName: 'Print shop' },
+          additionalCategories: [{ displayName: 'Sign shop' }],
+        },
+        metadata: { hasVoiceOfMerchant: true },
+      }),
+      pages,
+      new Date('2026-10-30T00:00:00Z')
+    );
+    expect(audit.reviews).toMatchObject({ complete: true, replied: 22, unanswered: 50, replyRate: 31, weeklyRate: 6 });
+    expect(audit.profile.additionalCategories).toEqual(['Sign shop']);
+    expect(audit.rankingAvailable).toBe(false);
+    expect(audit.checks.find((item) => item.id === 'keyword-in-title')?.status).toBe('guidance');
+  });
+
+  it('does not mislabel one 50-review page as a complete business audit', async () => {
+    const pages = await collectGoogleReviewPages(getPage, 1);
+    const audit = buildGoogleBusinessAudit(normalizeLocation({}), pages, new Date('2026-10-30T00:00:00Z'));
+    expect(pages.complete).toBe(false);
+    expect(pages.summary.fetched).toBe(50);
+    expect(audit.reviews.replyRate).toBeNull();
+    expect(audit.reviews.weeklyRate).toBeNull();
+    expect(audit.checks[1].status).toBe('not-measured');
+  });
+
+  it('stops on a repeated pagination token instead of looping forever', async () => {
+    const pages = await collectGoogleReviewPages(async () => ({
+      reviews: first,
+      summary: summarizeReviews(first, 4.9, 72),
+      nextPageToken: 'stuck',
+    }));
+    expect(pages.complete).toBe(false);
+    expect(pages.pagesFetched).toBe(2);
+    expect(pages.reviews).toHaveLength(50);
+  });
+});
+
 describe('local post payload', () => {
   it('builds a standard post with a link button', () => {
     expect(
@@ -160,6 +231,10 @@ describe('performance rollup', () => {
             dailyMetric: 'WEBSITE_CLICKS',
             timeSeries: { datedValues: [{ date: { year: 2026, month: 3, day: 2 }, value: '5' }] },
           },
+          {
+            dailyMetric: 'MESSAGING_CLICKS',
+            timeSeries: { datedValues: [{ date: { year: 2026, month: 3, day: 2 }, value: '3' }] },
+          },
         ],
       },
     ],
@@ -170,8 +245,9 @@ describe('performance rollup', () => {
     expect(summary.totals.impressions).toBe(100);
     expect(summary.totals.calls).toBe(5);
     expect(summary.totals.websiteClicks).toBe(5);
-    expect(summary.totals.actions).toBe(10);
-    expect(summary.totals.actionRate).toBe(10);
+    expect(summary.totals.messagingClicks).toBe(3);
+    expect(summary.totals.actions).toBe(13);
+    expect(summary.totals.actionRate).toBe(13);
   });
 
   it('pads the daily series and keeps it in date order', () => {

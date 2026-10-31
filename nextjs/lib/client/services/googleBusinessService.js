@@ -12,6 +12,8 @@ export const selectGoogleBusinessLocation = (accountName, locationName) =>
 export const fetchGoogleBusinessPerformance = (days = 30) =>
   apiClient.get('/api/google-business/performance', { params: { days } });
 
+export const fetchGoogleBusinessAudit = () => apiClient.get('/api/google-business/audit');
+
 export const fetchGoogleReviews = () => apiClient.get('/api/google-business/reviews');
 export const replyToGoogleReview = (reviewId, comment) =>
   apiClient.post('/api/google-business/reviews', { reviewId, comment });

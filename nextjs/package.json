@@ -53,7 +53,7 @@
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.3",
-    "next": "^15.5.27",
+    "next": "15.5.28",
     "pdfkit": "^0.15.2",
     "pino": "^9.5.0",
     "playwright": "^1.62.1",
@@ -66,7 +66,7 @@
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
     "typescript": "^5.5.0",
-    "zod": "^3.24.1"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/fluent-ffmpeg": "^2.1.28",
