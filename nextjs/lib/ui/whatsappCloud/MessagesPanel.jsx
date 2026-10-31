@@ -90,16 +90,33 @@ export default function MessagesPanel({ search: externalSearch }) {
     });
   }, []);
 
-  const loadMessages = useCallback(async () => {
+  // Fetch all stored pages on first load. The API deliberately paginates at
+  // 200 records; requesting only its default first page hid older conversations.
+  // Subsequent refreshes fetch the newest page and preserve already loaded history.
+  const loadMessages = useCallback(async (fullHistory = false) => {
     try {
-      setIsLoading(true);
-      const response = await whatsappCloudService.getMessages();
-      const payload = response?.data?.data ?? response?.data ?? [];
-      setMessages(normalizeMessages(payload));
+      if (fullHistory) setIsLoading(true);
+      const allMessages = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const response = await whatsappCloudService.getMessages({ page, limit: 200 });
+        const payload = response?.data?.data ?? response?.data ?? [];
+        const batch = normalizeMessages(payload);
+        allMessages.push(...batch);
+        hasMore = fullHistory && Boolean(response?.data?.pagination?.hasMore) && batch.length > 0;
+        page += 1;
+      }
+      setMessages((previous) => {
+        const byId = new Map();
+        for (const message of fullHistory ? [] : previous) byId.set(getMessageIdentity(message), message);
+        for (const message of allMessages) byId.set(getMessageIdentity(message), message);
+        return [...byId.values()];
+      });
     } catch (error) {
       toast.error(parseApiError(error, 'Failed to load inbox messages.'));
     } finally {
-      setIsLoading(false);
+      if (fullHistory) setIsLoading(false);
     }
   }, []);
 
@@ -113,7 +130,7 @@ export default function MessagesPanel({ search: externalSearch }) {
     }
   }, []);
 
-  useEffect(() => { loadMessages(); loadContacts(); }, [loadMessages, loadContacts]);
+  useEffect(() => { loadMessages(true); loadContacts(); }, [loadMessages, loadContacts]);
   useRealtimeMessages({ onMessage: appendMessage });
 
   // A slow safety net behind the websocket, not the delivery mechanism: it
