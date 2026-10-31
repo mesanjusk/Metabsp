@@ -40,31 +40,32 @@ export interface CoercionResult<T> {
 const TRUE_WORDS = new Set(["true", "yes", "y", "1", "on", "required", "needed", "enabled", "enable"]);
 const FALSE_WORDS = new Set(["false", "no", "n", "0", "off", "none", "not required", "disabled", "disable", "skip"]);
 
-function pathOf(path: (string | number)[]): string {
-  return path.length ? path.join(".") : "(root)";
+function pathOf(path: PropertyKey[]): string {
+  return path.length ? path.map(String).join(".") : "(root)";
 }
 
-function getAt(root: unknown, path: (string | number)[]): unknown {
+function getAt(root: unknown, path: PropertyKey[]): unknown {
   return path.reduce<unknown>((node, key) => {
     if (node === null || typeof node !== "object") return undefined;
-    return (node as Record<string | number, unknown>)[key];
+    return (node as Record<PropertyKey, unknown>)[key];
   }, root);
 }
 
 /** Writes a value at a path, cloning each node on the way so the caller's input is never mutated. */
-function setAt(root: unknown, path: (string | number)[], value: unknown): unknown {
+function setAt(root: unknown, path: PropertyKey[], value: unknown): unknown {
   if (path.length === 0) return value;
   const [key, ...rest] = path;
 
   if (Array.isArray(root)) {
     const copy = [...root];
+    if (typeof key === "symbol") return root;
     const index = Number(key);
     copy[index] = setAt(copy[index], rest, value);
     return copy;
   }
 
-  const source = root !== null && typeof root === "object" ? (root as Record<string, unknown>) : {};
-  return { ...source, [String(key)]: setAt(source[String(key)], rest, value) };
+  const source: Record<PropertyKey, unknown> = root !== null && typeof root === "object" ? (root as Record<PropertyKey, unknown>) : {};
+  return { ...source, [key]: setAt(source[key], rest, value) };
 }
 
 /** A number hiding in a string: "8", "8s", "60 seconds", "1,080". Not "eight". */
@@ -138,9 +139,9 @@ function repairFor(
     }
   }
 
-  if (issue.code === "invalid_enum_value" && typeof current === "string") {
+  if (issue.code === "invalid_value" && typeof current === "string") {
     const mapped = synonyms[current.trim().toLowerCase().replace(/[\s-]+/g, "_")];
-    if (mapped && issue.options?.includes(mapped)) {
+    if (mapped && issue.values.includes(mapped)) {
       return { value: mapped, note: `${where}: "${current}" read as "${mapped}".` };
     }
   }

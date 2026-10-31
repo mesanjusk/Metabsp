@@ -45,8 +45,8 @@ const profileFields = z.object({
   stylePackId: z.string().optional(),
   voicePackId: z.string().optional(),
   promptTemplateIds: z.array(z.string()).default([]),
-  quality: qualitySchema.default({}),
-  render: renderSchema.default({}),
+  quality: qualitySchema.prefault({}),
+  render: renderSchema.prefault({}),
 });
 
 export const createProductionProfileSchema = profileFields;

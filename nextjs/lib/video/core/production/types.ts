@@ -45,14 +45,14 @@ export const productionPlanSchema = z.object({
     questions: z.array(z.string()).default([]),
     /** Claims the script must not make without a source. Drives the fact-check stage. */
     sensitiveClaims: z.array(z.string()).default([]),
-  }).default({}),
+  }).prefault({}),
 
   scriptPlan: z.object({
     beats: z.array(z.string()).default([]),
     hook: z.string().default(""),
     callToAction: z.string().default(""),
     wordBudget: z.number().int().positive().default(150),
-  }).default({}),
+  }).prefault({}),
 
   storyboard: z
     .array(
@@ -80,34 +80,34 @@ export const productionPlanSchema = z.object({
     language: z.string().default("en"),
     tone: z.string().default("warm"),
     speaker: z.string().optional(),
-  }).default({}),
+  }).prefault({}),
 
-  musicRequirements: z.object({ required: z.boolean().default(false), mood: z.string().default("") }).default({}),
+  musicRequirements: z.object({ required: z.boolean().default(false), mood: z.string().default("") }).prefault({}),
 
   captionRequirements: z
     .object({ required: z.boolean().default(true), language: z.string().default("en"), style: z.string().default("burned-in") })
-    .default({}),
+    .prefault({}),
 
   renderingPlan: z.object({
     renderer: z.enum(["ffmpeg", "hyperframes", "hybrid"]).default("ffmpeg"),
     width: z.number().int().default(1080),
     height: z.number().int().default(1920),
     fps: z.number().int().default(30),
-  }).default({}),
+  }).prefault({}),
 
   qualityRequirements: z.object({
     minSceneDurationSeconds: z.number().default(5),
     maxSceneDurationSeconds: z.number().default(8),
     characterConsistencyThreshold: z.number().min(0).max(1).default(0.45),
     requireAudio: z.boolean().default(true),
-  }).default({}),
+  }).prefault({}),
 
   publishingPlan: z.object({
     publish: z.boolean().default(false),
     platform: z.string().default(""),
     /** Publishing through browser automation is opt-in and never implied by planning one. */
     viaBrowserAutomation: z.boolean().default(false),
-  }).default({}),
+  }).prefault({}),
 
   /** Stages the user chose to skip. The pipeline honours this. */
   skippedStages: z.array(z.enum(PRODUCTION_STAGES)).default([]),
