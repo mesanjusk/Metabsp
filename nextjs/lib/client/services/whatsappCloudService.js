@@ -128,7 +128,7 @@ export const addTeamMember = (accountId, mobile) =>
 export const removeTeamMember = (accountId, memberId) =>
   apiClient.delete(`/api/whatsapp/accounts/${accountId}/team-members/${memberId}`);
 
-export const fetchWhatsAppMessages = () => apiClient.get('/api/whatsapp/messages');
+export const fetchWhatsAppMessages = (params = {}) => apiClient.get('/api/whatsapp/messages', { params });
 
 
 export const fetchContacts = (params = {}) => apiClient.get('/api/whatsapp/contacts', { params });
