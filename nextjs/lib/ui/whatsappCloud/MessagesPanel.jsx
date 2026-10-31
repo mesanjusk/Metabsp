@@ -90,16 +90,33 @@ export default function MessagesPanel({ search: externalSearch }) {
     });
   }, []);
 
-  const loadMessages = useCallback(async () => {
+  // Fetch all stored pages on first load. The API deliberately paginates at
+  // 200 records; requesting only its default first page hid older conversations.
+  // Subsequent refreshes fetch the newest page and preserve already loaded history.
+  const loadMessages = useCallback(async (fullHistory = false) => {
     try {
-      setIsLoading(true);
-      const response = await whatsappCloudService.getMessages();
-      const payload = response?.data?.data ?? response?.data ?? [];
-      setMessages(normalizeMessages(payload));
+      if (fullHistory) setIsLoading(true);
+      const allMessages = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const response = await whatsappCloudService.getMessages({ page, limit: 200 });
+        const payload = response?.data?.data ?? response?.data ?? [];
+        const batch = normalizeMessages(payload);
+        allMessages.push(...batch);
+        hasMore = fullHistory && Boolean(response?.data?.pagination?.hasMore) && batch.length > 0;
+        page += 1;
+      }
+      setMessages((previous) => {
+        const byId = new Map();
+        for (const message of fullHistory ? [] : previous) byId.set(getMessageIdentity(message), message);
+        for (const message of allMessages) byId.set(getMessageIdentity(message), message);
+        return [...byId.values()];
+      });
     } catch (error) {
       toast.error(parseApiError(error, 'Failed to load inbox messages.'));
     } finally {
-      setIsLoading(false);
+      if (fullHistory) setIsLoading(false);
     }
   }, []);
 
@@ -113,7 +130,7 @@ export default function MessagesPanel({ search: externalSearch }) {
     }
   }, []);
 
-  useEffect(() => { loadMessages(); loadContacts(); }, [loadMessages, loadContacts]);
+  useEffect(() => { loadMessages(true); loadContacts(); }, [loadMessages, loadContacts]);
   useRealtimeMessages({ onMessage: appendMessage });
 
   // A slow safety net behind the websocket, not the delivery mechanism: it
@@ -240,7 +257,7 @@ export default function MessagesPanel({ search: externalSearch }) {
   return (
     <WhatsAppLayout
       sidebar={<Box sx={{ display: { xs: showConversationList ? 'block' : 'none', lg: 'block' }, height: '100%' }}><ConversationList conversations={filteredConversations} customerOptions={customerOptions} customerLoadError={customerLoadError} activeConversationId={activeConversationId} onSelectConversation={(id) => { markConversationAsRead(id); setActiveConversationId(id); setShowConversationList(false); }} onRefresh={() => { loadMessages(); loadContacts(); }} onSelectCustomer={(value) => { const contact = typeof value === 'string' ? value.trim() : value?.mobile; const conversation = toConversationFromContact({ contact }); if (!conversation.id) return; setDraftConversation(conversation); markConversationAsRead(conversation.id); setActiveConversationId(conversation.id); setShowConversationList(false); }} /></Box>}
-      main={<Box sx={{ display: { xs: showConversationList ? 'none' : 'block', lg: 'block' }, height: '100%', minHeight: 0 }}>{activeConversation ? <Stack sx={{ height: '100%', minHeight: 0 }}><ChatHeader conversation={activeConversation} isLoading={isLoading} onRefresh={loadMessages} windowOpen={conversationWindowOpen} onBack={() => setShowConversationList(true)} /><ChatWindow messages={activeMessages} getMessageIdentity={getMessageIdentity} getMessageDirection={getMessageDirection} getTimestampRaw={getTimestampRaw} scrollRef={messagesContainerRef} canSend={Boolean(activeConversation) && !isSending && conversationWindowOpen} canSendTemplateOnly={is24hExpired} recipient={activeConversation?.contact || ''} onSend={handleSend} onSendAttachment={handleSendAttachment} /></Stack> : <EmptyState title="Select a conversation" description="Choose a chat from the left panel to start messaging." />}</Box>}
+      main={<Box sx={{ display: { xs: showConversationList ? 'none' : 'block', lg: 'block' }, height: '100%', minHeight: 0 }}>{activeConversation ? <Stack sx={{ height: '100%', minHeight: 0 }}><ChatHeader conversation={activeConversation} isLoading={isLoading} onRefresh={() => loadMessages()} windowOpen={conversationWindowOpen} onBack={() => setShowConversationList(true)} /><ChatWindow messages={activeMessages} getMessageIdentity={getMessageIdentity} getMessageDirection={getMessageDirection} getTimestampRaw={getTimestampRaw} scrollRef={messagesContainerRef} canSend={Boolean(activeConversation) && !isSending && conversationWindowOpen} canSendTemplateOnly={is24hExpired} recipient={activeConversation?.contact || ''} onSend={handleSend} onSendAttachment={handleSendAttachment} /></Stack> : <EmptyState title="Select a conversation" description="Choose a chat from the left panel to start messaging." />}</Box>}
       details={activeConversation ? <Stack spacing={2} sx={{ p: 2 }}><Stack alignItems="center" spacing={1}><Avatar sx={{ width: 64, height: 64, bgcolor: '#16a34a' }}>{(activeConversation.displayName || activeConversation.contact || 'NA').slice(0, 2).toUpperCase()}</Avatar><Typography variant="subtitle1" fontWeight={700} align="center">{activeConversation.displayName}</Typography><Typography variant="caption" color="text.secondary" align="center">{activeConversation.secondaryLabel || activeConversation.contact}</Typography></Stack><Divider /><Stack direction="row" spacing={1} alignItems="center"><InfoOutlinedIcon fontSize="small" color="action" /><Typography variant="body2" color="text.secondary">24h window: {conversationWindowOpen ? 'Active' : 'Expired'}</Typography></Stack></Stack> : null}
     />
   );
